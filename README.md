@@ -43,3 +43,11 @@ someone feel, not what its words say. This is the representation every
 Writers' Room agent works from:
 
 [`docs/SONG_DNA.md`](docs/SONG_DNA.md)
+
+## Running the engine
+
+The `engine/` package is a working implementation of Song DNA analysis
+followed by the full Writers' Room pipeline, callable via
+`python -m engine.cli examples/sample_song.json`. See:
+
+[`docs/ENGINE.md`](docs/ENGINE.md)

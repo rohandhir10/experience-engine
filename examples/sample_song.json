@@ -1,0 +1,23 @@
+{
+  "title": "The Locked Drawer (synthetic test fixture)",
+  "source_language": "English — synthetic test fixture, not a real production input. Real runs supply rights-cleared Hindi/Japanese/Korean/Arabic/Russian/Spanish source lyrics per docs/PRODUCTION_WORKFLOW.md.",
+  "context_note": "A song about a woman who keeps a former partner's letters in a locked drawer and reopens the wound of losing him nightly, until the final section, where she leaves the drawer open for the first time.",
+  "sections": [
+    {
+      "name": "verse_1",
+      "source_text": "She keeps his letters in a locked drawer,\nthe way you keep a wound you won't let heal."
+    },
+    {
+      "name": "pre_chorus",
+      "source_text": "Every night she turns the key,\njust to feel it hurt again."
+    },
+    {
+      "name": "chorus",
+      "source_text": "And still she keeps the drawer locked tight —\nnot because she's forgotten,\nbut because she's afraid of what forgetting means."
+    },
+    {
+      "name": "bridge",
+      "source_text": "Tonight, for the first time,\nshe leaves it open."
+    }
+  ]
+}
