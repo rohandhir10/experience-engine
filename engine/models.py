@@ -222,21 +222,20 @@ class FidelityCheck(BaseModel):
 
 
 class FidelityViolation(BaseModel):
-    """A specific penalty applied to a specific (usually losing) candidate."""
+    """A specific penalty applied to a specific (usually losing) candidate.
+
+    violation_type is deliberately a free string, not a closed enum: the
+    Judge is prompted with a canonical set of categories (invented_metaphor,
+    invented_imagery, over_explained_emotion, ai_sounding_language,
+    ornate_english, unnecessary_adjectives, intensified_emotion,
+    oversimplified, resolved_deliberate_ambiguity, misread_intention) and
+    will use those in most cases, but real violations don't always fit a
+    fixed list — a closed enum here means any label the model reasonably
+    invents crashes the whole run instead of just being an unusual value.
+    """
 
     candidate_id: str
-    violation_type: Literal[
-        "invented_metaphor",
-        "invented_imagery",
-        "over_explained_emotion",
-        "ai_sounding_language",
-        "ornate_english",
-        "unnecessary_adjectives",
-        "intensified_emotion",
-        "oversimplified",
-        "resolved_deliberate_ambiguity",
-        "misread_intention",
-    ]
+    violation_type: str
     detail: str
 
 
