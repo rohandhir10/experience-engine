@@ -532,6 +532,14 @@ meaning.
 
 ### 5.1 Interlingual Meaning Representation Builder (IMR)
 
+> **Note:** The flat `IMRNode` sketched below has since been formalized and
+> superseded by the **Experience Graph** — a full graph-structured
+> representation spanning an entire work rather than one record per segment.
+> See [`docs/EXPERIENCE_GRAPH.md`](EXPERIENCE_GRAPH.md) for the canonical
+> schema. This section is retained for historical context on why the
+> language-independent representation exists; treat the Experience Graph
+> document as authoritative for its actual structure.
+
 **Purpose**
 This is the architectural center of the system. IMR fuses the outputs of
 SED, CRR, and NDC into one unified, language-independent representation of
