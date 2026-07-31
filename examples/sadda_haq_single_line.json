@@ -1,0 +1,11 @@
+{
+  "title": "Sadda Haq — single-line holy-shit test",
+  "source_language": "Punjabi (colloquial, code-switched from Hindi)",
+  "context_note": "The single anthemic chorus line from Sadda Haq (Rockstar, A.R. Rahman) - the hardest, most specifically untranslatable line in either test song. This is chanted/thrown, not sung sweetly - a blunt, confrontational demand ('our right - hand it over, right here'), aimed at every authority judging how the singer lives. It follows Hindi verses building a reasoned argument about who has authority over one's own life; this line is the emotional break into raw, vernacular defiance. Google Translate renders it as 'Keep simple rights here' after misidentifying the language as Gujarati - flat, legalistic, and confidently wrong. This test exists to answer one question: can AURA do better than that, or not.",
+  "sections": [
+    {
+      "name": "chorus_line",
+      "source_text": "Sadda haq, aitthe rakh"
+    }
+  ]
+}
