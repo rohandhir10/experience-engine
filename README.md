@@ -14,3 +14,10 @@ language-independent graph every lyric, dialogue line, or poem is compiled
 into before any re-expression occurs. See:
 
 [`docs/EXPERIENCE_GRAPH.md`](docs/EXPERIENCE_GRAPH.md)
+
+Before investing in that architecture, the core hypothesis — that AI can
+generate lyric re-expressions bilingual speakers judge as more emotionally
+faithful than conventional translation — needs to be tested with the
+smallest possible experiment. See:
+
+[`docs/FEASIBILITY_EXPERIMENT.md`](docs/FEASIBILITY_EXPERIMENT.md)
