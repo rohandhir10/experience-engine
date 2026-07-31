@@ -21,3 +21,10 @@ faithful than conventional translation — needs to be tested with the
 smallest possible experiment. See:
 
 [`docs/FEASIBILITY_EXPERIMENT.md`](docs/FEASIBILITY_EXPERIMENT.md)
+
+The internal production engine that turns this into daily output — an
+editorial workflow from song selection to a finished lyric video, for
+Hindi, Japanese, Korean, Arabic, Russian, and Spanish → English — is
+specified in:
+
+[`docs/PRODUCTION_WORKFLOW.md`](docs/PRODUCTION_WORKFLOW.md)
