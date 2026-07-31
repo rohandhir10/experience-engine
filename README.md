@@ -34,3 +34,12 @@ creative room — specialist critique modeled on Pixar's Braintrust, not a
 translation committee — instead of a single generate-and-edit pass:
 
 [`docs/WRITERS_ROOM.md`](docs/WRITERS_ROOM.md)
+
+Before any re-expression begins, every song is analyzed into its **Song
+DNA** — an artistic profile (emotional arc, imagery, motif, ambiguity,
+symbolism, vulnerability, rhythm, repetition, narrative function, density,
+style, songwriter intention) built around what the song is meant to make
+someone feel, not what its words say. This is the representation every
+Writers' Room agent works from:
+
+[`docs/SONG_DNA.md`](docs/SONG_DNA.md)

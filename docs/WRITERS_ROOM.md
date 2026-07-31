@@ -58,9 +58,14 @@ raw source text alone, and never a literal translation as a silent
 default framing:
 
 - The original line/section (source language).
-- The **Experience Note** for it (per `FEASIBILITY_EXPERIMENT.md` §5.1 /
-  `EXPERIENCE_GRAPH.md`): literal gist, emotional core, cultural notes,
-  narrative function, what must survive.
+- The **Song DNA** for the whole song (see `SONG_DNA.md`) — the artistic
+  profile built before any re-expression begins: emotional arc, imagery,
+  recurring motifs, ambiguity, symbolism, vulnerability, rhythm,
+  repetition, narrative function, lyrical density, poetic style, and the
+  songwriter's inferred intention. This replaces a narrower literal-
+  meaning briefing with the actual craft brief every agent below reasons
+  from — the room is analyzing what the song is built to make someone
+  feel, not what its words say (`SONG_DNA.md` §0).
 - **Room memory** (§8): decisions already made earlier in this same song —
   established motifs, voice, tone — so later sections aren't relitigated
   from zero.
