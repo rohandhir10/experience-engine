@@ -115,33 +115,57 @@ AGENT_BRIEFS: dict[str, str] = {
         "don't let this candidate go generic."
     ),
     "creative_adapter": (
-        "You are the Creative Adapter — literary craft and songwriting craft "
-        "merged into one voice (docs/WRITERS_ROOM_V1.md §1.2). Your core "
-        "question: what is the single best way to say this line so it reads as "
-        "real literary language (image, metaphor, economy) AND survives being "
-        "sung once at tempo (scansion, hook, singability)? Produce one candidate "
-        "that satisfies both as well as you can.\n\n"
-        "You will be shown a Translator's literal-anchor candidate elsewhere in "
-        "this room, but it is not shown to you here, precisely so you do not "
-        "anchor on its clause structure. Do not translate clause by clause in "
-        "the original's order. Read the whole passage, understand the feeling "
-        "and image whole, then write it the way a native English songwriter "
-        "would write that feeling from scratch — different sentence count, "
-        "different clause order, different line breaks are all expected and "
-        "good, not a deviation to avoid. A candidate that maps one-to-one onto "
-        "the source's clauses, joined by commas in the same sequence, has "
-        "failed at this job even if every word is accurate — that shape reads "
-        "as translation no matter how nice the individual words are.\n\n"
-        "If the two crafts genuinely pull against each other and you can't "
-        "fully satisfy both, say plainly which one you favored and why, rather "
-        "than settling for a candidate that's mediocre at both without saying "
-        "so. Your known blind spot: with no second independent voice checking "
-        "your work the way Poet and Songwriter used to check each other, you "
-        "can drift toward whichever craft you personally favor, or toward "
-        "quietly mirroring the source's structure because it's the easiest "
-        "path, without noticing either — be honest in your confidence score "
-        "specifically when you're unsure you've actually broken from the "
-        "source's shape."
+        "You are the Creative Adapter. Your job is NOT to write the most "
+        "beautiful or expressive English you can produce — it is to find the "
+        "English rendering that most faithfully carries the songwriter's "
+        "actual intention, with the least invention. Artistic fidelity, not "
+        "literary flourish, is what you are judged on (docs/WRITERS_ROOM_V1.md "
+        "§8).\n\n"
+        "Six constraints govern every candidate you produce, and violating any "
+        "of them costs you regardless of how well-written the result reads:\n"
+        "1. Preserve the songwriter's intention — write what the line is "
+        "actually doing, not a more impressive idea of what it could be doing.\n"
+        "2. Preserve ambiguity — if the original leaves something deliberately "
+        "unresolved, your candidate must too. Do not resolve it for the "
+        "reader.\n"
+        "3. Never introduce imagery, metaphor, or symbol that cannot "
+        "reasonably be inferred from the original line and the Song DNA. If "
+        "the source doesn't contain or clearly imply an image, do not invent "
+        "one, however fitting it feels.\n"
+        "4. Never intensify emotion beyond what's present in the source — if "
+        "the original is quietly sad, do not render it as devastated; if it "
+        "is understated, stay understated.\n"
+        "5. Never simplify complexity the original holds — if a line is "
+        "doing two things at once, keep both; don't flatten to one.\n"
+        "6. Never explain what the songwriter intentionally left implicit — "
+        "if the original trusts the listener to feel something without "
+        "stating it, your candidate must trust the listener the same way.\n\n"
+        "Do not translate clause by clause in the original's order — a "
+        "candidate that maps one-to-one onto the source's clauses, joined by "
+        "commas in the same sequence, still reads as translation even if it "
+        "obeys every constraint above. Read the whole passage, understand "
+        "what it's doing whole, then write it the way a native English "
+        "songwriter would phrase that same, unembellished content from "
+        "scratch — different sentence count, different clause order, "
+        "different line breaks are expected and good. The goal is natural, "
+        "restrained English that says exactly what the original says, not "
+        "more, not prettier — not translated-sounding English that says "
+        "exactly what the original says either.\n\n"
+        "Generate 8 to 10 DISTINCT candidates. 'Distinct' means differing in "
+        "economy, syntax, register, and word choice — NOT differing in how "
+        "much imagery or emotional intensity they add. Useful axes to vary "
+        "across candidates: spare vs. slightly fuller phrasing, plainspoken "
+        "vs. slightly more lyrical diction (still within all six constraints "
+        "above), different word order, contractions vs. not, where a line "
+        "breaks. Every one of the 8-10 must independently satisfy all six "
+        "constraints — do not hedge by including one 'safe, faithful' "
+        "candidate alongside several inventive ones; every candidate must "
+        "already be a legitimate answer on its own.\n\n"
+        "Your known blind spot: without a second independent voice pushing "
+        "back, you can drift toward invented imagery or intensified emotion "
+        "because it reads as 'better writing' — resist that pull "
+        "specifically. Be honest in each candidate's confidence score "
+        "when you're not sure it stayed within all six constraints."
     ),
     "native_speaker": (
         "You are the Native Speaker. Your core question: would someone who "
@@ -413,12 +437,58 @@ def generation_prompt_v1(
     return system, user
 
 
+def creative_adapter_prompt(
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+) -> tuple[str, str]:
+    """The Creative Adapter's call, producing 8-10 distinct, fidelity-
+    constrained candidates in one shot (docs/WRITERS_ROOM_V1.md §8) —
+    distinct in economy/syntax/register, not in how much they invent.
+    """
+    system = (
+        AGENT_BRIEFS["creative_adapter"]
+        + "\n\nRespond with ONLY a JSON object: {\"candidates\": [{\"text\": "
+        'str, "style_label": str (a short phrase naming this candidate\'s '
+        'specific approach, e.g. "spare and plainspoken", "held-back '
+        'understatement", "closer to source syntax"), "leans_into": str, '
+        '"confidence": float (0-1, how confident you are this candidate '
+        "stayed within all six constraints), \"uncertainty_type\": "
+        '"cultural"|"authenticity"|"emotional"|"none" (if confidence is below '
+        "0.7, name what kind of uncertainty is driving it; \"none\" if "
+        "you're confident)}, ... 8 to 10 items total]}."
+    )
+    user = (
+        f"Original ({section_name}):\n{source_text}\n\n"
+        f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
+        f"{room_memory.summary_for_prompt()}\n\n"
+        "Give your 8-10 distinct candidates now."
+    )
+    return system, user
+
+
 _JUDGE_PRIORITY_ORDER = (
-    "(1) emotional truth and specificity, (2) narrative fit against the "
-    "song's arc (use the Song DNA's narrative_function for this section "
-    "directly — there is no Film Critic in this room), (3) cultural "
-    "integrity, (4) poetic/aesthetic craft, (5) singability/hook quality, "
-    "(6) literal proximity to the source — lowest priority, a tiebreaker only."
+    "(0) ARTISTIC FIDELITY — evaluated first, for every candidate, before "
+    "anything else: does it preserve the songwriter's intention, preserve "
+    "any deliberate ambiguity, avoid inventing imagery/metaphor/symbol not "
+    "inferable from the source and Song DNA, avoid intensifying emotion "
+    "beyond what the original carries, avoid simplifying real complexity the "
+    "original holds, and avoid explaining what the songwriter intentionally "
+    "left implicit? A candidate that violates any of these should generally "
+    "lose to one that doesn't, regardless of how well-written it is. "
+    "Actively penalize, wherever you see it: invented metaphors, invented "
+    "imagery, over-explained emotion, AI-sounding poetic language, ornate "
+    "English, unnecessary adjectives — these are not neutral style choices "
+    "in this room, they are fidelity failures, because they replace what the "
+    "songwriter actually did with a more impressive-sounding invention. "
+    "(1) narrative fit against the song's arc (use the Song DNA's "
+    "narrative_function for this section directly — there is no Film Critic "
+    "in this room), (2) cultural integrity, (3) restraint and economy — "
+    "reward the candidate that says the least necessary in the most natural "
+    "English, not the one that sounds most impressively 'poetic', "
+    "(4) singability/hook quality, (5) literal proximity to the source — "
+    "lowest priority, a tiebreaker only."
 )
 
 
@@ -431,17 +501,18 @@ def judge_triage_prompt(
     room_memory: RoomMemory,
 ) -> tuple[str, str]:
     system = (
-        "You are the Judge, running the minimal V1 room. You have two "
-        "candidates — a Translator's literal anchor and a Creative Adapter's "
-        "re-expression. You alone decide whether this section can be ruled on "
-        "now, or whether one or more specialist consultants "
-        "(cultural_historian, native_speaker, psychologist) must weigh in "
-        "first. You are given free routing signals (computed from the Song "
-        "DNA and the candidates' own reported confidence) as input, not as a "
-        "command — decide for yourself, but do not ignore a fired signal "
-        "without a stated reason.\n\n"
-        "Specifically watch for CONFLICTING INTERPRETATIONS: if the "
-        "Translator's literal anchor and the Creative Adapter's candidate "
+        "You are the Judge, running the minimal V1 room. You have a "
+        "Translator's literal anchor plus 8-10 distinct candidates from the "
+        "Creative Adapter — potentially a dozen or so candidates total. Your "
+        "top-priority job on all of them is screening for artistic fidelity, "
+        "not picking the most impressive writing. You alone decide whether "
+        "this section can be ruled on now, or whether one or more specialist "
+        "consultants (cultural_historian, native_speaker, psychologist) must "
+        "weigh in first. You are given free routing signals (computed from "
+        "the Song DNA and the candidates' own reported confidence) as input, "
+        "not as a command — decide for yourself, but do not ignore a fired "
+        "signal without a stated reason.\n\n"
+        "Specifically watch for CONFLICTING INTERPRETATIONS: if candidates "
         "imply meaningfully different readings of what the line is doing "
         "emotionally, that alone is reason to consult a specialist (usually "
         "native_speaker or psychologist) even if no precomputed signal fired "
@@ -449,15 +520,31 @@ def judge_triage_prompt(
         "you.\n\n"
         "If you can rule now with real confidence, set ready_to_rule true and "
         "fill in ruling using the priority order " + _JUDGE_PRIORITY_ORDER + " "
-        "Note that at this stage you do not yet have a Native Speaker "
-        "authenticity verdict or a confirmed factual-inversion check — if you "
-        "suspect either issue, that is itself a reason to consult "
-        "native_speaker before ruling, not a reason to guess.\n\n"
+        "Your ruling must include fidelity_checks — all six constraints, each "
+        "marked satisfied or not for the winning candidate with a one-line "
+        "note — and violations_found for any candidate you rejected "
+        "specifically for a fidelity violation (invented imagery, "
+        "intensified emotion, over-explanation, ornate/AI-sounding language, "
+        "etc.) — you do not need to log every runner-up, but log enough that "
+        "your choice is auditable. Note that at this stage you do not yet "
+        "have a Native Speaker authenticity verdict or a confirmed factual-"
+        "inversion check — if you suspect either issue, that is itself a "
+        "reason to consult native_speaker before ruling, not a reason to "
+        "guess.\n\n"
         'Respond with ONLY a JSON object: {"ready_to_rule": bool, "ruling": '
         '{"final_line": str, "sources_used": [{"agent": str, "contribution": '
-        'str}], "vetoes_applied": [str], "priority_tradeoffs_made": str, '
-        '"disagreements_overruled": [{"agents": str, "disagreement": str, '
-        '"ruling": str, "why": str}]} or null, "specialists_needed": '
+        'str}], "vetoes_applied": [str], "fidelity_checks": '
+        '[{"constraint": "preserves_songwriter_intention"|"preserves_ambiguity"'
+        '|"no_invented_imagery"|"no_emotional_intensification"|'
+        '"no_oversimplification"|"no_over_explanation", "satisfied": bool, '
+        '"note": str}, ... all six], "violations_found": [{"candidate_id": '
+        'str, "violation_type": "invented_metaphor"|"invented_imagery"|'
+        '"over_explained_emotion"|"ai_sounding_language"|"ornate_english"|'
+        '"unnecessary_adjectives"|"intensified_emotion"|"oversimplified"|'
+        '"resolved_deliberate_ambiguity"|"misread_intention", "detail": str}], '
+        '"priority_tradeoffs_made": str, "disagreements_overruled": '
+        '[{"agents": str, "disagreement": str, "ruling": str, "why": str}]} '
+        'or null, "specialists_needed": '
         '["cultural_historian"|"native_speaker"|"psychologist", ...], "why": '
         'str}. If ready_to_rule is false, ruling must be null and '
         "specialists_needed must be non-empty."
@@ -492,27 +579,41 @@ def judge_final_prompt(
 ) -> tuple[str, str]:
     system = (
         "You are the Judge. You previously requested specialist input before "
-        "ruling on this section; that input is now available. Apply the two "
-        "hard vetoes first: if native_speaker flagged a candidate as failing "
-        "authenticity, or if an issue amounts to inverting the underlying "
-        "fact of the line (who did what to whom), that candidate is "
-        "disqualified regardless of other merits. Among what survives, use "
-        "the priority order " + _JUDGE_PRIORITY_ORDER + "\n\n"
-        "You are not limited to picking one of the two candidates verbatim. "
-        "If a specialist flagged a real concern (e.g. native_speaker noting a "
-        "candidate still reads as translated, even short of an outright "
-        "authenticity failure) and neither candidate actually resolves it, "
-        "rewrite final_line yourself to address it — do not ship a line you "
-        "know has a named, unresolved problem just because it was the least "
-        "flawed of the two options. A specific warning sign: if both "
-        "candidates mirror the source's clause order and commas rather than "
-        "reading as something an English songwriter would write from "
-        "scratch, that is exactly the kind of concern worth a real rewrite, "
-        "not a shrug.\n\n"
+        "ruling on this section; that input is now available. You are "
+        "choosing among a Translator's literal anchor plus 8-10 distinct "
+        "Creative Adapter candidates. Apply the two hard vetoes first: if "
+        "native_speaker flagged a candidate as failing authenticity, or if an "
+        "issue amounts to inverting the underlying fact of the line (who did "
+        "what to whom), that candidate is disqualified regardless of other "
+        "merits. Among what survives, use the priority order "
+        + _JUDGE_PRIORITY_ORDER + "\n\n"
+        "You are not limited to picking one candidate verbatim. If a "
+        "specialist flagged a real concern and no candidate actually "
+        "resolves it, rewrite final_line yourself to address it — do not "
+        "ship a line you know has a named, unresolved problem just because "
+        "it was the least flawed option available. A specific warning sign: "
+        "if the surviving candidates mirror the source's clause order and "
+        "commas rather than reading as something an English songwriter "
+        "would write from scratch, or if they add imagery/intensity beyond "
+        "the source to compensate for feeling 'plain', that is exactly the "
+        "kind of concern worth a real rewrite, not a shrug.\n\n"
+        "Your ruling must include fidelity_checks — all six constraints, "
+        "each marked satisfied or not for the winning candidate with a "
+        "one-line note — and violations_found for any candidate rejected "
+        "specifically for a fidelity violation.\n\n"
         'Respond with ONLY a JSON object: {"final_line": str, "sources_used": '
         '[{"agent": str, "contribution": str}], "vetoes_applied": [str], '
-        '"priority_tradeoffs_made": str, "disagreements_overruled": '
-        '[{"agents": str, "disagreement": str, "ruling": str, "why": str}]}.'
+        '"fidelity_checks": [{"constraint": "preserves_songwriter_intention"|'
+        '"preserves_ambiguity"|"no_invented_imagery"|'
+        '"no_emotional_intensification"|"no_oversimplification"|'
+        '"no_over_explanation", "satisfied": bool, "note": str}, ... all '
+        'six], "violations_found": [{"candidate_id": str, "violation_type": '
+        '"invented_metaphor"|"invented_imagery"|"over_explained_emotion"|'
+        '"ai_sounding_language"|"ornate_english"|"unnecessary_adjectives"|'
+        '"intensified_emotion"|"oversimplified"|"resolved_deliberate_ambiguity"'
+        '|"misread_intention", "detail": str}], "priority_tradeoffs_made": '
+        'str, "disagreements_overruled": [{"agents": str, "disagreement": '
+        'str, "ruling": str, "why": str}]}.'
     )
     candidates_text = "\n".join(f"[{c.id}] ({c.agent}): {c.text}" for c in candidates)
     critiques_text = (

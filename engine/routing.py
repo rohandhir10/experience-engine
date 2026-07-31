@@ -67,17 +67,23 @@ def compute_routing_signals(
             "risk of being flattened or over-explained."
         )
 
-    low_confidence_agents: list[str] = []
+    # One agent (creative_adapter) can now produce several candidates
+    # (docs/WRITERS_ROOM_V1.md §8) — dedupe per agent so a low-confidence
+    # signal is reported once, not once per stylistic variant.
+    low_confidence_agents_seen: set[str] = set()
+    uncertainty_reasons_seen: set[tuple[str, str]] = set()
     for c in candidates:
         if c.confidence < CONFIDENCE_THRESHOLD:
-            low_confidence_agents.append(c.agent)
+            low_confidence_agents_seen.add(c.agent)
             specialist = _UNCERTAINTY_TO_SPECIALIST.get(c.uncertainty_type)
-            if specialist:
+            if specialist and (c.agent, c.uncertainty_type) not in uncertainty_reasons_seen:
+                uncertainty_reasons_seen.add((c.agent, c.uncertainty_type))
                 suggested.add(specialist)
                 reasons.append(
-                    f"{c.agent} reported low confidence ({c.confidence:.2f}) "
-                    f"attributed to {c.uncertainty_type} uncertainty."
+                    f"{c.agent} reported low confidence on at least one "
+                    f"candidate, attributed to {c.uncertainty_type} uncertainty."
                 )
+    low_confidence_agents = sorted(low_confidence_agents_seen)
 
     return RoutingSignals(
         culturally_specific_symbol_count=len(culturally_specific_symbols),

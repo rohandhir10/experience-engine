@@ -217,17 +217,115 @@ doesn't, the three named gaps in §5 are exactly where to look first.
 ## 7. What Stays Identical to the Original Design
 
 - The Judge's **veto structure** (Native Speaker authenticity veto,
-  factual-inversion veto) and **weighted priority order** (emotional
-  truth > narrative fit > cultural integrity > poetic craft > singability
-  > literal accuracy) are unchanged — V1 simplifies who's in the room, not
-  what the room is optimizing for.
-- The Judge's **auditable rationale** (`sources_used`,
-  `vetoes_applied`, `priority_tradeoffs_made`, `disagreements_overruled`)
-  is still required on every ruling, so a human reviewer
-  (`PRODUCTION_WORKFLOW.md` Stage 5) can still audit and override it.
+  factual-inversion veto) is unchanged.
+- The Judge's **auditable rationale** requirement is unchanged, though its
+  contents grew (§8) — every ruling still lets a human reviewer
+  (`PRODUCTION_WORKFLOW.md` Stage 5) audit and override it.
 - **Room memory** across sections (`WRITERS_ROOM.md` §8) is unchanged.
 - Song DNA remains the shared context every agent works from
-  (`SONG_DNA.md`) — nothing here changes what's being optimized for, only
-  how cheaply the room gets to a decision.
+  (`SONG_DNA.md`).
+- The **priority order itself was rewritten** — see §8. "Emotional truth
+  and specificity" is no longer the top priority; it has been replaced.
+
+---
+
+## 8. Redesign: Artistic Fidelity Over Emotional Truth
+
+**Cause.** Running V1 against a real song (a Hindi duet, "Agar Tum Saath
+Ho") surfaced a systematic failure mode: the Creative Adapter was
+over-writing, and the Judge rewarded expressive, well-crafted English even
+when that expressiveness was *invented* rather than *inferred* from the
+original. "Emotional truth and specificity" as the top-priority criterion
+turned out to reward confident invention as readily as it rewarded
+faithful reconstruction — a fluent, evocative line and an evocative but
+fabricated one can look identical to a scoring criterion that only asks
+"does this feel emotionally true," without also asking "is this feeling
+actually licensed by the source."
+
+**The fix is a philosophy change, not a patch.** The top priority is no
+longer emotional truth. It is **artistic fidelity**, defined by six
+constraints, checked on every candidate before anything else is weighed:
+
+1. **Preserve the songwriter's intention** — write what the line is
+   actually doing, not a more impressive idea of what it could be doing.
+2. **Preserve ambiguity** whenever the original is ambiguous — a
+   deliberately unresolved line must stay unresolved in English too.
+3. **Never introduce imagery, metaphor, or symbol** that cannot reasonably
+   be inferred from the source line and the Song DNA.
+4. **Never intensify emotion** beyond what's present in the source — a
+   quietly sad line does not become a devastated one.
+5. **Never simplify complexity** the original holds — a line doing two
+   things at once must keep doing both.
+6. **Never explain what the songwriter intentionally left implicit** — if
+   the original trusts the listener to feel something unstated, the
+   English rendering must trust the listener the same way.
+
+**Actively penalized**, regardless of how well-written the result reads:
+invented metaphors, invented imagery, over-explained emotion, AI-sounding
+poetic language, ornate English, unnecessary adjectives. These are treated
+as fidelity failures in this room's philosophy, not neutral style
+preferences — each one replaces something the songwriter actually did with
+a more impressive-sounding invention.
+
+**New priority order** (replacing the old one in full):
+
+`(0) artistic fidelity — the six constraints above, checked first, on
+every candidate → (1) narrative fit against the song's arc (Song DNA's
+narrative_function) → (2) cultural integrity → (3) restraint and
+economy — rewarding the candidate that says the least necessary in the
+most natural English, not the one that sounds most impressively "poetic"
+→ (4) singability/hook quality → (5) literal proximity to the source,
+lowest priority, a tiebreaker only.`
+
+### 8.1 Creative Adapter: 8-10 distinct candidates, not one
+
+The Creative Adapter now produces **8 to 10 candidates per section in a
+single call**, not one. "Distinct" is defined narrowly on purpose:
+differing in economy, syntax, register, and word choice — *not* differing
+in how much imagery or emotional intensity they add. Every one of the
+8-10 must independently satisfy all six fidelity constraints; the room
+does not accept one "safe, faithful" candidate hedged against several
+"inventive" ones, because that would just relocate the over-writing
+problem from the Judge's selection into the candidate pool's composition.
+Each candidate carries a `style_label` (e.g. "spare and plainspoken",
+"held-back understatement", "closer to source syntax") so the Judge and
+any human reviewer can tell the variants apart.
+
+This does not change V1's call-count economics (§6): Creative Adapter is
+still one LLM call regardless of how many candidates it returns, so the
+best/worst-case call counts in §6 are unaffected by this redesign — only
+the token size of the generation and Judge calls grows, since there is
+more to generate and more to compare.
+
+### 8.2 The Judge's evaluation now produces a structured fidelity record
+
+Every ruling now includes:
+
+- `fidelity_checks` — all six constraints, each explicitly marked
+  satisfied or not for the *winning* candidate, with a one-line note.
+- `violations_found` — specific penalties applied to specific rejected
+  candidates (e.g. `{"candidate_id": ..., "violation_type":
+  "invented_imagery", "detail": "..."}`), so a human reviewer can see not
+  just what won but *why the others lost*, in the same auditable spirit as
+  the rest of this room's design.
+
+This is a genuine scoring change, not just a stricter tone in the prompt:
+a candidate that reads beautifully but fails constraint 3 (invented
+imagery) should now lose to a plainer candidate that doesn't, and the
+Judge is required to say so explicitly rather than let good writing paper
+over an invention.
+
+### 8.3 What this trades away, stated plainly
+
+Per this document's own discipline (§5): favoring restraint over
+expressiveness risks under-serving songs where the original genuinely *is*
+vivid or intense — a candidate that matches real source intensity should
+not be penalized for being intense, only one that adds intensity the
+source doesn't have. The six constraints are checked against the source
+and Song DNA, not against a flat "always be plain" rule, but this
+distinction is a genuinely harder judgment call than the old, simpler
+"does this feel emotionally true" criterion, and is worth watching for
+false-positive over-correction (flattening a line that was actually
+supposed to be vivid) as this gets tested against more real songs.
 
 *End of document.*

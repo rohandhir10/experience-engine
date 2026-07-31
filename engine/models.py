@@ -181,6 +181,11 @@ class Candidate(BaseModel):
     # default to "confident" so full-room Candidates need no changes.
     confidence: float = 1.0
     uncertainty_type: Literal["cultural", "authenticity", "emotional", "none"] = "none"
+    # V1 Creative Adapter now produces several stylistically distinct
+    # candidates per section (docs/WRITERS_ROOM_V1.md §8) — this names the
+    # specific approach a given candidate represents, so the Judge and any
+    # human reviewer can tell them apart at a glance.
+    style_label: str = ""
 
 
 class Critique(BaseModel):
@@ -199,6 +204,42 @@ class Rebuttal(BaseModel):
     text: str
 
 
+class FidelityCheck(BaseModel):
+    """One of the six artistic-fidelity constraints (docs/WRITERS_ROOM_V1.md
+    §8), checked against the winning candidate.
+    """
+
+    constraint: Literal[
+        "preserves_songwriter_intention",
+        "preserves_ambiguity",
+        "no_invented_imagery",
+        "no_emotional_intensification",
+        "no_oversimplification",
+        "no_over_explanation",
+    ]
+    satisfied: bool
+    note: str
+
+
+class FidelityViolation(BaseModel):
+    """A specific penalty applied to a specific (usually losing) candidate."""
+
+    candidate_id: str
+    violation_type: Literal[
+        "invented_metaphor",
+        "invented_imagery",
+        "over_explained_emotion",
+        "ai_sounding_language",
+        "ornate_english",
+        "unnecessary_adjectives",
+        "intensified_emotion",
+        "oversimplified",
+        "resolved_deliberate_ambiguity",
+        "misread_intention",
+    ]
+    detail: str
+
+
 class JudgeRuling(BaseModel):
     section: str
     final_line: str
@@ -208,6 +249,11 @@ class JudgeRuling(BaseModel):
     disagreements_overruled: list[dict[str, str]] = Field(default_factory=list)
     # V1 only — which specialists (if any) the Judge actually invoked.
     specialists_invoked: list[str] = Field(default_factory=list)
+    # V1 artistic-fidelity evaluation (docs/WRITERS_ROOM_V1.md §8) — the
+    # winning candidate checked against all six constraints, plus which
+    # candidates were penalized and why.
+    fidelity_checks: list[FidelityCheck] = Field(default_factory=list)
+    violations_found: list[FidelityViolation] = Field(default_factory=list)
 
 
 class SectionResult(BaseModel):

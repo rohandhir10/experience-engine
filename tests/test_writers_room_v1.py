@@ -97,6 +97,32 @@ class FakeClientRulesImmediately:
         self.calls.append(system[:60])
         if "You are a songwriting analyst" in system:
             return FAKE_SONG_DNA
+        if "You are the Creative Adapter" in system:
+            return {
+                "candidates": [
+                    {
+                        "text": READY_LINE,
+                        "style_label": "spare and plainspoken",
+                        "leans_into": "guarded attachment",
+                        "confidence": 0.9,
+                        "uncertainty_type": "none",
+                    },
+                    {
+                        "text": "The drawer stays locked. It always has.",
+                        "style_label": "held-back understatement",
+                        "leans_into": "guarded attachment",
+                        "confidence": 0.85,
+                        "uncertainty_type": "none",
+                    },
+                    {
+                        "text": "Locked, still — the way you kept it.",
+                        "style_label": "closer to source syntax",
+                        "leans_into": "guarded attachment",
+                        "confidence": 0.8,
+                        "uncertainty_type": "none",
+                    },
+                ]
+            }
         if "uncertainty_type" in system:
             return {
                 "text": READY_LINE,
@@ -111,11 +137,23 @@ class FakeClientRulesImmediately:
                     "final_line": READY_LINE,
                     "sources_used": [{"agent": "creative_adapter", "contribution": "phrasing"}],
                     "vetoes_applied": [],
+                    "fidelity_checks": [
+                        {"constraint": c, "satisfied": True, "note": "test"}
+                        for c in (
+                            "preserves_songwriter_intention",
+                            "preserves_ambiguity",
+                            "no_invented_imagery",
+                            "no_emotional_intensification",
+                            "no_oversimplification",
+                            "no_over_explanation",
+                        )
+                    ],
+                    "violations_found": [],
                     "priority_tradeoffs_made": "chose the Creative Adapter's version outright",
                     "disagreements_overruled": [],
                 },
                 "specialists_needed": [],
-                "why": "both candidates align, no signals fired",
+                "why": "no signals fired, no fidelity violations found",
             }
         raise AssertionError(f"Unexpected prompt: {system[:80]!r}")
 
@@ -130,10 +168,14 @@ def test_v1_rules_immediately_with_three_calls():
     result = run_engine(song, client=client, room_version="v1")
 
     section_result = result.section_results[0]
-    assert len(section_result.candidates) == 2  # translator, creative_adapter
+    # 1 translator + 3 creative_adapter candidates.
+    assert len(section_result.candidates) == 4
     assert section_result.specialists_invoked == []
     assert section_result.ruling.final_line == READY_LINE
-    # 1 song-dna call + 2 generation calls + 1 judge-triage call = 4 total.
+    assert len(section_result.ruling.fidelity_checks) == 6
+    assert all(c.satisfied for c in section_result.ruling.fidelity_checks)
+    # 1 song-dna call + 1 translator call + 1 creative_adapter call +
+    # 1 judge-triage call = 4 total, regardless of candidate count.
     assert len(client.calls) == 4
 
 
@@ -147,6 +189,25 @@ class FakeClientNeedsSpecialist:
         self.calls.append(system[:60])
         if "You are a songwriting analyst" in system:
             return FAKE_SONG_DNA
+        if "You are the Creative Adapter" in system:
+            return {
+                "candidates": [
+                    {
+                        "text": READY_LINE,
+                        "style_label": "spare and plainspoken",
+                        "leans_into": "guarded attachment",
+                        "confidence": 0.5,
+                        "uncertainty_type": "emotional",
+                    },
+                    {
+                        "text": "The drawer stays locked. It always has.",
+                        "style_label": "held-back understatement",
+                        "leans_into": "guarded attachment",
+                        "confidence": 0.55,
+                        "uncertainty_type": "emotional",
+                    },
+                ]
+            }
         if "uncertainty_type" in system:
             return {"text": READY_LINE, "leans_into": "guarded attachment", "confidence": 0.5, "uncertainty_type": "emotional"}
         if "running the minimal V1 room" in system:
@@ -175,6 +236,24 @@ class FakeClientNeedsSpecialist:
                 "final_line": SPECIALIST_LINE,
                 "sources_used": [{"agent": "psychologist", "contribution": "guardedness note"}],
                 "vetoes_applied": [],
+                "fidelity_checks": [
+                    {"constraint": c, "satisfied": True, "note": "test"}
+                    for c in (
+                        "preserves_songwriter_intention",
+                        "preserves_ambiguity",
+                        "no_invented_imagery",
+                        "no_emotional_intensification",
+                        "no_oversimplification",
+                        "no_over_explanation",
+                    )
+                ],
+                "violations_found": [
+                    {
+                        "candidate_id": "placeholder",
+                        "violation_type": "over_explained_emotion",
+                        "detail": "test rejection reason",
+                    }
+                ],
                 "priority_tradeoffs_made": "favored the psychologist's read of defensive downplaying",
                 "disagreements_overruled": [],
             }
@@ -192,8 +271,13 @@ def test_v1_invokes_specialist_when_judge_requests_it():
 
     section_result = result.section_results[0]
     assert section_result.specialists_invoked == ["psychologist"]
-    assert len(section_result.specialist_critiques) == 2  # one per candidate
+    # 1 translator + 2 creative_adapter candidates = 3, one critique each.
+    assert len(section_result.candidates) == 3
+    assert len(section_result.specialist_critiques) == 3
     assert section_result.ruling.final_line == SPECIALIST_LINE
     assert section_result.ruling.specialists_invoked == ["psychologist"]
-    # 1 song-dna + 2 generation + 1 triage + 1 specialist + 1 final = 6 total.
+    assert len(section_result.ruling.violations_found) == 1
+    assert section_result.ruling.violations_found[0].violation_type == "over_explained_emotion"
+    # 1 song-dna + 1 translator + 1 creative_adapter + 1 triage + 1 specialist
+    # + 1 final = 6 total, regardless of candidate count.
     assert len(client.calls) == 6

@@ -1,11 +1,14 @@
 """Runs the V1 minimal Writers' Room (docs/WRITERS_ROOM_V1.md) for one
-section: Translator and Creative Adapter generate, the Judge triages using
-free routing signals plus its own read of the two candidates, and only the
-specialists the Judge actually asks for are invoked before a final ruling.
+section: Translator produces one literal-anchor candidate, Creative Adapter
+produces 8-10 fidelity-constrained, stylistically distinct candidates
+(§8), the Judge triages using free routing signals plus its own artistic-
+fidelity read of all of them, and only the specialists the Judge actually
+asks for are invoked before a final ruling.
 
 Best case: 3 LLM calls (2 generate + 1 judge-rules-immediately).
 Worst case: ~6-7 calls (2 generate + 1 judge-triage + up to 3 specialists +
-1 judge-final).
+1 judge-final) — the call count doesn't change with candidate count, since
+Creative Adapter still returns all 8-10 candidates from a single call.
 """
 from __future__ import annotations
 
@@ -21,7 +24,6 @@ from .models import (
     SectionResultV1,
     SPECIALIST_AGENTS,
     SongDNA,
-    V1_GENERATIVE_AGENTS,
 )
 from .routing import compute_routing_signals
 
@@ -37,20 +39,36 @@ def _generate(
     section_name: str,
     room_memory: RoomMemory,
 ) -> list[Candidate]:
-    candidates = []
-    for agent in V1_GENERATIVE_AGENTS:
-        system, user = prompts.generation_prompt_v1(
-            agent, source_text, dna, section_name, room_memory
+    candidates: list[Candidate] = []
+
+    system, user = prompts.generation_prompt_v1(
+        "translator", source_text, dna, section_name, room_memory
+    )
+    data = client.complete_json(system, user)
+    candidates.append(
+        Candidate(
+            id=_new_id(),
+            agent="translator",
+            text=data["text"],
+            leans_into=data.get("leans_into", ""),
+            confidence=float(data.get("confidence", 1.0)),
+            uncertainty_type=data.get("uncertainty_type", "none"),
+            round="generation",
         )
-        data = client.complete_json(system, user)
+    )
+
+    system, user = prompts.creative_adapter_prompt(source_text, dna, section_name, room_memory)
+    data = client.complete_json(system, user, max_tokens=4000)
+    for item in data.get("candidates", []):
         candidates.append(
             Candidate(
                 id=_new_id(),
-                agent=agent,
-                text=data["text"],
-                leans_into=data.get("leans_into", ""),
-                confidence=float(data.get("confidence", 1.0)),
-                uncertainty_type=data.get("uncertainty_type", "none"),
+                agent="creative_adapter",
+                text=item["text"],
+                leans_into=item.get("leans_into", ""),
+                confidence=float(item.get("confidence", 1.0)),
+                uncertainty_type=item.get("uncertainty_type", "none"),
+                style_label=item.get("style_label", ""),
                 round="generation",
             )
         )

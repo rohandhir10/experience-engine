@@ -91,13 +91,18 @@ later sections stay consistent with earlier ones (`WRITERS_ROOM.md` §8,
 `room_version` in the written `.result.json` records which room produced
 the transcript.
 
-**V1 (`room_version: "v1"`)**, per section: `candidates` (Translator +
-Creative Adapter, each with self-reported `confidence`/`uncertainty_type`),
-`routing_signals` (what fired and why — cultural density, ambiguity,
-guarded vulnerability, low confidence, and the specialists those signals
-suggested), `specialists_invoked` (which the Judge actually called, 0-3),
-`specialist_critiques` (their critiques, if any were called), and `ruling`
-(the Judge's `final_line` plus rationale).
+**V1 (`room_version: "v1"`)**, per section: `candidates` (1 Translator
+literal anchor + 8-10 Creative Adapter candidates, each with a
+`style_label` and self-reported `confidence`/`uncertainty_type` —
+`WRITERS_ROOM_V1.md` §8.1), `routing_signals` (what fired and why —
+cultural density, ambiguity, guarded vulnerability, low confidence, and
+the specialists those signals suggested), `specialists_invoked` (which the
+Judge actually called, 0-3), `specialist_critiques` (their critiques, if
+any were called), and `ruling` — the Judge's `final_line` plus its full
+rationale, now including `fidelity_checks` (all six artistic-fidelity
+constraints, each marked satisfied or not for the winner) and
+`violations_found` (specific penalties applied to specific rejected
+candidates — `WRITERS_ROOM_V1.md` §8.2).
 
 **Full (`room_version: "full"`)**, per section: `candidates_round1` (one
 each from Translator/Poet/Songwriter), `critiques` (all four diagnostic
