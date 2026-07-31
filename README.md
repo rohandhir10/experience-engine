@@ -28,3 +28,9 @@ Hindi, Japanese, Korean, Arabic, Russian, and Spanish → English — is
 specified in:
 
 [`docs/PRODUCTION_WORKFLOW.md`](docs/PRODUCTION_WORKFLOW.md)
+
+For the highest-stakes lines in a song, drafting is done by a multi-agent
+creative room — specialist critique modeled on Pixar's Braintrust, not a
+translation committee — instead of a single generate-and-edit pass:
+
+[`docs/WRITERS_ROOM.md`](docs/WRITERS_ROOM.md)
