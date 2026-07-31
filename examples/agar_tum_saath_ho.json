@@ -1,0 +1,19 @@
+{
+  "title": "Agar Tum Saath Ho",
+  "source_language": "Hindi",
+  "context_note": "Duet from the film Tamasha (music: A.R. Rahman). A couple has separated; the song is built around the title refrain 'agar tum saath ho' ('if you are with me'), which sounds wistfully romantic on its own, but the song's actual shape is about a relationship that has already ended. Alka Yagnik's verses voice longing and a wish to imagine him still present. Arijit Singh's chorus is the turn: he undercuts the romantic refrain directly, concluding that whether she's there or not no longer changes anything - life was cruel before her and is cruel now. The title phrase should not be treated as simply hopeful; by the chorus it reads as bitter, resigned irony.",
+  "sections": [
+    {
+      "name": "verse_1_alka",
+      "source_text": "पल-भर ठहर जाओ, दिल ये सँभल जाए\nकैसे तुम्हें रोका करूँ?\nमेरी तरफ़ आता हर ग़म फिसल जाए\nआँखों में तुम को भरूँ\nबिन बोले बातें तुम से करूँ\n'गर तुम साथ हो\nअगर तुम साथ हो"
+    },
+    {
+      "name": "verse_2_alka",
+      "source_text": "बेहती रेहती नेहर नदियाँ सी तेरी दुनिया में\nमेरी दुनिया है तेरी चाहतों में\nमैं ढल जाती हूँ तेरी आदतों में\n'गर तुम साथ हो"
+    },
+    {
+      "name": "chorus_arijit",
+      "source_text": "तेरी नज़रों में है तेरे सपने\nतेरे सपनों में है नाराज़ी\nमुझे लगता है के बातें दिल की\nहोती लफ़्ज़ों की धोखेबाज़ी\nतुम साथ हो, या ना हो, क्या फर्क है?\nबेदर्द थी ज़िन्दगी, बेदर्द है\nअगर तुम साथ हो\nअगर तुम साथ हो"
+    }
+  ]
+}
