@@ -48,6 +48,13 @@ habits, signature devices), and songwriter intention (a synthesizing \
 hypothesis, built from the other dimensions' evidence, about why the song is \
 built the way it is).
 
+The "sections" array MUST contain exactly one entry per section given below, \
+in the same order, using the exact section name shown in brackets — never \
+fewer. This includes short or wordless sections (a vocal refrain, an "oh oh" \
+hook, a single repeated line) — analyze what that section is doing musically \
+and emotionally even if it has no literal semantic content; never skip a \
+section because it seems too brief or non-lexical to analyze.
+
 Respond with ONLY a single JSON object matching this shape (omit no top-level \
 key; use empty lists where a dimension genuinely doesn't apply to this song):
 
