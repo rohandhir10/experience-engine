@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from .llm_client import LLMClient
+from .llm_client import LLMClient, create_default_client
 from .models import RoomMemory, SectionResult, SectionResultV1, SongDNA, SongInput
 from .song_dna import generate_song_dna
 from .writers_room import run_section as run_section_full
@@ -57,7 +57,7 @@ def run_engine(
     client: LLMClient | None = None,
     room_version: RoomVersion = "v1",
 ) -> EngineResult:
-    client = client or LLMClient()
+    client = client or create_default_client()
     dna = generate_song_dna(song, client)
     room_memory = RoomMemory()
     section_results: list[SectionResult | SectionResultV1] = []

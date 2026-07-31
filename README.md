@@ -59,6 +59,8 @@ Writers' Room agent works from:
 The `engine/` package is a working implementation of Song DNA analysis
 followed by the Writers' Room pipeline — V1 minimal room by default, or
 the full seven-agent room via `--room full` — callable via
-`python -m engine.cli examples/sample_song.json`. See:
+`python -m engine.cli examples/sample_song.json`. It calls OpenAI by
+default (`OPENAI_API_KEY`); Anthropic is kept in the codebase as an
+inactive alternate provider (`AURA_PROVIDER=anthropic`). See:
 
 [`docs/ENGINE.md`](docs/ENGINE.md)

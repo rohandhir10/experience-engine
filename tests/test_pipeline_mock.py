@@ -1,6 +1,6 @@
 """Verifies the FULL room's (docs/WRITERS_ROOM.md) control flow — Song DNA,
 all five rounds, and room memory carrying forward between sections —
-without calling the real Anthropic API. A FakeLLMClient returns canned,
+without calling any real model provider. A FakeLLMClient returns canned,
 schema-valid JSON keyed off distinctive phrases in each stage's system
 prompt. See tests/test_writers_room_v1.py for the V1 minimal room (the
 default pipeline as of docs/WRITERS_ROOM_V1.md) — these tests pin

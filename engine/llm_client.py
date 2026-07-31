@@ -1,16 +1,25 @@
-"""Thin wrapper around the Anthropic API used by every stage of the engine.
+"""LLM adapters used by every stage of the engine.
 
 Every prompt in this engine asks the model to return a single JSON object.
-This module owns the one place that calls the API and parses that JSON, so
-every other module works with plain Python data, never raw model text.
+This module owns the one place that calls a model provider and parses that
+JSON, so every other module works with plain Python data, never raw model
+text — and so no other module needs to know or care which provider is
+actually behind `client.complete_json(...)`.
+
+Two providers are implemented:
+  - OpenAI (`OpenAILLMClient`) — the active default.
+  - Anthropic (`AnthropicLLMClient`) — kept in the codebase, inactive by
+    default. Set AURA_PROVIDER=anthropic (engine/config.py) to use it.
+
+Swapping providers never touches any other module — pipeline.py, the
+Writers' Room, and Song DNA generation all call `complete_json` on
+whatever `create_default_client()` returns.
 """
 from __future__ import annotations
 
 import json
 import re
 from typing import Any
-
-import anthropic
 
 from . import config
 
@@ -20,9 +29,7 @@ class LLMError(RuntimeError):
 
 
 class LLMClient:
-    def __init__(self, model: str | None = None, api_key: str | None = None):
-        self.model = model or config.ANTHROPIC_MODEL
-        self._client = anthropic.Anthropic(api_key=api_key or config.get_api_key())
+    """Shared retry/parsing logic. Subclasses implement `_call` only."""
 
     def complete_json(
         self, system: str, user: str, max_tokens: int | None = None
@@ -55,18 +62,7 @@ class LLMClient:
         )
 
     def _call(self, system: str, user: str, max_tokens: int | None) -> str:
-        try:
-            response = self._client.messages.create(
-                model=self.model,
-                max_tokens=max_tokens or config.MAX_TOKENS,
-                system=system,
-                messages=[{"role": "user", "content": user}],
-            )
-        except anthropic.APIError as exc:
-            raise LLMError(f"Anthropic API call failed: {exc}") from exc
-        return "".join(
-            block.text for block in response.content if block.type == "text"
-        )
+        raise NotImplementedError
 
     @staticmethod
     def _try_parse(raw: str) -> dict[str, Any] | None:
@@ -87,3 +83,76 @@ class LLMClient:
             except json.JSONDecodeError:
                 return None
         return None
+
+
+class OpenAILLMClient(LLMClient):
+    """Active default provider."""
+
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        import openai  # imported lazily so the anthropic-only path never needs this installed
+
+        self.model = model or config.OPENAI_MODEL
+        self._client = openai.OpenAI(api_key=api_key or config.get_api_key("openai"))
+
+    def _call(self, system: str, user: str, max_tokens: int | None) -> str:
+        import openai
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                max_tokens=max_tokens or config.MAX_TOKENS,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+            )
+        except openai.APIError as exc:
+            raise LLMError(f"OpenAI API call failed: {exc}") from exc
+        return response.choices[0].message.content or ""
+
+
+class AnthropicLLMClient(LLMClient):
+    """Inactive by default (engine/config.py PROVIDER). Kept in the
+    codebase rather than removed — set AURA_PROVIDER=anthropic to use it.
+    """
+
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        import anthropic  # imported lazily so the openai-only path never needs this installed
+
+        self.model = model or config.ANTHROPIC_MODEL
+        self._client = anthropic.Anthropic(api_key=api_key or config.get_api_key("anthropic"))
+
+    def _call(self, system: str, user: str, max_tokens: int | None) -> str:
+        import anthropic
+
+        try:
+            response = self._client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens or config.MAX_TOKENS,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+        except anthropic.APIError as exc:
+            raise LLMError(f"Anthropic API call failed: {exc}") from exc
+        return "".join(
+            block.text for block in response.content if block.type == "text"
+        )
+
+
+_PROVIDERS: dict[str, type[LLMClient]] = {
+    "openai": OpenAILLMClient,
+    "anthropic": AnthropicLLMClient,
+}
+
+
+def create_default_client() -> LLMClient:
+    """Builds the client for whichever provider is active
+    (config.PROVIDER / AURA_PROVIDER env var). Defaults to OpenAI.
+    """
+    provider = config.PROVIDER
+    cls = _PROVIDERS.get(provider)
+    if cls is None:
+        raise RuntimeError(
+            f"Unknown AURA_PROVIDER {provider!r}; expected one of {list(_PROVIDERS)}"
+        )
+    return cls()

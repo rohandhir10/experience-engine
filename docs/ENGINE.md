@@ -17,16 +17,38 @@ first if you haven't; this doc only covers running it.
 
 ## Setup
 
-```bash
-pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
-```
+The engine also supports two model providers, behind the same
+`client.complete_json(...)` interface everywhere else in the codebase —
+swapping providers never touches Song DNA generation, the Writers' Room,
+or the routing logic.
+
+- **OpenAI (active default):**
+  ```bash
+  pip install -r requirements.txt
+  export OPENAI_API_KEY=sk-...
+  ```
+- **Anthropic (kept in the codebase, inactive by default):**
+  ```bash
+  pip install -r requirements.txt
+  export ANTHROPIC_API_KEY=sk-ant-...
+  export AURA_PROVIDER=anthropic
+  ```
 
 Optional environment overrides (see `engine/config.py`):
 
-- `AURA_MODEL` — defaults to `claude-sonnet-5`.
+- `AURA_PROVIDER` — `openai` (default) or `anthropic`.
+- `AURA_OPENAI_MODEL` — defaults to `gpt-4o`.
+- `AURA_ANTHROPIC_MODEL` — defaults to `claude-sonnet-5` (only relevant
+  when `AURA_PROVIDER=anthropic`).
 - `AURA_MAX_TOKENS` — defaults to `4096` per call (Song DNA and Judge calls
   request more headroom internally).
+
+Never put an API key directly in a chat message, a committed file, or a
+command someone else can see — export it as an environment variable in
+whatever shell/session actually runs the engine. If a key is ever pasted
+somewhere it shouldn't be, treat it as compromised and rotate it
+immediately at the provider's dashboard, regardless of whether it was
+actually used.
 
 ## Run it on a song
 
