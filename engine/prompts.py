@@ -9,7 +9,15 @@ from __future__ import annotations
 
 import json
 
-from .models import Candidate, Critique, Rebuttal, RoomMemory, SongDNA, SongInput
+from .models import (
+    Candidate,
+    Critique,
+    Rebuttal,
+    RoomMemory,
+    RoutingSignals,
+    SongDNA,
+    SongInput,
+)
 
 # ---------------------------------------------------------------------------
 # Song DNA  (docs/SONG_DNA.md)
@@ -105,6 +113,21 @@ AGENT_BRIEFS: dict[str, str] = {
         "tempo? Produce a candidate optimized for singability, rhythm, and hook "
         "quality. Your known blind spot: you can flatten nuance for catchiness — "
         "don't let this candidate go generic."
+    ),
+    "creative_adapter": (
+        "You are the Creative Adapter — literary craft and songwriting craft "
+        "merged into one voice (docs/WRITERS_ROOM_V1.md §1.2). Your core "
+        "question: what is the single best way to say this line so it reads as "
+        "real literary language (image, metaphor, economy) AND survives being "
+        "sung once at tempo (scansion, hook, singability)? Produce one candidate "
+        "that satisfies both as well as you can. If the two genuinely pull "
+        "against each other and you can't fully satisfy both, say plainly which "
+        "one you favored and why, rather than settling for a candidate that's "
+        "mediocre at both without saying so. Your known blind spot: with no "
+        "second independent voice checking your work the way Poet and "
+        "Songwriter used to check each other, you can drift toward whichever "
+        "craft you personally favor without noticing — be honest in your "
+        "confidence score specifically when you're unsure you nailed both."
     ),
     "native_speaker": (
         "You are the Native Speaker. Your core question: would someone who "
@@ -342,5 +365,146 @@ def judge_prompt(
         f"Rebuttals:\n{rebuttals_text}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"
         "Render your ruling now."
+    )
+    return system, user
+
+
+# ---------------------------------------------------------------------------
+# V1 minimal room  (docs/WRITERS_ROOM_V1.md)
+# ---------------------------------------------------------------------------
+
+
+def generation_prompt_v1(
+    agent: str,
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+) -> tuple[str, str]:
+    system = (
+        AGENT_BRIEFS[agent]
+        + "\n\nRespond with ONLY a JSON object: {\"text\": str, \"leans_into\": "
+        'str, "confidence": float (0-1, how confident you are this candidate '
+        'captures the intended effect), "uncertainty_type": '
+        '"cultural"|"authenticity"|"emotional"|"none" (if confidence is below '
+        "0.7, name what kind of uncertainty is driving it; \"none\" if you're "
+        "confident)}."
+    )
+    user = (
+        f"Original ({section_name}):\n{source_text}\n\n"
+        f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
+        f"{room_memory.summary_for_prompt()}\n\n"
+        "Give your one candidate now."
+    )
+    return system, user
+
+
+_JUDGE_PRIORITY_ORDER = (
+    "(1) emotional truth and specificity, (2) narrative fit against the "
+    "song's arc (use the Song DNA's narrative_function for this section "
+    "directly — there is no Film Critic in this room), (3) cultural "
+    "integrity, (4) poetic/aesthetic craft, (5) singability/hook quality, "
+    "(6) literal proximity to the source — lowest priority, a tiebreaker only."
+)
+
+
+def judge_triage_prompt(
+    candidates: list[Candidate],
+    routing_signals: RoutingSignals,
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+) -> tuple[str, str]:
+    system = (
+        "You are the Judge, running the minimal V1 room. You have two "
+        "candidates — a Translator's literal anchor and a Creative Adapter's "
+        "re-expression. You alone decide whether this section can be ruled on "
+        "now, or whether one or more specialist consultants "
+        "(cultural_historian, native_speaker, psychologist) must weigh in "
+        "first. You are given free routing signals (computed from the Song "
+        "DNA and the candidates' own reported confidence) as input, not as a "
+        "command — decide for yourself, but do not ignore a fired signal "
+        "without a stated reason.\n\n"
+        "Specifically watch for CONFLICTING INTERPRETATIONS: if the "
+        "Translator's literal anchor and the Creative Adapter's candidate "
+        "imply meaningfully different readings of what the line is doing "
+        "emotionally, that alone is reason to consult a specialist (usually "
+        "native_speaker or psychologist) even if no precomputed signal fired "
+        "— this judgment is yours alone, nothing upstream can compute it for "
+        "you.\n\n"
+        "If you can rule now with real confidence, set ready_to_rule true and "
+        "fill in ruling using the priority order " + _JUDGE_PRIORITY_ORDER + " "
+        "Note that at this stage you do not yet have a Native Speaker "
+        "authenticity verdict or a confirmed factual-inversion check — if you "
+        "suspect either issue, that is itself a reason to consult "
+        "native_speaker before ruling, not a reason to guess.\n\n"
+        'Respond with ONLY a JSON object: {"ready_to_rule": bool, "ruling": '
+        '{"final_line": str, "sources_used": [{"agent": str, "contribution": '
+        'str}], "vetoes_applied": [str], "priority_tradeoffs_made": str, '
+        '"disagreements_overruled": [{"agents": str, "disagreement": str, '
+        '"ruling": str, "why": str}]} or null, "specialists_needed": '
+        '["cultural_historian"|"native_speaker"|"psychologist", ...], "why": '
+        'str}. If ready_to_rule is false, ruling must be null and '
+        "specialists_needed must be non-empty."
+    )
+    candidates_text = "\n".join(
+        f"[{c.id}] ({c.agent}, confidence={c.confidence:.2f}, "
+        f"uncertainty={c.uncertainty_type}): {c.text}"
+        for c in candidates
+    )
+    section = dna.section(section_name)
+    user = (
+        f"Original ({section_name}):\n{source_text}\n\n"
+        f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}; "
+        f"this section's narrative function: {section.narrative_function.function}\n\n"
+        f"Candidates:\n{candidates_text}\n\n"
+        "Routing signals (free, computed from Song DNA + candidate self-"
+        f"reports):\n{routing_signals.summary_for_prompt()}\n\n"
+        f"{room_memory.summary_for_prompt()}\n\n"
+        "Decide now."
+    )
+    return system, user
+
+
+def judge_final_prompt(
+    candidates: list[Candidate],
+    specialist_critiques: list[Critique],
+    routing_signals: RoutingSignals,
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+) -> tuple[str, str]:
+    system = (
+        "You are the Judge. You previously requested specialist input before "
+        "ruling on this section; that input is now available. Apply the two "
+        "hard vetoes first: if native_speaker flagged a candidate as failing "
+        "authenticity, or if an issue amounts to inverting the underlying "
+        "fact of the line (who did what to whom), that candidate is "
+        "disqualified regardless of other merits. Among what survives, use "
+        "the priority order " + _JUDGE_PRIORITY_ORDER + "\n\n"
+        'Respond with ONLY a JSON object: {"final_line": str, "sources_used": '
+        '[{"agent": str, "contribution": str}], "vetoes_applied": [str], '
+        '"priority_tradeoffs_made": str, "disagreements_overruled": '
+        '[{"agents": str, "disagreement": str, "ruling": str, "why": str}]}.'
+    )
+    candidates_text = "\n".join(f"[{c.id}] ({c.agent}): {c.text}" for c in candidates)
+    critiques_text = (
+        "\n".join(
+            f"[{c.agent} on {c.candidate_id}] verdict={c.verdict}: "
+            f"strength={c.strength} failure={c.failure}"
+            for c in specialist_critiques
+        )
+        or "No specialists were consulted."
+    )
+    user = (
+        f"Original ({section_name}):\n{source_text}\n\n"
+        f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}\n\n"
+        f"Candidates:\n{candidates_text}\n\n"
+        f"Specialist consultations:\n{critiques_text}\n\n"
+        f"Routing signals: {routing_signals.summary_for_prompt()}\n\n"
+        f"{room_memory.summary_for_prompt()}\n\n"
+        "Render your final ruling now."
     )
     return system, user

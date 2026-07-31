@@ -166,6 +166,10 @@ class SongDNA(BaseModel):
 GENERATIVE_AGENTS = ("translator", "poet", "songwriter")
 DIAGNOSTIC_AGENTS = ("native_speaker", "cultural_historian", "film_critic", "psychologist")
 
+# V1 minimal room (docs/WRITERS_ROOM_V1.md)
+V1_GENERATIVE_AGENTS = ("translator", "creative_adapter")
+SPECIALIST_AGENTS = ("cultural_historian", "native_speaker", "psychologist")
+
 
 class Candidate(BaseModel):
     id: str
@@ -173,6 +177,10 @@ class Candidate(BaseModel):
     text: str
     leans_into: str = ""  # which part of the emotional core this candidate emphasizes
     round: Literal["generation", "recombination"]
+    # V1 routing inputs (docs/WRITERS_ROOM_V1.md §3) — unused by the full room,
+    # default to "confident" so full-room Candidates need no changes.
+    confidence: float = 1.0
+    uncertainty_type: Literal["cultural", "authenticity", "emotional", "none"] = "none"
 
 
 class Critique(BaseModel):
@@ -198,6 +206,8 @@ class JudgeRuling(BaseModel):
     vetoes_applied: list[str] = Field(default_factory=list)
     priority_tradeoffs_made: str
     disagreements_overruled: list[dict[str, str]] = Field(default_factory=list)
+    # V1 only — which specialists (if any) the Judge actually invoked.
+    specialists_invoked: list[str] = Field(default_factory=list)
 
 
 class SectionResult(BaseModel):
@@ -206,6 +216,50 @@ class SectionResult(BaseModel):
     critiques: list[Critique]
     rebuttals: list[Rebuttal]
     candidates_round4: list[Candidate]
+    ruling: JudgeRuling
+
+
+class RoutingSignals(BaseModel):
+    """Free routing signals for the V1 room (docs/WRITERS_ROOM_V1.md §3) —
+    computed from Song DNA and candidate self-reports, at zero extra LLM cost.
+    Handed to the Judge as input to its triage decision, never as an
+    automatic trigger.
+    """
+
+    culturally_specific_symbol_count: int = 0
+    deliberate_ambiguity_present: bool = False
+    guarded_vulnerability_present: bool = False
+    low_confidence_agents: list[str] = Field(default_factory=list)
+    suggested_specialists: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+
+    def summary_for_prompt(self) -> str:
+        if not self.reasons:
+            return (
+                "No routing signals fired — Song DNA shows no flagged cultural/"
+                "ambiguity/vulnerability load for this section, and both "
+                "candidates reported adequate confidence."
+            )
+        lines = ["Signals that fired:"] + [f"- {r}" for r in self.reasons]
+        lines.append(
+            "Suggested specialists (not binding — you decide): "
+            + (", ".join(self.suggested_specialists) or "none")
+        )
+        return "\n".join(lines)
+
+
+class SectionResultV1(BaseModel):
+    """Result of running the V1 minimal room (docs/WRITERS_ROOM_V1.md) on
+    one section — no recombination round, no cross-critique transcript,
+    just the two candidates, whatever routing signals fired, whichever
+    specialists the Judge actually invoked, and the final ruling.
+    """
+
+    section: str
+    candidates: list[Candidate]
+    routing_signals: RoutingSignals
+    specialists_invoked: list[str] = Field(default_factory=list)
+    specialist_critiques: list[Critique] = Field(default_factory=list)
     ruling: JudgeRuling
 
 

@@ -28,12 +28,22 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Where to write the full JSON transcript. Defaults to <song_file>.result.json",
     )
+    parser.add_argument(
+        "--room",
+        choices=["v1", "full"],
+        default="v1",
+        help=(
+            "Which Writers' Room to run: 'v1' (default) is the minimal "
+            "3-agent room from docs/WRITERS_ROOM_V1.md; 'full' is the "
+            "original 7-agent room from docs/WRITERS_ROOM.md."
+        ),
+    )
     args = parser.parse_args(argv)
 
     song_data = json.loads(args.song_file.read_text())
     song = SongInput.model_validate(song_data)
 
-    result = run_engine(song)
+    result = run_engine(song, room_version=args.room)
 
     output_path = args.output or args.song_file.with_suffix(".result.json")
     output_path.write_text(json.dumps(result.to_dict(), indent=2))

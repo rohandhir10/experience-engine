@@ -1,7 +1,10 @@
-"""Verifies the engine's control flow — Song DNA, all five Writers' Room
-rounds, and room memory carrying forward between sections — without calling
-the real Anthropic API. A FakeLLMClient returns canned, schema-valid JSON
-keyed off distinctive phrases in each stage's system prompt.
+"""Verifies the FULL room's (docs/WRITERS_ROOM.md) control flow — Song DNA,
+all five rounds, and room memory carrying forward between sections —
+without calling the real Anthropic API. A FakeLLMClient returns canned,
+schema-valid JSON keyed off distinctive phrases in each stage's system
+prompt. See tests/test_writers_room_v1.py for the V1 minimal room (the
+default pipeline as of docs/WRITERS_ROOM_V1.md) — these tests pin
+room_version="full" explicitly since v1 is now the default.
 """
 from __future__ import annotations
 
@@ -154,7 +157,7 @@ def test_run_engine_single_section():
     )
     client = FakeLLMClient()
 
-    result = run_engine(song, client=client)
+    result = run_engine(song, client=client, room_version="full")
 
     assert result.dna.artistic_thesis == FAKE_SONG_DNA["artistic_thesis"]
     assert len(result.section_results) == 1
@@ -196,5 +199,5 @@ def test_room_memory_passed_to_second_section():
             return super().complete_json(system, user, max_tokens)
 
     client = MemoryCheckingFakeClient()
-    result = run_engine(song, client=client)
+    result = run_engine(song, client=client, room_version="full")
     assert len(result.section_results) == 2
