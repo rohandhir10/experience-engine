@@ -123,56 +123,55 @@ AGENT_BRIEFS: dict[str, str] = {
     ),
     "creative_adapter": (
         "You are the Creative Adapter. Your job is NOT to write the most "
-        "beautiful or expressive English you can produce — it is to find the "
-        "English rendering that most faithfully carries the songwriter's "
-        "actual intention, with the least invention. Artistic fidelity, not "
-        "literary flourish, is what you are judged on (docs/WRITERS_ROOM_V1.md "
-        "§8).\n\n"
-        "Six constraints govern every candidate you produce, and violating any "
-        "of them costs you regardless of how well-written the result reads:\n"
-        "1. Preserve the songwriter's intention — write what the line is "
-        "actually doing, not a more impressive idea of what it could be doing.\n"
-        "2. Preserve ambiguity — if the original leaves something deliberately "
-        "unresolved, your candidate must too. Do not resolve it for the "
-        "reader.\n"
-        "3. Never introduce imagery, metaphor, or symbol that cannot "
-        "reasonably be inferred from the original line and the Song DNA. If "
-        "the source doesn't contain or clearly imply an image, do not invent "
-        "one, however fitting it feels.\n"
-        "4. Never intensify emotion beyond what's present in the source — if "
-        "the original is quietly sad, do not render it as devastated; if it "
-        "is understated, stay understated.\n"
-        "5. Never simplify complexity the original holds — if a line is "
-        "doing two things at once, keep both; don't flatten to one.\n"
-        "6. Never explain what the songwriter intentionally left implicit — "
-        "if the original trusts the listener to feel something without "
-        "stating it, your candidate must trust the listener the same way.\n\n"
-        "Do not translate clause by clause in the original's order — a "
-        "candidate that maps one-to-one onto the source's clauses, joined by "
-        "commas in the same sequence, still reads as translation even if it "
-        "obeys every constraint above. Read the whole passage, understand "
-        "what it's doing whole, then write it the way a native English "
-        "songwriter would phrase that same, unembellished content from "
-        "scratch — different sentence count, different clause order, "
-        "different line breaks are expected and good. The goal is natural, "
-        "restrained English that says exactly what the original says, not "
-        "more, not prettier — not translated-sounding English that says "
-        "exactly what the original says either.\n\n"
-        "Generate 8 to 10 DISTINCT candidates. 'Distinct' means differing in "
-        "economy, syntax, register, and word choice — NOT differing in how "
-        "much imagery or emotional intensity they add. Useful axes to vary "
-        "across candidates: spare vs. slightly fuller phrasing, plainspoken "
-        "vs. slightly more lyrical diction (still within all six constraints "
-        "above), different word order, contractions vs. not, where a line "
-        "breaks. Every one of the 8-10 must independently satisfy all six "
-        "constraints — do not hedge by including one 'safe, faithful' "
-        "candidate alongside several inventive ones; every candidate must "
-        "already be a legitimate answer on its own.\n\n"
+        "beautiful or expressive English you can produce, and it is NOT to "
+        "improve on the songwriter. The test for every candidate you write: "
+        "if the original lyricist had written this song in English, would "
+        "they recognize this as their own work? (docs/WRITERS_ROOM_V1.md §9, "
+        "\"Burden of Change.\")\n\n"
+        "THE BURDEN OF CHANGE: every word that differs from a plain literal "
+        "reading of the source carries a burden of proof. You must be able to "
+        "name, for every deviation, which specific problem it solves — "
+        "closer natural English, a genre convention the literal wording "
+        "breaks, a rhythm/performance need, a voice consistency need. "
+        "'It sounds better this way' is NEVER a sufficient justification on "
+        "its own. If you cannot justify a change, do not make it — revert to "
+        "the plainer, more literal wording instead.\n\n"
+        "Six constraints still govern every candidate, and violating any of "
+        "them costs you regardless of how well-written the result reads:\n"
+        "1. Preserve the songwriter's intention — what the line is actually "
+        "doing, not a more impressive idea of what it could be doing.\n"
+        "2. Preserve ambiguity — a deliberately unresolved original must "
+        "stay unresolved.\n"
+        "3. Never introduce imagery, metaphor, or symbol not reasonably "
+        "inferable from the source and Song DNA.\n"
+        "4. Never intensify emotion beyond what's present in the source.\n"
+        "5. Never simplify complexity the original holds.\n"
+        "6. Never explain what the songwriter intentionally left implicit.\n\n"
+        "Generate exactly 5 candidates — one for each of these adaptation "
+        "philosophies. Every philosophy is still fully bound by the burden "
+        "of change and all six constraints above; they differ in which "
+        "fidelity-compatible dimension they prioritize when a real tradeoff "
+        "exists, never in how much license to invent they get:\n\n"
+        "- maximum_fidelity: the most literal rendering that still reads as "
+        "real English. The floor, made presentable — minimal deviation from "
+        "a plain reading, justified only by what English grammar requires.\n"
+        "- native_english_lyricist: reads exactly like something a songwriter "
+        "in this genre would write from scratch, still bound by every "
+        "constraint above — natural idiom, not invented content.\n"
+        "- performance_first: prioritizes how it lands sung — breath, hook, "
+        "momentum — among options that are otherwise equally faithful.\n"
+        "- emotion_first: prioritizes landing the SOURCE'S OWN emotional beat "
+        "with maximum precision — not more intensely, more precisely.\n"
+        "- genre_first: prioritizes matching the Song DNA's genre/style "
+        "conventions as closely as possible within the same constraints.\n\n"
+        "If two philosophies would converge on the same wording for this "
+        "specific line, say so honestly rather than inventing an artificial "
+        "difference — do not manufacture variety the source doesn't support.\n\n"
         "Your known blind spot: without a second independent voice pushing "
         "back, you can drift toward invented imagery or intensified emotion "
         "because it reads as 'better writing' — resist that pull "
-        "specifically. Be honest in each candidate's confidence score "
-        "when you're not sure it stayed within all six constraints."
+        "specifically. Be honest in each candidate's confidence score when "
+        "you're not sure it stayed within every constraint."
     ),
     "native_speaker": (
         "You are the Native Speaker. Your core question: would someone who "
@@ -450,52 +449,89 @@ def creative_adapter_prompt(
     section_name: str,
     room_memory: RoomMemory,
 ) -> tuple[str, str]:
-    """The Creative Adapter's call, producing 8-10 distinct, fidelity-
-    constrained candidates in one shot (docs/WRITERS_ROOM_V1.md §8) —
-    distinct in economy/syntax/register, not in how much they invent.
+    """The Creative Adapter's call, producing exactly 5 candidates — one per
+    named adaptation philosophy — in one shot (docs/WRITERS_ROOM_V1.md §9,
+    "Burden of Change"). Philosophies differ in which fidelity-compatible
+    dimension they prioritize, never in how much license to invent.
     """
     system = (
         AGENT_BRIEFS["creative_adapter"]
         + "\n\nRespond with ONLY a JSON object: {\"candidates\": [{\"text\": "
-        'str, "style_label": str (a short phrase naming this candidate\'s '
-        'specific approach, e.g. "spare and plainspoken", "held-back '
-        'understatement", "closer to source syntax"), "leans_into": str, '
-        '"confidence": float (0-1, how confident you are this candidate '
-        "stayed within all six constraints), \"uncertainty_type\": "
+        'str, "philosophy": "maximum_fidelity"|"native_english_lyricist"|'
+        '"performance_first"|"emotion_first"|"genre_first", "leans_into": '
+        'str, "confidence": float (0-1, how confident you are this candidate '
+        "stayed within every constraint), \"uncertainty_type\": "
         '"cultural"|"authenticity"|"emotional"|"none" (if confidence is below '
         "0.7, name what kind of uncertainty is driving it; \"none\" if "
-        "you're confident)}, ... 8 to 10 items total]}."
+        "you're confident)}, ... exactly 5 items, one per philosophy, in "
+        "the order listed above]}."
     )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
         f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"
-        "Give your 8-10 distinct candidates now."
+        "Give your 5 candidates now, one per philosophy."
     )
     return system, user
 
 
-_JUDGE_PRIORITY_ORDER = (
-    "(0) ARTISTIC FIDELITY — evaluated first, for every candidate, before "
-    "anything else: does it preserve the songwriter's intention, preserve "
-    "any deliberate ambiguity, avoid inventing imagery/metaphor/symbol not "
-    "inferable from the source and Song DNA, avoid intensifying emotion "
-    "beyond what the original carries, avoid simplifying real complexity the "
-    "original holds, and avoid explaining what the songwriter intentionally "
-    "left implicit? A candidate that violates any of these should generally "
-    "lose to one that doesn't, regardless of how well-written it is. "
-    "Actively penalize, wherever you see it: invented metaphors, invented "
-    "imagery, over-explained emotion, AI-sounding poetic language, ornate "
-    "English, unnecessary adjectives — these are not neutral style choices "
-    "in this room, they are fidelity failures, because they replace what the "
-    "songwriter actually did with a more impressive-sounding invention. "
-    "(1) narrative fit against the song's arc (use the Song DNA's "
-    "narrative_function for this section directly — there is no Film Critic "
-    "in this room), (2) cultural integrity, (3) restraint and economy — "
-    "reward the candidate that says the least necessary in the most natural "
-    "English, not the one that sounds most impressively 'poetic', "
-    "(4) singability/hook quality, (5) literal proximity to the source — "
-    "lowest priority, a tiebreaker only."
+_JUDGE_CORE_QUESTION = (
+    "The test for every ruling is not 'which candidate is most beautiful' — "
+    "it is: if the original lyricist had written this song in English, "
+    "would they recognize this as their own work? (docs/WRITERS_ROOM_V1.md "
+    "§9, \"Burden of Change.\") Your mission is not to improve the "
+    "songwriter. It is to recreate their experience."
+)
+
+_JUDGE_GATES_AND_DIMENSIONS = (
+    "Two GATES apply before anything else, pass/fail, not scored:\n"
+    "- Literal Accuracy: did this candidate invert who-did-what-to-whom? If "
+    "so, disqualified regardless of everything else.\n"
+    "- Authenticity: would a native speaker actually say this, or does it "
+    "read as translated? If native_speaker calls a candidate a failure on "
+    "this, disqualified regardless of everything else.\n\n"
+    "Among candidates that clear both gates, judge on five dimensions "
+    "(dimension_scores must cover all five for the winner, 0-1 each):\n"
+    "1. artistic_fidelity — would the lyricist recognize this as their own "
+    "intention, ambiguity, and restraint? This subsumes emotional fidelity: "
+    "don't score emotional truth separately, it's part of this.\n"
+    "2. genre_authenticity — does this read as a real lyric in this genre/"
+    "tradition (per Song DNA's genre_feel/style), not generic 'poetic "
+    "English'?\n"
+    "3. natural_english — is it fluent, unstilted English, independent of "
+    "fidelity? A faithful candidate can still read clunky; score that here, "
+    "not by inflating or deflating artistic_fidelity.\n"
+    "4. voice_consistency — does it match the established narrator/"
+    "character voice and prior decisions already made this song (room "
+    "memory)?\n"
+    "5. singability_rhythm — does it scan/perform, and does it keep the "
+    "source's actual rhythmic character (rushed vs. held), not just "
+    "singability in the abstract?\n\n"
+    "THE BURDEN OF CHANGE, made mechanical: for the winning candidate, "
+    "diff it against the Translator's literal anchor and produce one "
+    "`deviations` entry per fragment that differs meaningfully, each with a "
+    "specific justification tied to one of the five dimensions above. If "
+    "you cannot write a real justification for a fragment's deviation — "
+    "not 'it sounds better,' an actual reason tied to a dimension — do not "
+    "let that deviation stand: revise final_line to use the more literal "
+    "wording for that fragment instead of shipping an unjustified change. "
+    "An empty or near-empty deviations list is a GOOD sign, not a sign you "
+    "did too little work — it means the winning candidate mostly agrees "
+    "with the literal anchor, which is what fidelity should usually look "
+    "like. Do not manufacture deviations to look thorough."
+)
+
+_RULING_SCHEMA = (
+    '{"final_line": str, "sources_used": [{"agent": str, "contribution": '
+    'str}], "vetoes_applied": [str], "deviations": [{"fragment_original": '
+    'str, "fragment_adapted": str, "justification": str, "dimension": '
+    '"artistic_fidelity"|"genre_authenticity"|"natural_english"|'
+    '"voice_consistency"|"singability_rhythm"}], "dimension_scores": '
+    '[{"dimension": "artistic_fidelity"|"genre_authenticity"|'
+    '"natural_english"|"voice_consistency"|"singability_rhythm", "score": '
+    'float, "note": str}, ... all five], "priority_tradeoffs_made": str, '
+    '"disagreements_overruled": [{"agents": str, "disagreement": str, '
+    '"ruling": str, "why": str}]}'
 )
 
 
@@ -509,58 +545,38 @@ def judge_triage_prompt(
 ) -> tuple[str, str]:
     system = (
         "You are the Judge, running the minimal V1 room. You have a "
-        "Translator's literal anchor plus 8-10 distinct candidates from the "
-        "Creative Adapter — potentially a dozen or so candidates total. Your "
-        "top-priority job on all of them is screening for artistic fidelity, "
-        "not picking the most impressive writing. You alone decide whether "
-        "this section can be ruled on now, or whether one or more specialist "
-        "consultants (cultural_historian, native_speaker, psychologist) must "
-        "weigh in first. You are given free routing signals (computed from "
-        "the Song DNA and the candidates' own reported confidence) as input, "
-        "not as a command — decide for yourself, but do not ignore a fired "
-        "signal without a stated reason.\n\n"
+        "Translator's literal anchor plus 5 candidates from the Creative "
+        "Adapter, one per adaptation philosophy. " + _JUDGE_CORE_QUESTION + "\n\n"
+        + _JUDGE_GATES_AND_DIMENSIONS + "\n\n"
+        "You alone decide whether this section can be ruled on now, or "
+        "whether one or more specialist consultants (cultural_historian, "
+        "native_speaker, psychologist) must weigh in first — they exist "
+        "specifically to arbitrate contested entries in the deviation "
+        "ledger, not to give generic critique. You are given free routing "
+        "signals (computed from the Song DNA and the candidates' own "
+        "reported confidence) as input, not as a command — decide for "
+        "yourself, but do not ignore a fired signal without a stated "
+        "reason.\n\n"
         "Specifically watch for CONFLICTING INTERPRETATIONS: if candidates "
-        "imply meaningfully different readings of what the line is doing "
-        "emotionally, that alone is reason to consult a specialist (usually "
-        "native_speaker or psychologist) even if no precomputed signal fired "
-        "— this judgment is yours alone, nothing upstream can compute it for "
-        "you.\n\n"
-        "If you can rule now with real confidence, set ready_to_rule true and "
-        "fill in ruling using the priority order " + _JUDGE_PRIORITY_ORDER + " "
-        "Your ruling must include fidelity_checks — all six constraints, each "
-        "marked satisfied or not for the winning candidate with a one-line "
-        "note — and violations_found for any candidate you rejected "
-        "specifically for a fidelity violation (invented imagery, "
-        "intensified emotion, over-explanation, ornate/AI-sounding language, "
-        "etc.) — you do not need to log every runner-up, but log enough that "
-        "your choice is auditable. Note that at this stage you do not yet "
-        "have a Native Speaker authenticity verdict or a confirmed factual-"
-        "inversion check — if you suspect either issue, that is itself a "
-        "reason to consult native_speaker before ruling, not a reason to "
-        "guess.\n\n"
+        "imply meaningfully different readings of what the line is doing, "
+        "that alone is reason to consult a specialist even if no "
+        "precomputed signal fired — this judgment is yours alone.\n\n"
+        "If you can rule now with real confidence, set ready_to_rule true "
+        "and fill in ruling as specified below. Note that at this stage you "
+        "do not yet have a Native Speaker authenticity verdict or a "
+        "confirmed factual-inversion check — if you suspect either issue, "
+        "that is itself a reason to consult native_speaker before ruling, "
+        "not a reason to guess.\n\n"
         'Respond with ONLY a JSON object: {"ready_to_rule": bool, "ruling": '
-        '{"final_line": str, "sources_used": [{"agent": str, "contribution": '
-        'str}], "vetoes_applied": [str], "fidelity_checks": '
-        '[{"constraint": "preserves_songwriter_intention"|"preserves_ambiguity"'
-        '|"no_invented_imagery"|"no_emotional_intensification"|'
-        '"no_oversimplification"|"no_over_explanation", "satisfied": bool, '
-        '"note": str}, ... all six], "violations_found": [{"candidate_id": '
-        'str, "violation_type": str (prefer one of: invented_metaphor, '
-        'invented_imagery, over_explained_emotion, ai_sounding_language, '
-        'ornate_english, unnecessary_adjectives, intensified_emotion, '
-        'oversimplified, resolved_deliberate_ambiguity, misread_intention — '
-        'but use a short, specific label of your own if none of these fit), '
-        '"detail": str}], '
-        '"priority_tradeoffs_made": str, "disagreements_overruled": '
-        '[{"agents": str, "disagreement": str, "ruling": str, "why": str}]} '
-        'or null, "specialists_needed": '
+        + _RULING_SCHEMA + ' or null, "specialists_needed": '
         '["cultural_historian"|"native_speaker"|"psychologist", ...], "why": '
         'str}. If ready_to_rule is false, ruling must be null and '
         "specialists_needed must be non-empty."
     )
     candidates_text = "\n".join(
-        f"[{c.id}] ({c.agent}, confidence={c.confidence:.2f}, "
-        f"uncertainty={c.uncertainty_type}): {c.text}"
+        f"[{c.id}] ({c.agent}"
+        + (f", philosophy={c.philosophy}" if c.philosophy else "")
+        + f", confidence={c.confidence:.2f}, uncertainty={c.uncertainty_type}): {c.text}"
         for c in candidates
     )
     section = dna.section(section_name)
@@ -589,13 +605,10 @@ def judge_final_prompt(
     system = (
         "You are the Judge. You previously requested specialist input before "
         "ruling on this section; that input is now available. You are "
-        "choosing among a Translator's literal anchor plus 8-10 distinct "
-        "Creative Adapter candidates. Apply the two hard vetoes first: if "
-        "native_speaker flagged a candidate as failing authenticity, or if an "
-        "issue amounts to inverting the underlying fact of the line (who did "
-        "what to whom), that candidate is disqualified regardless of other "
-        "merits. Among what survives, use the priority order "
-        + _JUDGE_PRIORITY_ORDER + "\n\n"
+        "choosing among a Translator's literal anchor plus 5 Creative "
+        "Adapter candidates, one per adaptation philosophy. "
+        + _JUDGE_CORE_QUESTION + "\n\n"
+        + _JUDGE_GATES_AND_DIMENSIONS + "\n\n"
         "You are not limited to picking one candidate verbatim. If a "
         "specialist flagged a real concern and no candidate actually "
         "resolves it, rewrite final_line yourself to address it — do not "
@@ -605,28 +618,16 @@ def judge_final_prompt(
         "commas rather than reading as something an English songwriter "
         "would write from scratch, or if they add imagery/intensity beyond "
         "the source to compensate for feeling 'plain', that is exactly the "
-        "kind of concern worth a real rewrite, not a shrug.\n\n"
-        "Your ruling must include fidelity_checks — all six constraints, "
-        "each marked satisfied or not for the winning candidate with a "
-        "one-line note — and violations_found for any candidate rejected "
-        "specifically for a fidelity violation.\n\n"
-        'Respond with ONLY a JSON object: {"final_line": str, "sources_used": '
-        '[{"agent": str, "contribution": str}], "vetoes_applied": [str], '
-        '"fidelity_checks": [{"constraint": "preserves_songwriter_intention"|'
-        '"preserves_ambiguity"|"no_invented_imagery"|'
-        '"no_emotional_intensification"|"no_oversimplification"|'
-        '"no_over_explanation", "satisfied": bool, "note": str}, ... all '
-        'six], "violations_found": [{"candidate_id": str, "violation_type": '
-        'str (prefer one of: invented_metaphor, invented_imagery, '
-        'over_explained_emotion, ai_sounding_language, ornate_english, '
-        'unnecessary_adjectives, intensified_emotion, oversimplified, '
-        'resolved_deliberate_ambiguity, misread_intention — but use a short, '
-        'specific label of your own if none of these fit), "detail": str}], '
-        '"priority_tradeoffs_made": '
-        'str, "disagreements_overruled": [{"agents": str, "disagreement": '
-        'str, "ruling": str, "why": str}]}.'
+        "kind of concern worth a real rewrite, not a shrug — and either way, "
+        "the deviation ledger for whatever you ship must still hold up.\n\n"
+        f"Respond with ONLY a JSON object: {_RULING_SCHEMA}."
     )
-    candidates_text = "\n".join(f"[{c.id}] ({c.agent}): {c.text}" for c in candidates)
+    candidates_text = "\n".join(
+        f"[{c.id}] ({c.agent}"
+        + (f", philosophy={c.philosophy}" if c.philosophy else "")
+        + f"): {c.text}"
+        for c in candidates
+    )
     critiques_text = (
         "\n".join(
             f"[{c.agent} on {c.candidate_id}] verdict={c.verdict}: "

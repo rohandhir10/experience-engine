@@ -92,17 +92,27 @@ later sections stay consistent with earlier ones (`WRITERS_ROOM.md` §8,
 the transcript.
 
 **V1 (`room_version: "v1"`)**, per section: `candidates` (1 Translator
-literal anchor + 8-10 Creative Adapter candidates, each with a
-`style_label` and self-reported `confidence`/`uncertainty_type` —
-`WRITERS_ROOM_V1.md` §8.1), `routing_signals` (what fired and why —
+literal anchor + 5 Creative Adapter candidates, one per adaptation
+philosophy — `maximum_fidelity`, `native_english_lyricist`,
+`performance_first`, `emotion_first`, `genre_first` — each with a
+`philosophy` field and self-reported `confidence`/`uncertainty_type` —
+`WRITERS_ROOM_V1.md` §9.3), `routing_signals` (what fired and why —
 cultural density, ambiguity, guarded vulnerability, low confidence, and
 the specialists those signals suggested), `specialists_invoked` (which the
 Judge actually called, 0-3), `specialist_critiques` (their critiques, if
 any were called), and `ruling` — the Judge's `final_line` plus its full
-rationale, now including `fidelity_checks` (all six artistic-fidelity
-constraints, each marked satisfied or not for the winner) and
-`violations_found` (specific penalties applied to specific rejected
-candidates — `WRITERS_ROOM_V1.md` §8.2).
+rationale, now including `deviations` (the Burden-of-Change ledger: every
+fragment that differs from the Translator's literal anchor, with a
+justification tied to one of the five scored dimensions — empty is the
+healthy default) and `dimension_scores` (Artistic Fidelity, Genre
+Authenticity, Natural English, Voice Consistency, Singability & Rhythm —
+`WRITERS_ROOM_V1.md` §9.1-9.2).
+
+A `SectionInput` may also set `repeats` to an earlier section's name (a
+chorus recurring verbatim later in the song) — that section's ruling and
+Song DNA profile are reused directly at zero extra LLM cost instead of
+re-running the room on identical text (see `examples/sadda_haq.json` for a
+full song reconstructed this way).
 
 **Full (`room_version: "full"`)**, per section: `candidates_round1` (one
 each from Translator/Poet/Songwriter), `critiques` (all four diagnostic

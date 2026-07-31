@@ -328,4 +328,149 @@ distinction is a genuinely harder judgment call than the old, simpler
 false-positive over-correction (flattening a line that was actually
 supposed to be vivid) as this gets tested against more real songs.
 
+---
+
+## 9. Redesign: The Burden of Change
+
+**Cause.** A benchmark against two existing Bollywood/Punjabi lyric
+translation sites (Bollynook, FilmyQuotes) identified a second-order
+failure mode §8's redesign didn't fully close: the Judge still sometimes
+rewarded a candidate for beautiful, expressive English even when that
+expressiveness came from invented emphasis, shifted imagery, or a subtly
+altered intention. §8 penalized specific bad behaviors (invented imagery,
+over-explanation) as one dimension among several. It did not require every
+individual deviation from the source to justify itself. A candidate could
+rack up several small, each-individually-defensible-sounding embellishments
+and still win, because nothing forced a fragment-by-fragment accounting of
+what changed and why.
+
+**The reframe.** The Judge's core test is no longer "which candidate is
+most beautiful" or even "which best satisfies artistic fidelity" as a
+holistic vibe check. It is:
+
+> **If the original lyricist had written this song in English, would they
+> recognize this as their own work?**
+
+The mission is not to improve the songwriter. It is to recreate their
+experience. Every word that differs from the original carries a burden of
+proof — the engine must be able to name why a specific change was
+necessary, or it must not make that change.
+
+### 9.1 The deviation ledger, replacing the old holistic checklist
+
+§8's `fidelity_checks` (a six-item satisfied/not-satisfied checklist) and
+`violations_found` (a list of penalties on losing candidates) are **both
+removed**, merged into one stricter mechanism: for the winning candidate,
+the Judge diffs it against the Translator's literal anchor and produces a
+`Deviation` entry for every fragment that differs meaningfully — the
+original wording, the adapted wording, and a specific justification tied
+to one of five scored dimensions (§9.2). **If a fragment's deviation has no
+real justification, it does not ship — the Judge reverts it to the more
+literal wording before finalizing `final_line`.** This is the actual
+mechanical difference between a "burden of proof" and a score: a score
+can be outvoted by other scores; a burden of proof is either met or the
+change doesn't happen. An empty or near-empty deviation list is the
+*expected*, healthy result for a well-behaved candidate, not a sign the
+Judge did too little work.
+
+### 9.2 The scoring dimensions, and why the originally-proposed list was cut down
+
+Two **gates** (pass/fail, unchanged from §7.2/§8): Literal Accuracy (no
+factual inversion) and Authenticity (the Native Speaker veto).
+
+Five **scored dimensions**, replacing the old six-constraint checklist and
+the original priority order in full:
+
+1. **Artistic Fidelity** — would the lyricist recognize this as their own
+   intention, ambiguity, and restraint? This deliberately absorbs what
+   would otherwise be separate "emotional fidelity," "meaning
+   preservation," "preservation of ambiguity," and "preservation of
+   restraint" dimensions — scoring those separately double-counts the same
+   underlying signal and makes the rubric harder to weight honestly.
+2. **Genre Authenticity** — does this read as a real lyric in the source's
+   genre/tradition (Song DNA's `genre_feel`/`style`), not generic "poetic
+   English"?
+3. **Natural English** — fluent, unstilted English, independent of
+   fidelity. A faithful candidate can still read clunky; this is scored
+   separately so that failure mode is visible on its own.
+4. **Voice Consistency** — coherent with the established narrator/
+   character voice and prior decisions already made this song (room
+   memory).
+5. **Singability & Rhythm** — merged, not separate: for a sung lyric,
+   "does it scan" and "does it perform" are practically one judgment, and
+   splitting them into two numbers just produces two scores that move
+   together.
+
+`Rhythm` as an independent top-level dimension and `Preservation of
+Ambiguity`/`Preservation of Restraint` as independent top-level dimensions
+were both proposed and both cut for the reasons above — they remain real
+considerations, just folded into Artistic Fidelity and Singability &
+Rhythm respectively rather than scored a second time.
+
+### 9.3 Creative Adapter: five philosophies, not eight-to-ten styles
+
+§8's 8-10 anonymous style variants are replaced by **exactly five named
+adaptation philosophies**, one candidate each:
+
+- **maximum_fidelity** — the most literal rendering that still reads as
+  real English. The floor, made presentable.
+- **native_english_lyricist** — reads exactly like a songwriter in this
+  genre would write from scratch, bound by the same constraints.
+- **performance_first** — prioritizes breath, hook, and momentum among
+  otherwise equally faithful options.
+- **emotion_first** — prioritizes landing the *source's own* emotional
+  beat with maximum precision — not more intensely, more precisely.
+- **genre_first** — prioritizes matching Song DNA's genre/style
+  conventions as closely as possible.
+
+Every philosophy remains fully bound by the burden of change and the six
+non-invention constraints from §8 — they differ in which fidelity-
+compatible dimension they prioritize when a real tradeoff exists, never in
+how much license to invent they get. If two philosophies would converge on
+identical wording for a given line, the Creative Adapter is instructed to
+say so honestly rather than manufacture artificial variety.
+
+### 9.4 What changes for the specialists
+
+Cultural Historian, Native Speaker, and Psychologist are not removed, but
+their job sharpens: under §8 they gave generic critique per candidate;
+under this redesign they exist specifically to **arbitrate contested
+entries in the deviation ledger** — is this specific deviation justified,
+or is it an invention wearing a justification's clothes. This is a
+narrower, more falsifiable question than "critique this candidate," and it
+is what the routing signals (§3) and the Judge's triage decision should be
+consulting them about going forward.
+
+### 9.5 Evaluation: a blind, five-way benchmark
+
+This redesign is only as good as its evidence. The benchmark to run:
+
+**Corpus.** Songs with existing entries on both Bollynook and FilmyQuotes,
+so there's a real, not constructed, comparison point — Agar Tum Saath Ho
+and Sadda Haq both qualify; a real benchmark needs 10-15 songs across
+emotional registers before the result generalizes.
+
+**Systems, blind, per song:** (1) Google Translate — the raw MT floor;
+(2) Bollynook; (3) FilmyQuotes; (4) single-prompt GPT/Claude — "translate
+preserving emotional impact," one shot, no room — the ablation
+`FEASIBILITY_EXPERIMENT.md` §5.4 always intended to run once V1 existed;
+(5) AURA (V1, burden-of-change Judge); (6) *optional* — a human literary
+adaptation, sourced separately, evaluated diagnostically rather than as a
+pass/fail bar.
+
+**Method.** Bilingual reviewers see the original plus all candidates,
+unlabeled, order randomized. With five systems instead of two, reviewers
+**rank** rather than pick a binary winner (ranking yields usable pairwise
+data via Bradley-Terry aggregation; a forced single choice across five
+options discards information). Reviewers also score each candidate on the
+five dimensions in §9.2, not just an overall preference — this is what
+turns the result into "AURA wins on X, loses on Y" instead of a single
+undifferentiated win/loss.
+
+**Success criterion.** AURA's average rank on **Artistic Fidelity
+specifically** must beat Google Translate, Bollynook, FilmyQuotes, and
+single-prompt GPT/Claude, replicated on held-out songs never used to tune
+a prompt. Comparison against a human literary adaptation is diagnostic
+only — a different, harder bar, not a gate this stage needs to clear.
+
 *End of document.*

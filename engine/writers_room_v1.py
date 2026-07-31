@@ -1,14 +1,14 @@
 """Runs the V1 minimal Writers' Room (docs/WRITERS_ROOM_V1.md) for one
 section: Translator produces one literal-anchor candidate, Creative Adapter
-produces 8-10 fidelity-constrained, stylistically distinct candidates
-(§8), the Judge triages using free routing signals plus its own artistic-
-fidelity read of all of them, and only the specialists the Judge actually
-asks for are invoked before a final ruling.
+produces exactly 5 candidates - one per adaptation philosophy (§9, "Burden
+of Change") - the Judge triages using free routing signals plus its own
+burden-of-change read of all of them, and only the specialists the Judge
+actually asks for are invoked before a final ruling.
 
 Best case: 3 LLM calls (2 generate + 1 judge-rules-immediately).
 Worst case: ~6-7 calls (2 generate + 1 judge-triage + up to 3 specialists +
 1 judge-final) — the call count doesn't change with candidate count, since
-Creative Adapter still returns all 8-10 candidates from a single call.
+Creative Adapter still returns all 5 candidates from a single call.
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def _generate(
                 leans_into=item.get("leans_into", ""),
                 confidence=float(item.get("confidence", 1.0)),
                 uncertainty_type=item.get("uncertainty_type", "none"),
-                style_label=item.get("style_label", ""),
+                philosophy=item.get("philosophy", ""),
                 round="generation",
             )
         )
@@ -111,7 +111,7 @@ def run_section(
     system, user = prompts.judge_triage_prompt(
         candidates, routing_signals, source_text, dna, section_name, room_memory
     )
-    triage_data = client.complete_json(system, user, max_tokens=2000)
+    triage_data = client.complete_json(system, user, max_tokens=3000)
 
     specialists_invoked: list[str] = []
     specialist_critiques: list[Critique] = []
@@ -137,7 +137,7 @@ def run_section(
             section_name,
             room_memory,
         )
-        final_data = client.complete_json(system, user, max_tokens=2000)
+        final_data = client.complete_json(system, user, max_tokens=3000)
         ruling = JudgeRuling(section=section_name, **final_data)
 
     ruling.specialists_invoked = specialists_invoked

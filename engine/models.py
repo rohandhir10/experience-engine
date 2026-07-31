@@ -18,6 +18,13 @@ from pydantic import BaseModel, Field
 class SectionInput(BaseModel):
     name: str
     source_text: str
+    # If set, this section is an exact (or near-exact) repeat of an earlier
+    # section's text — e.g. a chorus that recurs verbatim later in the song.
+    # The engine reuses that earlier section's final ruling directly instead
+    # of re-running the whole room, at zero extra LLM cost, so a song's full
+    # repeated structure can be represented without wasting calls re-judging
+    # identical text.
+    repeats: str | None = None
 
 
 class SongInput(BaseModel):
@@ -170,6 +177,19 @@ DIAGNOSTIC_AGENTS = ("native_speaker", "cultural_historian", "film_critic", "psy
 V1_GENERATIVE_AGENTS = ("translator", "creative_adapter")
 SPECIALIST_AGENTS = ("cultural_historian", "native_speaker", "psychologist")
 
+# The five adaptation philosophies the Creative Adapter produces one
+# candidate for (docs/WRITERS_ROOM_V1.md §9, "Burden of Change" redesign).
+# Every philosophy is still bound by the deviation ledger — they differ in
+# which fidelity-compatible dimension they prioritize, never in how much
+# license to invent they get.
+ADAPTATION_PHILOSOPHIES = (
+    "maximum_fidelity",
+    "native_english_lyricist",
+    "performance_first",
+    "emotion_first",
+    "genre_first",
+)
+
 
 class Candidate(BaseModel):
     id: str
@@ -181,11 +201,9 @@ class Candidate(BaseModel):
     # default to "confident" so full-room Candidates need no changes.
     confidence: float = 1.0
     uncertainty_type: Literal["cultural", "authenticity", "emotional", "none"] = "none"
-    # V1 Creative Adapter now produces several stylistically distinct
-    # candidates per section (docs/WRITERS_ROOM_V1.md §8) — this names the
-    # specific approach a given candidate represents, so the Judge and any
-    # human reviewer can tell them apart at a glance.
-    style_label: str = ""
+    # Which of the five adaptation philosophies this candidate embodies
+    # (creative_adapter only; empty for the Translator's literal anchor).
+    philosophy: str = ""
 
 
 class Critique(BaseModel):
@@ -204,39 +222,46 @@ class Rebuttal(BaseModel):
     text: str
 
 
-class FidelityCheck(BaseModel):
-    """One of the six artistic-fidelity constraints (docs/WRITERS_ROOM_V1.md
-    §8), checked against the winning candidate.
+class Deviation(BaseModel):
+    """One fragment of the winning candidate that differs from the
+    Translator's literal anchor, and the burden-of-proof justification for
+    letting it stand (docs/WRITERS_ROOM_V1.md §9, "Burden of Change").
+
+    An unjustified deviation is not supposed to exist in a final ruling —
+    the Judge is instructed to revert any fragment it cannot justify back
+    to the literal wording before shipping final_line. This list is the
+    audit trail proving that discipline was actually followed, fragment by
+    fragment, rather than a holistic "this all seems fine" judgment.
     """
 
-    constraint: Literal[
-        "preserves_songwriter_intention",
-        "preserves_ambiguity",
-        "no_invented_imagery",
-        "no_emotional_intensification",
-        "no_oversimplification",
-        "no_over_explanation",
+    fragment_original: str  # the Translator's literal wording for this fragment
+    fragment_adapted: str  # what final_line actually says instead
+    justification: str
+    dimension: Literal[
+        "artistic_fidelity",
+        "genre_authenticity",
+        "natural_english",
+        "voice_consistency",
+        "singability_rhythm",
     ]
-    satisfied: bool
-    note: str
 
 
-class FidelityViolation(BaseModel):
-    """A specific penalty applied to a specific (usually losing) candidate.
-
-    violation_type is deliberately a free string, not a closed enum: the
-    Judge is prompted with a canonical set of categories (invented_metaphor,
-    invented_imagery, over_explained_emotion, ai_sounding_language,
-    ornate_english, unnecessary_adjectives, intensified_emotion,
-    oversimplified, resolved_deliberate_ambiguity, misread_intention) and
-    will use those in most cases, but real violations don't always fit a
-    fixed list — a closed enum here means any label the model reasonably
-    invents crashes the whole run instead of just being an unusual value.
+class DimensionScore(BaseModel):
+    """One of the five scored dimensions (docs/WRITERS_ROOM_V1.md §9),
+    applied to the winning candidate. Literal Accuracy and Authenticity are
+    gates (vetoes), not scored here — everything in this list is a real,
+    comparative judgment among candidates that already cleared the gates.
     """
 
-    candidate_id: str
-    violation_type: str
-    detail: str
+    dimension: Literal[
+        "artistic_fidelity",
+        "genre_authenticity",
+        "natural_english",
+        "voice_consistency",
+        "singability_rhythm",
+    ]
+    score: float  # 0-1
+    note: str
 
 
 class JudgeRuling(BaseModel):
@@ -248,11 +273,12 @@ class JudgeRuling(BaseModel):
     disagreements_overruled: list[dict[str, str]] = Field(default_factory=list)
     # V1 only — which specialists (if any) the Judge actually invoked.
     specialists_invoked: list[str] = Field(default_factory=list)
-    # V1 artistic-fidelity evaluation (docs/WRITERS_ROOM_V1.md §8) — the
-    # winning candidate checked against all six constraints, plus which
-    # candidates were penalized and why.
-    fidelity_checks: list[FidelityCheck] = Field(default_factory=list)
-    violations_found: list[FidelityViolation] = Field(default_factory=list)
+    # Burden-of-Change ledger (docs/WRITERS_ROOM_V1.md §9) — replaces the
+    # old holistic fidelity_checks/violations_found with a per-fragment
+    # audit: every deviation from the literal anchor, and why it earned
+    # its existence.
+    deviations: list[Deviation] = Field(default_factory=list)
+    dimension_scores: list[DimensionScore] = Field(default_factory=list)
 
 
 class SectionResult(BaseModel):

@@ -87,6 +87,56 @@ READY_LINE = "I keep the drawer locked, just like you kept your hurt."
 SPECIALIST_LINE = "I keep the drawer locked — not grief, just a habit I won't break."
 
 
+FIVE_PHILOSOPHY_CANDIDATES = [
+    {
+        "text": READY_LINE,
+        "philosophy": "maximum_fidelity",
+        "leans_into": "guarded attachment",
+        "confidence": 0.9,
+        "uncertainty_type": "none",
+    },
+    {
+        "text": "I keep it locked, the way you'd write a songwriter's line.",
+        "philosophy": "native_english_lyricist",
+        "leans_into": "guarded attachment",
+        "confidence": 0.85,
+        "uncertainty_type": "none",
+    },
+    {
+        "text": "The drawer stays locked. It always has.",
+        "philosophy": "performance_first",
+        "leans_into": "guarded attachment",
+        "confidence": 0.85,
+        "uncertainty_type": "none",
+    },
+    {
+        "text": "Locked, still — the way you kept it.",
+        "philosophy": "emotion_first",
+        "leans_into": "guarded attachment",
+        "confidence": 0.8,
+        "uncertainty_type": "none",
+    },
+    {
+        "text": "I keep the drawer locked, plain and simple.",
+        "philosophy": "genre_first",
+        "leans_into": "guarded attachment",
+        "confidence": 0.8,
+        "uncertainty_type": "none",
+    },
+]
+
+DIMENSION_SCORES = [
+    {"dimension": d, "score": 0.9, "note": "test"}
+    for d in (
+        "artistic_fidelity",
+        "genre_authenticity",
+        "natural_english",
+        "voice_consistency",
+        "singability_rhythm",
+    )
+]
+
+
 class FakeClientRulesImmediately:
     """Judge always says ready_to_rule on its first (triage) call."""
 
@@ -98,31 +148,7 @@ class FakeClientRulesImmediately:
         if "You are a songwriting analyst" in system:
             return FAKE_SONG_DNA
         if "You are the Creative Adapter" in system:
-            return {
-                "candidates": [
-                    {
-                        "text": READY_LINE,
-                        "style_label": "spare and plainspoken",
-                        "leans_into": "guarded attachment",
-                        "confidence": 0.9,
-                        "uncertainty_type": "none",
-                    },
-                    {
-                        "text": "The drawer stays locked. It always has.",
-                        "style_label": "held-back understatement",
-                        "leans_into": "guarded attachment",
-                        "confidence": 0.85,
-                        "uncertainty_type": "none",
-                    },
-                    {
-                        "text": "Locked, still — the way you kept it.",
-                        "style_label": "closer to source syntax",
-                        "leans_into": "guarded attachment",
-                        "confidence": 0.8,
-                        "uncertainty_type": "none",
-                    },
-                ]
-            }
+            return {"candidates": FIVE_PHILOSOPHY_CANDIDATES}
         if "uncertainty_type" in system:
             return {
                 "text": READY_LINE,
@@ -137,23 +163,13 @@ class FakeClientRulesImmediately:
                     "final_line": READY_LINE,
                     "sources_used": [{"agent": "creative_adapter", "contribution": "phrasing"}],
                     "vetoes_applied": [],
-                    "fidelity_checks": [
-                        {"constraint": c, "satisfied": True, "note": "test"}
-                        for c in (
-                            "preserves_songwriter_intention",
-                            "preserves_ambiguity",
-                            "no_invented_imagery",
-                            "no_emotional_intensification",
-                            "no_oversimplification",
-                            "no_over_explanation",
-                        )
-                    ],
-                    "violations_found": [],
-                    "priority_tradeoffs_made": "chose the Creative Adapter's version outright",
+                    "deviations": [],
+                    "dimension_scores": DIMENSION_SCORES,
+                    "priority_tradeoffs_made": "chose the maximum_fidelity candidate outright",
                     "disagreements_overruled": [],
                 },
                 "specialists_needed": [],
-                "why": "no signals fired, no fidelity violations found",
+                "why": "no signals fired, no unjustified deviations found",
             }
         raise AssertionError(f"Unexpected prompt: {system[:80]!r}")
 
@@ -168,12 +184,12 @@ def test_v1_rules_immediately_with_three_calls():
     result = run_engine(song, client=client, room_version="v1")
 
     section_result = result.section_results[0]
-    # 1 translator + 3 creative_adapter candidates.
-    assert len(section_result.candidates) == 4
+    # 1 translator + 5 creative_adapter candidates (one per philosophy).
+    assert len(section_result.candidates) == 6
     assert section_result.specialists_invoked == []
     assert section_result.ruling.final_line == READY_LINE
-    assert len(section_result.ruling.fidelity_checks) == 6
-    assert all(c.satisfied for c in section_result.ruling.fidelity_checks)
+    assert len(section_result.ruling.dimension_scores) == 5
+    assert section_result.ruling.deviations == []
     # 1 song-dna call + 1 translator call + 1 creative_adapter call +
     # 1 judge-triage call = 4 total, regardless of candidate count.
     assert len(client.calls) == 4
@@ -192,20 +208,8 @@ class FakeClientNeedsSpecialist:
         if "You are the Creative Adapter" in system:
             return {
                 "candidates": [
-                    {
-                        "text": READY_LINE,
-                        "style_label": "spare and plainspoken",
-                        "leans_into": "guarded attachment",
-                        "confidence": 0.5,
-                        "uncertainty_type": "emotional",
-                    },
-                    {
-                        "text": "The drawer stays locked. It always has.",
-                        "style_label": "held-back understatement",
-                        "leans_into": "guarded attachment",
-                        "confidence": 0.55,
-                        "uncertainty_type": "emotional",
-                    },
+                    {**c, "confidence": 0.5, "uncertainty_type": "emotional"}
+                    for c in FIVE_PHILOSOPHY_CANDIDATES
                 ]
             }
         if "uncertainty_type" in system:
@@ -236,24 +240,15 @@ class FakeClientNeedsSpecialist:
                 "final_line": SPECIALIST_LINE,
                 "sources_used": [{"agent": "psychologist", "contribution": "guardedness note"}],
                 "vetoes_applied": [],
-                "fidelity_checks": [
-                    {"constraint": c, "satisfied": True, "note": "test"}
-                    for c in (
-                        "preserves_songwriter_intention",
-                        "preserves_ambiguity",
-                        "no_invented_imagery",
-                        "no_emotional_intensification",
-                        "no_oversimplification",
-                        "no_over_explanation",
-                    )
-                ],
-                "violations_found": [
+                "deviations": [
                     {
-                        "candidate_id": "placeholder",
-                        "violation_type": "over_explained_emotion",
-                        "detail": "test rejection reason",
+                        "fragment_original": "just like you kept your hurt",
+                        "fragment_adapted": "just a habit I won't break",
+                        "justification": "psychologist's read: the guardedness is a defense, not plain grief",
+                        "dimension": "artistic_fidelity",
                     }
                 ],
+                "dimension_scores": DIMENSION_SCORES,
                 "priority_tradeoffs_made": "favored the psychologist's read of defensive downplaying",
                 "disagreements_overruled": [],
             }
@@ -271,13 +266,14 @@ def test_v1_invokes_specialist_when_judge_requests_it():
 
     section_result = result.section_results[0]
     assert section_result.specialists_invoked == ["psychologist"]
-    # 1 translator + 2 creative_adapter candidates = 3, one critique each.
-    assert len(section_result.candidates) == 3
-    assert len(section_result.specialist_critiques) == 3
+    # 1 translator + 5 creative_adapter candidates = 6, one critique each.
+    assert len(section_result.candidates) == 6
+    assert len(section_result.specialist_critiques) == 6
     assert section_result.ruling.final_line == SPECIALIST_LINE
     assert section_result.ruling.specialists_invoked == ["psychologist"]
-    assert len(section_result.ruling.violations_found) == 1
-    assert section_result.ruling.violations_found[0].violation_type == "over_explained_emotion"
+    assert len(section_result.ruling.deviations) == 1
+    assert section_result.ruling.deviations[0].dimension == "artistic_fidelity"
+    assert len(section_result.ruling.dimension_scores) == 5
     # 1 song-dna + 1 translator + 1 creative_adapter + 1 triage + 1 specialist
     # + 1 final = 6 total, regardless of candidate count.
     assert len(client.calls) == 6

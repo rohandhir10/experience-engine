@@ -9,6 +9,10 @@ Two room implementations are available:
   - "full" — the original seven-agent room, docs/WRITERS_ROOM.md. Higher
             cost/latency, higher blanket-coverage ceiling; opt in for
             songs where that redundancy is worth paying for.
+
+A section may set `repeats` to an earlier section's name (e.g. a chorus
+that recurs verbatim later in the song) — its ruling is reused directly at
+zero extra LLM cost instead of re-running the whole room on identical text.
 """
 from __future__ import annotations
 
@@ -52,6 +56,24 @@ class EngineResult:
         }
 
 
+def _reuse_repeated_section(
+    section_name: str,
+    repeated_from: str,
+    results_by_name: dict[str, SectionResult | SectionResultV1],
+) -> SectionResult | SectionResultV1:
+    if repeated_from not in results_by_name:
+        raise ValueError(
+            f"Section {section_name!r} sets repeats={repeated_from!r}, but "
+            f"{repeated_from!r} hasn't been processed yet — repeats must "
+            "reference an earlier section in the song."
+        )
+    source_result = results_by_name[repeated_from]
+    reused = source_result.model_copy(deep=True)
+    reused.section = section_name
+    reused.ruling.section = section_name
+    return reused
+
+
 def run_engine(
     song: SongInput,
     client: LLMClient | None = None,
@@ -61,12 +83,18 @@ def run_engine(
     dna = generate_song_dna(song, client)
     room_memory = RoomMemory()
     section_results: list[SectionResult | SectionResultV1] = []
+    results_by_name: dict[str, SectionResult | SectionResultV1] = {}
 
     run_section = run_section_v1 if room_version == "v1" else run_section_full
 
     for section in song.sections:
-        result = run_section(client, section.source_text, dna, section.name, room_memory)
+        if section.repeats:
+            result = _reuse_repeated_section(section.name, section.repeats, results_by_name)
+        else:
+            result = run_section(client, section.source_text, dna, section.name, room_memory)
+
         section_results.append(result)
+        results_by_name[section.name] = result
         room_memory.prior_rulings.append(result.ruling)
         for motif in dna.motifs:
             touches_section = motif.first_occurrence == section.name or any(

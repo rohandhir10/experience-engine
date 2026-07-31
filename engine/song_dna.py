@@ -13,6 +13,16 @@ from .models import (
 from .prompts import song_dna_prompt
 
 
+def _build_dna_input(song: SongInput) -> SongInput:
+    """Sections marked `repeats` share an earlier section's text verbatim —
+    exclude them from the Song DNA prompt so identical text isn't analyzed
+    twice; their SectionProfile is copied from the repeated section instead
+    (_duplicate_repeated_profiles), at zero extra LLM cost.
+    """
+    distinct_sections = [s for s in song.sections if not s.repeats]
+    return song.model_copy(update={"sections": distinct_sections})
+
+
 def _fill_missing_sections(dna: SongDNA, song: SongInput) -> SongDNA:
     """The prompt requires one SectionProfile per input section, but model
     output isn't guaranteed — a short or wordless section (an "oh oh" hook,
@@ -47,8 +57,25 @@ def _fill_missing_sections(dna: SongDNA, song: SongInput) -> SongDNA:
     return dna
 
 
+def _duplicate_repeated_profiles(dna: SongDNA, song: SongInput) -> SongDNA:
+    """Copies the repeated section's SectionProfile for every section that
+    sets `repeats`, so every section in the original song ends up with a
+    profile without ever asking the model to re-analyze identical text.
+    """
+    for section in song.sections:
+        if not section.repeats:
+            continue
+        duplicated = dna.section(section.repeats).model_copy(deep=True)
+        duplicated.name = section.name
+        dna.sections.append(duplicated)
+    return dna
+
+
 def generate_song_dna(song: SongInput, client: LLMClient) -> SongDNA:
-    system, user = song_dna_prompt(song)
+    dna_input = _build_dna_input(song)
+    system, user = song_dna_prompt(dna_input)
     data = client.complete_json(system, user, max_tokens=8000)
     dna = SongDNA.model_validate(data)
-    return _fill_missing_sections(dna, song)
+    dna = _fill_missing_sections(dna, dna_input)
+    dna = _duplicate_repeated_profiles(dna, song)
+    return dna

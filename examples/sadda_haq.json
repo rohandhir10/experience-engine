@@ -1,7 +1,7 @@
 {
   "title": "Sadda Haq",
   "source_language": "Hindi/Punjabi (code-switched)",
-  "context_note": "From the film Rockstar (music: A.R. Rahman, lyrics: Irshad Kamil). Sung in-character by a young musician rebelling against every authority judging how he lives - family, society, hypocrisy, moral policing. The verses are introspective, accusatory Hindi, building a specific argument (if I act on what I believe is right and you call it wrong, then who decides what's right? why does everyone claim more authority over my life than I have myself?). The chorus breaks register entirely into blunt, colloquial Punjabi street slang - 'Sadda Haq, Aitthe Rakh' ('our right - hand it over, right here') - repeated as a chant/demand, not sung melodically so much as thrown. This code-switch itself is the song's central device: reasoned Hindi argument collapsing into a raw, vernacular, almost violent demand. The chorus recurs verbatim (repeated 8 times per occurrence) at multiple points in the actual song as an anthemic, incantatory hook - treat it as one recurring refrain rather than a one-off line.",
+  "context_note": "From the film Rockstar (music: A.R. Rahman, lyrics: Irshad Kamil). Sung in-character by a young musician rebelling against every authority judging how he lives - family, society, hypocrisy, moral policing. The verses are introspective, accusatory Hindi, building a specific argument (if I act on what I believe is right and you call it wrong, then who decides what's right? why does everyone claim more authority over my life than I have myself?). The chorus breaks register entirely into blunt, colloquial Punjabi street slang - 'Sadda Haq, Aitthe Rakh' ('our right - hand it over, right here') - repeated as a chant/demand, not sung melodically so much as thrown. This code-switch itself is the song's central device: reasoned Hindi argument collapsing into a raw, vernacular, almost violent demand.",
   "sections": [
     {
       "name": "intro",
@@ -16,12 +16,37 @@
       "source_text": "Na na nana na naah\nNana na naah\nNana na naah"
     },
     {
+      "name": "chorus_2",
+      "source_text": "Sadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh",
+      "repeats": "chorus"
+    },
+    {
       "name": "verse_1",
       "source_text": "Hey in gaddaron mein\nYa udhaaron mein\nTum mere jeene ki\nAadat ka kyun ghot rahe dum\nBesaleeqa main, uss gali ka main\nNaa jis mein haya, naa jis mein sharam\nMann bole ke ras mein jeene ka\nHarjaana duniya dushman\nSab begaana inhein aag lagaana\nMann bole, mann bole\nMann se jeena ya mar jaana"
     },
     {
+      "name": "chorus_3",
+      "source_text": "Sadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh",
+      "repeats": "chorus"
+    },
+    {
+      "name": "refrain_2",
+      "source_text": "Na na nana na naah\nNana na naah\nNana na naah",
+      "repeats": "refrain"
+    },
+    {
       "name": "verse_2",
       "source_text": "O eco-friendly, nature ke rakshak\nMain bhi hoon nature\nRiwaajon se, samaajon se kyun\nTu kaate mujhe\nKyun baante mujhse is tarah\nKyun sach ka sabak sikhaye\nJab sach sun bhi naa paaye\nSach koi bole toh tu niyam kanoon bataye\nTera darr, tera pyaar, teri waah, tu hi rakh\nRakh saale"
+    },
+    {
+      "name": "pre_chorus",
+      "source_text": "Sadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe aitthe rakh",
+      "repeats": "chorus"
+    },
+    {
+      "name": "chorus_4",
+      "source_text": "Sadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh\nSadda haq, aitthe rakh",
+      "repeats": "chorus"
     }
   ]
 }
