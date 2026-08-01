@@ -1,0 +1,7 @@
+# Run artifacts stay local: outputs cost money to produce, ratings are
+# reviewer data, and blind/key.json is the secret that keeps the blind
+# blind — none of it belongs in a public repo.
+runs/
+# Manual reference files are pasted from third-party sites (Bollynook,
+# FilmyQuotes) — keep those texts out of the repo too.
+manual/
