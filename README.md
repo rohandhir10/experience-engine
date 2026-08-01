@@ -64,3 +64,12 @@ default (`OPENAI_API_KEY`); Anthropic is kept in the codebase as an
 inactive alternate provider (`AURA_PROVIDER=anthropic`). See:
 
 [`docs/ENGINE.md`](docs/ENGINE.md)
+
+## Product 1: the web frontend
+
+A production-quality frontend (Next.js + Tailwind) now runs against the
+real engine end to end, through a local FastAPI service (`server/`) —
+paste a song, get a shareable result page, with same-song requests served
+from a cache instead of re-running the engine. See:
+
+[`web/README.md`](web/README.md)

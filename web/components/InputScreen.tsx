@@ -43,7 +43,11 @@ export function InputScreen({
             submit();
           }}
         >
+          <label htmlFor="lyrics" className="sr-only">
+            Paste a song
+          </label>
           <textarea
+            id="lyrics"
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -55,11 +59,18 @@ export function InputScreen({
             placeholder="Paste a song…"
             rows={7}
             autoFocus
+            aria-describedby={error ? "lyrics-error" : undefined}
             className="w-full resize-none rounded-2xl border border-black/[0.08] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
           />
 
           {error && (
-            <p className="mt-3 text-[13px] text-red-500/80">{error}</p>
+            <p
+              id="lyrics-error"
+              role="alert"
+              className="mt-3 text-[13px] text-red-500/80"
+            >
+              {error}
+            </p>
           )}
 
           <div className="mt-6 flex items-center justify-center gap-4">

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { ExperienceResult } from "@/lib/types";
+import { useRouter } from "next/navigation";
 import { InputScreen } from "@/components/InputScreen";
-import { ResultScreen } from "@/components/ResultScreen";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function Home() {
-  const [result, setResult] = useState<ExperienceResult | null>(null);
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,21 +19,19 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
+      const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Something went wrong.");
+        throw new Error(body.error || body.detail || "Something went wrong.");
       }
-      const data: ExperienceResult = await res.json();
-      setResult(data);
+      router.push(`/s/${body.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
       setLoading(false);
     }
   }
 
-  if (result) {
-    return <ResultScreen result={result} onReset={() => setResult(null)} />;
+  if (loading) {
+    return <LoadingScreen />;
   }
 
   return (

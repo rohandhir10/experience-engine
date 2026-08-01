@@ -1,17 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { ExperienceResult } from "@/lib/types";
 import { Logo } from "./Logo";
 import { ComparisonCard } from "./ComparisonCard";
+import { CopyLinkButton } from "./CopyLinkButton";
 
-export function ResultScreen({
-  result,
-  onReset,
-}: {
-  result: ExperienceResult;
-  onReset: () => void;
-}) {
+export function ResultScreen({ result }: { result: ExperienceResult }) {
   const [showOriginal, setShowOriginal] = useState(false);
   const originalById = Object.fromEntries(
     result.original.map((o) => [o.id, o.text])
@@ -21,16 +17,18 @@ export function ResultScreen({
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
       <div className="mx-auto flex max-w-3xl items-center justify-between border-b border-black/[0.05] pb-5 dark:border-white/[0.05]">
         <Logo />
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-5 sm:gap-6">
           <button
+            role="switch"
+            aria-checked={showOriginal}
+            aria-label="Show original script"
             onClick={() => setShowOriginal((v) => !v)}
             className="flex items-center gap-2 rounded-full text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
           >
             <span
+              aria-hidden
               className={`relative h-[18px] w-[32px] rounded-full transition-colors duration-200 ${
-                showOriginal
-                  ? "bg-accent"
-                  : "bg-black/10 dark:bg-white/10"
+                showOriginal ? "bg-accent" : "bg-black/10 dark:bg-white/10"
               }`}
             >
               <span
@@ -39,14 +37,17 @@ export function ResultScreen({
                 }`}
               />
             </span>
-            Original script
+            <span>Original</span>
           </button>
-          <button
-            onClick={onReset}
+
+          <CopyLinkButton resultId={result.id} />
+
+          <Link
+            href="/"
             className="text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
           >
             ← Start over
-          </button>
+          </Link>
         </div>
       </div>
 
