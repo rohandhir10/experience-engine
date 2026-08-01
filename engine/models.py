@@ -30,6 +30,12 @@ class SectionInput(BaseModel):
 class SongInput(BaseModel):
     title: str | None = None
     source_language: str
+    # Locked to "English" in the current product — see engine/prompts.py and
+    # docs/WRITERS_ROOM_V1.md §10. Threaded through the whole pipeline as a
+    # real field (not a hardcoded string) purely for architectural
+    # readiness: swapping this later should not require another prompt
+    # redesign, just a different value here.
+    target_language: str = "English"
     context_note: str | None = None
     sections: list[SectionInput]
 

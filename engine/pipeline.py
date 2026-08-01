@@ -91,7 +91,9 @@ def run_engine(
         if section.repeats:
             result = _reuse_repeated_section(section.name, section.repeats, results_by_name)
         else:
-            result = run_section(client, section.source_text, dna, section.name, room_memory)
+            result = run_section(
+                client, section.source_text, dna, section.name, room_memory, song.target_language
+            )
 
         section_results.append(result)
         results_by_name[section.name] = result

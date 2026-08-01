@@ -41,11 +41,12 @@ def _round1_generate(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str,
 ) -> list[Candidate]:
     candidates = []
     for agent in GENERATIVE_AGENTS:
         system, user = prompts.generation_prompt(
-            agent, source_text, dna, section_name, room_memory
+            agent, source_text, dna, section_name, room_memory, target_language
         )
         data = client.complete_json(system, user)
         candidates.append(
@@ -66,11 +67,12 @@ def _round2_diagnose(
     source_text: str,
     dna: SongDNA,
     section_name: str,
+    target_language: str,
 ) -> list[Critique]:
     critiques: list[Critique] = []
     for agent in DIAGNOSTIC_AGENTS:
         system, user = prompts.diagnosis_prompt(
-            agent, candidates, source_text, dna, section_name
+            agent, candidates, source_text, dna, section_name, target_language
         )
         data = client.complete_json(system, user)
         for item in data.get("critiques", []):
@@ -93,12 +95,13 @@ def _round3_cross_critique(
     critiques: list[Critique],
     dna: SongDNA,
     section_name: str,
+    target_language: str,
 ) -> list[Rebuttal]:
     rebuttals: list[Rebuttal] = []
     all_agents = list(GENERATIVE_AGENTS) + list(DIAGNOSTIC_AGENTS)
     for agent in all_agents:
         system, user = prompts.cross_critique_prompt(
-            agent, candidates, critiques, dna, section_name
+            agent, candidates, critiques, dna, section_name, target_language
         )
         data = client.complete_json(system, user)
         for item in data.get("rebuttals", []):
@@ -169,10 +172,13 @@ def run_section(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> SectionResult:
-    round1 = _round1_generate(client, source_text, dna, section_name, room_memory)
-    critiques = _round2_diagnose(client, round1, source_text, dna, section_name)
-    rebuttals = _round3_cross_critique(client, round1, critiques, dna, section_name)
+    round1 = _round1_generate(client, source_text, dna, section_name, room_memory, target_language)
+    critiques = _round2_diagnose(client, round1, source_text, dna, section_name, target_language)
+    rebuttals = _round3_cross_critique(
+        client, round1, critiques, dna, section_name, target_language
+    )
     round4 = _round4_recombine(
         client, round1, critiques, rebuttals, source_text, dna, section_name
     )

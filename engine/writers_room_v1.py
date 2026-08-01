@@ -38,11 +38,12 @@ def _generate(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str,
 ) -> list[Candidate]:
     candidates: list[Candidate] = []
 
     system, user = prompts.generation_prompt_v1(
-        "translator", source_text, dna, section_name, room_memory
+        "translator", source_text, dna, section_name, room_memory, target_language
     )
     data = client.complete_json(system, user)
     candidates.append(
@@ -57,7 +58,9 @@ def _generate(
         )
     )
 
-    system, user = prompts.creative_adapter_prompt(source_text, dna, section_name, room_memory)
+    system, user = prompts.creative_adapter_prompt(
+        source_text, dna, section_name, room_memory, target_language
+    )
     data = client.complete_json(system, user, max_tokens=4000)
     for item in data.get("candidates", []):
         candidates.append(
@@ -82,8 +85,11 @@ def _consult_specialist(
     source_text: str,
     dna: SongDNA,
     section_name: str,
+    target_language: str,
 ) -> list[Critique]:
-    system, user = prompts.diagnosis_prompt(agent, candidates, source_text, dna, section_name)
+    system, user = prompts.diagnosis_prompt(
+        agent, candidates, source_text, dna, section_name, target_language
+    )
     data = client.complete_json(system, user)
     return [
         Critique(
@@ -104,12 +110,13 @@ def run_section(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> SectionResultV1:
-    candidates = _generate(client, source_text, dna, section_name, room_memory)
+    candidates = _generate(client, source_text, dna, section_name, room_memory, target_language)
     routing_signals = compute_routing_signals(dna, section_name, candidates)
 
     system, user = prompts.judge_triage_prompt(
-        candidates, routing_signals, source_text, dna, section_name, room_memory
+        candidates, routing_signals, source_text, dna, section_name, room_memory, target_language
     )
     triage_data = client.complete_json(system, user, max_tokens=3000)
 
@@ -124,7 +131,9 @@ def run_section(
         ]
         for agent in requested:
             specialist_critiques.extend(
-                _consult_specialist(client, agent, candidates, source_text, dna, section_name)
+                _consult_specialist(
+                    client, agent, candidates, source_text, dna, section_name, target_language
+                )
             )
             specialists_invoked.append(agent)
 
@@ -136,6 +145,7 @@ def run_section(
             dna,
             section_name,
             room_memory,
+            target_language,
         )
         final_data = client.complete_json(system, user, max_tokens=3000)
         ruling = JudgeRuling(section=section_name, **final_data)

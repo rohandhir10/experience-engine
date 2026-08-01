@@ -81,6 +81,13 @@ Hindi/Japanese/Korean/Arabic/Russian/Spanish source lyrics per
 }
 ```
 
+`target_language` is also a field on the input (defaults to `"English"`),
+threaded through every prompt in `engine/prompts.py` rather than
+hardcoded — but **English is the only supported output today**; this
+exists purely so a future target language never requires another prompt
+redesign, not because anything else is actually supported yet. Don't set
+it to anything else expecting it to work.
+
 Sections are processed in the order given, and each section's Judge ruling
 is added to room memory before the next section runs — this is what lets
 later sections stay consistent with earlier ones (`WRITERS_ROOM.md` §8,

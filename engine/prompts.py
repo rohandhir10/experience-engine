@@ -28,9 +28,9 @@ You are a songwriting analyst, not a translator. Your job is to reverse-engineer
 a song's craft — not to explain what its words mean, but to describe what it is \
 built to make a listener feel, and by what specific devices.
 
-Never discuss translation. Never propose English wording. Analyze the song on \
-its own terms, in its own language, the way a songwriter would break down a \
-song they admire.
+Never discuss translation. Never propose {target_language} wording. Analyze \
+the song on its own terms, in its own language, the way a songwriter would \
+break down a song they admire.
 
 Cover, for the whole song and for every section: emotional arc (the shape of \
 feeling over time, with turn points), imagery (concrete sensory pictures and \
@@ -92,7 +92,10 @@ def song_dna_prompt(song: SongInput) -> tuple[str, str]:
         f"Full song, section by section:\n\n{sections_text}\n\n"
         "Analyze this song's artistic DNA as instructed."
     )
-    return SONG_DNA_SYSTEM, user
+    # A targeted replace, not .format() — SONG_DNA_SYSTEM embeds a full JSON
+    # schema example full of literal {}, which .format() would misparse.
+    system = SONG_DNA_SYSTEM.replace("{target_language}", song.target_language)
+    return system, user
 
 
 # ---------------------------------------------------------------------------
@@ -123,16 +126,16 @@ AGENT_BRIEFS: dict[str, str] = {
     ),
     "creative_adapter": (
         "You are the Creative Adapter. Your job is NOT to write the most "
-        "beautiful or expressive English you can produce, and it is NOT to "
-        "improve on the songwriter. The test for every candidate you write: "
-        "if the original lyricist had written this song in English, would "
-        "they recognize this as their own work? (docs/WRITERS_ROOM_V1.md §9, "
-        "\"Burden of Change.\")\n\n"
+        "beautiful or expressive {target_language} you can produce, and it is "
+        "NOT to improve on the songwriter. The test for every candidate you "
+        "write: if the original lyricist had written this song in "
+        "{target_language}, would they recognize this as their own work? "
+        "(docs/WRITERS_ROOM_V1.md §9, \"Burden of Change.\")\n\n"
         "THE BURDEN OF CHANGE: every word that differs from a plain literal "
         "reading of the source carries a burden of proof. You must be able to "
         "name, for every deviation, which specific problem it solves — "
-        "closer natural English, a genre convention the literal wording "
-        "breaks, a rhythm/performance need, a voice consistency need. "
+        "closer natural {target_language}, a genre convention the literal "
+        "wording breaks, a rhythm/performance need, a voice consistency need. "
         "'It sounds better this way' is NEVER a sufficient justification on "
         "its own. If you cannot justify a change, do not make it — revert to "
         "the plainer, more literal wording instead.\n\n"
@@ -153,11 +156,13 @@ AGENT_BRIEFS: dict[str, str] = {
         "fidelity-compatible dimension they prioritize when a real tradeoff "
         "exists, never in how much license to invent they get:\n\n"
         "- maximum_fidelity: the most literal rendering that still reads as "
-        "real English. The floor, made presentable — minimal deviation from "
-        "a plain reading, justified only by what English grammar requires.\n"
+        "real {target_language}. The floor, made presentable — minimal "
+        "deviation from a plain reading, justified only by what "
+        "{target_language} grammar requires.\n"
         "- native_english_lyricist: reads exactly like something a songwriter "
-        "in this genre would write from scratch, still bound by every "
-        "constraint above — natural idiom, not invented content.\n"
+        "in this genre would write from scratch in {target_language}, still "
+        "bound by every constraint above — natural idiom, not invented "
+        "content.\n"
         "- performance_first: prioritizes how it lands sung — breath, hook, "
         "momentum — among options that are otherwise equally faithful.\n"
         "- emotion_first: prioritizes landing the SOURCE'S OWN emotional beat "
@@ -175,10 +180,11 @@ AGENT_BRIEFS: dict[str, str] = {
     ),
     "native_speaker": (
         "You are the Native Speaker. Your core question: would someone who "
-        "actually grew up feeling this language ever say it this way in English "
-        "— does this feel authentic, or does it feel translated? Give a gut "
-        "authenticity verdict per candidate. You carry a VETO: if a candidate "
-        "fails this test, say so plainly regardless of its other merits."
+        "actually grew up feeling this language ever say it this way in "
+        "{target_language} — does this feel authentic, or does it feel "
+        "translated? Give a gut authenticity verdict per candidate. You carry "
+        "a VETO: if a candidate fails this test, say so plainly regardless of "
+        "its other merits."
     ),
     "cultural_historian": (
         "You are the Cultural Historian. Your core question: what specific "
@@ -204,6 +210,15 @@ AGENT_BRIEFS: dict[str, str] = {
         "demand the candidates spell out what should stay felt."
     ),
 }
+
+
+def agent_brief(agent: str, target_language: str) -> str:
+    """Formats an agent's brief with the current target language. Locked to
+    "English" today (SongInput.target_language's default) — this is the one
+    place a brief's wording is actually assembled, so a future target
+    language never requires touching AGENT_BRIEFS itself.
+    """
+    return AGENT_BRIEFS[agent].replace("{target_language}", target_language)
 
 
 def _song_dna_context(dna: SongDNA, section_name: str) -> str:
@@ -238,13 +253,15 @@ def generation_prompt(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     system = (
-        AGENT_BRIEFS[agent]
+        agent_brief(agent, target_language)
         + "\n\nRespond with ONLY a JSON object: "
-        '{"text": str, "leans_into": str} — text is your one candidate English '
-        "line (or lines, matching the source line count); leans_into names "
-        "which part of the emotional core your candidate leans into hardest."
+        '{"text": str, "leans_into": str} — text is your one candidate '
+        f"{target_language} line (or lines, matching the source line count); "
+        "leans_into names which part of the emotional core your candidate "
+        "leans into hardest."
     )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
@@ -261,9 +278,10 @@ def diagnosis_prompt(
     source_text: str,
     dna: SongDNA,
     section_name: str,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     system = (
-        AGENT_BRIEFS[agent]
+        agent_brief(agent, target_language)
         + "\n\nYou are reviewing all candidates independently — you have not "
         "seen any other diagnostic agent's critique. Comment ONLY from your "
         "own expertise; do not comment on dimensions outside your lens (e.g. "
@@ -288,9 +306,10 @@ def cross_critique_prompt(
     critiques: list[Critique],
     dna: SongDNA,
     section_name: str,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     system = (
-        AGENT_BRIEFS[agent]
+        agent_brief(agent, target_language)
         + "\n\nYou now see every candidate and every critique from the room, "
         "including critiques of your own contribution and, if you are a "
         "diagnostic agent, other diagnostic agents' critiques. You get "
@@ -424,9 +443,10 @@ def generation_prompt_v1(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     system = (
-        AGENT_BRIEFS[agent]
+        agent_brief(agent, target_language)
         + "\n\nRespond with ONLY a JSON object: {\"text\": str, \"leans_into\": "
         'str, "confidence": float (0-1, how confident you are this candidate '
         'captures the intended effect), "uncertainty_type": '
@@ -448,6 +468,7 @@ def creative_adapter_prompt(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     """The Creative Adapter's call, producing exactly 5 candidates — one per
     named adaptation philosophy — in one shot (docs/WRITERS_ROOM_V1.md §9,
@@ -455,7 +476,7 @@ def creative_adapter_prompt(
     dimension they prioritize, never in how much license to invent.
     """
     system = (
-        AGENT_BRIEFS["creative_adapter"]
+        agent_brief("creative_adapter", target_language)
         + "\n\nRespond with ONLY a JSON object: {\"candidates\": [{\"text\": "
         'str, "philosophy": "maximum_fidelity"|"native_english_lyricist"|'
         '"performance_first"|"emotion_first"|"genre_first", "leans_into": '
@@ -475,15 +496,19 @@ def creative_adapter_prompt(
     return system, user
 
 
-_JUDGE_CORE_QUESTION = (
-    "The test for every ruling is not 'which candidate is most beautiful' — "
-    "it is: if the original lyricist had written this song in English, "
-    "would they recognize this as their own work? (docs/WRITERS_ROOM_V1.md "
-    "§9, \"Burden of Change.\") Your mission is not to improve the "
-    "songwriter. It is to recreate their experience."
-)
+def _judge_core_question(target_language: str) -> str:
+    return (
+        "The test for every ruling is not 'which candidate is most "
+        f"beautiful' — it is: if the original lyricist had written this "
+        f"song in {target_language}, would they recognize this as their "
+        "own work? (docs/WRITERS_ROOM_V1.md §9, \"Burden of Change.\") "
+        "Your mission is not to improve the songwriter. It is to recreate "
+        "their experience."
+    )
 
-_JUDGE_GATES_AND_DIMENSIONS = (
+
+def _judge_gates_and_dimensions(target_language: str) -> str:
+    return (
     "Two GATES apply before anything else, pass/fail, not scored:\n"
     "- Literal Accuracy: did this candidate invert who-did-what-to-whom? If "
     "so, disqualified regardless of everything else.\n"
@@ -496,11 +521,11 @@ _JUDGE_GATES_AND_DIMENSIONS = (
     "intention, ambiguity, and restraint? This subsumes emotional fidelity: "
     "don't score emotional truth separately, it's part of this.\n"
     "2. genre_authenticity — does this read as a real lyric in this genre/"
-    "tradition (per Song DNA's genre_feel/style), not generic 'poetic "
-    "English'?\n"
-    "3. natural_english — is it fluent, unstilted English, independent of "
-    "fidelity? A faithful candidate can still read clunky; score that here, "
-    "not by inflating or deflating artistic_fidelity.\n"
+    f"tradition (per Song DNA's genre_feel/style), not generic 'poetic "
+    f"{target_language}'?\n"
+    f"3. natural_english — is it fluent, unstilted {target_language}, "
+    "independent of fidelity? A faithful candidate can still read clunky; "
+    "score that here, not by inflating or deflating artistic_fidelity.\n"
     "4. voice_consistency — does it match the established narrator/"
     "character voice and prior decisions already made this song (room "
     "memory)?\n"
@@ -542,12 +567,14 @@ def judge_triage_prompt(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     system = (
         "You are the Judge, running the minimal V1 room. You have a "
         "Translator's literal anchor plus 5 candidates from the Creative "
-        "Adapter, one per adaptation philosophy. " + _JUDGE_CORE_QUESTION + "\n\n"
-        + _JUDGE_GATES_AND_DIMENSIONS + "\n\n"
+        "Adapter, one per adaptation philosophy. "
+        + _judge_core_question(target_language) + "\n\n"
+        + _judge_gates_and_dimensions(target_language) + "\n\n"
         "You alone decide whether this section can be ruled on now, or "
         "whether one or more specialist consultants (cultural_historian, "
         "native_speaker, psychologist) must weigh in first — they exist "
@@ -601,25 +628,27 @@ def judge_final_prompt(
     dna: SongDNA,
     section_name: str,
     room_memory: RoomMemory,
+    target_language: str = "English",
 ) -> tuple[str, str]:
     system = (
         "You are the Judge. You previously requested specialist input before "
         "ruling on this section; that input is now available. You are "
         "choosing among a Translator's literal anchor plus 5 Creative "
         "Adapter candidates, one per adaptation philosophy. "
-        + _JUDGE_CORE_QUESTION + "\n\n"
-        + _JUDGE_GATES_AND_DIMENSIONS + "\n\n"
+        + _judge_core_question(target_language) + "\n\n"
+        + _judge_gates_and_dimensions(target_language) + "\n\n"
         "You are not limited to picking one candidate verbatim. If a "
         "specialist flagged a real concern and no candidate actually "
         "resolves it, rewrite final_line yourself to address it — do not "
         "ship a line you know has a named, unresolved problem just because "
         "it was the least flawed option available. A specific warning sign: "
         "if the surviving candidates mirror the source's clause order and "
-        "commas rather than reading as something an English songwriter "
-        "would write from scratch, or if they add imagery/intensity beyond "
-        "the source to compensate for feeling 'plain', that is exactly the "
-        "kind of concern worth a real rewrite, not a shrug — and either way, "
-        "the deviation ledger for whatever you ship must still hold up.\n\n"
+        f"commas rather than reading as something a {target_language} "
+        "songwriter would write from scratch, or if they add imagery/"
+        "intensity beyond the source to compensate for feeling 'plain', "
+        "that is exactly the kind of concern worth a real rewrite, not a "
+        "shrug — and either way, the deviation ledger for whatever you ship "
+        "must still hold up.\n\n"
         f"Respond with ONLY a JSON object: {_RULING_SCHEMA}."
     )
     candidates_text = "\n".join(
