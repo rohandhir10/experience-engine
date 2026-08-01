@@ -3,8 +3,14 @@ import type { ExperienceResult } from "@/lib/types";
 import { ENGINE_API_URL } from "@/lib/api";
 import { Logo } from "@/components/Logo";
 import { ResultScreen } from "@/components/ResultScreen";
+import { demoResult } from "@/lib/demo-data";
 
 async function getResult(id: string): Promise<ExperienceResult | null> {
+  // Hardcoded example, bypasses the network entirely - lets /s/demo render
+  // the full result screen in previews with no live Python backend behind
+  // them. The real flow (/, /api/adapt) never touches this.
+  if (id === "demo") return demoResult;
+
   try {
     const res = await fetch(`${ENGINE_API_URL}/api/adapt/${id}`, {
       cache: "no-store",
