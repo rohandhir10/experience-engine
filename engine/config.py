@@ -12,6 +12,12 @@ OPENAI_MODEL = os.environ.get("AURA_OPENAI_MODEL", "gpt-4o")
 ANTHROPIC_MODEL = os.environ.get("AURA_ANTHROPIC_MODEL", "claude-sonnet-5")
 MAX_TOKENS = int(os.environ.get("AURA_MAX_TOKENS", "4096"))
 
+# Per-request timeout and SDK-level retry budget for LLM calls. A full
+# section can legitimately take a while, but a call that hangs past this
+# is dead — fail it and let the engine's own error handling surface it.
+LLM_TIMEOUT_SECONDS = float(os.environ.get("AURA_LLM_TIMEOUT", "120"))
+LLM_MAX_RETRIES = int(os.environ.get("AURA_LLM_MAX_RETRIES", "2"))
+
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

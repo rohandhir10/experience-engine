@@ -444,6 +444,7 @@ def generation_prompt_v1(
     section_name: str,
     room_memory: RoomMemory,
     target_language: str = "English",
+    voice: str | None = None,
 ) -> tuple[str, str]:
     system = (
         agent_brief(agent, target_language)
@@ -456,11 +457,26 @@ def generation_prompt_v1(
     )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
-        f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
+        + _voice_line(voice)
+        + f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"
         "Give your one candidate now."
     )
     return system, user
+
+
+def _voice_line(voice: str | None) -> str:
+    """One prompt line attributing this section to a named voice, when the
+    work has more than one (duets, dialogue). Empty string when unattributed
+    so single-voice prompts are byte-identical to before the field existed.
+    """
+    if not voice:
+        return ""
+    return (
+        f"Voice for this section: {voice}. Stay consistent with what THIS "
+        "voice has already established in prior sections — different voices "
+        "in the same work are allowed to sound different from each other.\n\n"
+    )
 
 
 def creative_adapter_prompt(
@@ -469,6 +485,7 @@ def creative_adapter_prompt(
     section_name: str,
     room_memory: RoomMemory,
     target_language: str = "English",
+    voice: str | None = None,
 ) -> tuple[str, str]:
     """The Creative Adapter's call, producing exactly 5 candidates — one per
     named adaptation philosophy — in one shot (docs/WRITERS_ROOM_V1.md §9,
@@ -489,7 +506,8 @@ def creative_adapter_prompt(
     )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
-        f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
+        + _voice_line(voice)
+        + f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"
         "Give your 5 candidates now, one per philosophy."
     )
@@ -523,12 +541,14 @@ def _judge_gates_and_dimensions(target_language: str) -> str:
     "2. genre_authenticity — does this read as a real lyric in this genre/"
     f"tradition (per Song DNA's genre_feel/style), not generic 'poetic "
     f"{target_language}'?\n"
-    f"3. natural_english — is it fluent, unstilted {target_language}, "
+    f"3. natural_target_language — is it fluent, unstilted {target_language}, "
     "independent of fidelity? A faithful candidate can still read clunky; "
     "score that here, not by inflating or deflating artistic_fidelity.\n"
     "4. voice_consistency — does it match the established narrator/"
     "character voice and prior decisions already made this song (room "
-    "memory)?\n"
+    "memory)? When sections are attributed to different named voices, "
+    "consistency applies WITHIN each voice — two different singers are "
+    "allowed, and often required, to sound different from each other.\n"
     "5. singability_rhythm — does it scan/perform, and does it keep the "
     "source's actual rhythmic character (rushed vs. held), not just "
     "singability in the abstract?\n\n"
@@ -550,15 +570,20 @@ _RULING_SCHEMA = (
     '{"final_line": str, "sources_used": [{"agent": str, "contribution": '
     'str}], "vetoes_applied": [str], "deviations": [{"fragment_original": '
     'str, "fragment_adapted": str, "justification": str, "dimension": '
-    '"artistic_fidelity"|"genre_authenticity"|"natural_english"|'
+    '"artistic_fidelity"|"genre_authenticity"|"natural_target_language"|'
     '"voice_consistency"|"singability_rhythm"}], "dimension_scores": '
     '[{"dimension": "artistic_fidelity"|"genre_authenticity"|'
-    '"natural_english"|"voice_consistency"|"singability_rhythm", "score": '
+    '"natural_target_language"|"voice_consistency"|"singability_rhythm", "score": '
     'float, "note": str}, ... all five], "invention_penalty": float (0-1: '
     '0 if no deviation anywhere in the candidate set leaned on a weak or '
     'borderline justification, higher the more of the deviation ledger '
     'relied on "sounds better" reasoning rather than a real, specific '
-    'reason), "priority_tradeoffs_made": str, "disagreements_overruled": '
+    'reason), "motif_renderings": {motif: "the exact rendered phrase this '
+    'ruling used for that motif", ... one entry per Song DNA motif that '
+    "appears in this section — this is how later sections keep a recurring "
+    "phrase's wording IDENTICAL rather than paraphrasing it, so record the "
+    'phrase exactly as it appears in final_line}, '
+    '"priority_tradeoffs_made": str, "disagreements_overruled": '
     '[{"agents": str, "disagreement": str, "ruling": str, "why": str}]}'
 )
 
@@ -572,6 +597,7 @@ def judge_triage_prompt(
     room_memory: RoomMemory,
     target_language: str = "English",
     source_syllables: int | None = None,
+    voice: str | None = None,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge, running the minimal V1 room. You have a "
@@ -627,7 +653,8 @@ def judge_triage_prompt(
     section = dna.section(section_name)
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
-        f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}; "
+        + _voice_line(voice)
+        + f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}; "
         f"this section's narrative function: {section.narrative_function.function}\n\n"
         f"Candidates:\n{candidates_text}\n\n"
         f"{syllable_reference}"
@@ -649,6 +676,7 @@ def judge_final_prompt(
     room_memory: RoomMemory,
     target_language: str = "English",
     source_syllables: int | None = None,
+    voice: str | None = None,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge. You previously requested specialist input before "
@@ -697,7 +725,8 @@ def judge_final_prompt(
     )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
-        f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}\n\n"
+        + _voice_line(voice)
+        + f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}\n\n"
         f"Candidates:\n{candidates_text}\n\n"
         f"Specialist consultations:\n{critiques_text}\n\n"
         f"{syllable_reference}"

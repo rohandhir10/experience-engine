@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Input
@@ -25,6 +25,13 @@ class SectionInput(BaseModel):
     # repeated structure can be represented without wasting calls re-judging
     # identical text.
     repeats: str | None = None
+    # Who is speaking/singing this section, when the work has more than one
+    # voice (a duet, a dialogue). Voice consistency is judged WITHIN a
+    # voice, not across different voices — before this field existed,
+    # multi-voice works had to smuggle the speaker into the section name
+    # (e.g. "verse_1_alka"), where the engine couldn't reason about it.
+    # None means single-voice / unattributed, which changes nothing.
+    voice: str | None = None
 
 
 class SongInput(BaseModel):
@@ -38,6 +45,31 @@ class SongInput(BaseModel):
     target_language: str = "English"
     context_note: str | None = None
     sections: list[SectionInput]
+
+    @model_validator(mode="after")
+    def _validate_sections(self) -> "SongInput":
+        """Section names are load-bearing free text: `repeats` references
+        them, SongDNA.section() looks them up (first match wins), and room
+        memory labels rulings by them. Duplicates silently alias instead of
+        erroring, and a `repeats` pointing forward or at nothing crashes
+        deep in the pipeline — so validate both here, at the boundary.
+        """
+        seen: set[str] = set()
+        for section in self.sections:
+            if not section.name.strip():
+                raise ValueError("Every section needs a non-empty name.")
+            if section.name in seen:
+                raise ValueError(
+                    f"Duplicate section name {section.name!r} — names must be "
+                    "unique, they are how repeats/rulings/DNA reference sections."
+                )
+            if section.repeats is not None and section.repeats not in seen:
+                raise ValueError(
+                    f"Section {section.name!r} sets repeats={section.repeats!r}, "
+                    "which must name an EARLIER section in this song."
+                )
+            seen.add(section.name)
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +283,7 @@ class Deviation(BaseModel):
     dimension: Literal[
         "artistic_fidelity",
         "genre_authenticity",
-        "natural_english",
+        "natural_target_language",
         "voice_consistency",
         "singability_rhythm",
     ]
@@ -267,7 +299,7 @@ class DimensionScore(BaseModel):
     dimension: Literal[
         "artistic_fidelity",
         "genre_authenticity",
-        "natural_english",
+        "natural_target_language",
         "voice_consistency",
         "singability_rhythm",
     ]
@@ -297,6 +329,17 @@ class JudgeRuling(BaseModel):
     # justifications. Separate from per-deviation justifications so a
     # human reviewer has one number to scan before reading the ledger.
     invention_penalty: float = 0.0
+    # The specific rendered wording for each motif this ruling touched
+    # (motif -> the exact target-language phrase used). Without this, room
+    # memory could only store the whole section's final_line per motif —
+    # which made the Ambiguity Lock (constitution Law 5, "same source
+    # phrase -> identical wording on every recurrence") unenforceable from
+    # stored state.
+    motif_renderings: dict[str, str] = Field(default_factory=dict)
+    # Which voice (speaker/singer) delivered this section, copied from
+    # SectionInput.voice so room-memory summaries can label prior rulings
+    # per voice. None for single-voice works.
+    voice: str | None = None
 
 
 class SectionResult(BaseModel):
@@ -363,8 +406,9 @@ class RoomMemory(BaseModel):
             return "No prior sections yet — this is the first section of the song."
         lines = ["Decisions already made earlier in this song:"]
         for r in self.prior_rulings:
+            label = f"{r.section} — voice: {r.voice}" if r.voice else r.section
             lines.append(
-                f'- [{r.section}] final line: "{r.final_line}" — {r.priority_tradeoffs_made}'
+                f'- [{label}] final line: "{r.final_line}" — {r.priority_tradeoffs_made}'
             )
         if self.motif_decisions:
             lines.append("Motif renderings established so far:")

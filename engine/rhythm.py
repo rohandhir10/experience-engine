@@ -15,8 +15,11 @@ import re
 
 import pronouncing
 
-_WORD_RE = re.compile(r"[A-Za-z']+")
-_VOWEL_GROUPS_RE = re.compile(r"[aeiouy]+")
+# Any Unicode letters, with internal apostrophes (don't, l'amour) — NOT
+# [A-Za-z], which silently split accented words ("café" -> "caf" + dropped
+# tail) and miscounted their syllables.
+_WORD_RE = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)*")
+_VOWEL_GROUPS_RE = re.compile(r"[aeiouyàáâäãèéêëìíîïòóôöõùúûü]+")
 
 
 def _is_latin_script(text: str) -> bool:

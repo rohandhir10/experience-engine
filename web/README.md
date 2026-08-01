@@ -61,5 +61,22 @@ engine entirely and serves the cached result instantly — see
   implementation details, not something a listener needs to know exists.
 - No fabricated metrics (percentage match scores, fidelity scores) — if a
   number isn't actually computed, it isn't shown.
-- No deployment. This is the "make the local flow work end to end first"
-  stage on purpose — see the plan in this file's git history for why.
+- No hosted backend *yet*. The frontend deploys via Vercel (git-connected,
+  root directory `web/`), but a submitted song only works when the engine
+  API is reachable at `AURA_ENGINE_API_URL`.
+
+## Deploying the backend
+
+The repo root has a `Dockerfile` for the engine API. On any Docker host
+(Railway, Render, Fly.io):
+
+1. Point the service at this repo, Dockerfile build, port 8000.
+2. Set `OPENAI_API_KEY`. Optional: `AURA_DAILY_LIMIT` (default 10
+   engine runs/IP/day), `AURA_MAX_INPUT_CHARS` (default 8000),
+   `AURA_LLM_TIMEOUT` (default 120s).
+3. Mount a volume at `/app/server/.cache` so results (and their share
+   URLs) survive restarts.
+4. In Vercel → Project Settings → Environment Variables, set
+   `AURA_ENGINE_API_URL` to the deployed API's URL and redeploy.
+
+`GET /health` is the liveness probe.

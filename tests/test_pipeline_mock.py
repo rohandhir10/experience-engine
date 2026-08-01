@@ -180,11 +180,13 @@ def test_room_memory_passed_to_second_section():
     """A second section's prompts should reference the first section's ruling,
     proving room memory (docs/WRITERS_ROOM.md §8) actually carries forward.
     """
+    # Distinct names — duplicate section names are now a validation error
+    # (they used to silently alias in DNA lookups and room memory).
     song = SongInput(
         source_language="English (test)",
         sections=[
             SectionInput(name="verse_1", source_text="line one"),
-            SectionInput(name="verse_1", source_text="line one duplicate"),
+            SectionInput(name="verse_2", source_text="line two"),
         ],
     )
 

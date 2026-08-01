@@ -1,5 +1,14 @@
-"""Builds a SongDNA from a SongInput via one LLM call (docs/SONG_DNA.md)."""
+"""Builds a SongDNA from a SongInput via one LLM call (docs/SONG_DNA.md).
+
+Known architectural bound: the whole work is analyzed in ONE call with an
+8k-token reply budget. Fine for a song's 3-9 sections; for long-form input
+the model omits more and the placeholder machinery below fills more, so
+quality degrades silently rather than crashing. The warnings here make
+that degradation visible instead of silent.
+"""
 from __future__ import annotations
+
+import logging
 
 from .llm_client import LLMClient
 from .models import (
@@ -11,6 +20,12 @@ from .models import (
     SongInput,
 )
 from .prompts import song_dna_prompt
+
+logger = logging.getLogger(__name__)
+
+# Above this many distinct sections, the one-call analysis is running
+# outside the territory it was built and tested for.
+SECTION_COUNT_SOFT_LIMIT = 15
 
 
 def _build_dna_input(song: SongInput) -> SongInput:
@@ -35,6 +50,12 @@ def _fill_missing_sections(dna: SongDNA, song: SongInput) -> SongDNA:
     if not missing:
         return dna
 
+    logger.warning(
+        "Song DNA omitted %d section(s) (%s); inserting neutral placeholders. "
+        "These sections will be adapted WITHOUT real per-section analysis.",
+        len(missing),
+        ", ".join(missing),
+    )
     for name in missing:
         dna.sections.append(
             SectionProfile(
@@ -73,6 +94,14 @@ def _duplicate_repeated_profiles(dna: SongDNA, song: SongInput) -> SongDNA:
 
 def generate_song_dna(song: SongInput, client: LLMClient) -> SongDNA:
     dna_input = _build_dna_input(song)
+    if len(dna_input.sections) > SECTION_COUNT_SOFT_LIMIT:
+        logger.warning(
+            "%d distinct sections exceeds the single-call Song DNA soft "
+            "limit of %d — expect omissions/truncation; long-form input "
+            "needs chunked analysis (not yet implemented).",
+            len(dna_input.sections),
+            SECTION_COUNT_SOFT_LIMIT,
+        )
     system, user = song_dna_prompt(dna_input)
     data = client.complete_json(system, user, max_tokens=8000)
     dna = SongDNA.model_validate(data)

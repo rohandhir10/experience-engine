@@ -12,7 +12,10 @@ Creative Adapter still returns all 5 candidates from a single call.
 """
 from __future__ import annotations
 
+import logging
 import uuid
+
+from pydantic import ValidationError
 
 from . import prompts
 from .llm_client import LLMClient
@@ -29,8 +32,45 @@ from .rhythm import count_syllables_text, source_syllable_estimate
 from .routing import compute_routing_signals
 
 
+logger = logging.getLogger(__name__)
+
+
 def _new_id() -> str:
     return uuid.uuid4().hex[:8]
+
+
+def _ruling_with_retry(
+    client: LLMClient,
+    system: str,
+    user: str,
+    ruling_data: dict,
+    section_name: str,
+) -> JudgeRuling:
+    """Parses a ruling dict, retrying the call once with a corrective
+    message if validation fails. The Judge occasionally invents a label
+    outside a closed enum (it has happened in production: the old
+    violation_type enum crashed on "modified_original") — the enums are
+    worth keeping as quality gates, so convert that crash into one guided
+    retry instead of relaxing the schema.
+    """
+    try:
+        return JudgeRuling(section=section_name, **ruling_data)
+    except ValidationError as exc:
+        logger.warning(
+            "Ruling for %s failed schema validation, retrying once: %s",
+            section_name,
+            exc,
+        )
+        corrective_user = (
+            user
+            + "\n\nYour previous ruling did not validate against the required "
+            f"schema. The specific errors were:\n{exc}\n\n"
+            "Reply again with ONLY the corrected JSON object, using ONLY the "
+            "exact field names and enum values the schema specifies."
+        )
+        retry_data = client.complete_json(system, corrective_user, max_tokens=3000)
+        ruling = retry_data.get("ruling") if isinstance(retry_data.get("ruling"), dict) else retry_data
+        return JudgeRuling(section=section_name, **ruling)
 
 
 def _generate(
@@ -40,11 +80,12 @@ def _generate(
     section_name: str,
     room_memory: RoomMemory,
     target_language: str,
+    voice: str | None = None,
 ) -> list[Candidate]:
     candidates: list[Candidate] = []
 
     system, user = prompts.generation_prompt_v1(
-        "translator", source_text, dna, section_name, room_memory, target_language
+        "translator", source_text, dna, section_name, room_memory, target_language, voice
     )
     data = client.complete_json(system, user)
     translator_text = data["text"]
@@ -62,7 +103,7 @@ def _generate(
     )
 
     system, user = prompts.creative_adapter_prompt(
-        source_text, dna, section_name, room_memory, target_language
+        source_text, dna, section_name, room_memory, target_language, voice
     )
     data = client.complete_json(system, user, max_tokens=4000)
     for item in data.get("candidates", []):
@@ -116,8 +157,11 @@ def run_section(
     section_name: str,
     room_memory: RoomMemory,
     target_language: str = "English",
+    voice: str | None = None,
 ) -> SectionResultV1:
-    candidates = _generate(client, source_text, dna, section_name, room_memory, target_language)
+    candidates = _generate(
+        client, source_text, dna, section_name, room_memory, target_language, voice
+    )
     routing_signals = compute_routing_signals(dna, section_name, candidates)
     source_syllables = source_syllable_estimate(source_text)
 
@@ -130,15 +174,26 @@ def run_section(
         room_memory,
         target_language,
         source_syllables,
+        voice,
     )
     triage_data = client.complete_json(system, user, max_tokens=3000)
 
     specialists_invoked: list[str] = []
     specialist_critiques: list[Critique] = []
 
-    if triage_data.get("ready_to_rule") and triage_data.get("ruling"):
-        ruling = JudgeRuling(section=section_name, **triage_data["ruling"])
+    ready = bool(triage_data.get("ready_to_rule"))
+    if ready and triage_data.get("ruling"):
+        ruling = _ruling_with_retry(client, system, user, triage_data["ruling"], section_name)
     else:
+        if ready:
+            # The Judge said it was ready but the ruling was missing/empty —
+            # falling through to the specialist path costs up to 4 extra LLM
+            # calls, so never let that happen silently.
+            logger.warning(
+                "Judge set ready_to_rule for %s but supplied no usable ruling; "
+                "falling back to the specialist path (extra cost).",
+                section_name,
+            )
         requested = [
             a for a in triage_data.get("specialists_needed", []) if a in SPECIALIST_AGENTS
         ]
@@ -160,11 +215,13 @@ def run_section(
             room_memory,
             target_language,
             source_syllables,
+            voice,
         )
         final_data = client.complete_json(system, user, max_tokens=3000)
-        ruling = JudgeRuling(section=section_name, **final_data)
+        ruling = _ruling_with_retry(client, system, user, final_data, section_name)
 
     ruling.specialists_invoked = specialists_invoked
+    ruling.voice = voice
 
     return SectionResultV1(
         section=section_name,

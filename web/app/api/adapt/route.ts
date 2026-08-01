@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Can't reach the engine right now. Make sure it's running (uvicorn server.main:app --port 8000).",
+          "AURA is temporarily unreachable. Please try again in a few minutes.",
       },
       { status: 502 }
     );

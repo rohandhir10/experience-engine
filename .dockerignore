@@ -1,0 +1,9 @@
+web/
+docs/
+tests/
+examples/
+.git/
+**/__pycache__/
+**/.pytest_cache/
+server/.cache/
+*.result.json

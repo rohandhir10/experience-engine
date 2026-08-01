@@ -130,7 +130,7 @@ DIMENSION_SCORES = [
     for d in (
         "artistic_fidelity",
         "genre_authenticity",
-        "natural_english",
+        "natural_target_language",
         "voice_consistency",
         "singability_rhythm",
     )

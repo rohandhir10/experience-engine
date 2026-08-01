@@ -92,7 +92,11 @@ class OpenAILLMClient(LLMClient):
         import openai  # imported lazily so the anthropic-only path never needs this installed
 
         self.model = model or config.OPENAI_MODEL
-        self._client = openai.OpenAI(api_key=api_key or config.get_api_key("openai"))
+        self._client = openai.OpenAI(
+            api_key=api_key or config.get_api_key("openai"),
+            timeout=config.LLM_TIMEOUT_SECONDS,
+            max_retries=config.LLM_MAX_RETRIES,
+        )
 
     def _call(self, system: str, user: str, max_tokens: int | None) -> str:
         import openai
@@ -101,6 +105,10 @@ class OpenAILLMClient(LLMClient):
             response = self._client.chat.completions.create(
                 model=self.model,
                 max_tokens=max_tokens or config.MAX_TOKENS,
+                # Every prompt in this engine asks for a single JSON object;
+                # JSON mode makes the model's decoder enforce that instead of
+                # relying on the regex fence-stripping in _try_parse.
+                response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},

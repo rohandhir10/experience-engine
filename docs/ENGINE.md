@@ -118,11 +118,20 @@ the engine has no way to skip.
   "source_language": "Korean",
   "context_note": "optional narrative context (EXPERIENCE_GRAPH.md §3.3)",
   "sections": [
-    {"name": "verse_1", "source_text": "line one\nline two"},
+    {"name": "verse_1", "source_text": "line one\nline two", "voice": "optional singer/speaker name"},
     {"name": "chorus", "source_text": "..."}
   ]
 }
 ```
+
+Section names must be unique, and a `repeats` reference must point at an
+earlier section — both are validated at input time rather than failing
+deep in the pipeline. `voice` attributes a section to a named
+singer/speaker for multi-voice works (duets); voice consistency is then
+judged within each voice rather than across the whole song, and room
+memory labels prior rulings per voice. Omit it for single-voice works —
+prompts are unchanged when it's absent. (V1 room only; the full room
+accepts but ignores it, with a logged warning.)
 
 `target_language` is also a field on the input (defaults to `"English"`),
 threaded through every prompt in `engine/prompts.py` rather than

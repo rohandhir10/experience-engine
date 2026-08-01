@@ -390,7 +390,8 @@ the original priority order in full:
 2. **Genre Authenticity** — does this read as a real lyric in the source's
    genre/tradition (Song DNA's `genre_feel`/`style`), not generic "poetic
    English"?
-3. **Natural English** — fluent, unstilted English, independent of
+3. **Natural English** (schema id: `natural_target_language`, since the
+   engine's target language is a parameter, not a constant) — fluent, unstilted English, independent of
    fidelity. A faithful candidate can still read clunky; this is scored
    separately so that failure mode is visible on its own.
 4. **Voice Consistency** — coherent with the established narrator/

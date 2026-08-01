@@ -16,6 +16,7 @@ zero extra LLM cost instead of re-running the whole room on identical text.
 """
 from __future__ import annotations
 
+import logging
 from typing import Literal
 
 from .llm_client import LLMClient, create_default_client
@@ -25,6 +26,8 @@ from .writers_room import run_section as run_section_full
 from .writers_room_v1 import run_section as run_section_v1
 
 RoomVersion = Literal["v1", "full"]
+
+logger = logging.getLogger(__name__)
 
 
 class EngineResult:
@@ -90,7 +93,26 @@ def run_engine(
     for section in song.sections:
         if section.repeats:
             result = _reuse_repeated_section(section.name, section.repeats, results_by_name)
+        elif room_version == "v1":
+            result = run_section(
+                client,
+                section.source_text,
+                dna,
+                section.name,
+                room_memory,
+                song.target_language,
+                section.voice,
+            )
         else:
+            # The full seven-agent room predates per-voice threading and
+            # does not use it — say so rather than silently dropping data.
+            if section.voice:
+                logger.warning(
+                    "Section %r sets voice=%r, but the full room does not "
+                    "thread voice into its prompts — only the v1 room does.",
+                    section.name,
+                    section.voice,
+                )
             result = run_section(
                 client, section.source_text, dna, section.name, room_memory, song.target_language
             )
@@ -98,11 +120,19 @@ def run_engine(
         section_results.append(result)
         results_by_name[section.name] = result
         room_memory.prior_rulings.append(result.ruling)
+        # Prefer the Judge's own phrase-level motif renderings (the exact
+        # wording used for each motif, which is what the Ambiguity Lock
+        # needs); fall back to the whole final_line only when the ruling
+        # didn't report renderings, preserving the old coarse behavior.
+        reported = dict(result.ruling.motif_renderings)
         for motif in dna.motifs:
+            if motif.motif in reported:
+                room_memory.motif_decisions[motif.motif] = reported[motif.motif]
+                continue
             touches_section = motif.first_occurrence == section.name or any(
                 o.section == section.name for o in motif.occurrences
             )
-            if touches_section:
+            if touches_section and motif.motif not in room_memory.motif_decisions:
                 room_memory.motif_decisions[motif.motif] = result.ruling.final_line
 
     return EngineResult(song, dna, section_results, room_version)
