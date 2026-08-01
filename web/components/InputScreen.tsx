@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Logo } from "./Logo";
 
 export function InputScreen({
@@ -92,6 +93,14 @@ export function InputScreen({
             )}
           </div>
         </form>
+
+        <Link
+          href="/s/demo"
+          className="animate-fade-up mt-10 text-[13px] text-ink/35 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/60 hover:decoration-ink/30 dark:text-ink-dark/35 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/60"
+          style={{ animationDelay: "220ms" }}
+        >
+          See an example first
+        </Link>
       </div>
     </main>
   );

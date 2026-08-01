@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AmbientGlow } from "@/components/AmbientGlow";
 
 export const metadata: Metadata = {
   title: "AURA — Feel the song again",
@@ -15,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans bg-paper text-ink dark:bg-paper-dark dark:text-ink-dark antialiased">
+        <AmbientGlow />
         {children}
       </body>
     </html>
