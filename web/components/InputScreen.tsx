@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
+
+const MIN_ROWS = 7;
+const MAX_TEXTAREA_HEIGHT_PX = 420;
 
 export function InputScreen({
   onSubmit,
@@ -14,9 +17,15 @@ export function InputScreen({
   error: string | null;
 }) {
   const [text, setText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function submit() {
     if (text.trim() && !loading) onSubmit(text);
+  }
+
+  function autoGrow(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
   }
 
   return (
@@ -48,9 +57,13 @@ export function InputScreen({
             Paste lyrics or dialogue
           </label>
           <textarea
+            ref={textareaRef}
             id="lyrics"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              autoGrow(e.target);
+            }}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                 e.preventDefault();
@@ -58,10 +71,10 @@ export function InputScreen({
               }
             }}
             placeholder="Paste lyrics or dialogue…"
-            rows={7}
+            rows={MIN_ROWS}
             autoFocus
             aria-describedby={error ? "lyrics-error" : undefined}
-            className="w-full resize-none rounded-2xl border border-black/[0.08] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-black/[0.08] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
           />
 
           {error && (

@@ -45,6 +45,18 @@ export function LoadingScreen() {
         >
           {STATUSES[step]}
         </p>
+        <div className="flex items-center gap-1.5" aria-hidden>
+          {STATUSES.map((_, i) => (
+            <span
+              key={i}
+              className={`h-1 w-1 rounded-full transition-colors duration-300 ${
+                i <= step
+                  ? "bg-ink/50 dark:bg-ink-dark/50"
+                  : "bg-ink/15 dark:bg-ink-dark/15"
+              }`}
+            />
+          ))}
+        </div>
       </div>
     </main>
   );

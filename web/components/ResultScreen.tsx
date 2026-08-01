@@ -28,11 +28,14 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
             <span
               aria-hidden
               className={`relative h-[18px] w-[32px] rounded-full transition-colors duration-200 ${
-                showOriginal ? "bg-accent" : "bg-black/10 dark:bg-white/10"
+                showOriginal ? "bg-accent" : "bg-black/10 dark:bg-white/15"
               }`}
             >
+              {/* Always a light knob with a shadow, in both themes — it
+                  needs to read against its own track's color, not match
+                  the page background, or it vanishes in dark mode. */}
               <span
-                className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-sm transition-transform duration-200 dark:bg-paper-dark ${
+                className={`absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.4)] transition-transform duration-200 ${
                   showOriginal ? "translate-x-[16px]" : "translate-x-[2px]"
                 }`}
               />
