@@ -67,6 +67,49 @@ cleared foreign-language lyrics. A real production run supplies actual
 Hindi/Japanese/Korean/Arabic/Russian/Spanish source lyrics per
 `PRODUCTION_WORKFLOW.md`, with `source_language` set accordingly.
 
+## Ingesting from a YouTube URL
+
+The engine itself is still text-in, text-out — nothing below touches
+`engine/pipeline.py`. `engine/youtube_ingest.py` is a separate preprocessing
+step: it pulls a video's own subtitles/captions and writes a **draft**
+`SongInput` JSON in the same shape as `examples/*.json`, for a human to
+review and correct before it's ever run through the engine.
+
+```bash
+python -m engine.youtube_ingest "https://www.youtube.com/watch?v=VIDEO_ID"
+# writes VIDEO_ID.draft.json
+
+# then, after you've reviewed/edited it:
+python -m engine.cli VIDEO_ID.draft.json
+```
+
+Options: `-o/--output` to name the file, `--languages` to prefer specific
+transcript language codes (e.g. `--languages hi en`), `--gap-threshold` to
+tune the silence-length (seconds) treated as a section break (default 3.0).
+
+**What this can't fix, and doesn't pretend to:**
+
+- **Section boundaries are a guess.** They're inferred from pauses between
+  captions, not real verse/chorus structure — every draft's sections are
+  named `section_1`, `section_2`, ... and its `context_note` says so
+  explicitly. Rename and re-split them by hand before running the engine;
+  do not treat the draft as ready to use.
+- **Auto-generated captions are unreliable for singing.** YouTube's
+  auto-generated ("ASR") captions are speech-to-text, and singing isn't
+  speech — for non-English music in particular, they're often badly
+  garbled. This module always prefers a manually-created transcript when
+  one exists, and its `context_note` warning says clearly when what it
+  found was auto-generated instead, so you know to check the text against
+  the actual audio.
+- **No transcript at all is a hard failure, not a fallback.** Many music
+  videos have captions disabled or none uploaded. `youtube_ingest` reports
+  this plainly (`Could not ingest this video: ...`) rather than silently
+  producing something worse.
+
+This is why the product should never advertise "paste a YouTube URL" as a
+one-step feature — it's two steps, the second of which is a human review
+the engine has no way to skip.
+
 ## Input format
 
 ```json
