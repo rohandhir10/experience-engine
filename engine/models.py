@@ -210,6 +210,11 @@ class Candidate(BaseModel):
     # Which of the five adaptation philosophies this candidate embodies
     # (creative_adapter only; empty for the Translator's literal anchor).
     philosophy: str = ""
+    # Deterministic syllable count (engine/rhythm.py), computed in code, not
+    # by the model — grounds "Singability & Rhythm" in an actual number
+    # instead of the Judge's unverified opinion. None if not computed
+    # (e.g. the full room, which doesn't wire this in).
+    syllable_count: int | None = None
 
 
 class Critique(BaseModel):
@@ -285,6 +290,13 @@ class JudgeRuling(BaseModel):
     # its existence.
     deviations: list[Deviation] = Field(default_factory=list)
     dimension_scores: list[DimensionScore] = Field(default_factory=list)
+    # Aggregate 0-1 measure of how much unjustified/borderline invention
+    # showed up across the candidates the Judge reviewed (not just the
+    # winner) — 0 means no invention risk was found anywhere; higher means
+    # more of the deviation ledger leaned on weak or borderline
+    # justifications. Separate from per-deviation justifications so a
+    # human reviewer has one number to scan before reading the ledger.
+    invention_penalty: float = 0.0
 
 
 class SectionResult(BaseModel):

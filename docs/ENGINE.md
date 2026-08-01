@@ -102,18 +102,26 @@ the transcript.
 literal anchor + 5 Creative Adapter candidates, one per adaptation
 philosophy — `maximum_fidelity`, `native_english_lyricist`,
 `performance_first`, `emotion_first`, `genre_first` — each with a
-`philosophy` field and self-reported `confidence`/`uncertainty_type` —
-`WRITERS_ROOM_V1.md` §9.3), `routing_signals` (what fired and why —
-cultural density, ambiguity, guarded vulnerability, low confidence, and
-the specialists those signals suggested), `specialists_invoked` (which the
-Judge actually called, 0-3), `specialist_critiques` (their critiques, if
-any were called), and `ruling` — the Judge's `final_line` plus its full
-rationale, now including `deviations` (the Burden-of-Change ledger: every
-fragment that differs from the Translator's literal anchor, with a
-justification tied to one of the five scored dimensions — empty is the
-healthy default) and `dimension_scores` (Artistic Fidelity, Genre
-Authenticity, Natural English, Voice Consistency, Singability & Rhythm —
-`WRITERS_ROOM_V1.md` §9.1-9.2).
+`philosophy` field, self-reported `confidence`/`uncertainty_type`, and a
+`syllable_count` computed deterministically in code (`engine/rhythm.py`,
+CMU Pronouncing Dictionary via `pronouncing`, English output only — `None`
+otherwise) rather than by the model — `WRITERS_ROOM_V1.md` §9.3, §9.6),
+`routing_signals` (what fired and why — cultural density, ambiguity,
+guarded vulnerability, low confidence, and the specialists those signals
+suggested), `specialists_invoked` (which the Judge actually called, 0-3),
+`specialist_critiques` (their critiques, if any were called), and `ruling`
+— the Judge's `final_line` plus its full rationale, now including
+`deviations` (the Burden-of-Change ledger: every fragment that differs
+from the Translator's literal anchor, with a justification tied to one of
+the five scored dimensions — empty is the healthy default),
+`dimension_scores` (Artistic Fidelity, Genre Authenticity, Natural
+English, Voice Consistency, Singability & Rhythm — grounded for the last
+of these by each candidate's computed `syllable_count` and, when the
+source is Latin-script, a rough `source_syllable_estimate` — `WRITERS_ROOM_V1.md`
+§9.1-9.2, §9.6), and `invention_penalty` (an aggregate 0-1 score across all
+candidates reviewed for how much of the deviation ledger leaned on weak
+"sounds better" justifications rather than specific reasons —
+`WRITERS_ROOM_V1.md` §9.6).
 
 A `SectionInput` may also set `repeats` to an earlier section's name (a
 chorus recurring verbatim later in the song) — that section's ruling and

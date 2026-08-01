@@ -473,4 +473,37 @@ single-prompt GPT/Claude, replicated on held-out songs never used to tune
 a prompt. Comparison against a human literary adaptation is diagnostic
 only — a different, harder bar, not a gate this stage needs to clear.
 
+### 9.6 Singability & Rhythm: from opinion to a deterministic baseline
+
+Until now, `singability_rhythm` was a pure LLM judgment with nothing
+underneath it — the Judge stated a score, but no number anywhere in the
+pipeline had actually been counted. `engine/rhythm.py` fixes that for
+English output: it computes a real syllable count per candidate using the
+CMU Pronouncing Dictionary (`pronouncing` package), falling back to a
+vowel-cluster heuristic for words the dictionary doesn't know (slang,
+names, transliterations). When the source text is itself Latin-script
+(e.g. romanized Hindi/Punjabi), a rough `source_syllable_estimate` is also
+computed as a reference point for how much a candidate compresses or
+expands the line — never a hard target, since English and the source
+language don't map syllable-for-syllable. Devanagari and other non-Latin
+source scripts get `None` rather than a fabricated number.
+
+Both the Translator's and Creative Adapter's candidates carry a
+`syllable_count` field, computed in code before either Judge prompt runs.
+The Judge is told explicitly that this number is real, not a guess, and
+should ground `singability_rhythm` in it rather than an unverified
+opinion. This doesn't make singability fully objective — "does this scan
+well when sung" is still a judgment call — but it removes the worst
+failure mode, where the Judge could assert a rhythm score with nothing
+underneath it at all.
+
+Alongside this, `JudgeRuling` gained `invention_penalty`: an aggregate 0-1
+score across every candidate reviewed (not just the winner), for how much
+of the deviation ledger leaned on weak, "sounds better"-style
+justifications rather than a specific, defensible reason. This is separate
+from the per-deviation `justification` fields in §9.1 — it exists so a
+human auditing a ruling has one number to scan before reading the full
+ledger, as a signal for when a ruling's deviations deserve closer
+scrutiny.
+
 *End of document.*

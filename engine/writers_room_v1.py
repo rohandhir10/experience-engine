@@ -25,6 +25,7 @@ from .models import (
     SPECIALIST_AGENTS,
     SongDNA,
 )
+from .rhythm import count_syllables_text, source_syllable_estimate
 from .routing import compute_routing_signals
 
 
@@ -46,15 +47,17 @@ def _generate(
         "translator", source_text, dna, section_name, room_memory, target_language
     )
     data = client.complete_json(system, user)
+    translator_text = data["text"]
     candidates.append(
         Candidate(
             id=_new_id(),
             agent="translator",
-            text=data["text"],
+            text=translator_text,
             leans_into=data.get("leans_into", ""),
             confidence=float(data.get("confidence", 1.0)),
             uncertainty_type=data.get("uncertainty_type", "none"),
             round="generation",
+            syllable_count=count_syllables_text(translator_text) if target_language == "English" else None,
         )
     )
 
@@ -63,16 +66,18 @@ def _generate(
     )
     data = client.complete_json(system, user, max_tokens=4000)
     for item in data.get("candidates", []):
+        candidate_text = item["text"]
         candidates.append(
             Candidate(
                 id=_new_id(),
                 agent="creative_adapter",
-                text=item["text"],
+                text=candidate_text,
                 leans_into=item.get("leans_into", ""),
                 confidence=float(item.get("confidence", 1.0)),
                 uncertainty_type=item.get("uncertainty_type", "none"),
                 philosophy=item.get("philosophy", ""),
                 round="generation",
+                syllable_count=count_syllables_text(candidate_text) if target_language == "English" else None,
             )
         )
     return candidates
@@ -114,9 +119,17 @@ def run_section(
 ) -> SectionResultV1:
     candidates = _generate(client, source_text, dna, section_name, room_memory, target_language)
     routing_signals = compute_routing_signals(dna, section_name, candidates)
+    source_syllables = source_syllable_estimate(source_text)
 
     system, user = prompts.judge_triage_prompt(
-        candidates, routing_signals, source_text, dna, section_name, room_memory, target_language
+        candidates,
+        routing_signals,
+        source_text,
+        dna,
+        section_name,
+        room_memory,
+        target_language,
+        source_syllables,
     )
     triage_data = client.complete_json(system, user, max_tokens=3000)
 
@@ -146,6 +159,7 @@ def run_section(
             section_name,
             room_memory,
             target_language,
+            source_syllables,
         )
         final_data = client.complete_json(system, user, max_tokens=3000)
         ruling = JudgeRuling(section=section_name, **final_data)

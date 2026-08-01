@@ -554,9 +554,12 @@ _RULING_SCHEMA = (
     '"voice_consistency"|"singability_rhythm"}], "dimension_scores": '
     '[{"dimension": "artistic_fidelity"|"genre_authenticity"|'
     '"natural_english"|"voice_consistency"|"singability_rhythm", "score": '
-    'float, "note": str}, ... all five], "priority_tradeoffs_made": str, '
-    '"disagreements_overruled": [{"agents": str, "disagreement": str, '
-    '"ruling": str, "why": str}]}'
+    'float, "note": str}, ... all five], "invention_penalty": float (0-1: '
+    '0 if no deviation anywhere in the candidate set leaned on a weak or '
+    'borderline justification, higher the more of the deviation ledger '
+    'relied on "sounds better" reasoning rather than a real, specific '
+    'reason), "priority_tradeoffs_made": str, "disagreements_overruled": '
+    '[{"agents": str, "disagreement": str, "ruling": str, "why": str}]}'
 )
 
 
@@ -568,11 +571,18 @@ def judge_triage_prompt(
     section_name: str,
     room_memory: RoomMemory,
     target_language: str = "English",
+    source_syllables: int | None = None,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge, running the minimal V1 room. You have a "
         "Translator's literal anchor plus 5 candidates from the Creative "
-        "Adapter, one per adaptation philosophy. "
+        "Adapter, one per adaptation philosophy. Each candidate's "
+        "syllable_count below is computed deterministically (a real G2P/"
+        "dictionary-based count, not a model guess) — use it as actual "
+        "grounding for the singability_rhythm dimension instead of an "
+        "unverified opinion; a source_syllable_estimate is given when "
+        "available as a rough reference point for how much may need to "
+        "compress or expand to stay singable, not a hard target.\n\n"
         + _judge_core_question(target_language) + "\n\n"
         + _judge_gates_and_dimensions(target_language) + "\n\n"
         "You alone decide whether this section can be ruled on now, or "
@@ -603,8 +613,16 @@ def judge_triage_prompt(
     candidates_text = "\n".join(
         f"[{c.id}] ({c.agent}"
         + (f", philosophy={c.philosophy}" if c.philosophy else "")
-        + f", confidence={c.confidence:.2f}, uncertainty={c.uncertainty_type}): {c.text}"
+        + f", confidence={c.confidence:.2f}, uncertainty={c.uncertainty_type}"
+        + (f", syllable_count={c.syllable_count}" if c.syllable_count is not None else "")
+        + f"): {c.text}"
         for c in candidates
+    )
+    syllable_reference = (
+        f"Source syllable estimate (rough, computed only because the source "
+        f"is Latin-script/transliterated): {source_syllables}\n\n"
+        if source_syllables is not None
+        else ""
     )
     section = dna.section(section_name)
     user = (
@@ -612,6 +630,7 @@ def judge_triage_prompt(
         f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}; "
         f"this section's narrative function: {section.narrative_function.function}\n\n"
         f"Candidates:\n{candidates_text}\n\n"
+        f"{syllable_reference}"
         "Routing signals (free, computed from Song DNA + candidate self-"
         f"reports):\n{routing_signals.summary_for_prompt()}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"
@@ -629,12 +648,16 @@ def judge_final_prompt(
     section_name: str,
     room_memory: RoomMemory,
     target_language: str = "English",
+    source_syllables: int | None = None,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge. You previously requested specialist input before "
         "ruling on this section; that input is now available. You are "
         "choosing among a Translator's literal anchor plus 5 Creative "
-        "Adapter candidates, one per adaptation philosophy. "
+        "Adapter candidates, one per adaptation philosophy. Each "
+        "candidate's syllable_count is computed deterministically (real "
+        "G2P/dictionary-based, not a guess) — ground singability_rhythm in "
+        "that instead of an unverified opinion. "
         + _judge_core_question(target_language) + "\n\n"
         + _judge_gates_and_dimensions(target_language) + "\n\n"
         "You are not limited to picking one candidate verbatim. If a "
@@ -654,6 +677,7 @@ def judge_final_prompt(
     candidates_text = "\n".join(
         f"[{c.id}] ({c.agent}"
         + (f", philosophy={c.philosophy}" if c.philosophy else "")
+        + (f", syllable_count={c.syllable_count}" if c.syllable_count is not None else "")
         + f"): {c.text}"
         for c in candidates
     )
@@ -665,11 +689,18 @@ def judge_final_prompt(
         )
         or "No specialists were consulted."
     )
+    syllable_reference = (
+        f"Source syllable estimate (rough, computed only because the source "
+        f"is Latin-script/transliterated): {source_syllables}\n\n"
+        if source_syllables is not None
+        else ""
+    )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"
         f"Song DNA — thesis: {dna.artistic_thesis}; arc shape: {dna.arc_shape}\n\n"
         f"Candidates:\n{candidates_text}\n\n"
         f"Specialist consultations:\n{critiques_text}\n\n"
+        f"{syllable_reference}"
         f"Routing signals: {routing_signals.summary_for_prompt()}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"
         "Render your final ruling now."
