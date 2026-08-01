@@ -110,6 +110,50 @@ This is why the product should never advertise "paste a YouTube URL" as a
 one-step feature — it's two steps, the second of which is a human review
 the engine has no way to skip.
 
+## Verifying a run against the constitution
+
+The Judge is asked to log every deviation from the literal anchor and to
+score its own `invention_penalty` — but both are self-reported by the same
+model being audited, which is a claim rather than evidence.
+`engine/verify.py` checks those claims in code, with no LLM calls and no
+API key:
+
+```bash
+python -m engine.cli examples/sample_song.json --verify   # run, then audit
+python -m engine.verify examples/sample_song.result.json  # audit a stored run
+python -m engine.verify <file> --json                     # machine-readable
+```
+
+Exit code is non-zero when the audit fails, so it can gate a pipeline.
+
+What it checks:
+
+- **Law 1 (No Invention)** — diffs the shipped line against the
+  Translator's literal anchor and reports what fraction of the actual
+  change the deviation ledger accounts for. Words that changed but appear
+  in no ledger entry are unlogged, therefore unjustified.
+- **Ledger integrity** — a deviation citing a fragment that appears in
+  neither the anchor nor the final line means the audit trail is
+  fabricated, which is worse than an absent one.
+- **Law 3 (Compression Floor)** — explanatory connectives ("because",
+  "although") added that the anchor never used.
+- **Law 4 (Restraint Ceiling)** — emotion words and intensifiers the
+  anchor never states.
+- **Law 5 (Ambiguity Lock)** — a motif rendered two different ways across
+  sections (checkable now that rulings report `motif_renderings`).
+- **Justification quality** — justifications that reduce to "sounds
+  better" rather than a specific reason.
+
+It also computes its own `invention_penalty` from the diff and prints it
+next to the Judge's self-reported one; a large gap means the Judge graded
+itself more leniently than its own output supports.
+
+**What it is not:** proof that an adaptation is *good*, or that a
+justification is *correct*. No static check can decide whether "one
+breath" earns its place. It verifies the audit trail is complete,
+non-fabricated, and free of the mechanical failures the constitution
+names — the part a reviewer would otherwise take on faith.
+
 ## Input format
 
 ```json

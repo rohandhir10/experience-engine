@@ -29,6 +29,15 @@ def main(argv: list[str] | None = None) -> int:
         help="Where to write the full JSON transcript. Defaults to <song_file>.result.json",
     )
     parser.add_argument(
+        "--verify",
+        action="store_true",
+        help=(
+            "After the run, check the result against the Burden of Change "
+            "constitution deterministically (engine/verify.py) and print the "
+            "audit. No extra LLM calls."
+        ),
+    )
+    parser.add_argument(
         "--room",
         choices=["v1", "full"],
         default="v1",
@@ -51,6 +60,13 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Wrote full transcript to {output_path}")
     print("\nFinal lyrics:\n")
     print(result.final_lyrics())
+
+    if args.verify:
+        from .verify import verify_result
+
+        report = verify_result(result.to_dict())
+        print("\n" + report.summary())
+
     return 0
 
 

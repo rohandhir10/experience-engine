@@ -498,6 +498,28 @@ well when sung" is still a judgment call — but it removes the worst
 failure mode, where the Judge could assert a rhythm score with nothing
 underneath it at all.
 
+### 9.7 Verifying the constitution instead of trusting it
+
+Everything in §9 was, until recently, enforced by prompt text alone: the
+Judge was *asked* to log every deviation and *asked* to score its own
+`invention_penalty`. Both are self-reports from the model under audit.
+
+`engine/verify.py` (see `docs/ENGINE.md`) now checks those self-reports
+deterministically, with no LLM in the loop: it diffs the shipped line
+against the Translator's literal anchor and measures what fraction of the
+real change the deviation ledger actually accounts for, catches ledger
+entries citing text that exists in neither the anchor nor the final line,
+flags emotion words / intensifiers / explanatory connectives the anchor
+never used, checks motif renderings for consistency across sections, and
+computes an independent invention penalty to compare against the Judge's
+own. Any run — including runs already stored on disk — can be audited
+retroactively, and a non-zero exit code lets it gate a pipeline.
+
+This is the difference between "our engine follows a constitution" as a
+marketing claim and as a checkable property. It cannot judge whether a
+justification is *good* — only whether the audit trail is complete,
+honest, and free of the mechanical failures the laws name.
+
 Alongside this, `JudgeRuling` gained `invention_penalty`: an aggregate 0-1
 score across every candidate reviewed (not just the winner), for how much
 of the deviation ledger leaned on weak, "sounds better"-style
