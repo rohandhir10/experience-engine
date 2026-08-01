@@ -31,6 +31,9 @@ const config: Config = {
           DEFAULT: "#1a1a1a",
           dark: "#ededec",
         },
+        accent: {
+          DEFAULT: "#5b5bd6",
+        },
       },
       maxWidth: {
         prose: "42rem",

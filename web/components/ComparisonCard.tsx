@@ -18,19 +18,15 @@ export function ComparisonCard({
 }) {
   return (
     <div
-      className="animate-fade-up relative rounded-2xl border border-black/[0.06] bg-white/60 px-7 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.04)] backdrop-blur-sm dark:border-white/[0.06] dark:bg-white/[0.03] sm:px-10 sm:py-10"
+      className="animate-fade-up relative rounded-2xl border border-black/[0.06] px-7 py-8 dark:border-white/[0.07] sm:px-10 sm:py-10"
       style={{ animationDelay: `${index * 90}ms` }}
     >
-      <span className="pointer-events-none absolute right-6 top-6 text-[10px] font-medium tracking-[0.25em] text-ink/20 dark:text-ink-dark/20">
-        AURA
-      </span>
-
-      <p className="mb-6 text-xs font-medium uppercase tracking-[0.15em] text-ink/40 dark:text-ink-dark/40">
+      <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink/40 dark:text-ink-dark/40">
         {humanize(section.id)}
       </p>
 
       {showOriginal && original && (
-        <div className="mb-6 space-y-1 border-b border-black/[0.05] pb-6 dark:border-white/[0.05]">
+        <div className="mt-6 space-y-1 border-b border-black/[0.05] pb-6 dark:border-white/[0.05]">
           <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
             Original
           </p>
@@ -40,7 +36,7 @@ export function ComparisonCard({
         </div>
       )}
 
-      <div className="space-y-1">
+      <div className="mt-6 space-y-1">
         <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
           Literal
         </p>
@@ -49,10 +45,8 @@ export function ComparisonCard({
         </p>
       </div>
 
-      <div className="my-6 flex items-center gap-3 text-ink/20 dark:text-ink-dark/20">
-        <span className="h-px flex-1 bg-current opacity-30" />
-        <span className="text-sm">↓</span>
-        <span className="h-px flex-1 bg-current opacity-30" />
+      <div className="my-8 flex justify-center">
+        <span className="text-[13px] leading-none text-accent/50">↓</span>
       </div>
 
       <div className="space-y-1">
@@ -67,6 +61,10 @@ export function ComparisonCard({
       <p className="mt-6 max-w-prose text-[14px] italic leading-relaxed text-ink/50 dark:text-ink-dark/50">
         {section.why}
       </p>
+
+      <span className="pointer-events-none absolute bottom-6 right-7 text-[10px] font-medium tracking-[0.25em] text-ink/[0.12] dark:text-ink-dark/[0.12] sm:right-10">
+        AURA
+      </span>
     </div>
   );
 }

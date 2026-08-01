@@ -14,6 +14,10 @@ export function InputScreen({
 }) {
   const [text, setText] = useState("");
 
+  function submit() {
+    if (text.trim() && !loading) onSubmit(text);
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-6">
       <div className="fixed left-6 top-6 sm:left-10 sm:top-10">
@@ -36,28 +40,46 @@ export function InputScreen({
           style={{ animationDelay: "160ms" }}
           onSubmit={(e) => {
             e.preventDefault();
-            if (text.trim() && !loading) onSubmit(text);
+            submit();
           }}
         >
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste a song here…"
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder="Paste a song…"
             rows={7}
-            className="w-full resize-none rounded-2xl border border-black/[0.08] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 shadow-[0_1px_2px_rgba(0,0,0,0.03)] outline-none transition focus:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30 dark:focus:border-white/20"
+            autoFocus
+            className="w-full resize-none rounded-2xl border border-black/[0.08] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
           />
 
           {error && (
             <p className="mt-3 text-[13px] text-red-500/80">{error}</p>
           )}
 
-          <button
-            type="submit"
-            disabled={!text.trim() || loading}
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-ink px-8 py-3 text-[14px] font-medium text-paper transition disabled:cursor-not-allowed disabled:opacity-30 dark:bg-ink-dark dark:text-paper-dark"
-          >
-            {loading ? "Listening…" : "Experience it"}
-          </button>
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <button
+              type="submit"
+              disabled={!text.trim() || loading}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-8 py-3 text-[14px] font-medium text-paper transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30 dark:bg-ink-dark dark:text-paper-dark"
+            >
+              {loading && (
+                <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-paper/40 border-t-paper dark:border-paper-dark/40 dark:border-t-paper-dark" />
+              )}
+              {loading ? "Listening" : "Experience it"}
+            </button>
+
+            {text.trim() && !loading && (
+              <span className="animate-fade-up text-[12px] text-ink/30 dark:text-ink-dark/30">
+                ⌘ + Enter
+              </span>
+            )}
+          </div>
         </form>
       </div>
     </main>
