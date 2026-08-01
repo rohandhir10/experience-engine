@@ -1,0 +1,45 @@
+{
+  "title": "Balam Pichkari",
+  "source_language": "Hindi (with a couple of English words mixed in)",
+  "context_note": "From Yeh Jawaani Hai Deewani, set during Holi. Playful, flirtatious teasing - the singer says being drenched in color by the person she likes has left her metaphorically drunk/intoxicated, scandalizing the neighborhood. Register is colloquial and cheeky throughout, not romantic-serious - the 'drunkenness' is a cheerful double entendre about infatuation, not literal.",
+  "sections": [
+    {
+      "name": "intro",
+      "source_text": "REPLACE with the opening 4 lines (the 'balam pichkari ... sharaabi ho gayi' lines)"
+    },
+    {
+      "name": "pre_chorus",
+      "source_text": "REPLACE with the 'itna maza kyun aa raha hai / bhang milaya / meetha khilaya' lines"
+    },
+    {
+      "name": "chorus",
+      "source_text": "REPLACE with the full repeating chorus block (malmal ki kurti ... jeans pehan ke thumka ... bhabhi ho gayi)"
+    },
+    {
+      "name": "verse_1",
+      "source_text": "REPLACE with the 'teri kalai hai haathon mein aayi hai ... upvaas karne mein teri bhalaai hai' verse"
+    },
+    {
+      "name": "chorus_2",
+      "source_text": "same as chorus",
+      "repeats": "chorus"
+    },
+    {
+      "name": "refrain",
+      "source_text": "REPLACE with the 'hoy hoy hoy hoy' lines"
+    },
+    {
+      "name": "verse_2",
+      "source_text": "REPLACE with the 'no vacancy ki hothon pe gaali hai ... har taale ki aaj chaabi ho gayi' verse"
+    },
+    {
+      "name": "chorus_3",
+      "source_text": "same as chorus",
+      "repeats": "chorus"
+    },
+    {
+      "name": "outro",
+      "source_text": "REPLACE with the final 'bole re zamana kharaabi ho gayi' repeated closing lines"
+    }
+  ]
+}
