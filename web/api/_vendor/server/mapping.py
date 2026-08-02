@@ -51,7 +51,19 @@ def _translator_text(result: SectionResultV1) -> str:
     return result.candidates[0].text if result.candidates else ""
 
 
-def to_experience_result(client: LLMClient, engine_result: EngineResult, result_id: str) -> dict:
+def to_experience_result(
+    client: LLMClient,
+    engine_result: EngineResult,
+    result_id: str,
+    explain_why_client: LLMClient | None = None,
+) -> dict:
+    """`explain_why_client`, if given, handles the _explain_why calls
+    instead of `client` — presentation text, not adaptation reasoning, so
+    it's the one place worth a cheaper model (see engine/config.py's
+    EXPLAIN_WHY_MODEL). Defaults to `client` so existing callers that
+    don't pass this keep working unchanged.
+    """
+    why_client = explain_why_client or client
     source_by_name = {s.name: s.source_text for s in engine_result.song.sections}
 
     sections = []
@@ -63,7 +75,7 @@ def to_experience_result(client: LLMClient, engine_result: EngineResult, result_
         literal = _translator_text(result)
         aura = result.ruling.final_line
         why = _explain_why(
-            client,
+            why_client,
             engine_result.dna.artistic_thesis,
             literal,
             aura,

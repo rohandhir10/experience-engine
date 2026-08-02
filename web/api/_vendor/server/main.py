@@ -50,6 +50,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from engine import config
 from engine.llm_client import LLMError, create_default_client
 from engine.models import SongInput
 from engine.pipeline import run_engine
@@ -169,7 +170,15 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         engine_result = run_engine(
             song, client=client, room_version="v1", apply_corrective_pass=True
         )
-        experience_result = to_experience_result(client, engine_result, result_id)
+        # explain_why is presentation text, not adaptation reasoning — the
+        # one call in this request that's a legitimate candidate for a
+        # cheaper model (engine/config.py's EXPLAIN_WHY_MODEL). A separate
+        # client so its calls are still fully measured (merged into the
+        # cost log below), just not on the same model as the rest.
+        explain_why_client = create_default_client(model=config.EXPLAIN_WHY_MODEL)
+        experience_result = to_experience_result(
+            client, engine_result, result_id, explain_why_client=explain_why_client
+        )
     except LLMError as exc:
         logger.error("adapt id=%s engine failure: %s", result_id, exc)
         raise HTTPException(
@@ -210,15 +219,18 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
     # production logs instead of only being knowable after building a
     # separate benchmark. Aggregated per stage since a section-by-section
     # breakdown is more log lines than one request needs by default.
-    calls = client.call_log
-    tokens_by_stage: dict[str, list[int]] = {}
+    # Includes explain_why_client's calls too — a different model, but
+    # still real cost from this request, and it would otherwise vanish
+    # from this total silently.
+    calls = client.call_log + explain_why_client.call_log
+    tokens_by_stage: dict[tuple[str, str], list[int]] = {}
     for record in calls:
-        counts = tokens_by_stage.setdefault(record.stage, [0, 0])
+        counts = tokens_by_stage.setdefault((record.stage, record.model), [0, 0])
         counts[0] += record.prompt_tokens
         counts[1] += record.completion_tokens
     stage_summary = ", ".join(
-        f"{stage}={prompt}p/{completion}c"
-        for stage, (prompt, completion) in sorted(tokens_by_stage.items())
+        f"{stage}[{model}]={prompt}p/{completion}c"
+        for (stage, model), (prompt, completion) in sorted(tokens_by_stage.items())
     )
     total_prompt = sum(r.prompt_tokens for r in calls)
     total_completion = sum(r.completion_tokens for r in calls)

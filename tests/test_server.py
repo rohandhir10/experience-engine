@@ -53,7 +53,8 @@ def _patch_engine(monkeypatch, engine_result, captured: dict):
         captured["room_version"] = room_version
         return engine_result
 
-    def fake_to_experience_result(client, result, result_id):
+    def fake_to_experience_result(client, result, result_id, explain_why_client=None):
+        captured["explain_why_client_given"] = explain_why_client is not None
         return {
             "id": result_id,
             "hook": "test hook",
@@ -62,9 +63,13 @@ def _patch_engine(monkeypatch, engine_result, captured: dict):
             "original": [],
         }
 
+    def fake_create_default_client(model=None):
+        captured.setdefault("requested_models", []).append(model)
+        return _FakeClient()
+
     monkeypatch.setattr(main, "run_engine", fake_run_engine)
     monkeypatch.setattr(main, "to_experience_result", fake_to_experience_result)
-    monkeypatch.setattr(main, "create_default_client", lambda: _FakeClient())
+    monkeypatch.setattr(main, "create_default_client", fake_create_default_client)
 
 
 def test_adapt_enables_the_corrective_pass(monkeypatch):
@@ -79,6 +84,25 @@ def test_adapt_enables_the_corrective_pass(monkeypatch):
     main.adapt(request, _FakeRequest())
 
     assert captured["apply_corrective_pass"] is True
+
+
+def test_adapt_requests_a_cheaper_model_for_explain_why(monkeypatch):
+    """explain_why is presentation text, not adaptation reasoning — the
+    one call this request makes on a deliberately cheaper model
+    (engine/config.py's EXPLAIN_WHY_MODEL), via a separate client so its
+    cost is still measured, just not on the main model.
+    """
+    from engine import config
+
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+
+    request = main.AdaptRequest(text="line one\nline two")
+    main.adapt(request, _FakeRequest())
+
+    # First call: the main engine client (no override). Second: explain_why's.
+    assert captured["requested_models"] == [None, config.EXPLAIN_WHY_MODEL]
+    assert captured["explain_why_client_given"] is True
 
 
 def test_adapt_logs_clean_verification_with_no_findings(monkeypatch, caplog):

@@ -230,9 +230,13 @@ _PROVIDERS: dict[str, type[LLMClient]] = {
 }
 
 
-def create_default_client() -> LLMClient:
+def create_default_client(model: str | None = None) -> LLMClient:
     """Builds the client for whichever provider is active
     (config.PROVIDER / AURA_PROVIDER env var). Defaults to OpenAI.
+
+    `model` overrides that provider's default model (e.g. a cheaper model
+    for a lower-stakes call like server/mapping.py's explain_why) — still
+    the same provider, just a different model name from the same class.
     """
     provider = config.PROVIDER
     cls = _PROVIDERS.get(provider)
@@ -240,4 +244,4 @@ def create_default_client() -> LLMClient:
         raise RuntimeError(
             f"Unknown AURA_PROVIDER {provider!r}; expected one of {list(_PROVIDERS)}"
         )
-    return cls()
+    return cls(model=model) if model else cls()

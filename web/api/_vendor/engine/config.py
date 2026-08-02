@@ -12,6 +12,24 @@ OPENAI_MODEL = os.environ.get("AURA_OPENAI_MODEL", "gpt-4o")
 ANTHROPIC_MODEL = os.environ.get("AURA_ANTHROPIC_MODEL", "claude-sonnet-5")
 MAX_TOKENS = int(os.environ.get("AURA_MAX_TOKENS", "4096"))
 
+# server/mapping.py::_explain_why — the reader-facing "why this changed"
+# sentence. Presentation, not adaptation reasoning: it doesn't touch the
+# engine's own output, so it's the lowest-risk place to use a cheaper
+# model. Defaults to a cheaper OpenAI model only when OpenAI is actually
+# the active provider — if AURA_PROVIDER=anthropic, there's no hardcoded
+# "cheap Anthropic model" assumption here, so it falls back to the same
+# model as everything else rather than silently guessing at one.
+#
+# Provisional, not yet quality-validated: this should be confirmed against
+# a real side-by-side test (a blind sample of explanations, same songs,
+# both models) before being trusted as a free win. Set
+# AURA_EXPLAIN_WHY_MODEL to the main model to revert instantly if that
+# test doesn't hold up.
+EXPLAIN_WHY_MODEL = os.environ.get(
+    "AURA_EXPLAIN_WHY_MODEL",
+    "gpt-4o-mini" if PROVIDER == "openai" else ANTHROPIC_MODEL,
+)
+
 # Per-request timeout and SDK-level retry budget for LLM calls. A full
 # section can legitimately take a while, but a call that hangs past this
 # is dead — fail it and let the engine's own error handling surface it.
