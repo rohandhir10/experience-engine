@@ -9,14 +9,15 @@ import { ResultScreen } from "@/components/ResultScreen";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { demoResult } from "@/lib/demo-data";
 
-// Client component, deliberately: the fastest, most reliable source for
-// this page's data is sessionStorage, written by app/page.tsx right after
-// a successful submission - reachable only from the browser, not a server
-// component. Falling back to a network fetch covers a page refresh or a
-// link opened fresh (including by someone else it was shared with), but
-// that fallback depends on server/cache.py's store, which is best-effort
-// on this deployment (see that file's docstring) - a real limitation,
-// not something this fallback fixes on its own.
+// Client component: sessionStorage (written by app/page.tsx right after
+// a successful submission) is the fastest source for this page's data
+// and needs the browser, not a server component. The network fallback
+// below now hits a real persistent Railway service (server/cache.py's
+// store lives on that one process's disk, not a fresh /tmp per request
+// the way Vercel serverless functions worked) - so a page refresh or a
+// link shared with someone else should actually find it, as long as the
+// service hasn't redeployed since (a fresh container's disk starts empty
+// unless a volume is attached - see Dockerfile's comment on this).
 async function fetchResult(id: string): Promise<ExperienceResult | null> {
   try {
     const res = await fetch(`/api/adapt/${id}`, { cache: "no-store" });

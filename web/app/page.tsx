@@ -23,15 +23,14 @@ export default function Home() {
       if (!res.ok) {
         throw new Error(body.error || body.detail || "Something went wrong.");
       }
-      // Stashed for the share page to read directly, client-side, instead
-      // of re-fetching over the network. The Python engine function wrote
-      // its result to server/cache.py's store, but that store now lives on
-      // /tmp inside that function's own container - a completely separate
-      // runtime from this Next.js page, sharing no filesystem with it.
-      // Re-fetching from here would fail every time, not just sometimes.
-      // This only fixes the "view my own just-created result" case; a
-      // link shared to someone else still depends on that cache, which
-      // remains best-effort (see server/cache.py's docstring).
+      // Stashed for the share page to read directly, client-side, so
+      // viewing your own just-created result never needs a second network
+      // round-trip at all - the fastest path, not a workaround for a
+      // broken one. The share page's network fallback (for a refresh, or
+      // a link opened by someone else) hits the same Railway-hosted
+      // engine's own cache (server/cache.py), which is real and shared
+      // across requests now, not per-request ephemeral the way it was on
+      // Vercel serverless functions.
       try {
         sessionStorage.setItem(`aura-result-${body.id}`, JSON.stringify(body));
       } catch {
