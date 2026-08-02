@@ -30,6 +30,13 @@ Operational behavior:
     keeps the event loop free without touching the engine.
   - Structured request logging: one line per request with duration and
     cache hit/miss, so cost and latency are visible from stdout.
+  - Every run is verified (engine/verify.py) against the Burden of Change
+    constitution and, if that finds an error-severity issue, corrected
+    once (engine/pipeline.py's bounded corrective pass) before shipping.
+    Verification runs a second time after that pass purely for logging —
+    it does not loop or retry again — so anything still wrong stays
+    visible in production logs instead of only being checkable by hand
+    via the CLI's --verify flag.
 """
 from __future__ import annotations
 
@@ -47,6 +54,7 @@ from engine.llm_client import LLMError, create_default_client
 from engine.models import SongInput
 from engine.pipeline import run_engine
 from engine.text_ingest import split_into_sections
+from engine.verify import verify_result
 
 from . import cache
 from .mapping import to_experience_result
@@ -154,7 +162,13 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
 
     try:
         client = create_default_client()
-        engine_result = run_engine(song, client=client, room_version="v1")
+        # apply_corrective_pass: verify.py runs once against the raw
+        # output, and any error-severity finding gets one bounded re-judge
+        # (engine/pipeline.py's Phase 2 corrective pass) before this ships
+        # to a real user — not just logged after the fact.
+        engine_result = run_engine(
+            song, client=client, room_version="v1", apply_corrective_pass=True
+        )
         experience_result = to_experience_result(client, engine_result, result_id)
     except LLMError as exc:
         logger.error("adapt id=%s engine failure: %s", result_id, exc)
@@ -165,6 +179,30 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
     except RuntimeError as exc:
         logger.error("adapt id=%s configuration failure: %s", result_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    # Verified a second time here, after the corrective pass already ran
+    # inside run_engine — this call never triggers another correction, it
+    # only makes what's still true (if anything) visible in production
+    # logs, since nothing was checking this in the deployed web app until
+    # now.
+    report = verify_result(engine_result.to_dict())
+    errors = [f for f in report.all_findings if f.severity == "error"]
+    warnings = [f for f in report.all_findings if f.severity == "warning"]
+    if errors:
+        logger.warning(
+            "adapt id=%s shipped with %d unresolved verify.py error(s) after "
+            "the corrective pass: %s",
+            result_id,
+            len(errors),
+            "; ".join(f"{f.law} ({f.section})" for f in errors),
+        )
+    logger.info(
+        "adapt id=%s verify errors=%d warnings=%d laws=[%s]",
+        result_id,
+        len(errors),
+        len(warnings),
+        ", ".join(sorted({f.law for f in errors + warnings})),
+    )
 
     cache.set(result_id, experience_result)
     # Measured, not estimated (engine/models.py::LLMCallRecord) — every
