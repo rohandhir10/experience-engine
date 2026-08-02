@@ -18,6 +18,12 @@ MAX_TOKENS = int(os.environ.get("AURA_MAX_TOKENS", "4096"))
 LLM_TIMEOUT_SECONDS = float(os.environ.get("AURA_LLM_TIMEOUT", "120"))
 LLM_MAX_RETRIES = int(os.environ.get("AURA_LLM_MAX_RETRIES", "2"))
 
+# See engine/llm_client.py::OpenAILLMClient — forces the OpenAI HTTP client
+# to connect over IPv4 only, a mitigation for environments with broken
+# IPv6 egress. On by default; set to "0" to rule it out if it isn't the
+# actual cause of a connection failure.
+FORCE_IPV4 = os.environ.get("AURA_FORCE_IPV4", "1") != "0"
+
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

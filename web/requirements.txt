@@ -14,6 +14,7 @@
 #     real, disclosed capability loss for Japanese on this deployment,
 #     not a silent one.
 openai>=1.50.0
+httpx>=0.27.0  # imported directly by engine/llm_client.py (IPv4-forcing transport), not just via openai
 pydantic>=2.6
 fastapi>=0.110.0
 pronouncing>=0.2.0

@@ -89,13 +89,29 @@ class OpenAILLMClient(LLMClient):
     """Active default provider."""
 
     def __init__(self, model: str | None = None, api_key: str | None = None):
+        import httpx
         import openai  # imported lazily so the anthropic-only path never needs this installed
 
         self.model = model or config.OPENAI_MODEL
+        http_client = None
+        if config.FORCE_IPV4:
+            # Some containerized/serverless environments (seen: a Vercel
+            # Python function) have broken or unreachable IPv6 egress —
+            # a connection attempt that tries an IPv6 address first fails
+            # almost instantly ("no route to host"), which looks exactly
+            # like the fast, repeated "Connection error." failures this
+            # was added for, rather than a slow timeout. Binding the local
+            # address forces httpx to resolve and connect over IPv4 only.
+            # A hypothesis, not a confirmed diagnosis — AURA_FORCE_IPV4=0
+            # disables this if it turns out not to be the cause.
+            http_client = httpx.Client(
+                transport=httpx.HTTPTransport(local_address="0.0.0.0")
+            )
         self._client = openai.OpenAI(
             api_key=api_key or config.get_api_key("openai"),
             timeout=config.LLM_TIMEOUT_SECONDS,
             max_retries=config.LLM_MAX_RETRIES,
+            http_client=http_client,
         )
 
     def _call(self, system: str, user: str, max_tokens: int | None) -> str:
@@ -115,7 +131,14 @@ class OpenAILLMClient(LLMClient):
                 ],
             )
         except openai.APIError as exc:
-            raise LLMError(f"OpenAI API call failed: {exc}") from exc
+            # openai's own str(exc) for a connection failure is just
+            # "Connection error." — it discards the actual httpx/socket
+            # exception (DNS failure, TLS failure, refused connection are
+            # all indistinguishable at that point). __cause__ holds the
+            # real one; surface it rather than guessing at the failure
+            # mode from a message that can't tell them apart.
+            detail = f"{type(exc.__cause__).__name__}: {exc.__cause__}" if exc.__cause__ else "no underlying exception captured"
+            raise LLMError(f"OpenAI API call failed: {exc} | underlying: {detail}") from exc
         return response.choices[0].message.content or ""
 
 
