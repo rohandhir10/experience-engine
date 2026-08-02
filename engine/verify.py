@@ -143,6 +143,15 @@ TAUTOLOGICAL_PATTERNS = (
     r"\bimproves?\s+the\s+line\b",
     r"\bbetter\s+word\s+choice\b",
     r"^\s*(it\s+)?just\b",
+    # Found in a real production run's priority_tradeoffs_made, justifying
+    # a dropped triple-repetition ("then who is right") as reading better:
+    # "feels smoother and more relatable... in a more natural and engaging
+    # way." Same tautology class as the patterns above — explains why a
+    # line is easier, not why a dropped source device earns its absence.
+    r"\bsmoother\b",
+    r"\bmore\s+relatable\b",
+    r"\bmore\s+engaging\b",
+    r"\bmore\s+accessible\b",
 )
 
 _TOKEN_RE = re.compile(r"[^\W\d_]+")

@@ -195,12 +195,19 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 
 # Captured from the pre-refactor engine. A failure here means a prompt
 # changed — intentional or not.
+#
+# creative_adapter/judge_triage/judge_final updated deliberately: added
+# explicit instructions to preserve repetition count, rhetorical questions,
+# metaphor/imagery, and to reject "sounds smoother/more relatable/more
+# natural" as sufficient justification for dropping a source device —
+# following a real production run that collapsed a triple-repeated phrase
+# ("then who is right") to a single occurrence, justified exactly that way.
 EXPECTED_HASHES = {
     "song_dna": "cb396a04e923a3f4",
     "generation_translator": "8e9b94913c4a3da8",
-    "creative_adapter": "beaa3bc56ddce589",
-    "judge_triage": "9a66804b0199c25c",
-    "judge_final": "d5f9148decca5da3",
+    "creative_adapter": "d10e3c2cea7ded75",
+    "judge_triage": "435269b27d16c754",
+    "judge_final": "559460aceaa370ff",
     "diagnosis_native_speaker": "9452b56158c2d859",
 }
 

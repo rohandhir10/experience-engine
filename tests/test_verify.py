@@ -214,7 +214,19 @@ def test_deviation_citing_anchor_text_that_does_not_exist_warns():
 
 def test_tautological_justifications_are_flagged():
     final = "I keep the drawer shut and I never open it"
-    for weak in ("sounds better", "it flows better here", "more natural", "just"):
+    for weak in (
+        "sounds better",
+        "it flows better here",
+        "more natural",
+        "just",
+        # Regression cases: the exact phrasing a real production run used
+        # to justify dropping a source's triple-repeated phrase down to
+        # one occurrence.
+        "feels smoother",
+        "more relatable",
+        "more natural and engaging",
+        "more accessible",
+    ):
         v = verify_section(
             _section(
                 final,
