@@ -16,6 +16,34 @@ def _dummy_api_key(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-dummy-not-real")
 
 
+# ---------------------------------------------------------------------------
+# get_api_key — regression test for a real production bug
+# ---------------------------------------------------------------------------
+
+
+def test_api_key_trailing_whitespace_is_stripped(monkeypatch):
+    """Regression test for a real bug found in production: a trailing
+    space in the OPENAI_API_KEY env var (a Vercel dashboard copy-paste
+    artifact) turned the Authorization header into something httpx's HTTP
+    layer rejects outright — "LocalProtocolError: Illegal header value" —
+    before any request was even sent. That looked exactly like a network
+    connection failure and took real debugging to trace back to this.
+    """
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-dummy-not-real \n")
+    assert config.get_api_key("openai") == "sk-test-dummy-not-real"
+
+
+def test_api_key_without_whitespace_is_unaffected(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-dummy-not-real")
+    assert config.get_api_key("openai") == "sk-test-dummy-not-real"
+
+
+def test_whitespace_only_api_key_is_treated_as_unset(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "   ")
+    with pytest.raises(RuntimeError, match="is not set"):
+        config.get_api_key("openai")
+
+
 def test_force_ipv4_default_builds_a_custom_http_client(monkeypatch):
     monkeypatch.setattr(config, "FORCE_IPV4", True)
     client = OpenAILLMClient()

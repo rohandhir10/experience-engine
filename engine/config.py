@@ -38,6 +38,18 @@ def get_api_key(provider: str | None = None) -> str:
             f"Unknown provider {provider!r}; expected one of {list(_API_KEY_ENV_VARS)}"
         )
     key = os.environ.get(env_var)
+    if key is not None:
+        # A trailing space or newline is a common copy-paste artifact when
+        # setting an env var through a dashboard UI (confirmed in
+        # production: Vercel). It's invisible in most UIs, but it turns
+        # the Authorization header into something httpx's HTTP layer
+        # rejects outright as malformed — "LocalProtocolError: Illegal
+        # header value" — before any request is even sent, which looks
+        # exactly like a fast, repeated connection failure and is very
+        # hard to diagnose from that alone. Stripping here removes an
+        # entire class of "the key is right but it still doesn't work"
+        # bug reports.
+        key = key.strip()
     if not key:
         raise RuntimeError(
             f"{env_var} is not set. Export it before running the engine, "
