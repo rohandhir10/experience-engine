@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
+from .language_profile import resolve_profile
 from .llm_client import LLMClient, create_default_client
 from .models import RoomMemory, SectionResult, SectionResultV1, SongDNA, SongInput
 from .song_dna import generate_song_dna
@@ -83,7 +84,10 @@ def run_engine(
     room_version: RoomVersion = "v1",
 ) -> EngineResult:
     client = client or create_default_client()
-    dna = generate_song_dna(song, client)
+    # Resolved once per song. Neutral (pre-V2 behavior) unless the song
+    # names a language with a profile — docs/MULTILINGUAL_V2.md §7.
+    profile = resolve_profile(song.source_language_code, song.source_language)
+    dna = generate_song_dna(song, client, profile)
     room_memory = RoomMemory()
     section_results: list[SectionResult | SectionResultV1] = []
     results_by_name: dict[str, SectionResult | SectionResultV1] = {}
@@ -102,6 +106,7 @@ def run_engine(
                 room_memory,
                 song.target_language,
                 section.voice,
+                profile,
             )
         else:
             # The full seven-agent room predates per-voice threading and

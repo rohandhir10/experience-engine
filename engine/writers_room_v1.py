@@ -18,6 +18,7 @@ import uuid
 from pydantic import ValidationError
 
 from . import prompts
+from .language_profile import NEUTRAL_PROFILE, LanguageProfile
 from .llm_client import LLMClient
 from .models import (
     Candidate,
@@ -28,6 +29,7 @@ from .models import (
     SPECIALIST_AGENTS,
     SongDNA,
 )
+from .grounding import count_source_units
 from .rhythm import count_syllables_text, source_syllable_estimate
 from .routing import compute_routing_signals
 
@@ -81,11 +83,13 @@ def _generate(
     room_memory: RoomMemory,
     target_language: str,
     voice: str | None = None,
+    profile: LanguageProfile = NEUTRAL_PROFILE,
 ) -> list[Candidate]:
     candidates: list[Candidate] = []
 
     system, user = prompts.generation_prompt_v1(
-        "translator", source_text, dna, section_name, room_memory, target_language, voice
+        "translator", source_text, dna, section_name, room_memory, target_language, voice,
+        profile,
     )
     data = client.complete_json(system, user)
     translator_text = data["text"]
@@ -103,7 +107,7 @@ def _generate(
     )
 
     system, user = prompts.creative_adapter_prompt(
-        source_text, dna, section_name, room_memory, target_language, voice
+        source_text, dna, section_name, room_memory, target_language, voice, profile
     )
     data = client.complete_json(system, user, max_tokens=4000)
     for item in data.get("candidates", []):
@@ -158,12 +162,17 @@ def run_section(
     room_memory: RoomMemory,
     target_language: str = "English",
     voice: str | None = None,
+    profile: LanguageProfile = NEUTRAL_PROFILE,
 ) -> SectionResultV1:
     candidates = _generate(
-        client, source_text, dna, section_name, room_memory, target_language, voice
+        client, source_text, dna, section_name, room_memory, target_language, voice, profile
     )
     routing_signals = compute_routing_signals(dna, section_name, candidates)
-    source_syllables = source_syllable_estimate(source_text)
+    # Per-language source grounding first (Devanagari, Hangul, ...);
+    # fall back to the Latin-script estimate. None stays None — the
+    # engine never fabricates a count it cannot justify.
+    grounded = count_source_units(source_text, profile.grounding_language_code)
+    source_syllables = grounded.value if grounded else source_syllable_estimate(source_text)
 
     system, user = prompts.judge_triage_prompt(
         candidates,
@@ -175,6 +184,7 @@ def run_section(
         target_language,
         source_syllables,
         voice,
+        profile,
     )
     triage_data = client.complete_json(system, user, max_tokens=3000)
 
@@ -216,6 +226,7 @@ def run_section(
             target_language,
             source_syllables,
             voice,
+            profile,
         )
         final_data = client.complete_json(system, user, max_tokens=3000)
         ruling = _ruling_with_retry(client, system, user, final_data, section_name)

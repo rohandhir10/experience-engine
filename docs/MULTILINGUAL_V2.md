@@ -367,6 +367,14 @@ per-language failure modes are invisible without per-language evaluation.
 
 ## Migration roadmap
 
+> **Status: Phase 1 is implemented and merged.** `engine/language_profile.py`,
+> `engine/profiles/hindi.json`, `engine/grounding/` (Devanagari + Hangul),
+> `SongInput.source_language_code`, `JudgeRuling.cultural_anchors`, and
+> `tests/test_golden_prompts.py` are all in the tree. Existing Hindi
+> example files resolve the profile automatically from their
+> `source_language` string with no edits. Phases 2 and 3 remain as
+> described below.
+
 **Phase 1 — behavior-neutral scaffolding.** Ship the profile system with
 a neutral default that changes nothing, proven by byte-identical
 golden-prompt tests. Add `source_language_code` and

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 
+from .language_profile import NEUTRAL_PROFILE, LanguageProfile
 from .llm_client import LLMClient
 from .models import (
     DensityItem,
@@ -92,7 +93,11 @@ def _duplicate_repeated_profiles(dna: SongDNA, song: SongInput) -> SongDNA:
     return dna
 
 
-def generate_song_dna(song: SongInput, client: LLMClient) -> SongDNA:
+def generate_song_dna(
+    song: SongInput,
+    client: LLMClient,
+    profile: LanguageProfile = NEUTRAL_PROFILE,
+) -> SongDNA:
     dna_input = _build_dna_input(song)
     if len(dna_input.sections) > SECTION_COUNT_SOFT_LIMIT:
         logger.warning(
@@ -102,7 +107,7 @@ def generate_song_dna(song: SongInput, client: LLMClient) -> SongDNA:
             len(dna_input.sections),
             SECTION_COUNT_SOFT_LIMIT,
         )
-    system, user = song_dna_prompt(dna_input)
+    system, user = song_dna_prompt(dna_input, profile)
     data = client.complete_json(system, user, max_tokens=8000)
     dna = SongDNA.model_validate(data)
     dna = _fill_missing_sections(dna, dna_input)

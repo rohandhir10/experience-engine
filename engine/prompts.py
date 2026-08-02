@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 
+from .language_profile import LanguageProfile
 from .models import (
     Candidate,
     Critique,
@@ -84,11 +85,17 @@ key; use empty lists where a dimension genuinely doesn't apply to this song):
 """
 
 
-def song_dna_prompt(song: SongInput) -> tuple[str, str]:
+def song_dna_prompt(
+    song: SongInput, profile: "LanguageProfile | None" = None
+) -> tuple[str, str]:
     sections_text = "\n\n".join(f"[{s.name}]\n{s.source_text}" for s in song.sections)
     context = f"\nContext: {song.context_note}" if song.context_note else ""
+    # Empty string for the neutral profile, so prompts stay byte-identical
+    # to the pre-V2 engine unless a real profile is supplied.
+    profile_block = profile.song_dna_block() if profile else ""
     user = (
-        f"Source language: {song.source_language}{context}\n\n"
+        f"Source language: {song.source_language}{context}\n"
+        f"{profile_block}\n"
         f"Full song, section by section:\n\n{sections_text}\n\n"
         "Analyze this song's artistic DNA as instructed."
     )
@@ -445,9 +452,11 @@ def generation_prompt_v1(
     room_memory: RoomMemory,
     target_language: str = "English",
     voice: str | None = None,
+    profile: LanguageProfile | None = None,
 ) -> tuple[str, str]:
     system = (
         agent_brief(agent, target_language)
+        + (profile.translator_block() if profile and agent == "translator" else "")
         + "\n\nRespond with ONLY a JSON object: {\"text\": str, \"leans_into\": "
         'str, "confidence": float (0-1, how confident you are this candidate '
         'captures the intended effect), "uncertainty_type": '
@@ -486,6 +495,7 @@ def creative_adapter_prompt(
     room_memory: RoomMemory,
     target_language: str = "English",
     voice: str | None = None,
+    profile: LanguageProfile | None = None,
 ) -> tuple[str, str]:
     """The Creative Adapter's call, producing exactly 5 candidates — one per
     named adaptation philosophy — in one shot (docs/WRITERS_ROOM_V1.md §9,
@@ -494,6 +504,7 @@ def creative_adapter_prompt(
     """
     system = (
         agent_brief("creative_adapter", target_language)
+        + (profile.anchor_block() if profile else "")
         + "\n\nRespond with ONLY a JSON object: {\"candidates\": [{\"text\": "
         'str, "philosophy": "maximum_fidelity"|"native_english_lyricist"|'
         '"performance_first"|"emotion_first"|"genre_first", "leans_into": '
@@ -598,6 +609,7 @@ def judge_triage_prompt(
     target_language: str = "English",
     source_syllables: int | None = None,
     voice: str | None = None,
+    profile: LanguageProfile | None = None,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge, running the minimal V1 room. You have a "
@@ -610,7 +622,9 @@ def judge_triage_prompt(
         "available as a rough reference point for how much may need to "
         "compress or expand to stay singable, not a hard target.\n\n"
         + _judge_core_question(target_language) + "\n\n"
-        + _judge_gates_and_dimensions(target_language) + "\n\n"
+        + _judge_gates_and_dimensions(target_language)
+        + (profile.constitution_block() if profile else "")
+        + "\n\n"
         "You alone decide whether this section can be ruled on now, or "
         "whether one or more specialist consultants (cultural_historian, "
         "native_speaker, psychologist) must weigh in first — they exist "
@@ -677,6 +691,7 @@ def judge_final_prompt(
     target_language: str = "English",
     source_syllables: int | None = None,
     voice: str | None = None,
+    profile: LanguageProfile | None = None,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge. You previously requested specialist input before "
@@ -687,7 +702,9 @@ def judge_final_prompt(
         "G2P/dictionary-based, not a guess) — ground singability_rhythm in "
         "that instead of an unverified opinion. "
         + _judge_core_question(target_language) + "\n\n"
-        + _judge_gates_and_dimensions(target_language) + "\n\n"
+        + _judge_gates_and_dimensions(target_language)
+        + (profile.constitution_block() if profile else "")
+        + "\n\n"
         "You are not limited to picking one candidate verbatim. If a "
         "specialist flagged a real concern and no candidate actually "
         "resolves it, rewrite final_line yourself to address it — do not "

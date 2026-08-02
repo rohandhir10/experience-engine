@@ -43,6 +43,12 @@ class SongInput(BaseModel):
     # readiness: swapping this later should not require another prompt
     # redesign, just a different value here.
     target_language: str = "English"
+    # ISO-ish code selecting a Language Profile (engine/profiles/*.json) and
+    # a source-side grounding counter (engine/grounding/). Optional: when
+    # absent the engine falls back to matching `source_language`, and then
+    # to the neutral profile, which reproduces pre-V2 behavior exactly.
+    # docs/MULTILINGUAL_V2.md §7.
+    source_language_code: str | None = None
     context_note: str | None = None
     sections: list[SectionInput]
 
@@ -289,6 +295,23 @@ class Deviation(BaseModel):
     ]
 
 
+class AnchorDecision(BaseModel):
+    """What the Judge decided to do with a culturally dense term
+    (docs/MULTILINGUAL_V2.md §6). Recorded so the decision is auditable
+    and so verify.py can check it was applied identically at every
+    recurrence — the same discipline Law 5 applies to motifs.
+    """
+
+    term: str
+    disposition: Literal[
+        "preserve",  # kept untranslated
+        "preserve_with_gloss",  # kept, with a light in-line gloss
+        "adapt",  # rendered with a target-language equivalent
+        "translate_plainly",  # the density was incidental here
+    ]
+    rationale: str
+
+
 class DimensionScore(BaseModel):
     """One of the five scored dimensions (docs/WRITERS_ROOM_V1.md §9),
     applied to the winning candidate. Literal Accuracy and Authenticity are
@@ -336,6 +359,9 @@ class JudgeRuling(BaseModel):
     # phrase -> identical wording on every recurrence") unenforceable from
     # stored state.
     motif_renderings: dict[str, str] = Field(default_factory=dict)
+    # Culturally dense terms this ruling had to decide about, and what it
+    # decided (docs/MULTILINGUAL_V2.md §6). Empty for songs with none.
+    cultural_anchors: list[AnchorDecision] = Field(default_factory=list)
     # Which voice (speaker/singer) delivered this section, copied from
     # SectionInput.voice so room-memory summaries can label prior rulings
     # per voice. None for single-voice works.
