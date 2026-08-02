@@ -68,6 +68,41 @@ def syllable_profile(text: str) -> list[dict]:
     return profile
 
 
+# Marks a word absent from the CMU dictionary in a stress pattern string.
+# Deliberately NOT '0' or '1': the vowel-cluster fallback used for syllable
+# counting carries no stress information, and guessing would be exactly the
+# silent-fabrication failure this codebase rejects elsewhere (see
+# japanese.py degrading to None for kanji with no tokenizer, rather than
+# under-counting). 'x' breaks any clash/lapse run a caller is scanning for
+# rather than being silently skipped — missing information, not evidence
+# of smooth prosody.
+STRESS_UNKNOWN = "x"
+
+
+def stress_pattern_word(word: str) -> str | None:
+    """Per-syllable stress as a string of '1' (stressed, ARPAbet 1 or 2)
+    and '0' (unstressed, ARPAbet 0), from the CMU dictionary's first
+    pronunciation. None if the word isn't in the dictionary.
+    """
+    phones_list = pronouncing.phones_for_word(word.lower())
+    if not phones_list:
+        return None
+    raw = pronouncing.stresses(phones_list[0])
+    return "".join("0" if c == "0" else "1" for c in raw)
+
+
+def stress_pattern_line(line: str) -> str:
+    """Concatenates stress_pattern_word for every word in the line, using
+    STRESS_UNKNOWN for any word not in the CMU dictionary.
+    """
+    words = _WORD_RE.findall(line)
+    parts = []
+    for word in words:
+        pattern = stress_pattern_word(word)
+        parts.append(pattern if pattern is not None else STRESS_UNKNOWN)
+    return "".join(parts)
+
+
 def source_syllable_estimate(source_text: str) -> int | None:
     """A rough source-side baseline — only meaningful when the source is
     Latin-script (transliterated, e.g. romanized Hindi/Punjabi). Returns

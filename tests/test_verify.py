@@ -499,6 +499,83 @@ def test_older_results_without_the_field_are_unaffected():
 
 
 # ---------------------------------------------------------------------------
+# Stress — clash/lapse in the shipped line (Phase 3A)
+# ---------------------------------------------------------------------------
+
+
+def test_stress_clash_is_flagged():
+    # true(1) love(1) burns(1) bright(1) -> 4 consecutive stressed syllables.
+    v = verify_section(_section("True love burns bright and clear tonight"))
+    assert any(f.law == "Stress check" and "stress clash" in f.detail for f in v.findings)
+
+
+def test_stress_lapse_is_flagged():
+    # the(0) a(0) in(0) and(0) the(0) -> 5 consecutive unstressed syllables.
+    v = verify_section(_section("The a in and the story of it all"))
+    assert any(f.law == "Stress check" and "lapse" in f.detail for f in v.findings)
+
+
+def test_ordinary_line_has_no_stress_finding():
+    v = verify_section(_section(ANCHOR))
+    assert "Stress check" not in _laws(v.findings)
+
+
+def test_function_words_do_not_manufacture_a_false_clash():
+    """Regression test for a real bug found by testing against real
+    output: the CMU dictionary marks isolated monosyllabic function words
+    ("is", "of", "for", "to", "this", "that"...) as stressed, because a
+    citation-form single syllable always carries its own primary stress.
+    Read naively, a line dense with ordinary function words looked like a
+    7-11-syllable stress clash. None of these words is stressed in real
+    speech (function-word reduction), so a sentence built almost entirely
+    from them must NOT trip the clash check.
+    """
+    v = verify_section(
+        _section("Is this for you, or is it for this, of that, to this?")
+    )
+    assert not any(
+        f.law == "Stress check" and "consecutive stressed" in f.detail
+        for f in v.findings
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rhyme density — measured, never judged (Phase 3B)
+# ---------------------------------------------------------------------------
+
+
+def test_rhyme_density_is_computed_and_reported():
+    final = (
+        "I wonder why it's true\n"
+        "the sky is always blue\n"
+        "nothing here is new\n"
+        "the old and something though"
+    )
+    v = verify_section(_section(final))
+    assert v.rhyme_density == 0.75
+    # Measured, but never turned into a Finding — no threshold exists.
+    assert "Rhyme" not in _laws(v.findings)
+
+
+def test_rhyme_density_is_none_when_unresolvable():
+    v = verify_section(_section("one single line only"))
+    assert v.rhyme_density is None
+
+
+def test_summary_reports_rhyme_density_as_measured_not_judged():
+    final = (
+        "I wonder why it's true\n"
+        "the sky is always blue\n"
+        "nothing here is new\n"
+        "the old and something though"
+    )
+    report = verify_result({"sections": [_section(final).model_dump()]})
+    summary = report.summary()
+    assert "Rhyme density" in summary
+    assert "NOT judged" in summary
+
+
+# ---------------------------------------------------------------------------
 # Graceful degradation
 # ---------------------------------------------------------------------------
 

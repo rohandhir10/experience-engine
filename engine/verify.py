@@ -48,7 +48,8 @@ from pydantic import BaseModel, Field
 
 from .models import Deviation, SectionResultV1
 from .recurrence import detect_recurring_endings
-from .rhythm import count_syllables_text
+from .rhyme import rhyme_density as _compute_rhyme_density
+from .rhythm import STRESS_UNKNOWN, count_syllables_text, stress_pattern_word
 
 # Words that name a feeling outright. The Restraint Ceiling exists because
 # a model's instinct is to explain the emotion the source left implicit;
@@ -112,6 +113,15 @@ LINE_COLLAPSE_RATIO = 0.5
 # anything — a one-line section cannot "collapse".
 MIN_LINES_FOR_COLLAPSE_CHECK = 3
 
+# Consecutive-syllable-run thresholds for flagging a likely stress clash
+# (too many stressed syllables in a row — awkward against any regular
+# beat) or stress lapse (too many unstressed in a row — rhythmically
+# flat). These are general English-prosody heuristics, not corpus-
+# calibrated per genre or song — a provisional starting point, disclosed
+# as such, the same way SYLLABLE_DELTA_WARN_RATIO below is.
+MIN_STRESS_CLASH_RUN = 3
+MIN_STRESS_LAPSE_RUN = 5
+
 # Relative gap between source and shipped-line syllable/mora counts before
 # it's worth a human read. Deliberately not an error and not proof of bad
 # singability — languages differ in syllable structure, and this number
@@ -165,6 +175,14 @@ class SectionVerification(BaseModel):
     # tell the real story — over-writing at one end, untouched
     # translation at the other, earned adaptation in between.
     adaptation_distance: float = 0.0
+    # Measured, not judged (engine/rhyme.py) — the fraction of the shipped
+    # line's end words that rhyme with another end word in the same
+    # section. None when there are too few resolvable end words to mean
+    # anything. Deliberately not tied to any pass/fail threshold: what
+    # counts as "enough" rhyme varies by language and genre (a Hindi film
+    # couplet and a traditional Japanese lyric have opposite defaults),
+    # and no corpus exists yet to calibrate a per-genre expectation.
+    rhyme_density: float | None = None
     verifiable: bool = True  # False when no translator anchor exists
 
     @property
@@ -198,6 +216,7 @@ class VerificationReport(BaseModel):
         mean_computed = sum(s.computed_invention_penalty for s in verifiable) / len(verifiable)
         mean_reported = sum(s.reported_invention_penalty for s in verifiable) / len(verifiable)
         mean_distance = sum(s.adaptation_distance for s in verifiable) / len(verifiable)
+        rhyme_values = [s.rhyme_density for s in verifiable if s.rhyme_density is not None]
 
         lines += [
             f"Sections verified:      {len(verifiable)}",
@@ -213,6 +232,14 @@ class VerificationReport(BaseModel):
             f"Adaptation distance:    {mean_distance:.0%} moved from the "
             "literal anchor [computed]",
         ]
+        if rhyme_values:
+            mean_rhyme = sum(rhyme_values) / len(rhyme_values)
+            lines.append(
+                f"Rhyme density:          {mean_rhyme:.0%} of resolvable end "
+                f"words rhyme ({len(rhyme_values)}/{len(verifiable)} sections "
+                "measurable) [computed, NOT judged — no pass/fail threshold "
+                "exists; what counts as 'enough' varies by language and genre]"
+            )
         if mean_computed - mean_reported > 0.2:
             lines.append(
                 "  ^ The Judge graded itself more leniently than the actual "
@@ -287,6 +314,53 @@ def _function_word_ratio(text: str) -> float:
 
 def _non_empty_lines(text: str) -> list[str]:
     return [line for line in text.splitlines() if line.strip()]
+
+
+def _stress_pattern_for_clash_detection(line: str) -> str:
+    """Like rhythm.stress_pattern_word/_line, but every FUNCTION_WORDS
+    token is forced to '0' regardless of its CMU citation-form stress.
+
+    The CMU dictionary marks an isolated monosyllabic word as stressed —
+    a single syllable always carries its own word's primary stress in
+    citation form — but in connected natural speech, closed-class function
+    words ("is", "of", "for", "to", "this", "that"...) are conventionally
+    UNSTRESSED (function-word reduction, a basic fact about English
+    prosody). Using raw citation-form stress produced clash counts of
+    7-11 on ordinary sentences in testing — every real line has several
+    function words, each wrongly counted as "stressed". This is the fix,
+    not a refinement: without it the check is not measuring anything real.
+    """
+    chars = []
+    for word in _tokens(line):
+        if word in FUNCTION_WORDS:
+            chars.append("0")
+            continue
+        pattern = stress_pattern_word(word)
+        chars.append(pattern if pattern is not None else STRESS_UNKNOWN)
+    return "".join(chars)
+
+
+def _max_stress_runs(pattern: str) -> tuple[int, int]:
+    """(longest run of consecutive stressed syllables, longest run of
+    consecutive unstressed). An unknown-word marker ('x') breaks both
+    runs — an unresolved word is missing information, not evidence that
+    the run continues.
+    """
+    max_stressed = current_stressed = 0
+    max_unstressed = current_unstressed = 0
+    for char in pattern:
+        if char == "1":
+            current_stressed += 1
+            current_unstressed = 0
+        elif char == "0":
+            current_unstressed += 1
+            current_stressed = 0
+        else:
+            current_stressed = 0
+            current_unstressed = 0
+        max_stressed = max(max_stressed, current_stressed)
+        max_unstressed = max(max_unstressed, current_unstressed)
+    return max_stressed, max_unstressed
 
 
 def _covered_by_ledger(word: str, deviations: list[Deviation]) -> bool:
@@ -534,6 +608,42 @@ def verify_section(result: SectionResultV1) -> SectionVerification:
                 )
             )
 
+    # --- Stress: clash/lapse in the shipped line, English-internal, no
+    # source or melody needed (Phase 3A) --------------------------------
+    stress_pattern = _stress_pattern_for_clash_detection(final)
+    max_stressed_run, max_unstressed_run = _max_stress_runs(stress_pattern)
+    if max_stressed_run >= MIN_STRESS_CLASH_RUN:
+        findings.append(
+            Finding(
+                law="Stress check",
+                severity="warning",
+                section=section,
+                detail=(
+                    f"{max_stressed_run} consecutive stressed syllables in the "
+                    "shipped line — a likely stress clash. Provisional "
+                    "threshold from general English prosody, not corpus-"
+                    "calibrated per genre; a prompt to listen to the line, "
+                    "not a verdict."
+                ),
+            )
+        )
+    if max_unstressed_run >= MIN_STRESS_LAPSE_RUN:
+        findings.append(
+            Finding(
+                law="Stress check",
+                severity="warning",
+                section=section,
+                detail=(
+                    f"{max_unstressed_run} consecutive unstressed syllables — "
+                    "a likely stress lapse (a rhythmically flat stretch). "
+                    "Same disclosed-limits caveat as the clash check above."
+                ),
+            )
+        )
+
+    # --- Rhyme: measured, not judged (Phase 3B) — see engine/rhyme.py ---
+    rhyme_density_value = _compute_rhyme_density(_non_empty_lines(final))
+
     return SectionVerification(
         section=section,
         findings=findings,
@@ -542,6 +652,7 @@ def verify_section(result: SectionResultV1) -> SectionVerification:
         reported_invention_penalty=ruling.invention_penalty,
         changed_word_count=len(changed),
         adaptation_distance=_adaptation_distance(anchor, final),
+        rhyme_density=rhyme_density_value,
     )
 
 
