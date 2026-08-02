@@ -1,19 +1,23 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import type { ExperienceResult } from "@/lib/types";
 import { Logo } from "@/components/Logo";
 import { ResultScreen } from "@/components/ResultScreen";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { demoResult } from "@/lib/demo-data";
 
-async function getResult(id: string): Promise<ExperienceResult | null> {
-  // Hardcoded example, bypasses the network entirely - lets /s/demo render
-  // the full result screen in previews with no live Python backend behind
-  // them. The real flow (/, /api/adapt) never touches this.
-  if (id === "demo") return demoResult;
-
-  // Same-origin now: web/vercel.json rewrites /api/adapt/:id straight to
-  // the Python function (web/api/engine.py) in this same deployment. No
-  // external backend URL to configure - see that file's docstring for why
-  // one FastAPI app can own both this path and POST /api/adapt.
+// Client component, deliberately: the fastest, most reliable source for
+// this page's data is sessionStorage, written by app/page.tsx right after
+// a successful submission - reachable only from the browser, not a server
+// component. Falling back to a network fetch covers a page refresh or a
+// link opened fresh (including by someone else it was shared with), but
+// that fallback depends on server/cache.py's store, which is best-effort
+// on this deployment (see that file's docstring) - a real limitation,
+// not something this fallback fixes on its own.
+async function fetchResult(id: string): Promise<ExperienceResult | null> {
   try {
     const res = await fetch(`/api/adapt/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
@@ -23,12 +27,39 @@ async function getResult(id: string): Promise<ExperienceResult | null> {
   }
 }
 
-export default async function SharedResultPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const result = await getResult(params.id);
+export default function SharedResultPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const [result, setResult] = useState<ExperienceResult | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id === "demo") {
+      setResult(demoResult);
+      setLoading(false);
+      return;
+    }
+
+    const stashed = sessionStorage.getItem(`aura-result-${id}`);
+    if (stashed) {
+      try {
+        setResult(JSON.parse(stashed));
+        setLoading(false);
+        return;
+      } catch {
+        // Fall through to the network fetch below.
+      }
+    }
+
+    fetchResult(id).then((fetched) => {
+      setResult(fetched);
+      setLoading(false);
+    });
+  }, [id]);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
 
   if (!result) {
     return (
