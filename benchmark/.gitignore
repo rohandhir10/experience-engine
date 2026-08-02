@@ -5,3 +5,6 @@ runs/
 # Manual reference files are pasted from third-party sites (Bollynook,
 # FilmyQuotes) — keep those texts out of the repo too.
 manual/
+# Corpus SPECS (corpora/*.md) are tracked; collected lyrics are not.
+corpora/*.json
+corpora/*.txt

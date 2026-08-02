@@ -11,7 +11,7 @@ import pytest
 from engine.grounding import count_source_units
 from engine.grounding.base import supported_languages
 from engine.grounding.devanagari import count_hindi
-from engine.grounding.hangul import count_korean
+from engine.grounding.hangul import count_korean, sino_korean_syllables
 from engine.grounding.japanese import count_japanese, count_morae_in_kana
 from engine.grounding.spanish import _count_line, _count_word, count_spanish
 
@@ -55,6 +55,57 @@ def test_korean_counts_mixed_latin_words_too():
 
 def test_korean_returns_none_for_non_korean():
     assert count_korean("just english here") is None
+
+
+@pytest.mark.parametrize(
+    "number,expected,reading",
+    [
+        (0, 1, "영"),
+        (5, 1, "오"),
+        (10, 1, "십 — not 일십, the leading 1 is dropped"),
+        (24, 3, "이십사"),
+        (100, 1, "백"),
+        (365, 5, "삼백육십오"),
+        (2024, 5, "이천이십사"),
+    ],
+)
+def test_sino_korean_number_readings(number: int, expected: int, reading: str):
+    assert sino_korean_syllables(number) == expected, f"{number} = {reading}"
+
+
+def test_korean_counts_digits_as_they_are_sung():
+    """"24시간" is sung 이-십-사-시-간. Counting only the Hangul gave 2 —
+    a silent undercount that still looked exact.
+    """
+    result = count_korean("24시간")
+    assert result is not None
+    assert result.value == 5
+    assert result.caveat and "Sino-Korean" in result.caveat
+
+
+def test_korean_digit_caveat_names_the_numeral_ambiguity():
+    """Korean has two numeral systems and the counter word decides which.
+    Sino-Korean is the common case in lyrics, but the result must say so
+    rather than presenting one reading as the only one.
+    """
+    result = count_korean("24시간")
+    assert result is not None
+    assert "two numeral systems" in (result.caveat or "")
+
+
+def test_korean_counts_hanja():
+    # Each Hanja character is one Korean syllable when read aloud.
+    result = count_korean("우리 愛")
+    assert result is not None
+    assert result.value == 3
+
+
+def test_korean_ideophone_reduplication_counts_in_full():
+    # 반짝반짝 is four blocks and four sung syllables — the doubling is
+    # part of the rhythm, not decoration to be collapsed.
+    result = count_korean("반짝반짝")
+    assert result is not None
+    assert result.value == 4
 
 
 # ---------------------------------------------------------------------------
