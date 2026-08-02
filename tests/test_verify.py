@@ -57,6 +57,7 @@ def _section(
     motif_renderings: dict[str, str] | None = None,
     cultural_anchors: list[AnchorDecision] | None = None,
     name: str = "verse_1",
+    source_syllable_count: int | None = None,
 ) -> SectionResultV1:
     candidates = []
     if with_anchor:
@@ -85,6 +86,7 @@ def _section(
             motif_renderings=motif_renderings or {},
             cultural_anchors=cultural_anchors or [],
         ),
+        source_syllable_count=source_syllable_count,
     )
 
 
@@ -462,6 +464,41 @@ def test_added_connective_tissue_is_flagged():
 
 
 # ---------------------------------------------------------------------------
+# Singability — checking the Judge's dimension score against a real count
+# ---------------------------------------------------------------------------
+
+
+def test_large_syllable_gap_from_source_is_flagged():
+    v = verify_section(_section("Yes", source_syllable_count=20))
+    assert any(f.law == "Singability check" for f in v.findings)
+
+
+def test_matching_syllable_count_is_not_flagged():
+    from engine.rhythm import count_syllables_text
+
+    final = "I keep the drawer locked and I never open it"
+    v = verify_section(_section(final, source_syllable_count=count_syllables_text(final)))
+    assert "Singability check" not in _laws(v.findings)
+
+
+def test_no_source_count_means_no_singability_check():
+    """None means grounding never produced a count (e.g. no source
+    language support yet) — absence of a number, not a claim of zero
+    gap, so the check must stay silent rather than compare against 0.
+    """
+    v = verify_section(_section("Yes", source_syllable_count=None))
+    assert "Singability check" not in _laws(v.findings)
+
+
+def test_older_results_without_the_field_are_unaffected():
+    """Backwards compatibility: a stored result.json from before this
+    field existed defaults to source_syllable_count=None on load.
+    """
+    v = verify_section(_section("Yes"))
+    assert "Singability check" not in _laws(v.findings)
+
+
+# ---------------------------------------------------------------------------
 # Graceful degradation
 # ---------------------------------------------------------------------------
 
@@ -470,6 +507,82 @@ def test_missing_translator_anchor_is_unverifiable_not_a_crash():
     v = verify_section(_section("anything at all", with_anchor=False))
     assert v.verifiable is False
     assert v.findings[0].law == "verifiability"
+
+
+# ---------------------------------------------------------------------------
+# Structural recurrence — a formal device Song DNA never tagged as a motif
+# ---------------------------------------------------------------------------
+
+
+def test_structural_recurrence_break_is_flagged():
+    """Reproduces the real failure from the Ghalib ghazal run: three
+    couplets share a radif ("kya hai") that Song DNA never tagged as a
+    motif, so Law 5 had nothing to check. Two final lines close on a
+    copular "what is X" question; the third breaks the pattern with a
+    non-copular "why does X" question — the actual sher_3 failure.
+    """
+    result = {
+        "sections": [
+            _section(
+                "So tell me, what is this way of conversing?", name="sher_1"
+            ).model_dump(),
+            _section(
+                "Just tell me, what is that fierce, enchanting charm?", name="sher_2"
+            ).model_dump(),
+            _section(
+                "Else, why fear a corrupting rival?", name="sher_3"
+            ).model_dump(),
+        ],
+        "source_sections": [
+            {"name": "sher_1", "source_text": "line one\nतुम्हीं कहो कि ये अंदाज़-ए-गुफ़्तुगू क्या है"},
+            {"name": "sher_2", "source_text": "line one\nकोई बताओ कि वो शोख़-ए-तुंद-ख़ू क्या है"},
+            {"name": "sher_3", "source_text": "line one\nवगर्ना ख़ौफ़-ए-बद-आमोज़ी-ए-अदू क्या है"},
+        ],
+    }
+    report = verify_result(result)
+    findings = [f for f in report.cross_section_findings if f.law == "Structural recurrence"]
+    assert len(findings) == 1
+    assert findings[0].section == "sher_3"
+    assert "copula" in findings[0].detail
+
+
+def test_structural_recurrence_stays_quiet_when_the_pattern_holds():
+    result = {
+        "sections": [
+            _section(
+                "So tell me, what is this way of conversing?", name="sher_1"
+            ).model_dump(),
+            _section(
+                "Just tell me, what is that fierce, enchanting charm?", name="sher_2"
+            ).model_dump(),
+            _section(
+                "Tell me plainly, what is this rival's charm?", name="sher_3"
+            ).model_dump(),
+        ],
+        "source_sections": [
+            {"name": "sher_1", "source_text": "line one\nतुम्हीं कहो कि ये अंदाज़-ए-गुफ़्तुगू क्या है"},
+            {"name": "sher_2", "source_text": "line one\nकोई बताओ कि वो शोख़-ए-तुंद-ख़ू क्या है"},
+            {"name": "sher_3", "source_text": "line one\nवगर्ना ख़ौफ़-ए-बद-आमोज़ी-ए-अदू क्या है"},
+        ],
+    }
+    report = verify_result(result)
+    assert [f for f in report.cross_section_findings if f.law == "Structural recurrence"] == []
+
+
+def test_structural_recurrence_check_is_a_noop_without_source_sections():
+    """Backwards compatibility: older result.json files with no
+    "source_sections" key must verify exactly as they did before this
+    check existed.
+    """
+    result = {
+        "sections": [
+            _adapted_section("sher_1").model_dump(),
+            _adapted_section("sher_2").model_dump(),
+            _adapted_section("sher_3").model_dump(),
+        ]
+    }
+    report = verify_result(result)
+    assert [f for f in report.cross_section_findings if f.law == "Structural recurrence"] == []
 
 
 def test_report_summary_renders_and_flags_lenient_self_grading():

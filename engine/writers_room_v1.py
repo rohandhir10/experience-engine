@@ -248,4 +248,5 @@ def run_section(
         specialist_critiques=specialist_critiques,
         ruling=ruling,
         compensations=compensations,
+        source_syllable_count=source_syllables,
     )

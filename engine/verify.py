@@ -47,6 +47,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .models import Deviation, SectionResultV1
+from .recurrence import detect_recurring_endings
+from .rhythm import count_syllables_text
 
 # Words that name a feeling outright. The Restraint Ceiling exists because
 # a model's instinct is to explain the emotion the source left implicit;
@@ -109,6 +111,15 @@ LINE_COLLAPSE_RATIO = 0.5
 # Only meaningful on sections with enough lines for collapse to mean
 # anything — a one-line section cannot "collapse".
 MIN_LINES_FOR_COLLAPSE_CHECK = 3
+
+# Relative gap between source and shipped-line syllable/mora counts before
+# it's worth a human read. Deliberately not an error and not proof of bad
+# singability — languages differ in syllable structure, and this number
+# was previously computed at generation time, handed to the Judge as
+# context, then discarded with no way to check the Judge's own
+# singability_rhythm score against anything. This makes that check
+# possible; it does not make the Judge's score correct or incorrect.
+SYLLABLE_DELTA_WARN_RATIO = 0.4
 
 # Justifications that restate the conclusion instead of giving a reason.
 TAUTOLOGICAL_PATTERNS = (
@@ -190,14 +201,17 @@ class VerificationReport(BaseModel):
 
         lines += [
             f"Sections verified:      {len(verifiable)}",
-            f"Mean ledger coverage:   {mean_coverage:.0%}",
-            f"Invention penalty:      {mean_computed:.2f} computed / "
-            f"{mean_reported:.2f} self-reported by the Judge",
+            f"Mean ledger coverage:   {mean_coverage:.0%}  [computed — exact "
+            "diff against the ledger, not a claim]",
+            f"Invention penalty:      {mean_computed:.2f} computed [evidence, "
+            f"derived from the diff above] / {mean_reported:.2f} self-reported "
+            "by the Judge [a claim by the same model being audited — read it "
+            "as testimony, not as verified]",
             # Reported next to invention_penalty on purpose: one number
             # alone can only catch over-writing, and would score a
             # verbatim translation perfectly.
             f"Adaptation distance:    {mean_distance:.0%} moved from the "
-            "literal anchor",
+            "literal anchor [computed]",
         ]
         if mean_computed - mean_reported > 0.2:
             lines.append(
@@ -497,6 +511,29 @@ def verify_section(result: SectionResultV1) -> SectionVerification:
     weak_ratio = weak / len(deviations) if deviations else 0.0
     computed = round(min(1.0, 0.7 * (1.0 - coverage) + 0.3 * weak_ratio), 3)
 
+    # --- Singability: check the Judge's dimension_scores claim against the
+    # one number that was actually computed, not just asserted -----------
+    source_count = result.source_syllable_count
+    if source_count:
+        shipped_count = count_syllables_text(final)
+        delta_ratio = abs(shipped_count - source_count) / source_count
+        if delta_ratio > SYLLABLE_DELTA_WARN_RATIO:
+            findings.append(
+                Finding(
+                    law="Singability check",
+                    severity="warning",
+                    section=section,
+                    detail=(
+                        f"Source is ~{source_count} syllables/morae; the "
+                        f"shipped line is ~{shipped_count} English syllables — "
+                        f"a {delta_ratio:.0%} gap. Not proof of a rhythm "
+                        "problem (languages differ in syllable structure), "
+                        "but worth a human read, especially if the ruling's "
+                        "singability_rhythm score claims this is strong."
+                    ),
+                )
+            )
+
     return SectionVerification(
         section=section,
         findings=findings,
@@ -506,6 +543,81 @@ def verify_section(result: SectionResultV1) -> SectionVerification:
         changed_word_count=len(changed),
         adaptation_distance=_adaptation_distance(anchor, final),
     )
+
+
+_WH_WORD_RE = re.compile(r"\b(what|why|how|who|when|where)\b", re.IGNORECASE)
+_COPULA_RE = re.compile(r"\b(is|are|was|were|am)\b|'s\b", re.IGNORECASE)
+
+
+def _terminal_features(line: str) -> tuple[bool, bool, bool]:
+    """Three cheap, independent syntactic facts about a line's ending, used
+    only to compare sections against each other — never to judge a line on
+    its own. (ends in '?', contains a wh-word, contains a copula.)
+    """
+    stripped = line.strip()
+    return (
+        stripped.endswith("?"),
+        bool(_WH_WORD_RE.search(stripped)),
+        bool(_COPULA_RE.search(stripped)),
+    )
+
+
+def _check_structural_recurrence(
+    source_sections: list[tuple[str, str]],
+    sections_by_name: dict[str, SectionResultV1],
+) -> list[Finding]:
+    """Independent of Song DNA's motif list entirely — detects a recurring
+    source-side ending (engine/recurrence.py) and checks whether the
+    sections it spans share a consistent TERMINAL SYNTACTIC PATTERN in
+    their final lines, not identical wording (see recurrence.py's
+    docstring for why identical wording is the wrong bar for a structural
+    device like a radif).
+
+    This is a narrow, disclosed-limits check: three boolean features,
+    majority vote, flag the minority. It will catch a structural break
+    that changes which of these features hold (e.g. a copular "what is X"
+    question rewritten as a non-copular "why does X" question) but will
+    miss a break that preserves all three features while still changing
+    the underlying logical structure. That is a real limit, not a bug —
+    recorded here rather than overclaimed.
+    """
+    findings: list[Finding] = []
+    matches = detect_recurring_endings(source_sections)
+    for match in matches:
+        rows = [
+            (name, sections_by_name[name].ruling.final_line)
+            for name in match.sections
+            if name in sections_by_name
+        ]
+        if len(rows) < 2:
+            continue
+        feature_vectors = [(_terminal_features(line)) for _, line in rows]
+        # Majority per feature, independently.
+        majority = tuple(
+            sum(v[i] for v in feature_vectors) * 2 > len(feature_vectors)
+            for i in range(3)
+        )
+        labels = ("ends in a question", "uses a wh-word", "uses a copula (is/are/was/were)")
+        for (name, line), vector in zip(rows, feature_vectors):
+            broken = [labels[i] for i in range(3) if vector[i] != majority[i]]
+            if broken:
+                findings.append(
+                    Finding(
+                        law="Structural recurrence",
+                        severity="warning",
+                        section=name,
+                        detail=(
+                            f"The source repeats the ending {match.shared_suffix!r} "
+                            f"across {len(match.sections)} sections — a formal "
+                            "device (e.g. a ghazal's radif), never tagged as a "
+                            "motif by Song DNA. Most of those sections' final "
+                            f"lines share this pattern: {', '.join(labels[i] for i in range(3) if majority[i])}. "
+                            f"This one breaks it: {', '.join(broken)}."
+                        ),
+                        fragment=line,
+                    )
+                )
+    return findings
 
 
 def verify_result(result_dict: dict) -> VerificationReport:
@@ -521,6 +633,17 @@ def verify_result(result_dict: dict) -> VerificationReport:
 
     for section in sections:
         report.sections.append(verify_section(section))
+
+    source_sections = [
+        (s["name"], s["source_text"])
+        for s in result_dict.get("source_sections", [])
+        if s.get("source_text")
+    ]
+    if source_sections:
+        sections_by_name = {s.section: s for s in sections}
+        report.cross_section_findings.extend(
+            _check_structural_recurrence(source_sections, sections_by_name)
+        )
 
     # --- Was this an adaptation at all? ------------------------------------
     # Checked song-wide, never per line. A single section that legitimately

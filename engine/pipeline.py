@@ -56,6 +56,13 @@ class EngineResult:
             "room_version": self.room_version,
             "song_dna": self.dna.model_dump(by_alias=True),
             "sections": [r.model_dump() for r in self.section_results],
+            # Original source text per section, kept alongside the
+            # generated results so verify.py can run source-side checks
+            # (engine/recurrence.py) that need the source language text —
+            # nothing else in a stored result carries it.
+            "source_sections": [
+                {"name": s.name, "source_text": s.source_text} for s in self.song.sections
+            ],
             "final_lyrics": self.final_lyrics(),
         }
 

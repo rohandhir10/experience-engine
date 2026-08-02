@@ -457,6 +457,14 @@ class SectionResultV1(BaseModel):
     # pipeline merges these into RoomMemory so the decision binds the rest
     # of the song, the same path motif renderings take.
     compensations: list[Compensation] = Field(default_factory=list)
+    # The source-side count (engine/grounding, or the Latin-script estimate
+    # as fallback) computed once at generation time and handed to the
+    # Judge as prompt context. Persisted here too — without it, a stored
+    # result has no way to check the Judge's singability_rhythm score
+    # against anything after the fact; it existed only transiently at
+    # generation time and was otherwise discarded. None means no count
+    # could be computed (never a fabricated number).
+    source_syllable_count: int | None = None
 
 
 class RoomMemory(BaseModel):
