@@ -113,8 +113,50 @@ def test_hindi_anchor_block_carries_recognizability():
 # ---------------------------------------------------------------------------
 
 
-def test_phase_two_profiles_are_available():
-    assert {"hi", "ko", "es"}.issubset(set(available_profiles()))
+def test_shipped_profiles_are_available():
+    assert {"hi", "ko", "es", "ja"}.issubset(set(available_profiles()))
+
+
+def test_japanese_profile_resolves_from_free_text():
+    assert resolve_profile(None, "Japanese").code == "ja"
+
+
+def test_japanese_names_the_omitted_subject_trap():
+    block = resolve_profile("ja").translator_block()
+    assert "omitted" in block.lower() or "no stated subject" in block.lower()
+
+
+def test_japanese_names_pronoun_choice_as_characterization():
+    block = resolve_profile("ja").translator_block()
+    assert "僕" in block and "俺" in block
+
+
+def test_japanese_names_script_choice_as_register():
+    block = resolve_profile("ja").song_dna_block()
+    assert "katakana" in block.lower() and "hiragana" in block.lower()
+
+
+def test_japanese_rhyme_convention_points_at_mora_count_not_rhyme():
+    block = resolve_profile("ja").song_dna_block()
+    assert "does not rhyme" in block
+    assert "5-7-5" in block
+
+
+def test_japanese_baseline_warns_against_explaining_the_image():
+    """The single most important calibration for Japanese: rendering
+    'the cherry blossoms fall' as a statement about grief is explanation,
+    not translation.
+    """
+    baseline = resolve_profile("ja").emotional_baseline
+    assert "indirect" in baseline.lower()
+    assert "mono no aware" in baseline.lower()
+    # ...and it must not overcorrect into blanket restraint.
+    assert "enka" in baseline.lower()
+
+
+def test_japanese_anchor_lexicon_has_the_untranslatables():
+    block = resolve_profile("ja").anchor_block()
+    assert "setsunai" in block and "natsukashii" in block
 
 
 def test_korean_profile_names_the_speech_level_trap():

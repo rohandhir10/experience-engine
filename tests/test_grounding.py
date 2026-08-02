@@ -12,6 +12,7 @@ from engine.grounding import count_source_units
 from engine.grounding.base import supported_languages
 from engine.grounding.devanagari import count_hindi
 from engine.grounding.hangul import count_korean
+from engine.grounding.japanese import count_japanese, count_morae_in_kana
 from engine.grounding.spanish import _count_line, _count_word, count_spanish
 
 
@@ -150,6 +151,83 @@ def test_spanish_returns_none_for_empty_input():
 
 
 # ---------------------------------------------------------------------------
+# Japanese — morae, not syllables
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "text,expected,why",
+    [
+        ("きょう", 2, "kyo-u: small ょ fuses with き, it is not its own mora"),
+        ("とうきょう", 4, "to-u-kyo-u — 5 characters, 4 morae"),
+        ("にっぽん", 4, "ni-p-po-n: っ (sokuon) IS a full mora"),
+        ("らーめん", 4, "ra-a-me-n: ー (chōonpu) IS a full mora"),
+        ("しゃしん", 3, "sha-shi-n"),
+        ("さくら", 3, "sa-ku-ra"),
+        ("ん", 1, "the moraic nasal alone is one mora"),
+    ],
+)
+def test_japanese_mora_counts_from_kana(text: str, expected: int, why: str):
+    assert count_morae_in_kana(text) == expected, f"{text}: {why}"
+
+
+def test_japanese_counts_pure_kana_without_a_tokenizer():
+    result = count_japanese("さくらがちる")
+    assert result is not None
+    assert result.value == 6
+    assert result.unit == "morae"
+
+
+def test_japanese_unit_is_labelled_morae_not_syllables():
+    """A bare integer would invite comparing morae to English syllables as
+    though they were the same quantity. They are not.
+    """
+    result = count_japanese("さくら")
+    assert result is not None
+    assert result.unit == "morae"
+    assert "morae, not syllables" in (result.caveat or "")
+
+
+@pytest.mark.parametrize(
+    "text,expected,why",
+    [
+        ("東京", 4, "to-u-kyo-u via kanji reading"),
+        ("桜が散る", 6, "sa-ku-ra-ga-chi-ru"),
+        ("今日は雨が降る", 8, "kyo-u-wa-a-me-ga-fu-ru"),
+    ],
+)
+def test_japanese_resolves_kanji_readings(text: str, expected: int, why: str):
+    result = count_japanese(text)
+    if result is None:
+        pytest.skip("SudachiPy not installed — kanji readings unavailable")
+    assert result.value == expected, f"{text}: {why}"
+
+
+def test_japanese_declines_rather_than_undercounting_kanji():
+    """Without a reader, a kanji-heavy line must return None. Counting
+    only its kana would report roughly half the true value while looking
+    exact — worse than no grounding.
+    """
+    import engine.grounding.japanese as ja
+
+    ja._tokenizer.cache_clear()
+    original = ja._tokenizer
+    try:
+        ja._tokenizer = lambda: None
+        assert ja.count_japanese("今日は雨が降る") is None
+        # Pure kana still works with no reader at all.
+        assert ja.count_japanese("さくら") is not None
+    finally:
+        ja._tokenizer = original
+        ja._tokenizer.cache_clear()
+
+
+def test_japanese_returns_none_for_non_japanese():
+    assert count_japanese("just english") is None
+    assert count_japanese("   ") is None
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -168,8 +246,8 @@ def test_unknown_language_returns_none_rather_than_guessing():
     assert count_source_units("whatever", None) is None
 
 
-def test_registered_languages_include_phase_two_set():
-    assert {"hi", "ko", "es"}.issubset(set(supported_languages()))
+def test_registered_languages_include_every_shipped_language():
+    assert {"hi", "ko", "es", "ja"}.issubset(set(supported_languages()))
 
 
 def test_counters_register_on_package_import_alone():

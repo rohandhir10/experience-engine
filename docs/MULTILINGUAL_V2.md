@@ -370,9 +370,10 @@ per-language failure modes are invisible without per-language evaluation.
 > **Status: Phase 1 complete; Phase 2 profiles built, benchmark gate not
 > yet cleared.**
 >
-> Shipped: `engine/language_profile.py`, `engine/grounding/` (Devanagari,
-> Hangul, Spanish-with-synalepha), profiles for **Hindi, Korean, and
-> Spanish**, `SongInput.source_language_code`,
+> Shipped: `engine/language_profile.py`, `engine/grounding/` (Devanagari
+> with schwa deletion, Hangul, Spanish with synalepha, Japanese morae
+> with kanji readings), profiles for **Hindi, Korean, Spanish, and
+> Japanese**, `SongInput.source_language_code`,
 > `JudgeRuling.cultural_anchors` (now actually requested from the Judge,
 > but only when the source language has an anchor lexicon, so neutral
 > prompts stay byte-identical), the cultural-anchor consistency check in
@@ -386,8 +387,9 @@ per-language failure modes are invisible without per-language evaluation.
 > real songs. Treat them as drafts for review by a native speaker, not as
 > validated.
 >
-> Phase 3 (Japanese, Russian, Arabic; and separately target-language
-> expansion) remains as described below.
+> Japanese was pulled forward out of Phase 3 on request. Russian and
+> Arabic, and separately target-language expansion, remain as described
+> below.
 
 **Phase 1 — behavior-neutral scaffolding.** Ship the profile system with
 a neutral default that changes nothing, proven by byte-identical

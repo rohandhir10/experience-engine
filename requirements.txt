@@ -7,3 +7,8 @@ youtube-transcript-api>=1.0.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 deep-translator>=1.11  # benchmark only: Google Translate baseline
+# Optional: Japanese kanji readings for mora counting. Without it the
+# engine still counts pure-kana text exactly, but declines to guess at
+# kanji-bearing lines rather than undercounting them by ~half.
+sudachipy>=0.6.8
+sudachidict-core>=20230927

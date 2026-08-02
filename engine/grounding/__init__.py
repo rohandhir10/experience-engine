@@ -25,6 +25,7 @@ from .base import GroundingResult, count_source_units, register_counter
 # "unsupported" and would hide the failure.
 from . import devanagari as _devanagari  # noqa: F401,E402
 from . import hangul as _hangul  # noqa: F401,E402
+from . import japanese as _japanese  # noqa: F401,E402
 from . import spanish as _spanish  # noqa: F401,E402
 
 __all__ = ["GroundingResult", "count_source_units", "register_counter"]
