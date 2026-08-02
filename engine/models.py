@@ -377,6 +377,40 @@ class SectionResult(BaseModel):
     ruling: JudgeRuling
 
 
+class Compensation(BaseModel):
+    """One thing the source language encodes that English has no channel
+    for, and the channel English will use instead.
+
+    This is *compensation* in the literary-translation sense: when a
+    feature cannot be reproduced in place, reproduce its effect elsewhere.
+    Japanese is the sharpest case — 僕 vs 俺 is a whole self-presentation
+    carried by one pronoun, and English "I" has no way to hold it — but
+    every language has some: Hindi's tu/tum/aap, Korean's speech levels,
+    Spanish's tú/usted/vos.
+
+    Two properties make this work rather than becoming licensed invention:
+
+    1. **It is decided once and carried, not re-improvised per line.**
+       These are persona facts, not line facts: a speaker who is 俺 is 俺
+       for the whole song. The decision travels in RoomMemory, exactly as
+       motif renderings do, and verify.py checks it stayed consistent.
+    2. **Its carrier is diction, not addition.** The honest way to carry
+       俺 is shorter words, no hedging, harder consonants — a register the
+       whole line is written in. Bolting on an extra adjective to "convey
+       bluntness" is invention, and the Restraint Ceiling will (rightly)
+       flag it. A deviation made to serve a declared compensation is
+       justified under `voice_consistency`, which is precisely what it is;
+       it does not get a dimension of its own.
+    """
+
+    source_feature: str  # e.g. "first-person pronoun 俺 (ore)"
+    what_it_encodes: str  # e.g. "blunt, assertive, masculine self-presentation"
+    english_carrier: str  # e.g. "short Anglo-Saxon diction, no hedging, contractions"
+    # Some features genuinely have no carrier — script choice is close to
+    # unreproducible. Recording the loss is better than pretending.
+    carried: bool = True
+
+
 class RoutingSignals(BaseModel):
     """Free routing signals for the V1 room (docs/WRITERS_ROOM_V1.md §3) —
     computed from Song DNA and candidate self-reports, at zero extra LLM cost.
@@ -419,6 +453,10 @@ class SectionResultV1(BaseModel):
     specialists_invoked: list[str] = Field(default_factory=list)
     specialist_critiques: list[Critique] = Field(default_factory=list)
     ruling: JudgeRuling
+    # Untranslatable source encodings the Translator identified here. The
+    # pipeline merges these into RoomMemory so the decision binds the rest
+    # of the song, the same path motif renderings take.
+    compensations: list[Compensation] = Field(default_factory=list)
 
 
 class RoomMemory(BaseModel):
@@ -426,10 +464,36 @@ class RoomMemory(BaseModel):
 
     motif_decisions: dict[str, str] = Field(default_factory=dict)
     prior_rulings: list[JudgeRuling] = Field(default_factory=list)
+    # Untranslatable source encodings and the English channel chosen to
+    # carry each. Decided once, then binding for the rest of the song —
+    # a speaker who is 俺 in verse 1 cannot become 僕 in the chorus.
+    compensations: list[Compensation] = Field(default_factory=list)
 
     def summary_for_prompt(self) -> str:
+        compensation_block = ""
+        if self.compensations:
+            entries = "\n".join(
+                f"- {c.source_feature} encodes {c.what_it_encodes} — English "
+                + (
+                    f"carries it through: {c.english_carrier}"
+                    if c.carried
+                    else f"cannot carry it; accepted loss ({c.english_carrier})"
+                )
+                for c in self.compensations
+            )
+            compensation_block = (
+                "\nThe source encodes these things English has no direct "
+                "channel for. The carrier below was chosen earlier in this "
+                "song and is now binding — write in that register rather "
+                "than re-deciding, and do NOT bolt on extra words to signal "
+                "it; the carrier is diction, not addition:\n" + entries + "\n"
+            )
+
         if not self.prior_rulings:
-            return "No prior sections yet — this is the first section of the song."
+            return (
+                "No prior sections yet — this is the first section of the song."
+                + compensation_block
+            )
         lines = ["Decisions already made earlier in this song:"]
         for r in self.prior_rulings:
             label = f"{r.section} — voice: {r.voice}" if r.voice else r.section
@@ -440,4 +504,4 @@ class RoomMemory(BaseModel):
             lines.append("Motif renderings established so far:")
             for motif, rendering in self.motif_decisions.items():
                 lines.append(f"- {motif}: {rendering}")
-        return "\n".join(lines)
+        return "\n".join(lines) + compensation_block

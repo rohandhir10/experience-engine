@@ -125,6 +125,14 @@ def run_engine(
         section_results.append(result)
         results_by_name[section.name] = result
         room_memory.prior_rulings.append(result.ruling)
+        # A compensation is decided once and binds the rest of the song —
+        # the speaker's register cannot change between verses. First
+        # declaration for a given source feature wins.
+        known = {c.source_feature for c in room_memory.compensations}
+        for compensation in getattr(result, "compensations", []):
+            if compensation.source_feature not in known:
+                room_memory.compensations.append(compensation)
+                known.add(compensation.source_feature)
         # Prefer the Judge's own phrase-level motif renderings (the exact
         # wording used for each motif, which is what the Ambiguity Lock
         # needs); fall back to the whole final_line only when the ruling

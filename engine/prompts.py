@@ -454,6 +454,24 @@ def generation_prompt_v1(
     voice: str | None = None,
     profile: LanguageProfile | None = None,
 ) -> tuple[str, str]:
+    wants_compensations = bool(
+        profile and agent == "translator" and profile.structural_traps
+    )
+    compensation_field = (
+        ', "compensations": [{"source_feature": str, "what_it_encodes": str, '
+        '"english_carrier": str, "carried": bool}] (ONLY for things the '
+        "source encodes that English has no channel for — the traps listed "
+        "above. For each, name the English channel that will carry the same "
+        "effect: diction, sentence length, contraction level, formality of "
+        "vocabulary, how much is left unsaid. The carrier must be a REGISTER "
+        "the line is written in, never extra words bolted on to signal it — "
+        "adding an adjective to convey bluntness is invention, not "
+        "compensation. Set carried=false and say so where English genuinely "
+        "cannot carry it. Omit the list if the source encodes nothing of the "
+        "kind. This is decided ONCE for the song and becomes binding.)"
+        if wants_compensations
+        else ""
+    )
     system = (
         agent_brief(agent, target_language)
         + (profile.translator_block() if profile and agent == "translator" else "")
@@ -462,7 +480,7 @@ def generation_prompt_v1(
         'captures the intended effect), "uncertainty_type": '
         '"cultural"|"authenticity"|"emotional"|"none" (if confidence is below '
         "0.7, name what kind of uncertainty is driving it; \"none\" if you're "
-        "confident)}."
+        "confident)" + compensation_field + "}."
     )
     user = (
         f"Original ({section_name}):\n{source_text}\n\n"

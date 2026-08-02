@@ -557,6 +557,37 @@ def verify_result(result_dict: dict) -> VerificationReport:
                 )
             )
 
+    # --- Compensations: decided once, binding thereafter -------------------
+    # A speaker the source marks as 俺 cannot be carried by blunt diction in
+    # verse 1 and hedging diction in the chorus — that is the same
+    # inconsistency Law 5 catches for phrases, applied to register.
+    carriers: dict[str, tuple[str, str]] = {}  # feature -> (carrier, section)
+    for section in sections:
+        for compensation in getattr(section, "compensations", []):
+            key = compensation.source_feature.strip().lower()
+            if key not in carriers:
+                carriers[key] = (compensation.english_carrier, section.section)
+                continue
+            first_carrier, first_section = carriers[key]
+            if _normalize(compensation.english_carrier) != _normalize(first_carrier):
+                report.cross_section_findings.append(
+                    Finding(
+                        law="Compensation consistency",
+                        severity="error",
+                        section=f"{first_section} vs {section.section}",
+                        detail=(
+                            f"{compensation.source_feature!r} was carried by "
+                            f"{first_carrier!r} in {first_section} but "
+                            f"{compensation.english_carrier!r} in "
+                            f"{section.section}. The channel English uses to "
+                            "carry an untranslatable source feature is a "
+                            "property of the speaker, not of the line — it is "
+                            "decided once and holds for the song."
+                        ),
+                        fragment=compensation.source_feature,
+                    )
+                )
+
     # --- Cultural anchors: one disposition per term, song-wide -------------
     # (docs/MULTILINGUAL_V2.md §6.) Deciding to preserve "ishq" in the first
     # chorus and translate it in the second is the same failure the

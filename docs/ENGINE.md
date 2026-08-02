@@ -139,6 +139,9 @@ What it checks:
   "although") added that the anchor never used.
 - **Law 4 (Restraint Ceiling)** — emotion words and intensifiers the
   anchor never states.
+- **Compensation consistency** — untranslatable source encodings
+  (Japanese 僕 vs 俺, Korean speech levels, Hindi tu/tum/aap) get one
+  declared English carrier per song; it cannot change between verses.
 - **Law 5 (Ambiguity Lock)** — a motif rendered two different ways across
   sections (checkable now that rulings report `motif_renderings`).
 - **Justification quality** — justifications that reduce to "sounds

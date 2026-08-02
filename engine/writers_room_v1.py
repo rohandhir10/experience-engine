@@ -22,6 +22,7 @@ from .language_profile import NEUTRAL_PROFILE, LanguageProfile
 from .llm_client import LLMClient
 from .models import (
     Candidate,
+    Compensation,
     Critique,
     JudgeRuling,
     RoomMemory,
@@ -84,7 +85,7 @@ def _generate(
     target_language: str,
     voice: str | None = None,
     profile: LanguageProfile = NEUTRAL_PROFILE,
-) -> list[Candidate]:
+) -> tuple[list[Candidate], list[Compensation]]:
     candidates: list[Candidate] = []
 
     system, user = prompts.generation_prompt_v1(
@@ -93,6 +94,11 @@ def _generate(
     )
     data = client.complete_json(system, user)
     translator_text = data["text"]
+    # Things the source encodes that English has no channel for. Decided
+    # once, here, then binding for the whole song via RoomMemory.
+    compensations = [
+        Compensation.model_validate(c) for c in data.get("compensations", [])
+    ]
     candidates.append(
         Candidate(
             id=_new_id(),
@@ -125,7 +131,7 @@ def _generate(
                 syllable_count=count_syllables_text(candidate_text) if target_language == "English" else None,
             )
         )
-    return candidates
+    return candidates, compensations
 
 
 def _consult_specialist(
@@ -164,7 +170,7 @@ def run_section(
     voice: str | None = None,
     profile: LanguageProfile = NEUTRAL_PROFILE,
 ) -> SectionResultV1:
-    candidates = _generate(
+    candidates, compensations = _generate(
         client, source_text, dna, section_name, room_memory, target_language, voice, profile
     )
     routing_signals = compute_routing_signals(dna, section_name, candidates)
@@ -241,4 +247,5 @@ def run_section(
         specialists_invoked=specialists_invoked,
         specialist_critiques=specialist_critiques,
         ruling=ruling,
+        compensations=compensations,
     )
