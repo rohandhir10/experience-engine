@@ -250,3 +250,67 @@ def run_section(
         compensations=compensations,
         source_syllable_count=source_syllables,
     )
+
+
+def retry_section_with_finding(
+    client: LLMClient,
+    result: SectionResultV1,
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+    finding_detail: str,
+    target_language: str = "English",
+    voice: str | None = None,
+    profile: LanguageProfile = NEUTRAL_PROFILE,
+) -> SectionResultV1:
+    """Re-runs only the Judge step for one already-ruled section, informed
+    by a specific verify.py finding, and returns a new SectionResultV1 with
+    the same candidates/specialists but a corrected ruling.
+
+    Deliberately narrow: verify.py's error-severity findings are almost
+    always about the RULING (an uncovered deviation, a fabricated ledger
+    entry, a broken motif/anchor/compensation rendering) rather than about
+    the candidates themselves, so re-judging the existing candidates is
+    the right-sized fix — regenerating the Translator/Creative Adapter
+    candidates too would cost more and address a problem that likely
+    isn't theirs. Bounded to exactly one call per flagged section by the
+    caller (engine/pipeline.py); this function does not loop, retry
+    itself, or re-verify — that discipline lives in the caller.
+    """
+    system, user = prompts.judge_final_prompt(
+        result.candidates,
+        result.specialist_critiques,
+        result.routing_signals,
+        source_text,
+        dna,
+        section_name,
+        room_memory,
+        target_language,
+        result.source_syllable_count,
+        voice,
+        profile,
+    )
+    corrective_user = (
+        user
+        + "\n\nA deterministic post-hoc check (engine/verify.py) found a "
+        "problem with your PREVIOUS ruling for this section, described "
+        "below — not a stylistic suggestion, a specific violation to fix. "
+        "Produce a corrected ruling that resolves it without introducing a "
+        "new violation elsewhere:\n\n" + finding_detail
+    )
+    data = client.complete_json(system, corrective_user, max_tokens=3000)
+    ruling = _ruling_with_retry(client, system, corrective_user, data, section_name)
+    ruling.specialists_invoked = result.specialists_invoked
+    ruling.voice = voice
+
+    return SectionResultV1(
+        section=section_name,
+        candidates=result.candidates,
+        routing_signals=result.routing_signals,
+        specialists_invoked=result.specialists_invoked,
+        specialist_critiques=result.specialist_critiques,
+        ruling=ruling,
+        compensations=result.compensations,
+        source_syllable_count=result.source_syllable_count,
+    )

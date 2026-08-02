@@ -23,7 +23,9 @@ from .language_profile import resolve_profile
 from .llm_client import LLMClient, create_default_client
 from .models import RoomMemory, SectionResult, SectionResultV1, SongDNA, SongInput
 from .song_dna import generate_song_dna
+from .verify import VerificationReport, verify_result
 from .writers_room import run_section as run_section_full
+from .writers_room_v1 import retry_section_with_finding
 from .writers_room_v1 import run_section as run_section_v1
 
 RoomVersion = Literal["v1", "full"]
@@ -85,10 +87,93 @@ def _reuse_repeated_section(
     return reused
 
 
+def _extract_correctable_section_errors(report: VerificationReport) -> dict[str, list[str]]:
+    """Maps section name -> verify.py finding details worth a corrective
+    retry. Only severity=='error' findings are used, deliberately:
+    warnings (Structural recurrence, the singability check, the
+    connective-ratio signal) were designed with disclosed false-positive
+    risk precisely so they would NOT auto-trigger a rewrite of a section
+    that may well be fine — see their docstrings/comments in verify.py.
+    Auto-retrying on a warning would reintroduce exactly the risk those
+    checks were deliberately kept non-blocking to avoid. This scoping is a
+    judgment call, not something measured.
+    """
+    by_section: dict[str, list[str]] = {}
+    for section in report.sections:
+        for finding in section.errors:
+            by_section.setdefault(section.section, []).append(finding.detail)
+    for finding in report.cross_section_findings:
+        if finding.severity != "error":
+            continue
+        if " vs " in finding.section:
+            # These findings (Ambiguity Lock, cultural-anchor/compensation
+            # consistency) already treat the FIRST occurrence as the
+            # binding decision and the later one as the thing that must
+            # conform — the same forward-carry rule RoomMemory applies
+            # everywhere else. Fix the later section, not the earlier one.
+            _, later = finding.section.split(" vs ", 1)
+            by_section.setdefault(later.strip(), []).append(finding.detail)
+    return by_section
+
+
+def _apply_corrective_pass(
+    result: "EngineResult",
+    client: LLMClient,
+    room_memory: RoomMemory,
+) -> "EngineResult":
+    """One bounded corrective pass: verify the finished song, and for
+    every error-severity finding that names a single correctable section,
+    re-judge just that section with the finding as corrective context
+    (writers_room_v1.retry_section_with_finding). Runs at most once — it
+    does not loop and does not re-verify its own output, so anything a
+    correction fails to fully resolve, or newly introduces, is left for
+    the next explicit `--verify` run to surface to a human rather than
+    being silently retried again. That cap is deliberate: an uncapped loop
+    risks oscillation (a fix reintroducing a different violation) with no
+    guaranteed termination.
+    """
+    report = verify_result(result.to_dict())
+    correctable = _extract_correctable_section_errors(report)
+    if not correctable:
+        return result
+
+    profile = resolve_profile(result.song.source_language_code, result.song.source_language)
+    sections_by_name = {s.name: s for s in result.song.sections}
+    results_by_name = {r.section: r for r in result.section_results}
+
+    for section_name, details in correctable.items():
+        if section_name not in sections_by_name or section_name not in results_by_name:
+            continue
+        section_input = sections_by_name[section_name]
+        original = results_by_name[section_name]
+        finding_text = "\n".join(f"- {detail}" for detail in details)
+        logger.warning(
+            "Corrective pass: re-judging %r for %d verify.py error(s).",
+            section_name,
+            len(details),
+        )
+        results_by_name[section_name] = retry_section_with_finding(
+            client,
+            original,
+            section_input.source_text,
+            result.dna,
+            section_name,
+            room_memory,
+            finding_text,
+            result.song.target_language,
+            section_input.voice,
+            profile,
+        )
+
+    new_section_results = [results_by_name[r.section] for r in result.section_results]
+    return EngineResult(result.song, result.dna, new_section_results, result.room_version)
+
+
 def run_engine(
     song: SongInput,
     client: LLMClient | None = None,
     room_version: RoomVersion = "v1",
+    apply_corrective_pass: bool = False,
 ) -> EngineResult:
     client = client or create_default_client()
     # Resolved once per song. Neutral (pre-V2 behavior) unless the song
@@ -155,4 +240,14 @@ def run_engine(
             if touches_section and motif.motif not in room_memory.motif_decisions:
                 room_memory.motif_decisions[motif.motif] = result.ruling.final_line
 
-    return EngineResult(song, dna, section_results, room_version)
+    engine_result = EngineResult(song, dna, section_results, room_version)
+    if apply_corrective_pass:
+        if room_version != "v1":
+            logger.warning(
+                "apply_corrective_pass=True is only supported for room_version="
+                "'v1' — the full room's SectionResult has no "
+                "source_syllable_count and predates this retry path. Skipping."
+            )
+        else:
+            engine_result = _apply_corrective_pass(engine_result, client, room_memory)
+    return engine_result

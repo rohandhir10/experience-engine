@@ -47,16 +47,29 @@ def main(argv: list[str] | None = None) -> int:
             "original 7-agent room from docs/WRITERS_ROOM.md."
         ),
     )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help=(
+            "After the run, verify it (engine/verify.py) and re-judge, ONCE, "
+            "any section with an error-severity finding, using the finding "
+            "as corrective context (v1 room only). Bounded to one pass — "
+            "does not loop. Off by default; existing single-pass behavior "
+            "is unchanged without this flag."
+        ),
+    )
     args = parser.parse_args(argv)
 
     song_data = json.loads(args.song_file.read_text())
     song = SongInput.model_validate(song_data)
 
-    result = run_engine(song, room_version=args.room)
+    result = run_engine(song, room_version=args.room, apply_corrective_pass=args.fix)
 
     output_path = args.output or args.song_file.with_suffix(".result.json")
     output_path.write_text(json.dumps(result.to_dict(), indent=2))
 
+    if args.fix:
+        print("(--fix: ran one corrective pass on any error-severity finding)")
     print(f"Wrote full transcript to {output_path}")
     print("\nFinal lyrics:\n")
     print(result.final_lyrics())
