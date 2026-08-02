@@ -17,7 +17,7 @@ class FakeClientForRepeats:
     def __init__(self):
         self.calls: list[str] = []
 
-    def complete_json(self, system: str, user: str, max_tokens=None) -> dict:
+    def complete_json(self, system: str, user: str, max_tokens=None, stage: str = "unknown") -> dict:
         self.calls.append(system[:60])
         if "You are a songwriting analyst" in system:
             return FAKE_SONG_DNA

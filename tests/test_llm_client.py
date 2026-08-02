@@ -3,9 +3,13 @@ handling around the OpenAI SDK boundary, not the SDK itself.
 """
 from __future__ import annotations
 
+import json
+
 import httpx
 import openai
 import pytest
+
+from unittest.mock import MagicMock
 
 from engine import config
 from engine.llm_client import LLMError, OpenAILLMClient
@@ -105,3 +109,154 @@ def test_connection_error_without_a_cause_says_so_rather_than_crashing(monkeypat
         client._call("system", "user", None)
 
     assert "no underlying exception captured" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# Cost/latency instrumentation — measured, not estimated (LLMCallRecord)
+# ---------------------------------------------------------------------------
+
+
+def _fake_response(text: str, prompt_tokens: int, completion_tokens: int):
+    response = MagicMock()
+    response.choices = [MagicMock(message=MagicMock(content=text))]
+    response.usage = MagicMock(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
+    return response
+
+
+def test_call_returns_real_token_counts_from_the_response(monkeypatch):
+    client = OpenAILLMClient()
+    monkeypatch.setattr(
+        client._client.chat.completions,
+        "create",
+        lambda **kwargs: _fake_response('{"ok": true}', 123, 45),
+    )
+    text, prompt_tokens, completion_tokens = client._call("system", "user", None)
+    assert text == '{"ok": true}'
+    assert prompt_tokens == 123
+    assert completion_tokens == 45
+
+
+def test_complete_json_appends_a_measured_call_record(monkeypatch):
+    client = OpenAILLMClient()
+    monkeypatch.setattr(
+        client._client.chat.completions,
+        "create",
+        lambda **kwargs: _fake_response('{"ok": true}', 200, 50),
+    )
+    client.complete_json("system", "user", stage="translator")
+
+    assert len(client.call_log) == 1
+    record = client.call_log[0]
+    assert record.stage == "translator"
+    assert record.model == client.model
+    assert record.prompt_tokens == 200
+    assert record.completion_tokens == 50
+    assert record.attempt == "initial"
+    assert record.latency_seconds >= 0.0
+
+
+def test_json_repair_retry_logs_its_own_call_record(monkeypatch):
+    """A malformed first reply triggers exactly one corrective retry
+    (LLMClient.complete_json) — both calls are real API calls and must
+    both be measured, not just the first.
+    """
+    client = OpenAILLMClient()
+    responses = [
+        _fake_response("not json at all", 100, 10),
+        _fake_response('{"ok": true}', 120, 15),
+    ]
+    monkeypatch.setattr(
+        client._client.chat.completions,
+        "create",
+        lambda **kwargs: responses.pop(0),
+    )
+    result = client.complete_json("system", "user", stage="judge_triage")
+
+    assert result == {"ok": True}
+    assert len(client.call_log) == 2
+    assert client.call_log[0].attempt == "initial"
+    assert client.call_log[0].prompt_tokens == 100
+    assert client.call_log[1].attempt == "json_repair_retry"
+    assert client.call_log[1].prompt_tokens == 120
+
+
+def test_default_stage_is_labeled_unknown_not_left_blank(monkeypatch):
+    client = OpenAILLMClient()
+    monkeypatch.setattr(
+        client._client.chat.completions,
+        "create",
+        lambda **kwargs: _fake_response('{"ok": true}', 10, 5),
+    )
+    client.complete_json("system", "user")  # no stage= passed
+    assert client.call_log[0].stage == "unknown"
+
+
+def test_a_full_engine_run_produces_a_real_stage_labeled_call_log(monkeypatch):
+    """End-to-end: a real OpenAILLMClient (network call mocked, everything
+    else real) run through the whole pipeline should leave behind a
+    call_log that actually identifies which pipeline stage made each call
+    — this is the data the cost-profile request needs, and until now
+    nothing captured it at all.
+    """
+    from engine.models import SectionInput, SongInput
+    from engine.pipeline import run_engine
+
+    from .test_pipeline_mock import FAKE_SONG_DNA
+    from .test_writers_room_v1 import DIMENSION_SCORES, FIVE_PHILOSOPHY_CANDIDATES
+
+    READY_LINE = FIVE_PHILOSOPHY_CANDIDATES[0]["text"]
+
+    def _fake_create(**kwargs):
+        system = kwargs["messages"][0]["content"]
+        if "You are a songwriting analyst" in system:
+            content = json.dumps(FAKE_SONG_DNA)
+        elif "You are the Creative Adapter" in system:
+            content = json.dumps({"candidates": FIVE_PHILOSOPHY_CANDIDATES})
+        elif "uncertainty_type" in system:
+            content = json.dumps(
+                {
+                    "text": READY_LINE,
+                    "leans_into": "guarded attachment",
+                    "confidence": 0.9,
+                    "uncertainty_type": "none",
+                }
+            )
+        elif "running the minimal V1 room" in system:
+            content = json.dumps(
+                {
+                    "ready_to_rule": True,
+                    "ruling": {
+                        "final_line": READY_LINE,
+                        "sources_used": [],
+                        "vetoes_applied": [],
+                        "deviations": [],
+                        "dimension_scores": DIMENSION_SCORES,
+                        "priority_tradeoffs_made": "test",
+                        "disagreements_overruled": [],
+                    },
+                    "specialists_needed": [],
+                    "why": "test",
+                }
+            )
+        else:
+            raise AssertionError(f"Unexpected prompt: {system[:80]!r}")
+        return _fake_response(content, prompt_tokens=100, completion_tokens=50)
+
+    client = OpenAILLMClient()
+    monkeypatch.setattr(client._client.chat.completions, "create", _fake_create)
+
+    song = SongInput(
+        source_language="English (test)",
+        sections=[SectionInput(name="verse_1", source_text="line one")],
+    )
+    result = run_engine(song, client=client, room_version="v1")
+
+    stages = [record.stage for record in result.call_log]
+    assert stages == ["song_dna", "translator", "creative_adapter", "judge_triage"]
+    assert all(record.prompt_tokens == 100 for record in result.call_log)
+    assert all(record.completion_tokens == 50 for record in result.call_log)
+    assert all(record.model == client.model for record in result.call_log)
+
+    # Same data must round-trip through the stored result.
+    dumped = result.to_dict()["llm_calls"]
+    assert [c["stage"] for c in dumped] == stages

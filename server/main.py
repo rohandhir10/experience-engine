@@ -162,9 +162,30 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     cache.set(result_id, experience_result)
+    # Measured, not estimated (engine/models.py::LLMCallRecord) — every
+    # real API call this request made, so cost/latency stays visible in
+    # production logs instead of only being knowable after building a
+    # separate benchmark. Aggregated per stage since a section-by-section
+    # breakdown is more log lines than one request needs by default.
+    calls = client.call_log
+    tokens_by_stage: dict[str, list[int]] = {}
+    for record in calls:
+        counts = tokens_by_stage.setdefault(record.stage, [0, 0])
+        counts[0] += record.prompt_tokens
+        counts[1] += record.completion_tokens
+    stage_summary = ", ".join(
+        f"{stage}={prompt}p/{completion}c"
+        for stage, (prompt, completion) in sorted(tokens_by_stage.items())
+    )
+    total_prompt = sum(r.prompt_tokens for r in calls)
+    total_completion = sum(r.completion_tokens for r in calls)
+    llm_latency = sum(r.latency_seconds for r in calls)
     logger.info(
-        "adapt id=%s ip=%s cache=stored sections=%d duration=%.2fs",
+        "adapt id=%s ip=%s cache=stored sections=%d duration=%.2fs "
+        "llm_calls=%d llm_latency=%.2fs prompt_tokens=%d completion_tokens=%d "
+        "by_stage=[%s]",
         result_id, ip, len(sections), time.monotonic() - started,
+        len(calls), llm_latency, total_prompt, total_completion, stage_summary,
     )
     return experience_result
 

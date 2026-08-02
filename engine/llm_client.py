@@ -19,9 +19,11 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from typing import Any
 
 from . import config
+from .models import LLMCallRecord
 
 
 class LLMError(RuntimeError):
@@ -29,18 +31,31 @@ class LLMError(RuntimeError):
 
 
 class LLMClient:
-    """Shared retry/parsing logic. Subclasses implement `_call` only."""
+    """Shared retry/parsing logic. Subclasses implement `_call` only.
+
+    Subclasses must set `self.call_log: list[LLMCallRecord] = []` in their
+    own __init__ before making any calls — see OpenAILLMClient/
+    AnthropicLLMClient. Not set here in a base __init__ because neither
+    subclass currently calls super().__init__(), and a base __init__ they
+    never invoke would silently never run.
+    """
 
     def complete_json(
-        self, system: str, user: str, max_tokens: int | None = None
+        self,
+        system: str,
+        user: str,
+        max_tokens: int | None = None,
+        stage: str = "unknown",
     ) -> dict[str, Any]:
         """Call the model and parse its reply as a single JSON object.
 
         Retries once with a corrective instruction if the first reply isn't
         valid JSON — models occasionally wrap JSON in prose or code fences
-        despite instructions not to.
+        despite instructions not to. `stage` labels which pipeline step this
+        call belongs to (see LLMCallRecord) — purely for cost/latency
+        accounting, never sent to the model or used in any decision.
         """
-        raw = self._call(system, user, max_tokens)
+        raw = self._timed_call(system, user, max_tokens, stage, "initial")
         parsed = self._try_parse(raw)
         if parsed is not None:
             return parsed
@@ -51,7 +66,9 @@ class LLMClient:
             "with ONLY a single valid JSON object — no prose, no markdown code "
             "fences, no commentary before or after it."
         )
-        raw_retry = self._call(system, corrective_user, max_tokens)
+        raw_retry = self._timed_call(
+            system, corrective_user, max_tokens, stage, "json_repair_retry"
+        )
         parsed_retry = self._try_parse(raw_retry)
         if parsed_retry is not None:
             return parsed_retry
@@ -61,7 +78,34 @@ class LLMClient:
             f"Last reply:\n{raw_retry[:2000]}"
         )
 
-    def _call(self, system: str, user: str, max_tokens: int | None) -> str:
+    def _timed_call(
+        self,
+        system: str,
+        user: str,
+        max_tokens: int | None,
+        stage: str,
+        attempt: str,
+    ) -> str:
+        started = time.perf_counter()
+        text, prompt_tokens, completion_tokens = self._call(system, user, max_tokens)
+        elapsed = time.perf_counter() - started
+        self.call_log.append(
+            LLMCallRecord(
+                stage=stage,
+                model=getattr(self, "model", "unknown"),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_seconds=round(elapsed, 3),
+                attempt=attempt,  # type: ignore[arg-type]
+            )
+        )
+        return text
+
+    def _call(self, system: str, user: str, max_tokens: int | None) -> tuple[str, int, int]:
+        """Returns (response_text, prompt_tokens, completion_tokens) — the
+        token counts come from the provider's own response, never counted
+        or estimated locally.
+        """
         raise NotImplementedError
 
     @staticmethod
@@ -93,6 +137,7 @@ class OpenAILLMClient(LLMClient):
         import openai  # imported lazily so the anthropic-only path never needs this installed
 
         self.model = model or config.OPENAI_MODEL
+        self.call_log: list[LLMCallRecord] = []
         http_client = None
         if config.FORCE_IPV4:
             # Some containerized/serverless environments (seen: a Vercel
@@ -114,7 +159,7 @@ class OpenAILLMClient(LLMClient):
             http_client=http_client,
         )
 
-    def _call(self, system: str, user: str, max_tokens: int | None) -> str:
+    def _call(self, system: str, user: str, max_tokens: int | None) -> tuple[str, int, int]:
         import openai
 
         try:
@@ -139,7 +184,11 @@ class OpenAILLMClient(LLMClient):
             # mode from a message that can't tell them apart.
             detail = f"{type(exc.__cause__).__name__}: {exc.__cause__}" if exc.__cause__ else "no underlying exception captured"
             raise LLMError(f"OpenAI API call failed: {exc} | underlying: {detail}") from exc
-        return response.choices[0].message.content or ""
+        text = response.choices[0].message.content or ""
+        usage = response.usage
+        prompt_tokens = usage.prompt_tokens if usage else 0
+        completion_tokens = usage.completion_tokens if usage else 0
+        return text, prompt_tokens, completion_tokens
 
 
 class AnthropicLLMClient(LLMClient):
@@ -151,9 +200,10 @@ class AnthropicLLMClient(LLMClient):
         import anthropic  # imported lazily so the openai-only path never needs this installed
 
         self.model = model or config.ANTHROPIC_MODEL
+        self.call_log: list[LLMCallRecord] = []
         self._client = anthropic.Anthropic(api_key=api_key or config.get_api_key("anthropic"))
 
-    def _call(self, system: str, user: str, max_tokens: int | None) -> str:
+    def _call(self, system: str, user: str, max_tokens: int | None) -> tuple[str, int, int]:
         import anthropic
 
         try:
@@ -165,9 +215,13 @@ class AnthropicLLMClient(LLMClient):
             )
         except anthropic.APIError as exc:
             raise LLMError(f"Anthropic API call failed: {exc}") from exc
-        return "".join(
+        text = "".join(
             block.text for block in response.content if block.type == "text"
         )
+        usage = response.usage
+        prompt_tokens = usage.input_tokens if usage else 0
+        completion_tokens = usage.output_tokens if usage else 0
+        return text, prompt_tokens, completion_tokens
 
 
 _PROVIDERS: dict[str, type[LLMClient]] = {

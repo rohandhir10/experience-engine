@@ -40,11 +40,17 @@ class EngineResult:
         dna: SongDNA,
         section_results: list[SectionResult | SectionResultV1],
         room_version: RoomVersion,
+        call_log: list | None = None,
     ):
         self.song = song
         self.dna = dna
         self.section_results = section_results
         self.room_version = room_version
+        # Measured, not estimated (engine/models.py::LLMCallRecord) — every
+        # real API call made while producing this result, in order. None
+        # only for a result built without a client in hand (shouldn't
+        # happen via run_engine, but this class doesn't require one).
+        self.call_log = call_log or []
 
     def final_lyrics(self) -> str:
         return "\n\n".join(
@@ -66,6 +72,11 @@ class EngineResult:
                 {"name": s.name, "source_text": s.source_text} for s in self.song.sections
             ],
             "final_lyrics": self.final_lyrics(),
+            # Real, measured cost/latency data for this run — see
+            # engine/models.py::LLMCallRecord. One entry per actual API
+            # call, in order; empty if this result was built without a
+            # client that tracked one.
+            "llm_calls": [record.model_dump() for record in self.call_log],
         }
 
 
@@ -166,7 +177,16 @@ def _apply_corrective_pass(
         )
 
     new_section_results = [results_by_name[r.section] for r in result.section_results]
-    return EngineResult(result.song, result.dna, new_section_results, result.room_version)
+    # Same client as the first pass, so its call_log already includes
+    # every call made so far; the corrective retries above extend it
+    # further before this line runs.
+    return EngineResult(
+        result.song,
+        result.dna,
+        new_section_results,
+        result.room_version,
+        getattr(client, "call_log", []),
+    )
 
 
 def run_engine(
@@ -240,7 +260,9 @@ def run_engine(
             if touches_section and motif.motif not in room_memory.motif_decisions:
                 room_memory.motif_decisions[motif.motif] = result.ruling.final_line
 
-    engine_result = EngineResult(song, dna, section_results, room_version)
+    engine_result = EngineResult(
+        song, dna, section_results, room_version, getattr(client, "call_log", [])
+    )
     if apply_corrective_pass:
         if room_version != "v1":
             logger.warning(

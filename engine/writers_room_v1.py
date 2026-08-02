@@ -71,7 +71,9 @@ def _ruling_with_retry(
             "Reply again with ONLY the corrected JSON object, using ONLY the "
             "exact field names and enum values the schema specifies."
         )
-        retry_data = client.complete_json(system, corrective_user, max_tokens=3000)
+        retry_data = client.complete_json(
+            system, corrective_user, max_tokens=3000, stage="judge_schema_retry"
+        )
         ruling = retry_data.get("ruling") if isinstance(retry_data.get("ruling"), dict) else retry_data
         return JudgeRuling(section=section_name, **ruling)
 
@@ -92,7 +94,7 @@ def _generate(
         "translator", source_text, dna, section_name, room_memory, target_language, voice,
         profile,
     )
-    data = client.complete_json(system, user)
+    data = client.complete_json(system, user, stage="translator")
     translator_text = data["text"]
     # Things the source encodes that English has no channel for. Decided
     # once, here, then binding for the whole song via RoomMemory.
@@ -115,7 +117,7 @@ def _generate(
     system, user = prompts.creative_adapter_prompt(
         source_text, dna, section_name, room_memory, target_language, voice, profile
     )
-    data = client.complete_json(system, user, max_tokens=4000)
+    data = client.complete_json(system, user, max_tokens=4000, stage="creative_adapter")
     for item in data.get("candidates", []):
         candidate_text = item["text"]
         candidates.append(
@@ -146,7 +148,7 @@ def _consult_specialist(
     system, user = prompts.diagnosis_prompt(
         agent, candidates, source_text, dna, section_name, target_language
     )
-    data = client.complete_json(system, user)
+    data = client.complete_json(system, user, stage=f"specialist_{agent}")
     return [
         Critique(
             candidate_id=item["candidate_id"],
@@ -192,7 +194,7 @@ def run_section(
         voice,
         profile,
     )
-    triage_data = client.complete_json(system, user, max_tokens=3000)
+    triage_data = client.complete_json(system, user, max_tokens=3000, stage="judge_triage")
 
     specialists_invoked: list[str] = []
     specialist_critiques: list[Critique] = []
@@ -234,7 +236,7 @@ def run_section(
             voice,
             profile,
         )
-        final_data = client.complete_json(system, user, max_tokens=3000)
+        final_data = client.complete_json(system, user, max_tokens=3000, stage="judge_final")
         ruling = _ruling_with_retry(client, system, user, final_data, section_name)
 
     ruling.specialists_invoked = specialists_invoked
@@ -299,7 +301,9 @@ def retry_section_with_finding(
         "Produce a corrected ruling that resolves it without introducing a "
         "new violation elsewhere:\n\n" + finding_detail
     )
-    data = client.complete_json(system, corrective_user, max_tokens=3000)
+    data = client.complete_json(
+        system, corrective_user, max_tokens=3000, stage="corrective_retry"
+    )
     ruling = _ruling_with_retry(client, system, corrective_user, data, section_name)
     ruling.specialists_invoked = result.specialists_invoked
     ruling.voice = voice

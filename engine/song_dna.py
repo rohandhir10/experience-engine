@@ -108,7 +108,7 @@ def generate_song_dna(
             SECTION_COUNT_SOFT_LIMIT,
         )
     system, user = song_dna_prompt(dna_input, profile)
-    data = client.complete_json(system, user, max_tokens=8000)
+    data = client.complete_json(system, user, max_tokens=8000, stage="song_dna")
     dna = SongDNA.model_validate(data)
     dna = _fill_missing_sections(dna, dna_input)
     dna = _duplicate_repeated_profiles(dna, song)

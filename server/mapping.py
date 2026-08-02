@@ -40,7 +40,7 @@ def _explain_why(
         f"don't quote this back): {priority_tradeoffs_made}\n\n"
         "Give me the one-sentence explanation now."
     )
-    data = client.complete_json(_WHY_SYSTEM, user, max_tokens=300)
+    data = client.complete_json(_WHY_SYSTEM, user, max_tokens=300, stage="explain_why")
     return data.get("why", "").strip()
 
 

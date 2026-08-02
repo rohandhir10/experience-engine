@@ -411,6 +411,26 @@ class Compensation(BaseModel):
     carried: bool = True
 
 
+class LLMCallRecord(BaseModel):
+    """One real API call, measured after the fact from the provider's own
+    response — never estimated, never predicted before the call happens.
+    This is the only source of truth for token/cost/latency accounting in
+    the engine; nothing else should invent these numbers. See
+    engine/llm_client.py::LLMClient.complete_json, which appends one of
+    these per attempt (an initial call, plus one more if the JSON-repair
+    retry fires) to `LLMClient.call_log`.
+    """
+
+    stage: str  # e.g. "song_dna", "translator", "creative_adapter",
+    # "judge_triage", "judge_final", "specialist_native_speaker",
+    # "corrective_retry" — matches the label passed at the call site.
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    latency_seconds: float
+    attempt: Literal["initial", "json_repair_retry"] = "initial"
+
+
 class RoutingSignals(BaseModel):
     """Free routing signals for the V1 room (docs/WRITERS_ROOM_V1.md §3) —
     computed from Song DNA and candidate self-reports, at zero extra LLM cost.

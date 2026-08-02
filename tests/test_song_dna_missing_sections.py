@@ -15,7 +15,7 @@ from .test_pipeline_mock import FAKE_SONG_DNA
 
 
 class FakeClientOmitsASection:
-    def complete_json(self, system: str, user: str, max_tokens=None) -> dict:
+    def complete_json(self, system: str, user: str, max_tokens=None, stage: str = "unknown") -> dict:
         if "You are a songwriting analyst" in system:
             return FAKE_SONG_DNA
         raise AssertionError("Only the Song DNA call is exercised in this test")

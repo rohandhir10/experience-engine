@@ -89,7 +89,7 @@ class FakeLLMClient:
     def __init__(self):
         self.calls: list[str] = []
 
-    def complete_json(self, system: str, user: str, max_tokens: int | None = None) -> dict:
+    def complete_json(self, system: str, user: str, max_tokens: int | None = None, stage: str = "unknown") -> dict:
         self.calls.append(system[:60])
 
         if "You are a songwriting analyst" in system:
@@ -191,7 +191,7 @@ def test_room_memory_passed_to_second_section():
     )
 
     class MemoryCheckingFakeClient(FakeLLMClient):
-        def complete_json(self, system, user, max_tokens=None):
+        def complete_json(self, system, user, max_tokens=None, stage="unknown"):
             if "your one candidate English line" in system and self.calls.count(
                 system[:60]
             ) >= 3:
