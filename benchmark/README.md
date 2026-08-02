@@ -71,3 +71,25 @@ must beat Google Translate, Bollynook, FilmyQuotes, and single-prompt
 GPT/Claude on artistic fidelity specifically, replicated on held-out
 songs never used to tune a prompt. A pilot with 2–3 songs and 2–3
 reviewers is a signal, not that proof.
+
+## Feeding real data into the public /compare page
+
+`web/lib/comparison-data.ts` is the public-facing comparison shown at
+`/compare` — a lighter-weight consumer of stage 1 than the full blind
+pipeline above (no blinding, no reviewers, just the raw outputs side by
+side for visitors to read). To add or update an entry with real data:
+
+```bash
+# Stage 1 only — no blind packets, no reviewers needed for this page.
+python -m benchmark.cli run --corpus examples --run-id comparison_1
+```
+
+This writes `benchmark/runs/comparison_1/outputs/<song_id>/<system>.json`
+per system that succeeded (`aura`, `gpt_single`, `google_translate` —
+`claude_single` isn't shown on this page). Copy each system's `sections`
+text into the matching `ComparisonEntry` in `comparison-data.ts` by hand —
+there's no automated sync, on purpose: a human should look at what got
+generated before it goes on a public page, the same discipline the rest
+of this project applies everywhere else. Leave a system's field absent
+(not an empty string) if it produced nothing; the page renders that
+honestly as "not yet generated" rather than blank or faked.
