@@ -65,6 +65,16 @@ inactive alternate provider (`AURA_PROVIDER=anthropic`). See:
 
 [`docs/ENGINE.md`](docs/ENGINE.md)
 
+## V2: multilingual
+
+The design for extending AURA from Hindi → English to a multilingual
+adaptation engine — Language Profiles, per-language deterministic
+grounding (Devanagari, Hangul, morae, Arabic meter), a Cultural Anchor
+framework, and a phased rollout — without changing the constitution, the
+five dimensions, or the room:
+
+[`docs/MULTILINGUAL_V2.md`](docs/MULTILINGUAL_V2.md)
+
 ## Product 1: the web frontend
 
 A production-quality frontend (Next.js + Tailwind) now runs against the
