@@ -144,9 +144,32 @@ What it checks:
 - **Justification quality** — justifications that reduce to "sounds
   better" rather than a specific reason.
 
-It also computes its own `invention_penalty` from the diff and prints it
+- **Adaptation floor** — the counterweight. Every check above fires only
+  when the engine changes *too much*, which means a verbatim translation
+  used to score perfectly: 100% ledger coverage, 0.0 invention penalty,
+  zero findings, PASS. This one fails a run whose shipped lyrics never
+  meaningfully depart from the Translator's literal anchor, because
+  AURA's output is supposed to be an adaptation the original writer would
+  recognize as their own work, not a translation of it.
+
+  It is checked **song-wide, never per line**. A single section that
+  matches the anchor is legitimate and common — the constitution says so
+  outright ("an empty deviations list is a GOOD sign"). Firing at the
+  song level is also what stops it becoming a change quota the engine
+  could satisfy by manufacturing deviations, which is exactly what the
+  Burden of Change exists to prevent.
+- **Compression Floor, structurally** — lyric lines merged into running
+  sentences (a line count that collapses against the anchor's), and
+  function-word density rising sharply above the anchor's. This is what
+  "the adaptation reads like explanatory prose" looks like mechanically.
+
+It computes its own `invention_penalty` from the diff and prints it
 next to the Judge's self-reported one; a large gap means the Judge graded
-itself more leniently than its own output supports.
+itself more leniently than its own output supports. Alongside it, the
+report prints **adaptation distance** — how far the shipped line actually
+moved from the literal anchor. The two numbers together are the point:
+one alone can only catch over-writing, and would score a translation
+perfectly.
 
 **What it is not:** proof that an adaptation is *good*, or that a
 justification is *correct*. No static check can decide whether "one

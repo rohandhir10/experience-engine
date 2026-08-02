@@ -16,6 +16,37 @@ from engine.verify import verify_result, verify_section
 ANCHOR = "I keep the drawer locked and I never open it"
 
 
+def _adapted_section(name: str = "verse_1", **kwargs) -> SectionResultV1:
+    """A section that is genuinely adapted AND fully audited — the shape a
+    healthy ruling has. Used by tests about cross-section consistency,
+    which need a fixture that clears every other check so the thing under
+    test is the only thing that can fail.
+
+    Note these tests originally reused the literal anchor as their "clean"
+    fixture. That stopped being clean when the adaptation floor landed:
+    a song identical to its anchor is a translation, which is now an
+    error — so the fixture had to become a real adaptation.
+    """
+    return _section(
+        "The drawer stays shut. I never open it.",
+        [
+            Deviation(
+                fragment_original="I keep the drawer locked",
+                fragment_adapted="The drawer stays shut",
+                justification=(
+                    "The source states this as a standing fact about the "
+                    "drawer rather than an action she performs; 'I keep' "
+                    "puts her agency in the foreground where the source "
+                    "keeps it out."
+                ),
+                dimension="artistic_fidelity",
+            )
+        ],
+        name=name,
+        **kwargs,
+    )
+
+
 def _section(
     final_line: str,
     deviations: list[Deviation] | None = None,
@@ -241,11 +272,11 @@ def test_emotion_word_already_in_the_anchor_is_not_flagged():
 def test_inconsistent_motif_rendering_across_sections_is_an_error():
     result = {
         "sections": [
-            _section(
-                ANCHOR, name="verse_1", motif_renderings={"saath ho": "If you're here."}
+            _adapted_section(
+                "verse_1", motif_renderings={"saath ho": "If you're here."}
             ).model_dump(),
-            _section(
-                ANCHOR, name="chorus", motif_renderings={"saath ho": "If you stay with me."}
+            _adapted_section(
+                "chorus", motif_renderings={"saath ho": "If you stay with me."}
             ).model_dump(),
         ]
     }
@@ -257,11 +288,11 @@ def test_inconsistent_motif_rendering_across_sections_is_an_error():
 def test_consistent_motif_rendering_passes():
     result = {
         "sections": [
-            _section(
-                ANCHOR, name="verse_1", motif_renderings={"saath ho": "If you're here."}
+            _adapted_section(
+                "verse_1", motif_renderings={"saath ho": "If you're here."}
             ).model_dump(),
-            _section(
-                ANCHOR, name="chorus", motif_renderings={"saath ho": "If you're here."}
+            _adapted_section(
+                "chorus", motif_renderings={"saath ho": "If you're here."}
             ).model_dump(),
         ]
     }
@@ -282,11 +313,11 @@ def _anchor(term: str, disposition: str) -> AnchorDecision:
 def test_inconsistent_anchor_disposition_is_an_error():
     result = {
         "sections": [
-            _section(
-                ANCHOR, name="verse_1", cultural_anchors=[_anchor("ishq", "preserve")]
+            _adapted_section(
+                "verse_1", cultural_anchors=[_anchor("ishq", "preserve")]
             ).model_dump(),
-            _section(
-                ANCHOR, name="chorus", cultural_anchors=[_anchor("ishq", "adapt")]
+            _adapted_section(
+                "chorus", cultural_anchors=[_anchor("ishq", "adapt")]
             ).model_dump(),
         ]
     }
@@ -298,11 +329,11 @@ def test_inconsistent_anchor_disposition_is_an_error():
 def test_consistent_anchor_disposition_passes():
     result = {
         "sections": [
-            _section(
-                ANCHOR, name="verse_1", cultural_anchors=[_anchor("ishq", "preserve")]
+            _adapted_section(
+                "verse_1", cultural_anchors=[_anchor("ishq", "preserve")]
             ).model_dump(),
-            _section(
-                ANCHOR, name="chorus", cultural_anchors=[_anchor("Ishq", "preserve")]
+            _adapted_section(
+                "chorus", cultural_anchors=[_anchor("Ishq", "preserve")]
             ).model_dump(),
         ]
     }
@@ -312,8 +343,122 @@ def test_consistent_anchor_disposition_passes():
 
 
 def test_songs_without_anchors_are_unaffected():
-    result = {"sections": [_section(ANCHOR).model_dump()]}
+    result = {"sections": [_adapted_section().model_dump()]}
     assert verify_result(result).passed
+
+
+# ---------------------------------------------------------------------------
+# The counterweight — a translation must not score as a localization
+# ---------------------------------------------------------------------------
+
+
+def test_verbatim_translation_fails_even_though_every_other_check_passes():
+    """The bug this exists to fix: a song shipped as the Translator's
+    literal anchor scored 100% coverage, 0.0 invention penalty, zero
+    findings, PASS — a perfect grade for the one thing AURA is not.
+    """
+    report = verify_result({"sections": [_section(ANCHOR).model_dump()]})
+    section = report.sections[0]
+
+    # Every pre-existing signal still says "clean"...
+    assert section.ledger_coverage == 1.0
+    assert section.computed_invention_penalty == 0.0
+    assert section.findings == []
+
+    # ...and the run still fails, on the new signal alone.
+    assert section.adaptation_distance == 0.0
+    assert not report.passed
+    assert "Adaptation floor" in _laws(report.cross_section_findings)
+
+
+def test_a_genuine_adaptation_clears_the_floor():
+    report = verify_result({"sections": [_adapted_section().model_dump()]})
+    assert report.passed
+    assert report.sections[0].adaptation_distance > 0.08
+
+
+def test_one_literal_section_among_adapted_ones_is_fine():
+    """Per-section literalness is legitimate — the constitution says an
+    empty deviation ledger is a GOOD sign. The floor is deliberately a
+    song-level check so it never becomes a per-line change quota the
+    engine could game by manufacturing deviations.
+    """
+    report = verify_result(
+        {
+            "sections": [
+                _section(ANCHOR, name="verse_1").model_dump(),
+                _adapted_section("chorus").model_dump(),
+                _adapted_section("verse_2").model_dump(),
+            ]
+        }
+    )
+    assert "Adaptation floor" not in _laws(report.cross_section_findings)
+
+
+def test_adaptation_distance_rises_with_real_departure():
+    identical = verify_section(_section(ANCHOR)).adaptation_distance
+    small = verify_section(
+        _section("I keep the drawer shut and I never open it")
+    ).adaptation_distance
+    large = verify_section(
+        _section("The drawer stays shut. Nothing in it moves.")
+    ).adaptation_distance
+    assert identical == 0.0
+    assert identical < small < large
+
+
+def test_summary_reports_adaptation_distance_beside_invention_penalty():
+    report = verify_result({"sections": [_section(ANCHOR).model_dump()]})
+    summary = report.summary()
+    assert "Invention penalty" in summary
+    assert "Adaptation distance" in summary
+    assert "Effectively a translation" in summary
+
+
+# ---------------------------------------------------------------------------
+# Compression Floor — lyric collapsing into prose
+# ---------------------------------------------------------------------------
+
+
+def test_line_collapse_into_prose_is_an_error():
+    """The real failure from the Agar Tum Saath Ho run: six lyric lines
+    rendered as one running sentence.
+    """
+    multiline_anchor = (
+        "Stay a moment\nlet this heart settle\nhow do I stop you\n"
+        "every sorrow slips away\nI fill my eyes with you\nif you are here"
+    )
+    v = verify_section(
+        _section(
+            "Stay a moment and let this heart settle, and how do I stop you, "
+            "for every sorrow slips away as I fill my eyes with you if you are here.",
+            anchor=multiline_anchor,
+        )
+    )
+    collapse = [f for f in v.errors if "lines" in f.detail]
+    assert collapse, "six lines merged into one sentence should be an error"
+
+
+def test_preserved_line_structure_does_not_trigger_collapse():
+    multiline_anchor = "Stay a moment\nlet this heart settle\nhow do I stop you"
+    v = verify_section(
+        _section(
+            "Stay — one breath\nsteady this heart\nhow do I hold you here",
+            anchor=multiline_anchor,
+        )
+    )
+    assert not [f for f in v.findings if "lines" in f.detail]
+
+
+def test_added_connective_tissue_is_flagged():
+    v = verify_section(
+        _section(
+            "It is the drawer that I have kept, and it is the one that I do "
+            "not open",
+            anchor="Drawer locked, never opened",
+        )
+    )
+    assert any("Function words rose" in f.detail for f in v.findings)
 
 
 # ---------------------------------------------------------------------------
