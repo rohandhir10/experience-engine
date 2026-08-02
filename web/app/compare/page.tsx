@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "@/components/Logo";
+import { SiteHeader } from "@/components/SiteHeader";
 import { SystemComparisonCard } from "@/components/SystemComparisonCard";
 import { comparisonEntries, methodologyNote } from "@/lib/comparison-data";
 
@@ -13,17 +13,17 @@ export default function ComparePage() {
   return (
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-center justify-between border-b border-black/[0.05] pb-5 dark:border-white/[0.05]">
-          <Link href="/">
-            <Logo />
-          </Link>
-          <Link
-            href="/"
-            className="text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
-          >
-            ← Try your own
-          </Link>
-        </div>
+        <SiteHeader
+          active="compare"
+          right={
+            <Link
+              href="/"
+              className="text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
+            >
+              ← Try your own
+            </Link>
+          }
+        />
 
         <div className="mt-10">
           <h1 className="font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
