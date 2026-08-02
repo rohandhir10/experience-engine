@@ -108,6 +108,59 @@ def test_hindi_anchor_block_carries_recognizability():
     assert "comprehensibility wins" in block
 
 
+# ---------------------------------------------------------------------------
+# Phase 2 languages
+# ---------------------------------------------------------------------------
+
+
+def test_phase_two_profiles_are_available():
+    assert {"hi", "ko", "es"}.issubset(set(available_profiles()))
+
+
+def test_korean_profile_names_the_speech_level_trap():
+    block = resolve_profile("ko").translator_block()
+    assert "해요체" in block or "speech level" in block.lower()
+
+
+def test_korean_profile_calibrates_indirect_emotional_expression():
+    block = resolve_profile("ko").constitution_block()
+    assert "indirectly" in block or "image" in block
+
+
+def test_korean_anchor_lexicon_includes_han_and_jeong():
+    block = resolve_profile("ko").anchor_block()
+    assert "한 (han)" in block and "정 (jeong)" in block
+
+
+def test_spanish_profile_names_the_tu_usted_vos_trap():
+    block = resolve_profile("es").translator_block()
+    assert "usted" in block and "vos" in block
+
+
+def test_spanish_profile_explains_assonant_rhyme_is_a_real_form():
+    block = resolve_profile("es").song_dna_block()
+    assert "ssonan" in block  # assonant / assonance
+
+
+def test_spanish_and_korean_baselines_differ():
+    """Law 4 is calibrated per tradition — a Spanish baseline that reads
+    like the Korean one would mean the calibration is doing nothing.
+    """
+    es = resolve_profile("es").emotional_baseline
+    ko = resolve_profile("ko").emotional_baseline
+    assert es and ko and es != ko
+    assert "direct" in es
+    assert "indirect" in ko
+
+
+def test_every_profile_selects_a_grounding_counter():
+    from engine.grounding.base import supported_languages
+
+    for code in available_profiles():
+        profile = resolve_profile(code)
+        assert profile.grounding_language_code in supported_languages(), code
+
+
 def test_every_shipped_profile_has_required_fields():
     for code in available_profiles():
         profile = resolve_profile(code)

@@ -599,6 +599,27 @@ _RULING_SCHEMA = (
 )
 
 
+_CULTURAL_ANCHORS_FIELD = (
+    ', "cultural_anchors": [{"term": str, "disposition": "preserve"|'
+    '"preserve_with_gloss"|"adapt"|"translate_plainly", "rationale": str}] '
+    "(one entry per culturally dense term that actually appears in THIS "
+    "section — omit the list entirely if none do. Whatever you choose must "
+    "be used identically at every recurrence of that term in the song)"
+)
+
+
+def _ruling_schema(profile: LanguageProfile | None = None) -> str:
+    """The ruling schema, plus the cultural-anchor field only when the
+    source language actually has an anchor lexicon. Asking every song to
+    reason about culturally dense terms when none are known would spend
+    Judge attention on nothing — and would break the Phase 1 guarantee
+    that a neutral profile leaves prompts byte-identical.
+    """
+    if profile and profile.anchor_lexicon:
+        return _RULING_SCHEMA[:-1] + _CULTURAL_ANCHORS_FIELD + "}"
+    return _RULING_SCHEMA
+
+
 def judge_triage_prompt(
     candidates: list[Candidate],
     routing_signals: RoutingSignals,
@@ -645,7 +666,7 @@ def judge_triage_prompt(
         "that is itself a reason to consult native_speaker before ruling, "
         "not a reason to guess.\n\n"
         'Respond with ONLY a JSON object: {"ready_to_rule": bool, "ruling": '
-        + _RULING_SCHEMA + ' or null, "specialists_needed": '
+        + _ruling_schema(profile) + ' or null, "specialists_needed": '
         '["cultural_historian"|"native_speaker"|"psychologist", ...], "why": '
         'str}. If ready_to_rule is false, ruling must be null and '
         "specialists_needed must be non-empty."
@@ -717,7 +738,7 @@ def judge_final_prompt(
         "that is exactly the kind of concern worth a real rewrite, not a "
         "shrug — and either way, the deviation ledger for whatever you ship "
         "must still hold up.\n\n"
-        f"Respond with ONLY a JSON object: {_RULING_SCHEMA}."
+        f"Respond with ONLY a JSON object: {_ruling_schema(profile)}."
     )
     candidates_text = "\n".join(
         f"[{c.id}] ({c.agent}"

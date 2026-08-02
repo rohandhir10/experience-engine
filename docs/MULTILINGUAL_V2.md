@@ -367,13 +367,27 @@ per-language failure modes are invisible without per-language evaluation.
 
 ## Migration roadmap
 
-> **Status: Phase 1 is implemented and merged.** `engine/language_profile.py`,
-> `engine/profiles/hindi.json`, `engine/grounding/` (Devanagari + Hangul),
-> `SongInput.source_language_code`, `JudgeRuling.cultural_anchors`, and
-> `tests/test_golden_prompts.py` are all in the tree. Existing Hindi
-> example files resolve the profile automatically from their
-> `source_language` string with no edits. Phases 2 and 3 remain as
-> described below.
+> **Status: Phase 1 complete; Phase 2 profiles built, benchmark gate not
+> yet cleared.**
+>
+> Shipped: `engine/language_profile.py`, `engine/grounding/` (Devanagari,
+> Hangul, Spanish-with-synalepha), profiles for **Hindi, Korean, and
+> Spanish**, `SongInput.source_language_code`,
+> `JudgeRuling.cultural_anchors` (now actually requested from the Judge,
+> but only when the source language has an anchor lexicon, so neutral
+> prompts stay byte-identical), the cultural-anchor consistency check in
+> `engine/verify.py`, and `tests/test_golden_prompts.py`.
+>
+> **Not yet done, and required before any language is considered
+> launched:** each profile must clear its own blind benchmark run
+> (`benchmark/`) against Google Translate and single-prompt GPT/Claude,
+> with that language's own bilingual reviewers. The Korean and Spanish
+> profiles are written from linguistic principle and are untested against
+> real songs. Treat them as drafts for review by a native speaker, not as
+> validated.
+>
+> Phase 3 (Japanese, Russian, Arabic; and separately target-language
+> expansion) remains as described below.
 
 **Phase 1 — behavior-neutral scaffolding.** Ship the profile system with
 a neutral default that changes nothing, proven by byte-identical

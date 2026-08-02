@@ -4,7 +4,13 @@ the failures the constitution names, and stays quiet when it should.
 """
 from __future__ import annotations
 
-from engine.models import Candidate, Deviation, JudgeRuling, SectionResultV1
+from engine.models import (
+    AnchorDecision,
+    Candidate,
+    Deviation,
+    JudgeRuling,
+    SectionResultV1,
+)
 from engine.verify import verify_result, verify_section
 
 ANCHOR = "I keep the drawer locked and I never open it"
@@ -18,6 +24,7 @@ def _section(
     with_anchor: bool = True,
     invention_penalty: float = 0.0,
     motif_renderings: dict[str, str] | None = None,
+    cultural_anchors: list[AnchorDecision] | None = None,
     name: str = "verse_1",
 ) -> SectionResultV1:
     candidates = []
@@ -45,6 +52,7 @@ def _section(
             deviations=deviations or [],
             invention_penalty=invention_penalty,
             motif_renderings=motif_renderings or {},
+            cultural_anchors=cultural_anchors or [],
         ),
     )
 
@@ -260,6 +268,52 @@ def test_consistent_motif_rendering_passes():
     report = verify_result(result)
     assert report.cross_section_findings == []
     assert report.passed
+
+
+# ---------------------------------------------------------------------------
+# Cultural anchors — one disposition per term, song-wide
+# ---------------------------------------------------------------------------
+
+
+def _anchor(term: str, disposition: str) -> AnchorDecision:
+    return AnchorDecision(term=term, disposition=disposition, rationale="test")
+
+
+def test_inconsistent_anchor_disposition_is_an_error():
+    result = {
+        "sections": [
+            _section(
+                ANCHOR, name="verse_1", cultural_anchors=[_anchor("ishq", "preserve")]
+            ).model_dump(),
+            _section(
+                ANCHOR, name="chorus", cultural_anchors=[_anchor("ishq", "adapt")]
+            ).model_dump(),
+        ]
+    }
+    report = verify_result(result)
+    assert not report.passed
+    assert "Cultural anchor consistency" in _laws(report.cross_section_findings)
+
+
+def test_consistent_anchor_disposition_passes():
+    result = {
+        "sections": [
+            _section(
+                ANCHOR, name="verse_1", cultural_anchors=[_anchor("ishq", "preserve")]
+            ).model_dump(),
+            _section(
+                ANCHOR, name="chorus", cultural_anchors=[_anchor("Ishq", "preserve")]
+            ).model_dump(),
+        ]
+    }
+    report = verify_result(result)
+    assert report.cross_section_findings == []
+    assert report.passed
+
+
+def test_songs_without_anchors_are_unaffected():
+    result = {"sections": [_section(ANCHOR).model_dump()]}
+    assert verify_result(result).passed
 
 
 # ---------------------------------------------------------------------------

@@ -408,6 +408,35 @@ def verify_result(result_dict: dict) -> VerificationReport:
     for section in sections:
         report.sections.append(verify_section(section))
 
+    # --- Cultural anchors: one disposition per term, song-wide -------------
+    # (docs/MULTILINGUAL_V2.md §6.) Deciding to preserve "ishq" in the first
+    # chorus and translate it in the second is the same failure the
+    # Ambiguity Lock exists to prevent, so it is checked the same way.
+    anchors: dict[str, tuple[str, str]] = {}  # term -> (disposition, section)
+    for section in sections:
+        for anchor in section.ruling.cultural_anchors:
+            key = anchor.term.strip().lower()
+            if key not in anchors:
+                anchors[key] = (anchor.disposition, section.section)
+                continue
+            first_disposition, first_section = anchors[key]
+            if anchor.disposition != first_disposition:
+                report.cross_section_findings.append(
+                    Finding(
+                        law="Cultural anchor consistency",
+                        severity="error",
+                        section=f"{first_section} vs {section.section}",
+                        detail=(
+                            f"The term {anchor.term!r} was handled as "
+                            f"{first_disposition!r} in {first_section} but "
+                            f"{anchor.disposition!r} in {section.section}. A "
+                            "culturally dense term must be handled the same "
+                            "way at every recurrence."
+                        ),
+                        fragment=anchor.term,
+                    )
+                )
+
     # --- Law 5: Ambiguity Lock, across sections ----------------------------
     renderings: dict[str, tuple[str, str]] = {}  # motif -> (rendering, section)
     for section in sections:

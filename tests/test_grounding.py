@@ -12,6 +12,7 @@ from engine.grounding import count_source_units
 from engine.grounding.base import supported_languages
 from engine.grounding.devanagari import count_hindi
 from engine.grounding.hangul import count_korean
+from engine.grounding.spanish import _count_line, _count_word, count_spanish
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +105,51 @@ def test_hindi_returns_none_for_latin_text():
 
 
 # ---------------------------------------------------------------------------
+# Spanish — diphthong/hiatus rules plus synalepha
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "word,expected,why",
+    [
+        ("aire", 2, "ai- is a diphthong (strong+weak)"),
+        ("cielo", 2, "cie- is a diphthong (weak+strong)"),
+        ("poeta", 3, "po-e-ta: two strong vowels are a hiatus"),
+        ("día", 2, "accented weak í breaks the diphthong"),
+        ("dia", 1, "unaccented, ia IS a diphthong — why the word takes an accent"),
+        ("corazón", 3, "co-ra-zón"),
+        ("baúl", 2, "ba-úl: accented weak ú breaks it"),
+        ("casa", 2, "ca-sa"),
+    ],
+)
+def test_spanish_word_counts(word: str, expected: int, why: str):
+    assert _count_word(word) == expected, f"{word}: {why}"
+
+
+@pytest.mark.parametrize(
+    "line,expected,why",
+    [
+        ("mi alma", 2, "synalepha: mi+al merge, mial-ma"),
+        ("una casa", 4, "no vowel junction, u-na ca-sa"),
+        ("la hora", 2, "silent h does not block synalepha: lao-ra"),
+        ("corazón mío", 5, "co-ra-zón mí-o, no junction"),
+    ],
+)
+def test_spanish_synalepha_across_words(line: str, expected: int, why: str):
+    assert _count_line(line) == expected, f"{line}: {why}"
+
+
+def test_spanish_result_is_honest_about_the_verse_convention():
+    result = count_spanish("mi alma")
+    assert result is not None
+    assert result.caveat and "agudo" in result.caveat
+
+
+def test_spanish_returns_none_for_empty_input():
+    assert count_spanish("   \n  ") is None
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -122,8 +168,8 @@ def test_unknown_language_returns_none_rather_than_guessing():
     assert count_source_units("whatever", None) is None
 
 
-def test_registered_languages_include_phase_one_set():
-    assert {"hi", "ko"}.issubset(set(supported_languages()))
+def test_registered_languages_include_phase_two_set():
+    assert {"hi", "ko", "es"}.issubset(set(supported_languages()))
 
 
 def test_counters_register_on_package_import_alone():
