@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { ExperienceResult } from "@/lib/types";
-import { ENGINE_API_URL } from "@/lib/api";
 import { Logo } from "@/components/Logo";
 import { ResultScreen } from "@/components/ResultScreen";
 import { demoResult } from "@/lib/demo-data";
@@ -11,10 +10,12 @@ async function getResult(id: string): Promise<ExperienceResult | null> {
   // them. The real flow (/, /api/adapt) never touches this.
   if (id === "demo") return demoResult;
 
+  // Same-origin now: web/vercel.json rewrites /api/adapt/:id straight to
+  // the Python function (web/api/engine.py) in this same deployment. No
+  // external backend URL to configure - see that file's docstring for why
+  // one FastAPI app can own both this path and POST /api/adapt.
   try {
-    const res = await fetch(`${ENGINE_API_URL}/api/adapt/${id}`, {
-      cache: "no-store",
-    });
+    const res = await fetch(`/api/adapt/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
     return res.json();
   } catch {

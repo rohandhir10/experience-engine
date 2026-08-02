@@ -1,0 +1,71 @@
+{
+  "code": "ko",
+  "name": "Korean",
+  "scripts": [
+    "Hangul",
+    "Latin (code-mixed)"
+  ],
+  "genre_traditions": "Modern K-pop is the dominant export form, but it is not one tradition: idol pop, hip-hop, and R&B sit alongside ballad (발라드), which is its own established genre with slow builds and an emotionally unguarded climax, and trot (트로트), an older popular style with a distinctive vibrato and sentimentality that reads as retro rather than sincere to younger listeners. Older/folk registers include pansori and minyo. Identify which the song is working in — treating a ballad's climactic outpouring as if it were idol-pop convention misreads its whole shape.",
+  "register_axis": "Two axes operate at once. First, speech level: Korean grammatically encodes the speaker's stance toward the listener in the verb ending — 해체 (plain/intimate), 해요체 (polite), 하십시오체 (formal), 한다체 (written/declarative). Lyrics choose one deliberately, and switching mid-song is a real event. Second, vocabulary layer: Sino-Korean words (from Chinese roots) read as more formal, abstract, or literary; native Korean words read as warmer and more immediate — often two words exist for one concept and the choice is the meaning.",
+  "rhyme_convention": "End rhyme is not a traditional requirement and carries little information: Korean is agglutinative, so verb endings rhyme almost automatically and a rhyme can sound accidental rather than chosen. What actually carries structure is METER and repetition. Traditional Korean verse counts breath-groups (음보) rather than feet — sijo runs 3-4-3-4 syllables per line across three lines, and gasa uses a rolling 4-4. Modern lyrics inherit the breath-group feel more than the exact counts. Alongside that: parallelism, phrase repetition, and — distinctively — reduplicated ideophones (반짝반짝, 두근두근) whose doubling IS the rhythm. K-pop hip-hop verses do use dense end rhyme, but that is a consciously borrowed English device and should read as borrowed. Do not treat absence of rhyme as formlessness; the form is in the beat-groups.",
+  "symbol_calibration": "Archetypal WITHIN Korean lyric, and therefore not to be flagged as exotic: rain and the season turning as emotional weather, the night bus/late subway as loneliness, cherry blossom (벚꽃) for something beautiful and brief, snow for stilled time, the shared meal or the empty seat at a table for absence, and stars/starlight for someone unreachable. Frequent English loanwords in K-pop lyrics are unmarked and ordinary, not code-switching for effect — treat them as native to the register unless the song makes a point of them. Reduplicated ideophones (반짝반짝, 두근두근, 살랑살랑) are likewise unmarked everyday register in Korean lyric, not decorative or childish as their nearest English equivalents would be.",
+  "structural_traps": [
+    "Verb endings encode the relationship between speaker and addressee (intimate 해체 vs polite 해요체 vs formal 하십시오체). English 'you' erases this completely, and a shift in ending mid-song is a deliberate change in distance — note which level the source used and any shift, rather than silently normalizing.",
+    "반말/존댓말 between lovers is its own device: dropping from polite into intimate speech partway through a song is an event, often THE event. English has no verb ending to carry it and must find it in diction — that is a compensation decision, not something to ignore.",
+    "Subjects and objects are routinely omitted when recoverable from context. English forces you to supply them; say when you inferred who is acting rather than presenting it as stated.",
+    "Korean has no grammatical gender and pronouns are often absent entirely. Do not assign a gender to a speaker or addressee that the source never marks.",
+    "의성어/의태어 (ideophones) are a core lyric resource with no English equivalent: thousands of mimetic words, usually reduplicated, describing sound (반짝반짝 twinkling), motion (살랑살랑 swaying), or bodily feeling (두근두근 a pounding heart). English has only a thin, mostly childish equivalent register, so the usual failure is to translate the FEELING and lose the sound — the doubling is doing rhythmic work as well as semantic work. Flag them; a bare adjective is rarely an adequate carrier.",
+    "Nominalizing endings (-ㅁ, -기) turn a verb into a floating noun-like thing with no stated subject or tense, giving many modern lyrics an unresolved, suspended quality. English's finite verbs force a subject and a tense onto it and resolve what the source deliberately left open.",
+    "English loanwords and phrases are extremely common and usually unmarked as vocabulary — but in K-pop an English hook is often chosen for its PHONOLOGY (punchier, more consonant-final) rather than its meaning. Rendering it as English is not a translation choice, it is what the word already is; note when it is doing rhythmic rather than semantic work."
+  ],
+  "grammatical_scaffolding_note": "Korean is SOV and agglutinative, drops subjects and objects freely, and marks grammatical roles with particles (은/는, 이/가, 을/를) rather than word order. Reordering into English SVO, and supplying the omitted subject/object and the articles English requires, is scaffolding needed to parse and does not count against the Compression Floor. Adding 'because', 'even though', or 'so that' to explain a relation the source left to juxtaposition does count against it.",
+  "emotional_baseline": "Korean lyric convention often approaches strong feeling indirectly — through weather, seasons, objects, and the specifics of a scene — rather than naming it, and restraint is the norm outside the ballad climax, where an unguarded outpouring is genre-appropriate. Match the source's own strategy: if it reaches its feeling through an image, reaching it through the image is the faithful rendering, and naming the emotion outright over-translates. But when a ballad does break into direct statement, matching that directness is equally faithful — do not impose uniform restraint across a song that has a deliberate climax.",
+  "grounding_language_code": "ko",
+  "anchor_lexicon": [
+    {
+      "term": "한 (han)",
+      "meaning": "an accumulated, long-carried grief and resentment held collectively as much as personally, without a single-word English equivalent",
+      "target_recognizability": "low"
+    },
+    {
+      "term": "정 (jeong)",
+      "meaning": "the attachment and bondedness that builds between people over time, distinct from love or affection",
+      "target_recognizability": "low"
+    },
+    {
+      "term": "눈치 (nunchi)",
+      "meaning": "the read-the-room sensitivity to what others are feeling but not saying",
+      "target_recognizability": "low"
+    },
+    {
+      "term": "오빠 / 언니 / 누나 / 형",
+      "meaning": "kinship-based address terms used for non-relatives, encoding age and relationship; 오빠 in particular is romantically loaded in pop lyrics",
+      "target_recognizability": "low"
+    },
+    {
+      "term": "아이고 (aigo)",
+      "meaning": "an exclamation of weariness, dismay, or sympathy with no clean English equivalent",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "그리움 (geurium)",
+      "meaning": "the ache of missing someone or somewhere, held as a continuing state rather than an event",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "애틋하다 (aeteutada)",
+      "meaning": "tender and aching at once — a fondness that hurts slightly, extremely common in ballad lyrics",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "썸 (sseom)",
+      "meaning": "the ambiguous almost-dating stage before anything is declared; a whole modern relationship category in one syllable",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "설레다 (seolleda)",
+      "meaning": "the fluttering anticipation of early attraction, felt physically",
+      "target_recognizability": "none"
+    }
+  ]
+}
