@@ -54,7 +54,7 @@ export function InputScreen({
           }}
         >
           <label htmlFor="lyrics" className="sr-only">
-            Paste lyrics or dialogue
+            Paste song lyrics
           </label>
           <textarea
             ref={textareaRef}
@@ -70,7 +70,7 @@ export function InputScreen({
                 submit();
               }
             }}
-            placeholder="Paste lyrics or dialogue…"
+            placeholder="Paste song lyrics…"
             rows={MIN_ROWS}
             autoFocus
             aria-describedby={error ? "lyrics-error" : undefined}
