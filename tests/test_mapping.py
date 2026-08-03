@@ -27,6 +27,7 @@ def _engine_result(
     target_language: str,
     final_line: str = "Reste, juste pour ce soir.",
     source_syllable_count: int | None = None,
+    deviations: list[dict] | None = None,
 ) -> EngineResult:
     song = SongInput(
         source_language="English",
@@ -44,7 +45,7 @@ def _engine_result(
             section="verse_1",
             final_line=final_line,
             priority_tradeoffs_made="test",
-            deviations=[],
+            deviations=deviations or [],
             invention_penalty=0.0,
         ),
         source_syllable_count=source_syllable_count,
@@ -94,3 +95,48 @@ def test_singability_is_none_for_non_english_targets():
         "abc123",
     )
     assert result["sections"][0]["singability"] is None
+
+
+def test_poetic_register_passes_through_at_song_level():
+    result = to_experience_result(_FakeClient(), _engine_result("English"), "abc123")
+    assert result["poeticRegister"] == "melodramatic-romantic"
+
+
+def test_dominant_feeling_passes_through_per_section():
+    result = to_experience_result(_FakeClient(), _engine_result("English"), "abc123")
+    assert result["sections"][0]["dominantFeeling"] == "guarded grief"
+
+
+def test_deviations_are_empty_when_the_ruling_has_none():
+    result = to_experience_result(_FakeClient(), _engine_result("English"), "abc123")
+    assert result["sections"][0]["deviations"] == []
+
+
+def test_deviations_pass_through_at_fragment_level():
+    """justification is real data, included for the Enterprise/audit
+    surface - the consumer popup must not render it directly (see
+    server/mapping.py's _deviations_payload docstring), but this just
+    checks the payload carries it through unmodified."""
+    result = to_experience_result(
+        _FakeClient(),
+        _engine_result(
+            "English",
+            deviations=[
+                {
+                    "fragment_original": "stay with me",
+                    "fragment_adapted": "don't go",
+                    "justification": "matches the chorus's repeated hook phrasing",
+                    "dimension": "genre_authenticity",
+                }
+            ],
+        ),
+        "abc123",
+    )
+    deviations = result["sections"][0]["deviations"]
+    assert deviations == [
+        {
+            "fragmentOriginal": "stay with me",
+            "fragmentAdapted": "don't go",
+            "justification": "matches the chorus's repeated hook phrasing",
+        }
+    ]

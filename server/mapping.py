@@ -53,6 +53,35 @@ def _translator_text(result: SectionResultV1) -> str:
     return result.candidates[0].text if result.candidates else ""
 
 
+def _dominant_feeling(dna, section_name: str) -> str | None:
+    """SongDNA.sections[n].emotional_arc_point.dominant_feeling, the real
+    per-section field the consumer "Lore Storyline" surface anchors on -
+    None only if the section name can't be found (a stored/cached result
+    from before a schema change, not a normal case for a fresh run)."""
+    try:
+        return dna.section(section_name).emotional_arc_point.dominant_feeling
+    except KeyError:
+        return None
+
+
+def _deviations_payload(result: SectionResultV1) -> list[dict]:
+    """Fragment-level Burden-of-Change ledger, for positioning consumer-
+    facing underlines - NOT for the popup's prose. `justification` is
+    written for an engineer auditing a ruling (see this module's opening
+    docstring), the same reason `why` below goes through an LLM paraphrase
+    before shipping; the consumer surface must reuse that already-
+    paraphrased `why` sentence, not render `justification` verbatim.
+    """
+    return [
+        {
+            "fragmentOriginal": d.fragment_original,
+            "fragmentAdapted": d.fragment_adapted,
+            "justification": d.justification,
+        }
+        for d in result.ruling.deviations
+    ]
+
+
 def _singability(result: SectionResultV1, aura: str, target_language: str) -> dict | None:
     """The same measurement engine/verify.py's Singability check already
     computes, surfaced to the reader instead of staying backend-log-only.
@@ -113,6 +142,8 @@ def to_experience_result(
                 "aura": aura,
                 "why": why,
                 "singability": _singability(result, aura, engine_result.song.target_language),
+                "dominantFeeling": _dominant_feeling(engine_result.dna, result.section),
+                "deviations": _deviations_payload(result),
             }
         )
         original.append(
@@ -126,4 +157,5 @@ def to_experience_result(
         "targetLanguage": engine_result.song.target_language,
         "sections": sections,
         "original": original,
+        "poeticRegister": engine_result.dna.poetic_register,
     }
