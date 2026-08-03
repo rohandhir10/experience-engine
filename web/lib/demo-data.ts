@@ -11,6 +11,7 @@ export const demoResult: ExperienceResult = {
     "while quietly accepting that love cannot stop life from being cruel.",
   sourceLanguage: "Hindi",
   targetLanguage: "English",
+  poeticRegister: "melodramatic-romantic",
   sections: [
     {
       id: "verse_1",
@@ -31,6 +32,15 @@ export const demoResult: ExperienceResult = {
         "one reads like something someone would actually say — and it says " +
         "the same plea twice, the way she really does, instead of smoothing " +
         "it into two different lines.",
+      dominantFeeling: "quiet, pleading tenderness",
+      deviations: [
+        {
+          fragmentOriginal: "Pause for a moment, let my heart settle",
+          fragmentAdapted: "Stay — one breath, steady this heart",
+          justification:
+            "compresses to match the line's sung phrasing without adding a clause the source doesn't have",
+        },
+      ],
     },
     {
       id: "verse_2",
@@ -45,6 +55,7 @@ export const demoResult: ExperienceResult = {
       why:
         "The explaining is gone. The images are just placed next to each " +
         "other and left to do the work, the way the original does.",
+      dominantFeeling: "surrendered devotion",
     },
     {
       id: "chorus",

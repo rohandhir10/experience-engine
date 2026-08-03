@@ -133,6 +133,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
             original={originalById[section.id]}
             showOriginal={showOriginal}
             active={i === activeIndex}
+            poeticRegister={i === 0 ? result.poeticRegister : undefined}
           />
         ))}
       </div>

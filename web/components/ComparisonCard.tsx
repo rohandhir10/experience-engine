@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import type { SectionComparison } from "@/lib/types";
+import { LoreStoryline } from "./LoreStoryline";
 
 function humanize(id: string): string {
   const cleaned = id.replace(/_/g, " ").trim();
@@ -14,8 +15,14 @@ export const ComparisonCard = forwardRef<
     original?: string;
     showOriginal?: boolean;
     active?: boolean;
+    // Song-level - only pass this for one card (ResultScreen passes it
+    // on index 0) so it doesn't repeat under every section.
+    poeticRegister?: string | null;
   }
->(function ComparisonCard({ section, index, original, showOriginal, active }, ref) {
+>(function ComparisonCard(
+  { section, index, original, showOriginal, active, poeticRegister },
+  ref
+) {
   return (
     <div
       ref={ref}
@@ -66,6 +73,8 @@ export const ComparisonCard = forwardRef<
       <p className="mt-6 max-w-prose text-[14px] italic leading-relaxed text-ink/50 dark:text-ink-dark/50">
         {section.why}
       </p>
+
+      <LoreStoryline poeticRegister={poeticRegister} dominantFeeling={section.dominantFeeling} />
 
       {section.singability && (
         <p
