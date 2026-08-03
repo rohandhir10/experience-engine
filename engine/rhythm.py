@@ -112,3 +112,84 @@ def source_syllable_estimate(source_text: str) -> int | None:
     if not is_latin_script(source_text):
         return None
     return count_syllables_text(source_text)
+
+
+# --- Phrase-end sustainability: can a singer hold the last sound of a
+# line, regardless of what language it's in? Two scripts are actually
+# tractable without a full pronunciation dictionary:
+#
+# Latin script: a stop consonant (p/b/t/d/k/g) is a momentary release -
+# physically impossible to sustain, full stop. Anything else (a vowel, a
+# nasal, a liquid, even a fricative) can be held to some degree.
+#
+# Hangul: every Korean syllable block is algorithmically decomposable
+# (initial+medial+final, straight from the Unicode codepoint), and
+# Korean's coda neutralization - the 27 possible written final consonants
+# collapsing to 7 surface sounds - is standard, textbook phonology, not a
+# guess. That gives a real answer for whether a block's final sound is a
+# sustained nasal/liquid/open-vowel or an unreleased stop.
+#
+# Devanagari and Perso-Arabic scripts (Hindi, Urdu) are NOT supported here
+# - both need real pronunciation data this module doesn't have (Hindi's
+# schwa-deletion problem in particular is a genuinely hard, still-debated
+# computational-linguistics question, not something a spelling rule can
+# resolve). None means exactly that: no answer, not a guessed one.
+_LATIN_STOP_CONSONANTS = frozenset("pbtdkg")
+
+_HANGUL_BASE = 0xAC00
+_HANGUL_LAST = 0xD7A3
+_JONGSEONG_COUNT = 28
+
+# Index into a Hangul block's final-consonant slot -> True if that slot's
+# neutralized surface pronunciation is sustainable (open vowel, nasal, or
+# liquid), False if it neutralizes to an unreleased stop. Order matches
+# the standard jongseong table (0 = no final consonant).
+_JONGSEONG_SUSTAINABLE = [
+    True,  # 0: none (open vowel)
+    False, False, False,  # 1-3: ㄱㄲㄳ -> k̚
+    True, True, True,  # 4-6: ㄴㄵㄶ -> n
+    False,  # 7: ㄷ -> t̚
+    True,  # 8: ㄹ -> l
+    False,  # 9: ㄺ -> k̚
+    True,  # 10: ㄻ -> m
+    True, True, True,  # 11-13: ㄼㄽㄾ -> l
+    False,  # 14: ㄿ -> p̚
+    True,  # 15: ㅀ -> l
+    True,  # 16: ㅁ -> m
+    False,  # 17: ㅂ -> p̚
+    False,  # 18: ㅄ -> p̚
+    False, False,  # 19-20: ㅅㅆ -> t̚
+    True,  # 21: ㅇ -> ng
+    False, False,  # 22-23: ㅈㅊ -> t̚
+    False,  # 24: ㅋ -> k̚
+    False,  # 25: ㅌ -> t̚
+    False,  # 26: ㅍ -> p̚
+    False,  # 27: ㅎ -> t̚ (in coda position, before a pause)
+]
+
+
+def _is_hangul_syllable(ch: str) -> bool:
+    return _HANGUL_BASE <= ord(ch) <= _HANGUL_LAST
+
+
+def phrase_end_sustainability(line: str) -> str | None:
+    """"sustainable" or "closed" for the last word's final sound, or None
+    if the script isn't one of the two this can actually answer for (see
+    module comment above). Never guesses for Devanagari/Perso-Arabic.
+    """
+    words = re.findall(r"\S+", line.strip())
+    if not words:
+        return None
+    last_word = words[-1].strip(".,!?;:\"'()[]«»।")
+    if not last_word:
+        return None
+
+    last_char = last_word[-1]
+    if _is_hangul_syllable(last_char):
+        jongseong = (ord(last_char) - _HANGUL_BASE) % _JONGSEONG_COUNT
+        return "sustainable" if _JONGSEONG_SUSTAINABLE[jongseong] else "closed"
+
+    if is_latin_script(last_word):
+        return "closed" if last_char.lower() in _LATIN_STOP_CONSONANTS else "sustainable"
+
+    return None

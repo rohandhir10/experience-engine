@@ -104,7 +104,11 @@ def test_identical_line_is_fully_covered_and_clean():
     assert v.ledger_coverage == 1.0
     assert v.changed_word_count == 0
     assert v.computed_invention_penalty == 0.0
-    assert v.findings == []
+    # ANCHOR ends in "it" - a real stop consonant, so the phrase-end
+    # sustainability check correctly fires here; it's an orthogonal signal
+    # about the line's ending sound, not about ledger/invention-penalty
+    # cleanliness, which is what this test is actually checking.
+    assert _laws(v.findings) == {"Phrase-end sustainability check"}
 
 
 def test_change_with_a_real_logged_justification_passes():
@@ -377,7 +381,9 @@ def test_verbatim_translation_fails_even_though_every_other_check_passes():
     # Every pre-existing signal still says "clean"...
     assert section.ledger_coverage == 1.0
     assert section.computed_invention_penalty == 0.0
-    assert section.findings == []
+    # ANCHOR ends in "it" (a real stop consonant) - orthogonal to ledger/
+    # invention-penalty cleanliness, so it's the one finding still allowed.
+    assert {f.law for f in section.findings} == {"Phrase-end sustainability check"}
 
     # ...and the run still fails, on the new signal alone.
     assert section.adaptation_distance == 0.0

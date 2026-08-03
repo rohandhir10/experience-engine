@@ -101,6 +101,49 @@ not an audit shortcut.
 - **Benchmark coverage:** unit-tested (`tests/test_rhyme.py`,
   `tests/test_verify.py`). Not corpus-benchmarked.
 
+## Poetic register + Tonal Coherence gate + Phrase-end sustainability — detail
+
+Added when the reverse direction (English -> Hindi/Korean/Japanese/
+Spanish/Urdu) and direct pairs (e.g. Hindi -> Korean) made it clear that
+hardcoding specific cultural mappings ("Sufi -> Flamenco") would break on
+the next genre or language pair fed in. All three are typology-agnostic
+by design — none names a specific language or culture in code.
+
+- **`poetic_register`** (`SongDNA.poetic_register`, `engine/prompts.py`'s
+  Song DNA extraction): the song's rhetorical/spiritual register (sacred-
+  devotional, street-vernacular, melodramatic, elegiac, etc.), distinct
+  from `genre_feel` (musical genre). **Tier 0** — an LLM classification,
+  not a measured value; there is no controlled vocabulary or corpus
+  behind it. The Creative Adapter is instructed (constraint 9,
+  `AGENT_BRIEFS["creative_adapter"]`) to match this register using the
+  *target* language's own equivalent tradition, never an untranslated
+  source-culture term — but nothing verifies that it actually did.
+- **Tonal Coherence gate** (`engine/prompts.py::_judge_gates_and_dimensions`,
+  third gate alongside Literal Accuracy and Authenticity): asks the Judge
+  to disqualify a candidate whose surviving image reads as unintentionally
+  grotesque or literal in the target language (the general form of "a
+  raven eating flesh reads as horror, not devotion"). **Tier 0** — pure
+  LLM judgment, prompt text only, no deterministic check backs it, and no
+  test corpus yet confirms it actually catches real cases.
+- **Phrase-end sustainability** (`engine/rhythm.py::phrase_end_sustainability`,
+  `verify.py`'s "Phrase-end sustainability check"): **Tier 1**, actually
+  measured — whether a shipped line's last word ends in a sound a singer
+  can hold (vowel/nasal/liquid) or an unreleased stop consonant.
+  Script-based, not source-language-based: supports Latin-script output
+  (any target written in the Latin alphabet) and Hangul (Korean, via
+  algorithmic syllable-block decomposition + standard coda
+  neutralization — real, textbook phonology, not a heuristic). Returns
+  `None` — not a guess — for Devanagari and Perso-Arabic output (Hindi,
+  Urdu), since both need real pronunciation data this module doesn't have
+  (Hindi's schwa-deletion problem specifically is an open computational-
+  linguistics question, not a spelling rule). Unlike Stress/Rhyme above,
+  this is NOT gated to `target_language == "English"` — it runs for any
+  script it supports, regardless of the target language's name.
+- **Benchmark coverage:** unit-tested (`tests/test_rhythm.py`'s Hangul
+  cases hand-verified against known Korean words; `tests/test_verify.py`).
+  Not corpus-benchmarked; the two Tier 0 pieces have no benchmark that
+  could even measure them yet.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

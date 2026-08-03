@@ -9,6 +9,7 @@ from engine.rhythm import (
     STRESS_UNKNOWN,
     count_syllables_line,
     count_syllables_word,
+    phrase_end_sustainability,
     source_syllable_estimate,
     stress_pattern_line,
     stress_pattern_word,
@@ -85,3 +86,51 @@ def test_stress_pattern_line_concatenates_and_marks_unknown_words():
     # rather than being silently dropped or guessed.
     pattern = stress_pattern_line("I love xyzzyplorp")
     assert pattern == f"11{STRESS_UNKNOWN}"
+
+
+# ---------------------------------------------------------------------------
+# Phrase-end sustainability — can the last sound of a line be held?
+# ---------------------------------------------------------------------------
+
+
+def test_latin_script_vowel_ending_is_sustainable():
+    assert phrase_end_sustainability("Stay with me tonight, oh") == "sustainable"
+
+
+def test_latin_script_nasal_and_liquid_endings_are_sustainable():
+    assert phrase_end_sustainability("Hold on") == "sustainable"
+    assert phrase_end_sustainability("Never let it go, my dear") == "sustainable"
+
+
+def test_latin_script_stop_consonant_ending_is_closed():
+    # "it" ends in an unreleased "t" - physically impossible to sustain.
+    assert phrase_end_sustainability("I never open it") == "closed"
+    assert phrase_end_sustainability("Lock it up") == "closed"
+
+
+def test_trailing_punctuation_is_ignored():
+    assert phrase_end_sustainability("Stay with me tonight, oh!") == "sustainable"
+    assert phrase_end_sustainability("Lock it up.") == "closed"
+
+
+def test_devanagari_and_perso_arabic_scripts_are_unsupported():
+    """Neither script has a spelling-to-pronunciation rule this module can
+    trust (Hindi's schwa deletion in particular is a genuinely unresolved
+    computational-linguistics problem) - None, not a guess."""
+    assert phrase_end_sustainability("यह एक परीक्षण वाक्य है") is None
+    assert phrase_end_sustainability("یہ ایک ٹیسٹ جملہ ہے") is None
+
+
+def test_empty_line_is_unsupported():
+    assert phrase_end_sustainability("   ") is None
+
+
+# Hangul examples hand-verified against standard Korean coda-neutralization
+# rules: 사랑 ("sarang", love) ends in ㅇ (ng) - a sustained nasal. 학 ("hak",
+# school/crane) ends in ㄱ (k) - an unreleased stop.
+def test_hangul_open_or_nasal_final_is_sustainable():
+    assert phrase_end_sustainability("나는 사랑") == "sustainable"
+
+
+def test_hangul_stop_final_is_closed():
+    assert phrase_end_sustainability("하얀 학") == "closed"

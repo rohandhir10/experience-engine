@@ -45,9 +45,12 @@ stretch and why), repetition (structural recurrence and its function: hook, \
 hypnosis, insistence), narrative function (what job each section does: setup, \
 escalation, hook, turn, release, resolution), lyrical density (sparse vs \
 dense, and what that pacing does), poetic style (diction, rhyme type, syntax \
-habits, signature devices), and songwriter intention (a synthesizing \
-hypothesis, built from the other dimensions' evidence, about why the song is \
-built the way it is).
+habits, signature devices), poetic register (the song's rhetorical/spiritual \
+register — e.g. sacred or devotional, street or vernacular, melodramatic or \
+romantic, playful, elegiac, defiant — independent of musical genre: a "sacred" \
+register can carry a rock arrangement just as easily as a ballad), and \
+songwriter intention (a synthesizing hypothesis, built from the other \
+dimensions' evidence, about why the song is built the way it is).
 
 The "sections" array MUST contain exactly one entry per section given below, \
 in the same order, using the exact section name shown in brackets — never \
@@ -62,6 +65,7 @@ key; use empty lists where a dimension genuinely doesn't apply to this song):
 {
   "artistic_thesis": str,
   "genre_feel": str,
+  "poetic_register": str,
   "arc_shape": str,
   "songwriter_intention": str,
   "turn_points": [{"section": str, "cause": str}],
@@ -173,7 +177,19 @@ AGENT_BRIEFS: dict[str, str] = {
         "original author meant, just written naturally in "
         "{target_language},' not 'that's a great {target_language} "
         "lyric.' The second reaction is a warning sign that you improved "
-        "on the songwriter instead of recreating their experience.\n\n"
+        "on the songwriter instead of recreating their experience.\n"
+        "9. Match Song DNA's poetic_register using {target_language}'s OWN "
+        "equivalent tradition for that register, never the source "
+        "culture's specific references left untranslated. A sacred/"
+        "devotional register calls for whatever actually carries sacred "
+        "weight in {target_language} — its own devotional or mystical "
+        "poetic tradition, its own vocabulary for reverence and longing — "
+        "not a transliterated source-language term, and not generic "
+        "'poetic {target_language}' with the register flattened out. The "
+        "same applies to any register: street/vernacular, melodramatic, "
+        "elegiac, playful. If you genuinely don't know {target_language}'s "
+        "own equivalent tradition for this register, say so in your "
+        "confidence score rather than guessing at one.\n\n"
         "Generate exactly 5 candidates — one for each of these adaptation "
         "philosophies. Every philosophy is still fully bound by the burden "
         "of change and all eight constraints above; they differ in which "
@@ -590,13 +606,30 @@ def _judge_core_question(target_language: str) -> str:
 
 def _judge_gates_and_dimensions(target_language: str) -> str:
     return (
-    "Two GATES apply before anything else, pass/fail, not scored:\n"
+    "Three GATES apply before anything else, pass/fail, not scored:\n"
     "- Literal Accuracy: did this candidate invert who-did-what-to-whom? If "
     "so, disqualified regardless of everything else.\n"
     "- Authenticity: would a native speaker actually say this, or does it "
     "read as translated? If native_speaker calls a candidate a failure on "
-    "this, disqualified regardless of everything else.\n\n"
-    "Among candidates that clear both gates, judge on five dimensions "
+    "this, disqualified regardless of everything else.\n"
+    "- Tonal Coherence: does a deep metaphor, sacred image, or emotionally "
+    "loaded figure of speech from the source resolve, in this candidate, "
+    "into something that reads as unintentionally grotesque, comedically "
+    "literal, or culturally jarring in {target_language} — the kind of "
+    "image that gets a laugh, a wince, or a 'wait, what?' instead of the "
+    "source's actual weight? This is not about literal accuracy (the "
+    "image can be a faithful rendering of the source and still fail this "
+    "gate) or about softening real intensity the source intends — a "
+    "genuinely violent or visceral source image should stay visceral. It "
+    "catches the specific failure where a metaphor's VEHICLE (the "
+    "concrete image carrying the meaning) survives translation but its "
+    "TENOR (what it actually means to a native listener) doesn't, so the "
+    "surviving image now reads as literal instead of figurative. If this "
+    "gate fails, disqualify the candidate and name, in your reasoning, "
+    "what metaphorical equivalent in {target_language} would carry the "
+    "same weight without the unintended reading — don't just reject "
+    "without saying what would have worked.\n\n"
+    "Among candidates that clear all three gates, judge on five dimensions "
     "(dimension_scores must cover all five for the winner, 0-1 each):\n"
     "1. artistic_fidelity — would the lyricist recognize this as their own "
     "intention, imagery, ambiguity, and restraint? This subsumes emotional "
@@ -607,8 +640,10 @@ def _judge_gates_and_dimensions(target_language: str) -> str:
     "because it reads more smoothly — that is exactly the failure this "
     "dimension exists to catch, not a stylistic improvement.\n"
     "2. genre_authenticity — does this read as a real lyric in this genre/"
-    f"tradition (per Song DNA's genre_feel/style), not generic 'poetic "
-    f"{target_language}'?\n"
+    f"tradition and poetic register (per Song DNA's genre_feel/"
+    f"poetic_register/style), using {target_language}'s own equivalent "
+    f"tradition for that register rather than generic 'poetic "
+    f"{target_language}' or an untranslated source-culture reference?\n"
     f"3. natural_target_language — is it fluent, unstilted {target_language}, "
     "independent of fidelity? A faithful candidate can still read clunky; "
     "score that here, not by inflating or deflating artistic_fidelity.\n"

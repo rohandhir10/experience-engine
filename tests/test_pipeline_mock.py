@@ -16,6 +16,7 @@ from engine.pipeline import run_engine
 FAKE_SONG_DNA = {
     "artistic_thesis": "Holding on can be its own act of love.",
     "genre_feel": "melancholic pop ballad",
+    "poetic_register": "melodramatic-romantic",
     "arc_shape": "slow ambivalence resolving into release",
     "songwriter_intention": "test intention",
     "turn_points": [{"section": "verse_1", "cause": "test cause"}],

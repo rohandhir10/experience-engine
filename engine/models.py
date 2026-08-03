@@ -211,6 +211,18 @@ class SectionProfile(BaseModel):
 class SongDNA(BaseModel):
     artistic_thesis: str
     genre_feel: str
+    # The song's poetic/rhetorical register (sacred-devotional, street-
+    # vernacular, melodramatic-romantic, playful, elegiac, defiant, etc.)
+    # — a distinct axis from genre_feel (musical genre, e.g. "melancholic
+    # pop ballad"). Extracted so the Creative Adapter can be told to find
+    # the TARGET language's own equivalent tradition for this register
+    # (Urdu Ghazal, Korean trot, Spanish copla, whatever it actually is),
+    # rather than either flattening register entirely or importing the
+    # source culture's specific references untranslated. Free text, not
+    # an enum: registers this needs to name are genuinely open-ended, and
+    # forcing a fixed vocabulary would eventually mis-classify a real song
+    # into the nearest wrong bucket rather than describing it accurately.
+    poetic_register: str
     arc_shape: str
     songwriter_intention: str
     turn_points: list[TurnPoint] = Field(default_factory=list)

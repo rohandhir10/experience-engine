@@ -34,6 +34,7 @@ FIXTURE_DNA = SongDNA.model_validate(
     {
         "artistic_thesis": "Holding on can be its own form of loyalty.",
         "genre_feel": "sparse acoustic ballad",
+        "poetic_register": "melancholic-intimate",
         "arc_shape": "slow ambivalence resolving into release",
         "songwriter_intention": "justify an act of letting go",
         "turn_points": [{"section": "chorus", "cause": "the drawer opens"}],
@@ -202,12 +203,22 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 # natural" as sufficient justification for dropping a source device —
 # following a real production run that collapsed a triple-repeated phrase
 # ("then who is right") to a single occurrence, justified exactly that way.
+#
+# song_dna/creative_adapter/judge_triage/judge_final updated again:
+# song_dna now extracts poetic_register (the song's rhetorical/spiritual
+# register, distinct from genre_feel); creative_adapter gained a 9th
+# constraint requiring register-matching via the TARGET language's own
+# equivalent tradition, never an untranslated source-culture reference;
+# judge prompts gained a third gate, Tonal Coherence (a source metaphor
+# whose concrete image survives translation but reads as unintentionally
+# grotesque or literal in the target language) and reference
+# poetic_register in genre_authenticity.
 EXPECTED_HASHES = {
-    "song_dna": "cb396a04e923a3f4",
+    "song_dna": "b8e1ece6f0fe4e15",
     "generation_translator": "8e9b94913c4a3da8",
-    "creative_adapter": "d10e3c2cea7ded75",
-    "judge_triage": "435269b27d16c754",
-    "judge_final": "559460aceaa370ff",
+    "creative_adapter": "92fb772341f934ed",
+    "judge_triage": "6f9d943b757401ea",
+    "judge_final": "5b94d6b079c8c3b8",
     "diagnosis_native_speaker": "9452b56158c2d859",
 }
 

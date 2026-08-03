@@ -49,7 +49,12 @@ from pydantic import BaseModel, Field
 from .models import Deviation, SectionResultV1
 from .recurrence import detect_recurring_endings
 from .rhyme import rhyme_density as _compute_rhyme_density
-from .rhythm import STRESS_UNKNOWN, count_syllables_text, stress_pattern_word
+from .rhythm import (
+    STRESS_UNKNOWN,
+    count_syllables_text,
+    phrase_end_sustainability as _phrase_end_sustainability,
+    stress_pattern_word,
+)
 
 # Words that name a feeling outright. The Restraint Ceiling exists because
 # a model's instinct is to explain the emotion the source left implicit;
@@ -192,6 +197,13 @@ class SectionVerification(BaseModel):
     # couplet and a traditional Japanese lyric have opposite defaults),
     # and no corpus exists yet to calibrate a per-genre expectation.
     rhyme_density: float | None = None
+    # "sustainable"/"closed"/None (engine/rhythm.py::phrase_end_sustainability)
+    # for the shipped line's last word - script-based, not tied to
+    # target_language == "English" the way the CMU-dictionary checks are,
+    # since it works for any Latin-script or Hangul output. None for
+    # Devanagari/Perso-Arabic targets (Hindi, Urdu), which this can't
+    # answer for without real pronunciation data.
+    phrase_end_sustainability: str | None = None
     verifiable: bool = True  # False when no translator anchor exists
 
     @property
@@ -664,6 +676,32 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
         # --- Rhyme: measured, not judged (Phase 3B) — see engine/rhyme.py -
         rhyme_density_value = _compute_rhyme_density(_non_empty_lines(final))
 
+    # --- Phrase-end sustainability: script-based (Latin, Hangul), not
+    # target_language == "English"-gated the way the CMU-dictionary checks
+    # above are - it works for any target written in one of those two
+    # scripts, and reports None (not a guess) for Devanagari/Perso-Arabic.
+    non_empty_final_lines = _non_empty_lines(final)
+    sustainability = (
+        _phrase_end_sustainability(non_empty_final_lines[-1]) if non_empty_final_lines else None
+    )
+    if sustainability == "closed":
+        findings.append(
+            Finding(
+                law="Phrase-end sustainability check",
+                severity="warning",
+                section=section,
+                detail=(
+                    "This section's last line ends on a stop consonant "
+                    "(p/b/t/d/k/g or its Hangul-coda equivalent) - "
+                    "physically impossible to hold for a sustained note. "
+                    "Worth a listen if this is meant to land on a held "
+                    "final note. Only checked for Latin-script and Hangul "
+                    "output; not evaluated here for Devanagari/Perso-"
+                    "Arabic targets."
+                ),
+            )
+        )
+
     return SectionVerification(
         section=section,
         findings=findings,
@@ -673,6 +711,7 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
         changed_word_count=len(changed),
         adaptation_distance=_adaptation_distance(anchor, final),
         rhyme_density=rhyme_density_value,
+        phrase_end_sustainability=sustainability,
     )
 
 
