@@ -65,6 +65,87 @@ def test_group_into_sections_empty_input():
     assert group_into_sections([]) == []
 
 
+class _FakeListRaises:
+    """Stands in for YouTubeTranscriptApi when api.list() itself fails
+    (network/proxy error, rate limit, whatever) - the case that used to
+    dump a raw exception string straight into the user-facing message."""
+
+    def __init__(self, exc: Exception):
+        self._exc = exc
+
+    def list(self, video_id):
+        raise self._exc
+
+
+class _FakeTranscript:
+    def __init__(self, fetch_exc: Exception | None = None):
+        self._fetch_exc = fetch_exc
+        self.language_code = "en"
+        self.is_generated = False
+
+    def fetch(self):
+        if self._fetch_exc:
+            raise self._fetch_exc
+        return [TranscriptSegment(text="a line", start=0.0, duration=1.0)]
+
+
+class _FakeListFetchRaises:
+    """Stands in for YouTubeTranscriptApi when listing succeeds but the
+    actual transcript.fetch() call fails - previously uncaught entirely,
+    so it would have crashed as a raw 500 instead of a clean IngestError."""
+
+    def __init__(self, fetch_exc: Exception):
+        self._fetch_exc = fetch_exc
+
+    def list(self, video_id):
+        return self
+
+    def find_manually_created_transcript(self, languages):
+        raise yi.NoTranscriptFound(video_id="x", requested_language_codes=languages, transcript_data=[])
+
+    def find_generated_transcript(self, languages):
+        return _FakeTranscript(fetch_exc=self._fetch_exc)
+
+    def __iter__(self):
+        return iter([_FakeTranscript(fetch_exc=self._fetch_exc)])
+
+
+def test_fetch_transcript_hides_raw_exception_text_when_listing_fails(monkeypatch):
+    """A ProxyError/ConnectionError's raw str() is exactly the kind of
+    library-internal text a listener/reader should never see - the
+    message must stay clean and generic, with the real detail only
+    logged, not shown."""
+    raw = Exception(
+        "HTTPSConnectionPool(host='www.youtube.com', port=443): Max retries "
+        "exceeded (Caused by ProxyError('Tunnel connection failed: 403'))"
+    )
+    monkeypatch.setattr(yi, "YouTubeTranscriptApi", lambda: _FakeListRaises(raw))
+
+    with pytest.raises(IngestError) as exc_info:
+        yi.fetch_transcript("dQw4w9WgXcQ")
+
+    message = str(exc_info.value)
+    assert "ProxyError" not in message
+    assert "HTTPSConnectionPool" not in message
+    assert "try again" in message
+
+
+def test_fetch_transcript_hides_raw_exception_text_when_fetch_fails(monkeypatch):
+    """transcript.fetch() (downloading the actual captions, a separate
+    network call from listing what's available) previously had no
+    try/except at all - an exception here used to propagate unhandled
+    instead of becoming a clean IngestError."""
+    raw = ConnectionResetError("connection reset by peer")
+    monkeypatch.setattr(yi, "YouTubeTranscriptApi", lambda: _FakeListFetchRaises(raw))
+
+    with pytest.raises(IngestError) as exc_info:
+        yi.fetch_transcript("dQw4w9WgXcQ", preferred_languages=["en"])
+
+    message = str(exc_info.value)
+    assert "connection reset" not in message.lower()
+    assert "try again" in message
+
+
 def test_build_song_draft_shape_and_warning(monkeypatch):
     def fake_fetch_transcript(video_id, preferred_languages=None):
         return (

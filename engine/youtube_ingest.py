@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 import sys
 from dataclasses import dataclass
@@ -33,6 +34,8 @@ from youtube_transcript_api._errors import (
     TranscriptsDisabled,
     VideoUnavailable,
 )
+
+logger = logging.getLogger(__name__)
 
 # Timing gap (seconds) between one caption ending and the next starting that
 # we treat as a likely section boundary (end of verse/chorus, instrumental
@@ -118,7 +121,17 @@ def fetch_transcript(
     except VideoUnavailable as exc:
         raise IngestError(f"Video {video_id!r} is unavailable.") from exc
     except Exception as exc:  # noqa: BLE001 - surfaced as IngestError either way
-        raise IngestError(f"Could not reach YouTube for video {video_id!r}: {exc}") from exc
+        # The raw exception (connection pool internals, proxy errors,
+        # whatever requests/urllib3 happened to say) is logged for
+        # whoever's debugging this, but never shown to the person who
+        # pasted a link - a library stack-trace-shaped string is exactly
+        # the "cold technical log leaking to a consumer" failure this
+        # project treats as a real bug everywhere else it's shown up.
+        logger.warning("YouTube transcript list fetch failed for %r: %s", video_id, exc)
+        raise IngestError(
+            f"Could not reach YouTube for video {video_id!r} right now. "
+            "This is usually temporary - try again in a moment."
+        ) from exc
 
     languages = list(preferred_languages) if preferred_languages else None
 
@@ -153,7 +166,15 @@ def fetch_transcript(
                 f"No transcript at all is available for video {video_id!r}."
             ) from exc
 
-    fetched = transcript.fetch()
+    try:
+        fetched = transcript.fetch()
+    except Exception as exc:  # noqa: BLE001 - same reasoning as api.list()'s catch above
+        logger.warning("YouTube transcript fetch failed for %r: %s", video_id, exc)
+        raise IngestError(
+            f"Could not download the transcript for video {video_id!r} right "
+            "now. This is usually temporary - try again in a moment."
+        ) from exc
+
     segments = [
         TranscriptSegment(text=s.text.strip(), start=s.start, duration=s.duration)
         for s in fetched
