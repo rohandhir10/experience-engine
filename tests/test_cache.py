@@ -82,3 +82,39 @@ def test_db_backend_does_not_match_a_different_song(sqlite_db):
     cache.set(original_id, {"hook": "original"}, source_text="Hello, World!\nHow are you?")
 
     assert cache.find_similar("A completely different song about the ocean at night") is None
+
+
+def test_content_id_differs_by_source_language_once_declared():
+    unspecified = cache.content_id("line one", target_language="Korean")
+    hindi_source = cache.content_id("line one", target_language="Korean", source_language="Hindi")
+    japanese_source = cache.content_id(
+        "line one", target_language="Korean", source_language="Japanese"
+    )
+    assert len({unspecified, hindi_source, japanese_source}) == 3
+
+
+def test_content_id_unaffected_by_source_language_when_english_target_and_unspecified_source():
+    """Every id computed before source_language existed must still resolve
+    the same way - "English" target + "unspecified" source is the default
+    for both fields, so it must not perturb the hash at all."""
+    assert cache.content_id("line one") == cache.content_id(
+        "line one", target_language="English", source_language="unspecified"
+    )
+
+
+def test_db_backend_find_similar_respects_source_language(sqlite_db):
+    """Hindi -> Korean and Japanese -> Korean of near-identical text must
+    not be treated as the same cached result."""
+    hindi_id = cache.content_id("Hello World", target_language="Korean", source_language="Hindi")
+    cache.set(
+        hindi_id,
+        {"hook": "from hindi"},
+        source_text="Hello World",
+        target_language="Korean",
+        source_language="Hindi",
+    )
+
+    match = cache.find_similar(
+        "hello world", target_language="Korean", source_language="Japanese"
+    )
+    assert match is None

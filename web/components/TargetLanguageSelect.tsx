@@ -1,23 +1,27 @@
-import { TARGET_LANGUAGES } from "@/lib/languages";
+import { LANGUAGES } from "@/lib/languages";
 
-/** "Adapt into" — the one control that actually changes which direction a
- * submission runs. Defaults to English (today's original, only-ever-
- * supported direction); picking anything else switches to the reverse
- * (English source -> that language) — see engine/models.py's
- * SUPPORTED_TARGET_LANGUAGES for exactly which pairings exist. */
+/** A single "X language" dropdown, reused for both "Adapt into" (target)
+ * and, once a non-English target is chosen, "From" (source) — see
+ * InputScreen.tsx. `options` lets the caller exclude whichever language
+ * is already picked on the other side (source and target can't match,
+ * per server/main.py's validation). */
 export function TargetLanguageSelect({
   value,
   onChange,
+  label = "Adapt into",
+  options = LANGUAGES,
   dark = false,
 }: {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
+  options?: readonly string[];
   dark?: boolean;
 }) {
   return (
     <label className="inline-flex items-center gap-2 text-[13px]">
       <span className={dark ? "text-white/40" : "text-ink/40 dark:text-ink-dark/40"}>
-        Adapt into
+        {label}
       </span>
       <select
         value={value}
@@ -28,7 +32,7 @@ export function TargetLanguageSelect({
             : "rounded-full border border-black/[0.08] bg-white/70 px-3 py-1.5 text-ink outline-none transition focus:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark"
         }
       >
-        {TARGET_LANGUAGES.map((lang) => (
+        {options.map((lang) => (
           <option key={lang} value={lang}>
             {lang}
           </option>

@@ -49,9 +49,8 @@ from pydantic import BaseModel
 from engine import config
 from engine import youtube_ingest
 from engine.llm_client import LLMError, create_default_client
-from engine.models import SUPPORTED_TARGET_LANGUAGES, SongInput
+from engine.models import SUPPORTED_LANGUAGES, SongInput
 from engine.pipeline import run_engine
-from engine.rhythm import is_latin_script
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
@@ -133,10 +132,21 @@ class YoutubeSectionTiming(BaseModel):
 class AdaptRequest(BaseModel):
     text: str
     # "English" (the original, only-ever-supported direction) unless the
-    # caller asks for one of the reverse pairings — see
-    # engine/models.py::SUPPORTED_TARGET_LANGUAGES for exactly which
-    # directions actually exist.
+    # caller asks for one of the other pairings — see
+    # engine/models.py::SUPPORTED_LANGUAGES for the full roster. Any two
+    # distinct languages from it are a supported direction.
     target_language: str = "English"
+    # "unspecified" lets the engine auto-detect, same as always - only
+    # actually safe when target_language == "English" (every source
+    # language this product has ever tested funnels into English, so
+    # auto-detect there is well-trodden). Every other direction requires
+    # this to be set explicitly and to differ from target_language - see
+    # adapt()'s validation below for why "unspecified" isn't trusted
+    # there anymore (it used to be, guarded by a Latin-script heuristic;
+    # that heuristic assumed a non-English target always meant an English
+    # source, which stopped being true the moment direct pairs like
+    # Hindi -> Korean were allowed).
+    source_language: str = "unspecified"
     # Both set together, only when this text came from /api/youtube-draft
     # and the user didn't restructure the section breaks while reviewing
     # it (see adapt()'s length check below) — lets the result page sync
@@ -189,6 +199,7 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
 
     text = request.text.strip()
     target_language = request.target_language.strip() or "English"
+    source_language = request.source_language.strip() or "unspecified"
     if not text:
         raise HTTPException(status_code=400, detail="Paste a song first.")
     if len(text) > MAX_INPUT_CHARS:
@@ -199,34 +210,49 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
                 "song. Try a single song rather than a whole album."
             ),
         )
-    if target_language not in SUPPORTED_TARGET_LANGUAGES:
+    if target_language not in SUPPORTED_LANGUAGES:
         raise HTTPException(
             status_code=400,
             detail=(
                 f"{target_language!r} isn't a supported target language. "
-                f"AURA currently supports: {', '.join(sorted(SUPPORTED_TARGET_LANGUAGES))}."
+                f"AURA currently supports: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
             ),
         )
-    if target_language != "English" and not is_latin_script(text):
-        # A real (if imperfect) guard, not full language detection: every
-        # non-English target direction expects an English source, and a
-        # majority-non-Latin-script paste is a strong signal this is one
-        # of the *other* directions (Hindi/Korean/Japanese/Spanish source)
-        # that this target language was never built or verified for.
+    if source_language != "unspecified":
+        if source_language not in SUPPORTED_LANGUAGES:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"{source_language!r} isn't a supported source language. "
+                    f"AURA currently supports: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
+                ),
+            )
+        if source_language == target_language:
+            raise HTTPException(
+                status_code=400,
+                detail="Source and target language can't be the same.",
+            )
+    elif target_language != "English":
+        # "unspecified" source used to be trusted here too, guarded by a
+        # Latin-script heuristic that assumed a non-English target always
+        # meant an English source. That assumption broke the moment direct
+        # pairs (Hindi -> Korean, say) became possible - a Devanagari
+        # paste bound for Korean is no longer obviously a mistake, so
+        # guessing is no longer safe. Ask instead of guessing.
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Adapting into {target_language} expects English lyrics as "
-                "the source. This text doesn't look like English."
+                f"Adapting into {target_language} needs a source language "
+                "specified - pick which language the pasted lyrics are in."
             ),
         )
 
-    result_id = cache.content_id(text, target_language=target_language)
+    result_id = cache.content_id(text, target_language=target_language, source_language=source_language)
     cached = cache.get(result_id)
     if cached is not None:
         logger.info(
-            "adapt id=%s ip=%s target=%s cache=hit duration=%.2fs",
-            result_id, ip, target_language, time.monotonic() - started,
+            "adapt id=%s ip=%s source=%s target=%s cache=hit duration=%.2fs",
+            result_id, ip, source_language, target_language, time.monotonic() - started,
         )
         return cached
 
@@ -237,13 +263,20 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
     # a wrong match here would silently serve one song's adaptation for a
     # different one. Also stored under this exact text's own id, so the
     # next byte-identical repeat of *this* paste is a fast exact hit too.
-    similar = cache.find_similar(text, target_language=target_language)
+    similar = cache.find_similar(text, target_language=target_language, source_language=source_language)
     if similar is not None:
         matched_id, matched_result, similarity = similar
-        cache.set(result_id, matched_result, source_text=text, target_language=target_language)
+        cache.set(
+            result_id,
+            matched_result,
+            source_text=text,
+            target_language=target_language,
+            source_language=source_language,
+        )
         logger.info(
-            "adapt id=%s ip=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
-            result_id, ip, target_language, matched_id, similarity, time.monotonic() - started,
+            "adapt id=%s ip=%s source=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
+            result_id, ip, source_language, target_language, matched_id, similarity,
+            time.monotonic() - started,
         )
         return matched_result
 
@@ -256,7 +289,7 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
 
     try:
         song = SongInput(
-            source_language="unspecified",
+            source_language=source_language,
             target_language=target_language,
             sections=sections,
         )
@@ -264,8 +297,8 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     logger.info(
-        "adapt id=%s ip=%s target=%s cache=miss sections=%d chars=%d starting engine run",
-        result_id, ip, target_language, len(sections), len(text),
+        "adapt id=%s ip=%s source=%s target=%s cache=miss sections=%d chars=%d starting engine run",
+        result_id, ip, source_language, target_language, len(sections), len(text),
     )
 
     try:
@@ -337,7 +370,13 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
                 result_id, len(timings), len(result_sections),
             )
 
-    cache.set(result_id, experience_result, source_text=text, target_language=target_language)
+    cache.set(
+        result_id,
+        experience_result,
+        source_text=text,
+        target_language=target_language,
+        source_language=source_language,
+    )
     # Measured, not estimated (engine/models.py::LLMCallRecord) — every
     # real API call this request made, so cost/latency stays visible in
     # production logs instead of only being knowable after building a

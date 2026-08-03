@@ -34,24 +34,32 @@ class SectionInput(BaseModel):
     voice: str | None = None
 
 
-# AURA's supported adaptation directions: the original 4-language-source
-# ("Hindi"/"Korean"/"Japanese"/"Spanish") -> English scope, plus the
-# reverse (English -> any of the same 4) added later. Deliberately not
-# every pairing of every language here — e.g. Korean -> Hindi is out of
-# scope, since each direction needs its own prompt/verification quality
-# bar, not just "the model can technically attempt it." server/main.py
-# validates AdaptRequest.target_language against this set at the API
-# boundary; engine/verify.py's CMU-dictionary-backed checks (rhythm,
-# rhyme) only run when target_language == "English", since those tools
-# don't understand any of the other three.
-SUPPORTED_TARGET_LANGUAGES = frozenset({"English", "Hindi", "Korean", "Japanese", "Spanish"})
+# AURA's supported language roster, for either side of a direction: the
+# original 4 ("Hindi"/"Korean"/"Japanese"/"Spanish") + English, plus Urdu
+# (added when direct, non-English-pivot pairs were opened up). Any two
+# distinct languages from this set are a supported direction now (full
+# matrix, not a curated allow-list) - server/main.py validates
+# AdaptRequest.source_language/target_language against this set and
+# rejects source == target.
+#
+# "Supported" here means the prompt layer will run and won't error - not
+# that every pair has been quality-checked. engine/verify.py's CMU-
+# dictionary-backed checks (rhythm, rhyme) only run when
+# target_language == "English"; engine/language_profile.py's source-side
+# profiles exist for Hindi/Korean/Japanese/Spanish only (Urdu and every
+# non-English target fall back to the neutral profile, by design - see
+# resolve_profile's docstring - not a crash, just less source-side
+# craft-dimension support than the four original languages have).
+SUPPORTED_LANGUAGES = frozenset(
+    {"English", "Hindi", "Korean", "Japanese", "Spanish", "Urdu"}
+)
 
 
 class SongInput(BaseModel):
     title: str | None = None
     source_language: str
     # Real, product-scoped plumbing, not aspirational: see
-    # SUPPORTED_TARGET_LANGUAGES above.
+    # SUPPORTED_LANGUAGES above.
     target_language: str = "English"
     # ISO-ish code selecting a Language Profile (engine/profiles/*.json) and
     # a source-side grounding counter (engine/grounding/). Optional: when

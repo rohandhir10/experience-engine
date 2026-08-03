@@ -6,7 +6,7 @@ import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
 import { useAdaptSubmit } from "@/lib/useAdaptSubmit";
-import { sourceHintFor } from "@/lib/languages";
+import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 
 const MIN_ROWS = 5;
 const MAX_TEXTAREA_HEIGHT_PX = 320;
@@ -15,7 +15,10 @@ export default function DashboardPage() {
   const { submit, loading, error } = useAdaptSubmit();
   const [text, setText] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("English");
+  const [sourceLanguage, setSourceLanguage] = useState("English");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const effectiveSourceLanguage = targetLanguage === "English" ? undefined : sourceLanguage;
 
   if (loading) {
     return <LoadingScreen />;
@@ -39,18 +42,35 @@ export default function DashboardPage() {
               What would you like to adapt today?
             </h1>
             <p className="mt-2 text-[13px] text-ink/40 dark:text-ink-dark/40">
-              {sourceHintFor(targetLanguage)}
+              {sourceHintFor(targetLanguage, sourceLanguage)}
             </p>
 
-            <div className="mt-4">
-              <TargetLanguageSelect value={targetLanguage} onChange={setTargetLanguage} />
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {targetLanguage !== "English" && (
+                <TargetLanguageSelect
+                  label="From"
+                  value={sourceLanguage}
+                  onChange={setSourceLanguage}
+                  options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
+                />
+              )}
+              <TargetLanguageSelect
+                label="Adapt into"
+                value={targetLanguage}
+                onChange={(next) => {
+                  setTargetLanguage(next);
+                  if (next === sourceLanguage) {
+                    setSourceLanguage(LANGUAGES.find((lang) => lang !== next) ?? "English");
+                  }
+                }}
+              />
             </div>
 
             <form
               className="mt-5 w-full max-w-2xl"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (text.trim() && !loading) submit(text, targetLanguage);
+                if (text.trim() && !loading) submit(text, targetLanguage, effectiveSourceLanguage);
               }}
             >
               <label htmlFor="dashboard-lyrics" className="sr-only">
@@ -67,7 +87,7 @@ export default function DashboardPage() {
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && text.trim()) {
                     e.preventDefault();
-                    submit(text, targetLanguage);
+                    submit(text, targetLanguage, effectiveSourceLanguage);
                   }
                 }}
                 placeholder="Paste song lyrics…"

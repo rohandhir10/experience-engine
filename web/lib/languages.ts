@@ -1,15 +1,24 @@
-// Mirrors engine/models.py::SUPPORTED_TARGET_LANGUAGES — every direction
-// AURA actually supports, not aspirational breadth. "English" is the
-// original (and default) direction: Hindi/Korean/Japanese/Spanish source
-// -> English. Selecting any other value here means the reverse: English
-// source -> that language.
-export const TARGET_LANGUAGES = ["English", "Hindi", "Korean", "Japanese", "Spanish"] as const;
+// Mirrors engine/models.py::SUPPORTED_LANGUAGES — the full roster, either
+// side of a direction. Any two distinct languages from this list are a
+// supported pairing now (full matrix, not a curated allow-list) -
+// "supported" meaning the prompt layer runs, not that every pair has been
+// quality-checked (see engine/models.py's comment on that distinction).
+export const LANGUAGES = ["English", "Hindi", "Korean", "Japanese", "Spanish", "Urdu"] as const;
 
-export type TargetLanguage = (typeof TARGET_LANGUAGES)[number];
+export type Language = (typeof LANGUAGES)[number];
 
-export function sourceHintFor(targetLanguage: string): string {
+// Kept for the homepage's "Adapt into" selector, which still only offers
+// target - source defaults to auto-detect (target "English") or is
+// picked explicitly (every other target) via a second selector that only
+// appears once needed. See InputScreen.tsx.
+export const TARGET_LANGUAGES = LANGUAGES;
+
+export function sourceHintFor(targetLanguage: string, sourceLanguage: string): string {
   if (targetLanguage === "English") {
-    return "Paste lyrics in Hindi, Korean, Japanese, or Spanish — adapted into English, not translated.";
+    return "Paste lyrics in Hindi, Korean, Japanese, Spanish, or Urdu — adapted into English, not translated.";
   }
-  return `Paste English lyrics — adapted into ${targetLanguage}, not translated.`;
+  if (sourceLanguage === "English") {
+    return `Paste English lyrics — adapted into ${targetLanguage}, not translated.`;
+  }
+  return `Paste ${sourceLanguage} lyrics — adapted into ${targetLanguage}, not translated.`;
 }

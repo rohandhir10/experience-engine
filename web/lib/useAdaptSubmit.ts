@@ -20,6 +20,7 @@ export function useAdaptSubmit() {
   async function submit(
     text: string,
     targetLanguage: string = "English",
+    sourceLanguage?: string,
     youtube?: YoutubeSource
   ) {
     setLoading(true);
@@ -31,6 +32,10 @@ export function useAdaptSubmit() {
         body: JSON.stringify({
           text,
           target_language: targetLanguage,
+          // Required by server/main.py for every target except English -
+          // undefined here means "unspecified" (auto-detect), which is
+          // only actually valid for the English-target direction.
+          ...(sourceLanguage ? { source_language: sourceLanguage } : {}),
           // Only forwarded when the section count still matches what was
           // reviewed — if the user edited the draft's blank-line breaks,
           // youtube_section_timings.length no longer lines up with

@@ -126,34 +126,69 @@ def test_adapt_rejects_an_unsupported_target_language(monkeypatch):
     assert "French" in exc_info.value.detail
 
 
-def test_adapt_rejects_non_english_source_for_a_reverse_direction(monkeypatch):
-    """English -> Hindi expects an English source - a mostly-Devanagari
-    paste is a strong signal this is actually the *other* direction
-    (Hindi -> English), which this target_language was never built for."""
+def test_adapt_requires_an_explicit_source_language_for_a_non_english_target(monkeypatch):
+    """target_language != English used to trust an unspecified source,
+    guarded by a Latin-script heuristic that assumed the source must be
+    English. That assumption broke once direct pairs (Hindi -> Korean)
+    became possible, so an unspecified source is now rejected outright
+    instead of guessed at."""
+    request = main.AdaptRequest(text="line one\nline two", target_language="Hindi")
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.adapt(request, _FakeRequest())
+    assert exc_info.value.status_code == 400
+    assert "source language" in exc_info.value.detail
+
+
+def test_adapt_rejects_source_and_target_being_the_same_language(monkeypatch):
     request = main.AdaptRequest(
-        text="तुम लोगो की, इस दुनिया में हर कदम पे इंसा गलत",
-        target_language="Hindi",
+        text="line one\nline two", source_language="Hindi", target_language="Hindi"
     )
     with pytest.raises(main.HTTPException) as exc_info:
         main.adapt(request, _FakeRequest())
     assert exc_info.value.status_code == 400
-    assert "English" in exc_info.value.detail
+
+
+def test_adapt_rejects_an_unsupported_source_language(monkeypatch):
+    request = main.AdaptRequest(
+        text="line one\nline two", source_language="French", target_language="Hindi"
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.adapt(request, _FakeRequest())
+    assert exc_info.value.status_code == 400
+    assert "French" in exc_info.value.detail
 
 
 def test_adapt_accepts_english_source_for_a_reverse_direction(monkeypatch):
     captured: dict = {}
     _patch_engine(monkeypatch, _FakeEngineResult(), captured)
 
-    request = main.AdaptRequest(text="line one\nline two", target_language="Hindi")
+    request = main.AdaptRequest(
+        text="line one\nline two", source_language="English", target_language="Hindi"
+    )
     result = main.adapt(request, _FakeRequest())
 
     assert result["id"]  # ran the engine and returned a result, not rejected
 
 
-def test_adapt_threads_target_language_into_the_song_input(monkeypatch):
+def test_adapt_accepts_a_direct_non_english_pair(monkeypatch):
+    """Hindi -> Korean: no English on either side. The whole point of
+    opening the full matrix rather than a curated allow-list."""
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+
+    request = main.AdaptRequest(
+        text="line one\nline two", source_language="Hindi", target_language="Korean"
+    )
+    result = main.adapt(request, _FakeRequest())
+
+    assert result["id"]
+
+
+def test_adapt_threads_source_and_target_language_into_the_song_input(monkeypatch):
     captured: dict = {}
 
     def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+        captured["source_language"] = song.source_language
         captured["target_language"] = song.target_language
         return _FakeEngineResult()
 
@@ -164,9 +199,12 @@ def test_adapt_threads_target_language_into_the_song_input(monkeypatch):
     monkeypatch.setattr(main, "to_experience_result", fake_to_experience_result)
     monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
 
-    request = main.AdaptRequest(text="line one\nline two", target_language="Korean")
+    request = main.AdaptRequest(
+        text="line one\nline two", source_language="Japanese", target_language="Korean"
+    )
     main.adapt(request, _FakeRequest())
 
+    assert captured["source_language"] == "Japanese"
     assert captured["target_language"] == "Korean"
 
 
@@ -177,13 +215,41 @@ def test_same_text_different_target_languages_do_not_collide_in_the_cache(monkey
     captured: dict = {}
     _patch_engine(monkeypatch, _FakeEngineResult(), captured)
 
-    hindi_id = main.cache.content_id("line one\nline two", target_language="Hindi")
-    korean_id = main.cache.content_id("line one\nline two", target_language="Korean")
+    hindi_id = main.cache.content_id(
+        "line one\nline two", target_language="Hindi", source_language="English"
+    )
+    korean_id = main.cache.content_id(
+        "line one\nline two", target_language="Korean", source_language="English"
+    )
     assert hindi_id != korean_id
 
-    request = main.AdaptRequest(text="line one\nline two", target_language="Hindi")
+    request = main.AdaptRequest(
+        text="line one\nline two", source_language="English", target_language="Hindi"
+    )
     result = main.adapt(request, _FakeRequest())
     assert result["id"] == hindi_id
+
+
+def test_same_text_different_source_languages_do_not_collide_in_the_cache(monkeypatch):
+    """Hindi -> Korean and Japanese -> Korean of the same (unlikely but
+    possible) source text must not collide either - source_language has
+    to be part of the id too, once it's an explicit, meaningful field."""
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+
+    hindi_source_id = main.cache.content_id(
+        "line one\nline two", target_language="Korean", source_language="Hindi"
+    )
+    japanese_source_id = main.cache.content_id(
+        "line one\nline two", target_language="Korean", source_language="Japanese"
+    )
+    assert hindi_source_id != japanese_source_id
+
+    request = main.AdaptRequest(
+        text="line one\nline two", source_language="Hindi", target_language="Korean"
+    )
+    result = main.adapt(request, _FakeRequest())
+    assert result["id"] == hindi_source_id
 
 
 def test_adapt_logs_a_warning_for_unresolved_verify_errors(monkeypatch, caplog):

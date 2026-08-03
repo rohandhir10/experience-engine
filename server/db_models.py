@@ -118,10 +118,12 @@ class CachedResult(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
     # A near-identical paste only counts as "the same song" if it was also
-    # asked for in the same target language - two rows can otherwise share
-    # near-identical normalized_text (an English source adapted into Hindi
-    # vs. into Korean) while being completely different results.
+    # asked for in the same source AND target language - two rows can
+    # otherwise share near-identical normalized_text (an English source
+    # adapted into Hindi vs. a Korean source adapted into Hindi) while
+    # being completely different, non-interchangeable results.
     target_language: Mapped[str] = mapped_column(String, default="English")
+    source_language: Mapped[str] = mapped_column(String, default="unspecified")
     result_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

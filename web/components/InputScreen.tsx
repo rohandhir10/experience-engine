@@ -6,7 +6,7 @@ import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
 import { comparisonEntries } from "@/lib/comparison-data";
-import { sourceHintFor } from "@/lib/languages";
+import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 import type { YoutubeSource } from "@/lib/useAdaptSubmit";
 
 const MIN_ROWS = 6;
@@ -29,12 +29,22 @@ export function InputScreen({
   loading,
   error,
 }: {
-  onSubmit: (text: string, targetLanguage: string, youtube?: YoutubeSource) => void;
+  onSubmit: (
+    text: string,
+    targetLanguage: string,
+    sourceLanguage?: string,
+    youtube?: YoutubeSource
+  ) => void;
   loading: boolean;
   error: string | null;
 }) {
   const [text, setText] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("English");
+  // Only meaningful (and only shown) once a non-English target is picked —
+  // server/main.py requires an explicit source_language for every
+  // direction except "any supported language -> English", the one case
+  // auto-detect has actually been tested against.
+  const [sourceLanguage, setSourceLanguage] = useState("English");
   const [mode, setMode] = useState<"paste" | "youtube">("paste");
   const [youtubeDraft, setYoutubeDraft] = useState<YoutubeDraft | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -44,7 +54,12 @@ export function InputScreen({
     const youtube: YoutubeSource | undefined = youtubeDraft
       ? { videoId: youtubeDraft.videoId, sectionTimings: youtubeDraft.sections }
       : undefined;
-    onSubmit(text, targetLanguage, youtube);
+    onSubmit(
+      text,
+      targetLanguage,
+      targetLanguage === "English" ? undefined : sourceLanguage,
+      youtube
+    );
   }
 
   function handleImported(draft: YoutubeDraft) {
@@ -86,14 +101,37 @@ export function InputScreen({
           className="animate-fade-up mt-4 text-[14px] text-white/40"
           style={{ animationDelay: "80ms" }}
         >
-          {sourceHintFor(targetLanguage)}
+          {sourceHintFor(targetLanguage, sourceLanguage)}
         </p>
 
         <div
           className="animate-fade-up mt-5 flex flex-col items-center gap-4"
           style={{ animationDelay: "120ms" }}
         >
-          <TargetLanguageSelect value={targetLanguage} onChange={setTargetLanguage} dark />
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {targetLanguage !== "English" && (
+              <TargetLanguageSelect
+                label="From"
+                value={sourceLanguage}
+                onChange={setSourceLanguage}
+                options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
+                dark
+              />
+            )}
+            <TargetLanguageSelect
+              label="Adapt into"
+              value={targetLanguage}
+              onChange={(next) => {
+                setTargetLanguage(next);
+                if (next === sourceLanguage) {
+                  // Source and target can't match - fall back to
+                  // whichever of the roster isn't the new target.
+                  setSourceLanguage(LANGUAGES.find((lang) => lang !== next) ?? "English");
+                }
+              }}
+              dark
+            />
+          </div>
 
           <div className="flex items-center gap-1 rounded-full border border-white/10 p-1 text-[13px]">
             <button

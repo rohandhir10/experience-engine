@@ -51,18 +51,24 @@ def normalize_text(text: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def content_id(text: str, target_language: str = "English") -> str:
-    """The same source text adapted into two different target languages is
-    two different results, not one - so target_language has to be part of
-    what makes an id unique, once more than one target language exists.
-    "English" (every id from before target-language selection existed)
-    is deliberately left out of the hash input so every already-computed
+def content_id(
+    text: str, target_language: str = "English", source_language: str = "unspecified"
+) -> str:
+    """The same source text adapted into two different target languages -
+    or claimed as two different source languages, now that direct pairs
+    like Hindi -> Korean exist - is two different results, not one. Both
+    "English" and "unspecified" (every id from before either field existed)
+    are deliberately left out of the hash input so every already-computed
     result and already-shared /s/<id> link keeps resolving to the exact
-    same id it always has; only a non-English target folds the language
-    into the hash, since no such id existed before this was possible.
+    same id it always has; only a non-default value folds into the hash,
+    since no such id existed before that value was possible.
     """
     normalized = normalize_text(text)
-    key = normalized if target_language == "English" else f"{target_language}::{normalized}"
+    key = normalized
+    if target_language != "English":
+        key = f"{target_language}::{key}"
+    if source_language != "unspecified":
+        key = f"{source_language}::{key}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
@@ -98,6 +104,7 @@ def set(
     result: dict,
     source_text: str | None = None,
     target_language: str = "English",
+    source_language: str = "unspecified",
 ) -> None:
     if _use_db():
         from . import db
@@ -112,12 +119,14 @@ def set(
                         id=result_id,
                         normalized_text=key,
                         target_language=target_language,
+                        source_language=source_language,
                         result_json=result,
                     )
                 )
             else:
                 row.result_json = result
                 row.target_language = target_language
+                row.source_language = source_language
                 if source_text is not None:
                     row.normalized_text = key
             session.commit()
@@ -131,6 +140,7 @@ def set(
 def find_similar(
     text: str,
     target_language: str = "English",
+    source_language: str = "unspecified",
     threshold: float = SIMILARITY_THRESHOLD,
 ) -> tuple[str, dict, float] | None:
     """Only checks the database backend — cross-user reuse is the whole
@@ -138,11 +148,11 @@ def find_similar(
     file-based local/test path, where an exact hash already covers every
     real repeat.
 
-    Only ever matches rows asked for in the same target_language — an
-    English source adapted into Hindi and the same source adapted into
-    Korean can have near-identical normalized_text (the fuzzy key only
-    looks at the source side today) while being entirely different,
-    non-interchangeable results.
+    Only ever matches rows asked for in the same target_language AND
+    source_language — an English source adapted into Hindi and a Korean
+    source adapted into Hindi can have near-identical normalized_text
+    (the fuzzy key only looks at the source side today) while being
+    entirely different, non-interchangeable results.
     """
     if not _use_db():
         return None
@@ -156,7 +166,11 @@ def find_similar(
 
     best: tuple[str, dict, float] | None = None
     with db.session_scope() as session:
-        rows = session.query(CachedResult).filter_by(target_language=target_language).all()
+        rows = (
+            session.query(CachedResult)
+            .filter_by(target_language=target_language, source_language=source_language)
+            .all()
+        )
         for row in rows:
             if not row.normalized_text:
                 continue
