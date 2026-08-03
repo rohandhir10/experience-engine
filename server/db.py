@@ -68,6 +68,44 @@ def get_sessionmaker() -> sessionmaker:
 def create_all() -> None:
     from . import db_models  # noqa: F401 - registers models on Base.metadata
     Base.metadata.create_all(bind=get_engine())
+    _patch_known_schema_drift()
+
+
+def _patch_known_schema_drift() -> None:
+    """`create_all()` only creates TABLES that don't exist yet - it never
+    ALTERs a table that's already there, which is exactly the risk this
+    module's docstring warns about. CachedResult picked up
+    target_language/source_language after `cached_results` already existed
+    in a deployed database (server/cache.py's language-scoped fuzzy-match
+    work), so those columns were silently missing in production until a
+    real request hit `column cached_results.target_language does not
+    exist`.
+
+    This is a one-off, targeted backfill, not a migration framework - IF
+    NOT EXISTS makes it idempotent (safe to run on every startup, forever,
+    with no effect once every environment has the columns). Introduce a
+    real migration tool (Alembic) before this needs to happen a second
+    time; patching individual columns by hand doesn't scale past one.
+    """
+    from sqlalchemy import text
+
+    with get_engine().begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE cached_results ADD COLUMN IF NOT EXISTS "
+            "target_language VARCHAR DEFAULT 'English'"
+        ))
+        conn.execute(text(
+            "ALTER TABLE cached_results ADD COLUMN IF NOT EXISTS "
+            "source_language VARCHAR DEFAULT 'unspecified'"
+        ))
+        conn.execute(text(
+            "UPDATE cached_results SET target_language = 'English' "
+            "WHERE target_language IS NULL"
+        ))
+        conn.execute(text(
+            "UPDATE cached_results SET source_language = 'unspecified' "
+            "WHERE source_language IS NULL"
+        ))
 
 
 def session_scope() -> Session:
