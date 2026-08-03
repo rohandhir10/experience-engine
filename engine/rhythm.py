@@ -131,11 +131,11 @@ def source_syllable_estimate(source_text: str) -> int | None:
 #
 # Devanagari (Hindi) is resolved via engine/g2p_hi.py's schwa-deletion
 # heuristic - see that module for the algorithm and its disclosed limits.
-# Perso-Arabic script (Urdu) is still NOT supported here: it needs real
-# pronunciation data this module doesn't have (Urdu's script is a
-# consonant-heavy abjad that often doesn't write short vowels at all,
-# a harder problem than Hindi's schwa deletion, not a smaller version of
-# it). None means exactly that for Urdu: no answer, not a guessed one.
+# Perso-Arabic script (Urdu) is resolved via engine/g2p_ur.py, but that
+# module still declines (returns None) for most real Urdu text - it
+# needs an explicit diacritic to rule out an unwritten trailing izafat/
+# inflectional vowel on a word that looks stop-consonant-final. See that
+# module for exactly which endings it can and can't answer for.
 _LATIN_STOP_CONSONANTS = frozenset("pbtdkg")
 
 _HANGUL_BASE = 0xAC00
@@ -176,8 +176,9 @@ def _is_hangul_syllable(ch: str) -> bool:
 
 def phrase_end_sustainability(line: str) -> str | None:
     """"sustainable" or "closed" for the last word's final sound, or None
-    if the script isn't one of the three this can actually answer for
-    (see module comment above). Never guesses for Perso-Arabic (Urdu).
+    if the script isn't one of the four this can actually answer for, or
+    (Urdu specifically) the word's ending is ambiguous without a
+    diacritic (see module comment above and engine/g2p_ur.py).
     """
     words = re.findall(r"\S+", line.strip())
     if not words:
@@ -195,9 +196,14 @@ def phrase_end_sustainability(line: str) -> str | None:
         return "closed" if last_char.lower() in _LATIN_STOP_CONSONANTS else "sustainable"
 
     from .g2p_hi import get_hindi_phonetic_coda
+    from .g2p_ur import get_urdu_phrase_end_coda
 
     hindi_coda = get_hindi_phonetic_coda(last_word)
     if hindi_coda is not None:
         return hindi_coda["coda_type"]
+
+    urdu_coda = get_urdu_phrase_end_coda(last_word)
+    if urdu_coda is not None:
+        return urdu_coda["coda_type"]
 
     return None

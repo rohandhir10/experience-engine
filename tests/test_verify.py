@@ -605,6 +605,40 @@ def test_verify_result_defaults_to_english_when_target_language_is_absent():
     assert any(f.law == "Stress check" for f in report.sections[0].findings)
 
 
+def test_urdu_target_skips_every_cmu_backed_check():
+    """No CMU dictionary for Urdu — same gate as Hindi/Korean above, and
+    the song-level Sim_pho correlation must stay unset too, not just the
+    per-section checks."""
+    section = _section("دل", source_syllable_count=1)
+    result_dict = {
+        "target_language": "Urdu",
+        "sections": [section.model_dump()],
+        "source_sections": [],
+    }
+    report = verify_result(result_dict)
+    v = report.sections[0]
+    assert "Stress check" not in _laws(v.findings)
+    assert "Singability check" not in _laws(v.findings)
+    assert v.rhyme_density is None
+    assert report.phoneme_repetition_similarity is None
+
+
+def test_urdu_target_computes_phrase_end_sustainability_when_unambiguous():
+    """دل ends in ل, a liquid — not a stop, so it's answerable even
+    without a diacritic (see engine/g2p_ur.py: both possible readings,
+    bare-consonant-final or vowel-final via an unwritten ending, agree)."""
+    v = verify_section(_section("دل"), target_language="Urdu")
+    assert v.phrase_end_sustainability == "sustainable"
+
+
+def test_urdu_target_declines_phrase_end_sustainability_for_ambiguous_ending():
+    """کتاب ends in ب, a bare stop with no diacritic — genuinely
+    ambiguous (an unwritten izafat vowel could make this word actually
+    end open), so it must report None rather than assert "closed"."""
+    v = verify_section(_section("کتاب"), target_language="Urdu")
+    assert v.phrase_end_sustainability is None
+
+
 # ---------------------------------------------------------------------------
 # Phoneme repetition similarity — adapted from Kim et al. 2023 (ISMIR),
 # song-level (a correlation across sections), not per-section.

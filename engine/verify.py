@@ -201,10 +201,12 @@ class SectionVerification(BaseModel):
     # "sustainable"/"closed"/None (engine/rhythm.py::phrase_end_sustainability)
     # for the shipped line's last word - script-based, not tied to
     # target_language == "English" the way the CMU-dictionary checks are,
-    # since it works for Latin-script, Hangul, and Devanagari (Hindi, via
-    # engine/g2p_hi.py's schwa-deletion heuristic) output. None only for
-    # Perso-Arabic targets (Urdu), which this can't answer for without
-    # real pronunciation data.
+    # since it works for Latin-script, Hangul, Devanagari (Hindi, via
+    # engine/g2p_hi.py's schwa-deletion heuristic), and - partially -
+    # Perso-Arabic (Urdu, via engine/g2p_ur.py) output. Urdu still comes
+    # back None for most real text: an unwritten trailing izafat vowel
+    # can flip a stop-consonant ending open, so that one letter class
+    # declines without a disambiguating diacritic rather than guessing.
     phrase_end_sustainability: str | None = None
     verifiable: bool = True  # False when no translator anchor exists
 
@@ -700,10 +702,10 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
         rhyme_density_value = _compute_rhyme_density(_non_empty_lines(final))
 
     # --- Phrase-end sustainability: script-based (Latin, Hangul,
-    # Devanagari), not target_language == "English"-gated the way the
-    # CMU-dictionary checks above are - it works for any target written
-    # in one of those three scripts, and reports None (not a guess) for
-    # Perso-Arabic (Urdu).
+    # Devanagari, and - partially - Perso-Arabic), not target_language ==
+    # "English"-gated the way the CMU-dictionary checks above are. Urdu
+    # reports None rather than a guess whenever the ending is ambiguous
+    # without a diacritic (engine/g2p_ur.py).
     non_empty_final_lines = _non_empty_lines(final)
     sustainability = (
         _phrase_end_sustainability(non_empty_final_lines[-1]) if non_empty_final_lines else None

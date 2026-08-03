@@ -168,18 +168,29 @@ by design — none names a specific language or culture in code.
   Devanagari (Hindi, via `engine/g2p_hi.py`'s schwa-deletion heuristic —
   see that module for the algorithm; validated against known-correct
   words कमल/करवट/नमक/एक but disclosed as a heuristic approximation with
-  known exception classes, not a definitive solution). Returns `None` —
-  not a guess — for Perso-Arabic output (Urdu), which needs real
-  pronunciation data this doesn't have (Urdu's script is a consonant-
-  heavy abjad that often omits short vowels entirely — a harder problem
-  than Hindi's, not a smaller version of it). Unlike Stress/Rhyme above,
+  known exception classes, not a definitive solution), and — partially —
+  Perso-Arabic (Urdu, via `engine/g2p_ur.py`). Unlike Stress/Rhyme above,
   this is NOT gated to `target_language == "English"` — it runs for any
   script it supports, regardless of the target language's name.
+  **Urdu specifically stays partial by design, not by omission**: a word
+  ending in an unambiguous long vowel, nasal, or liquid letter resolves
+  with no diacritic needed, but a word ending in a bare stop/affricate
+  consonant (`URDU_CLOSED_STOPS`) returns `None` rather than "closed" —
+  because Urdu's izafat construction (an unwritten "-e-" vowel joining
+  two nouns/adjectives — dast-e-tanha, kitab-e-zindagi — extremely
+  common in exactly the ghazal/qawwali register this engine targets) can
+  make that word actually sung open, and real lyrics almost never mark
+  the diacritic that would settle it. Only an explicit sukun (or another
+  disambiguating diacritic) resolves the stop-consonant case. This is
+  not a smaller version of the Hindi problem — it is the same "don't
+  guess a missing short vowel" discipline applied to the one letter
+  class where guessing would flip the answer.
 - **Benchmark coverage:** unit-tested (`tests/test_rhythm.py`'s Hangul
   cases hand-verified against known Korean words; `tests/test_g2p_hi.py`'s
-  Hindi cases against known-correct words; `tests/test_verify.py`).
-  Not corpus-benchmarked; the two Tier 0 pieces have no benchmark that
-  could even measure them yet.
+  Hindi cases against known-correct words; `tests/test_g2p_ur.py`'s Urdu
+  cases, including the izafat-ambiguity decline path; `tests/test_verify.py`).
+  Not corpus-benchmarked; the Tier 0 pieces have no benchmark that could
+  even measure them yet.
 
 ## Urdu source grounding — detail
 
@@ -199,11 +210,14 @@ section documents what exists for it instead.
   with explicit diacritics (`_MIN_DIACRITIC_DENSITY`) — the one case
   that genuinely is deterministic, the same algorithm used for
   fully-voweled Arabic. Ordinary undiacritized Urdu returns `None`,
-  honestly, rather than approximating — the same discipline
-  `engine/rhythm.py::phrase_end_sustainability` already applies by
-  declining Urdu output outright. In practice this means: a diwan or
-  religious text pasted with full tashkil gets a real count; a pasted
-  song lyric almost always gets `None`.
+  honestly, rather than approximating. `engine/g2p_ur.py`'s phrase-end
+  coda (see "Phrase-end sustainability" above) applies the same
+  discipline but resolves more real, undiacritized text than this
+  counter does — it only needs to rule out an ambiguous ending on one
+  word, not vocalize a whole line. In practice this means: a diwan or
+  religious text pasted with full tashkil gets a real syllable count; a
+  pasted song lyric almost always gets `None` here even though its last
+  line may still get a real phrase-end answer.
 - **`engine/profiles/urdu.json`** — genre traditions (ghazal couplet
   independence, radif/qafiya rhyme-refrain, qawwali's repetition-driven
   structure), the register axis (Persian/Arabic-derived literary diction

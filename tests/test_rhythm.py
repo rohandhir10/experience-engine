@@ -120,11 +120,19 @@ def test_devanagari_now_routes_through_the_hindi_g2p_module():
     assert phrase_end_sustainability("यह एक परीक्षण वाक्य है") == "sustainable"
 
 
-def test_perso_arabic_script_is_still_unsupported():
+def test_perso_arabic_now_routes_through_the_urdu_g2p_module():
+    """Urdu is resolved via engine/g2p_ur.py (see tests/test_g2p_ur.py for
+    that module's own dedicated coverage) - "ہے" ends on ے, an
+    unambiguous long vowel, an open/sustainable ending."""
+    assert phrase_end_sustainability("یہ ایک ٹیسٹ جملہ ہے") == "sustainable"
+
+
+def test_perso_arabic_still_declines_an_ambiguous_stop_ending():
     """Urdu's script doesn't write short vowels the way Devanagari
-    (mostly) does - a harder problem than Hindi's schwa deletion, not
-    solved by the same module. None, not a guess."""
-    assert phrase_end_sustainability("یہ ایک ٹیسٹ جملہ ہے") is None
+    (mostly) does, and an unwritten trailing izafat vowel can turn a
+    stop-consonant ending open - engine/g2p_ur.py declines rather than
+    guesses for exactly that ambiguous case. None, not a guess."""
+    assert phrase_end_sustainability("یہ میری کتاب") is None
 
 
 def test_empty_line_is_unsupported():
