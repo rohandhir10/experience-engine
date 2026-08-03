@@ -118,6 +118,74 @@ def test_adapt_logs_clean_verification_with_no_findings(monkeypatch, caplog):
     assert "errors=0" in verify_lines[0]
 
 
+def test_adapt_rejects_an_unsupported_target_language(monkeypatch):
+    request = main.AdaptRequest(text="line one\nline two", target_language="French")
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.adapt(request, _FakeRequest())
+    assert exc_info.value.status_code == 400
+    assert "French" in exc_info.value.detail
+
+
+def test_adapt_rejects_non_english_source_for_a_reverse_direction(monkeypatch):
+    """English -> Hindi expects an English source - a mostly-Devanagari
+    paste is a strong signal this is actually the *other* direction
+    (Hindi -> English), which this target_language was never built for."""
+    request = main.AdaptRequest(
+        text="तुम लोगो की, इस दुनिया में हर कदम पे इंसा गलत",
+        target_language="Hindi",
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.adapt(request, _FakeRequest())
+    assert exc_info.value.status_code == 400
+    assert "English" in exc_info.value.detail
+
+
+def test_adapt_accepts_english_source_for_a_reverse_direction(monkeypatch):
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+
+    request = main.AdaptRequest(text="line one\nline two", target_language="Hindi")
+    result = main.adapt(request, _FakeRequest())
+
+    assert result["id"]  # ran the engine and returned a result, not rejected
+
+
+def test_adapt_threads_target_language_into_the_song_input(monkeypatch):
+    captured: dict = {}
+
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+        captured["target_language"] = song.target_language
+        return _FakeEngineResult()
+
+    def fake_to_experience_result(client, result, result_id, explain_why_client=None):
+        return {"id": result_id, "hook": "h", "sourceLanguage": "unspecified", "sections": [], "original": []}
+
+    monkeypatch.setattr(main, "run_engine", fake_run_engine)
+    monkeypatch.setattr(main, "to_experience_result", fake_to_experience_result)
+    monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+
+    request = main.AdaptRequest(text="line one\nline two", target_language="Korean")
+    main.adapt(request, _FakeRequest())
+
+    assert captured["target_language"] == "Korean"
+
+
+def test_same_text_different_target_languages_do_not_collide_in_the_cache(monkeypatch):
+    """Without this, an English source submitted for both Hindi and Korean
+    would produce the same cache id and the second request would silently
+    be served the first's (wrong-language) result."""
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+
+    hindi_id = main.cache.content_id("line one\nline two", target_language="Hindi")
+    korean_id = main.cache.content_id("line one\nline two", target_language="Korean")
+    assert hindi_id != korean_id
+
+    request = main.AdaptRequest(text="line one\nline two", target_language="Hindi")
+    result = main.adapt(request, _FakeRequest())
+    assert result["id"] == hindi_id
+
+
 def test_adapt_logs_a_warning_for_unresolved_verify_errors(monkeypatch, caplog):
     """A section shipped with a real, unaudited change (empty deviation
     ledger despite a rewritten line) — the exact Law 1 violation

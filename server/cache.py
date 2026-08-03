@@ -51,9 +51,19 @@ def normalize_text(text: str) -> str:
     return "\n".join(line for line in lines if line)
 
 
-def content_id(text: str) -> str:
+def content_id(text: str, target_language: str = "English") -> str:
+    """The same source text adapted into two different target languages is
+    two different results, not one - so target_language has to be part of
+    what makes an id unique, once more than one target language exists.
+    "English" (every id from before target-language selection existed)
+    is deliberately left out of the hash input so every already-computed
+    result and already-shared /s/<id> link keeps resolving to the exact
+    same id it always has; only a non-English target folds the language
+    into the hash, since no such id existed before this was possible.
+    """
     normalized = normalize_text(text)
-    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
+    key = normalized if target_language == "English" else f"{target_language}::{normalized}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
 def fuzzy_key(text: str) -> str:
@@ -83,7 +93,12 @@ def get(result_id: str) -> dict | None:
     return json.loads(path.read_text())
 
 
-def set(result_id: str, result: dict, source_text: str | None = None) -> None:
+def set(
+    result_id: str,
+    result: dict,
+    source_text: str | None = None,
+    target_language: str = "English",
+) -> None:
     if _use_db():
         from . import db
         from .db_models import CachedResult
@@ -93,10 +108,16 @@ def set(result_id: str, result: dict, source_text: str | None = None) -> None:
             row = session.get(CachedResult, result_id)
             if row is None:
                 session.add(
-                    CachedResult(id=result_id, normalized_text=key, result_json=result)
+                    CachedResult(
+                        id=result_id,
+                        normalized_text=key,
+                        target_language=target_language,
+                        result_json=result,
+                    )
                 )
             else:
                 row.result_json = result
+                row.target_language = target_language
                 if source_text is not None:
                     row.normalized_text = key
             session.commit()
@@ -108,12 +129,21 @@ def set(result_id: str, result: dict, source_text: str | None = None) -> None:
 
 
 def find_similar(
-    text: str, threshold: float = SIMILARITY_THRESHOLD
+    text: str,
+    target_language: str = "English",
+    threshold: float = SIMILARITY_THRESHOLD,
 ) -> tuple[str, dict, float] | None:
     """Only checks the database backend — cross-user reuse is the whole
     point, and there's exactly one user (whoever is running it) in the
     file-based local/test path, where an exact hash already covers every
-    real repeat."""
+    real repeat.
+
+    Only ever matches rows asked for in the same target_language — an
+    English source adapted into Hindi and the same source adapted into
+    Korean can have near-identical normalized_text (the fuzzy key only
+    looks at the source side today) while being entirely different,
+    non-interchangeable results.
+    """
     if not _use_db():
         return None
 
@@ -126,7 +156,8 @@ def find_similar(
 
     best: tuple[str, dict, float] | None = None
     with db.session_scope() as session:
-        for row in session.query(CachedResult).all():
+        rows = session.query(CachedResult).filter_by(target_language=target_language).all()
+        for row in rows:
             if not row.normalized_text:
                 continue
             ratio = difflib.SequenceMatcher(None, key, row.normalized_text).ratio()

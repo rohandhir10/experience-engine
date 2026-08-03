@@ -8,7 +8,22 @@ removes, or changes a capability; treat it as the source of truth for
 "what does AURA actually do" ahead of any prose description elsewhere.
 
 Supported languages (fixed roster, per the scope freeze): Hindi (`hi`),
-Korean (`ko`), Japanese (`ja`), Spanish (`es`).
+Korean (`ko`), Japanese (`ja`), Spanish (`es`) — as source languages, all
+adapting into English. The scope was later extended to the reverse
+direction too (English -> any of the same four; see
+`engine/models.py::SUPPORTED_TARGET_LANGUAGES`), but that direction is
+**not** covered by the matrix below: every row here is either measured
+against the shipped **English** output specifically (stress, rhyme,
+singability — all CMU-Pronouncing-Dictionary-backed, English-only tools)
+or describes source-side understanding of one of these four languages.
+None of it transfers to a Hindi/Korean/Japanese/Spanish *output* — those
+checks are deliberately skipped rather than run against a script/language
+they were never built for (`engine/verify.py` gates them on
+`target_language == "English"`). The reverse direction today gets the
+same prompt-level craft (Song DNA, Writers' Room, Burden of Change) but
+none of the deterministic rhythm/rhyme verification; a real capability
+audit for it is future work once each target language has its own
+prosody tooling, not a one-line addition to this table.
 
 ## Status legend
 

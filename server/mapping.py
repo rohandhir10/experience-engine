@@ -92,6 +92,7 @@ def to_experience_result(
         "id": result_id,
         "hook": engine_result.dna.artistic_thesis,
         "sourceLanguage": engine_result.song.source_language,
+        "targetLanguage": engine_result.song.target_language,
         "sections": sections,
         "original": original,
     }

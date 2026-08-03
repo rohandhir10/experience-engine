@@ -22,7 +22,7 @@ _WORD_RE = re.compile(r"[^\W\d_]+(?:'[^\W\d_]+)*")
 _VOWEL_GROUPS_RE = re.compile(r"[aeiouyàáâäãèéêëìíîïòóôöõùúûü]+")
 
 
-def _is_latin_script(text: str) -> bool:
+def is_latin_script(text: str) -> bool:
     """True for English or Latin-transliterated source text — false for
     Devanagari or other scripts this module can't count syllables for.
     """
@@ -109,6 +109,6 @@ def source_syllable_estimate(source_text: str) -> int | None:
     None for Devanagari or other non-Latin-script source text rather than
     applying an English vowel heuristic to a script it has no bearing on.
     """
-    if not _is_latin_script(source_text):
+    if not is_latin_script(source_text):
         return None
     return count_syllables_text(source_text)

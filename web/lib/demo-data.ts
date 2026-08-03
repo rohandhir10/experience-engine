@@ -10,6 +10,7 @@ export const demoResult: ExperienceResult = {
     "This isn't simply a love song. It's about trying to hold on to someone " +
     "while quietly accepting that love cannot stop life from being cruel.",
   sourceLanguage: "Hindi",
+  targetLanguage: "English",
   sections: [
     {
       id: "verse_1",

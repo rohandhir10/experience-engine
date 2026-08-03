@@ -61,6 +61,11 @@ class EngineResult:
         return {
             "title": self.song.title,
             "source_language": self.song.source_language,
+            # Read by verify.py to gate the English-only rhythm/rhyme checks
+            # (CMU-dictionary-backed - see engine/rhythm.py's module
+            # docstring) - meaningless, or silently wrong, against shipped
+            # text in any other language.
+            "target_language": self.song.target_language,
             "room_version": self.room_version,
             "song_dna": self.dna.model_dump(by_alias=True),
             "sections": [r.model_dump() for r in self.section_results],

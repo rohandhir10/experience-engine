@@ -3,7 +3,9 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "./SiteHeader";
+import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { comparisonEntries } from "@/lib/comparison-data";
+import { sourceHintFor } from "@/lib/languages";
 
 const MIN_ROWS = 6;
 const MAX_TEXTAREA_HEIGHT_PX = 380;
@@ -13,15 +15,16 @@ export function InputScreen({
   loading,
   error,
 }: {
-  onSubmit: (text: string) => void;
+  onSubmit: (text: string, targetLanguage: string) => void;
   loading: boolean;
   error: string | null;
 }) {
   const [text, setText] = useState("");
+  const [targetLanguage, setTargetLanguage] = useState("English");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function submit() {
-    if (text.trim() && !loading) onSubmit(text);
+    if (text.trim() && !loading) onSubmit(text, targetLanguage);
   }
 
   function autoGrow(el: HTMLTextAreaElement) {
@@ -52,9 +55,12 @@ export function InputScreen({
           className="animate-fade-up mt-4 text-[14px] text-white/40"
           style={{ animationDelay: "80ms" }}
         >
-          Hindi, Korean, Japanese, or Spanish lyrics — adapted into English,
-          not translated.
+          {sourceHintFor(targetLanguage)}
         </p>
+
+        <div className="animate-fade-up mt-5" style={{ animationDelay: "120ms" }}>
+          <TargetLanguageSelect value={targetLanguage} onChange={setTargetLanguage} dark />
+        </div>
 
         <form
           className="animate-fade-up mt-9 w-full"

@@ -552,6 +552,54 @@ def test_function_words_do_not_manufacture_a_false_clash():
 
 
 # ---------------------------------------------------------------------------
+# target_language gating — the CMU-dictionary-backed checks above only
+# understand English; a non-English target must skip them rather than
+# silently mismeasuring a script they were never built for.
+# ---------------------------------------------------------------------------
+
+
+def test_english_target_still_runs_stress_and_singability_checks():
+    v = verify_section(
+        _section("True love burns bright and clear tonight"), target_language="English"
+    )
+    assert any(f.law == "Stress check" for f in v.findings)
+
+
+def test_non_english_target_skips_stress_and_singability_checks():
+    """A line that would trip the stress-clash heuristic if read as English
+    must not, once it's understood to be a different target language —
+    the CMU dictionary has no opinion about non-English text, and running
+    it anyway would silently fabricate a measurement, not report one."""
+    v = verify_section(
+        _section("True love burns bright and clear tonight", source_syllable_count=4),
+        target_language="Hindi",
+    )
+    assert "Stress check" not in _laws(v.findings)
+    assert "Singability check" not in _laws(v.findings)
+    assert v.rhyme_density is None
+
+
+def test_verify_result_reads_target_language_from_the_stored_dict():
+    section = _section("True love burns bright and clear tonight")
+    result_dict = {
+        "target_language": "Korean",
+        "sections": [section.model_dump()],
+        "source_sections": [],
+    }
+    report = verify_result(result_dict)
+    assert "Stress check" not in _laws(report.sections[0].findings)
+
+
+def test_verify_result_defaults_to_english_when_target_language_is_absent():
+    """Older stored results predate this field entirely — must behave
+    exactly as before rather than silently going quiet."""
+    section = _section("True love burns bright and clear tonight")
+    result_dict = {"sections": [section.model_dump()], "source_sections": []}
+    report = verify_result(result_dict)
+    assert any(f.law == "Stress check" for f in report.sections[0].findings)
+
+
+# ---------------------------------------------------------------------------
 # Rhyme density — measured, never judged (Phase 3B)
 # ---------------------------------------------------------------------------
 

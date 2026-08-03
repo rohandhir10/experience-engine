@@ -34,14 +34,24 @@ class SectionInput(BaseModel):
     voice: str | None = None
 
 
+# AURA's supported adaptation directions: the original 4-language-source
+# ("Hindi"/"Korean"/"Japanese"/"Spanish") -> English scope, plus the
+# reverse (English -> any of the same 4) added later. Deliberately not
+# every pairing of every language here — e.g. Korean -> Hindi is out of
+# scope, since each direction needs its own prompt/verification quality
+# bar, not just "the model can technically attempt it." server/main.py
+# validates AdaptRequest.target_language against this set at the API
+# boundary; engine/verify.py's CMU-dictionary-backed checks (rhythm,
+# rhyme) only run when target_language == "English", since those tools
+# don't understand any of the other three.
+SUPPORTED_TARGET_LANGUAGES = frozenset({"English", "Hindi", "Korean", "Japanese", "Spanish"})
+
+
 class SongInput(BaseModel):
     title: str | None = None
     source_language: str
-    # Locked to "English" in the current product — see engine/prompts.py and
-    # docs/WRITERS_ROOM_V1.md §10. Threaded through the whole pipeline as a
-    # real field (not a hardcoded string) purely for architectural
-    # readiness: swapping this later should not require another prompt
-    # redesign, just a different value here.
+    # Real, product-scoped plumbing, not aspirational: see
+    # SUPPORTED_TARGET_LANGUAGES above.
     target_language: str = "English"
     # ISO-ish code selecting a Language Profile (engine/profiles/*.json) and
     # a source-side grounding counter (engine/grounding/). Optional: when

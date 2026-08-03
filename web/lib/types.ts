@@ -14,6 +14,7 @@ export type ExperienceResult = {
   id: string;
   hook: string;
   sourceLanguage: string;
+  targetLanguage: string;
   sections: SectionComparison[];
   original: OriginalSection[];
 };

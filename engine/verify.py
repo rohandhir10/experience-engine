@@ -390,7 +390,7 @@ def _translator_anchor(result: SectionResultV1) -> str | None:
     return None
 
 
-def verify_section(result: SectionResultV1) -> SectionVerification:
+def verify_section(result: SectionResultV1, target_language: str = "English") -> SectionVerification:
     section = result.section
     ruling = result.ruling
     findings: list[Finding] = []
@@ -594,64 +594,75 @@ def verify_section(result: SectionResultV1) -> SectionVerification:
     weak_ratio = weak / len(deviations) if deviations else 0.0
     computed = round(min(1.0, 0.7 * (1.0 - coverage) + 0.3 * weak_ratio), 3)
 
-    # --- Singability: check the Judge's dimension_scores claim against the
-    # one number that was actually computed, not just asserted -----------
-    source_count = result.source_syllable_count
-    if source_count:
-        shipped_count = count_syllables_text(final)
-        delta_ratio = abs(shipped_count - source_count) / source_count
-        if delta_ratio > SYLLABLE_DELTA_WARN_RATIO:
+    # --- Singability, Stress, and Rhyme: all three lean on the CMU
+    # Pronouncing Dictionary (engine/rhythm.py, engine/rhyme.py), which
+    # only knows English. Run against non-English shipped text, the
+    # syllable counter's out-of-dictionary fallback (a Latin vowel-cluster
+    # heuristic) would silently under/over-count Devanagari, Hangul, or
+    # kana "words" — a fabricated number, not a measured one, the exact
+    # failure this module exists to avoid elsewhere (see rhythm.py's
+    # STRESS_UNKNOWN). Skipped entirely, not approximated, for any other
+    # target_language until each has its own real prosody/rhyme analysis.
+    rhyme_density_value: float | None = None
+    if target_language == "English":
+        # --- Singability: check the Judge's dimension_scores claim against
+        # the one number that was actually computed, not just asserted ---
+        source_count = result.source_syllable_count
+        if source_count:
+            shipped_count = count_syllables_text(final)
+            delta_ratio = abs(shipped_count - source_count) / source_count
+            if delta_ratio > SYLLABLE_DELTA_WARN_RATIO:
+                findings.append(
+                    Finding(
+                        law="Singability check",
+                        severity="warning",
+                        section=section,
+                        detail=(
+                            f"Source is ~{source_count} syllables/morae; the "
+                            f"shipped line is ~{shipped_count} English syllables — "
+                            f"a {delta_ratio:.0%} gap. Not proof of a rhythm "
+                            "problem (languages differ in syllable structure), "
+                            "but worth a human read, especially if the ruling's "
+                            "singability_rhythm score claims this is strong."
+                        ),
+                    )
+                )
+
+        # --- Stress: clash/lapse in the shipped line, English-internal, no
+        # source or melody needed (Phase 3A) ------------------------------
+        stress_pattern = _stress_pattern_for_clash_detection(final)
+        max_stressed_run, max_unstressed_run = _max_stress_runs(stress_pattern)
+        if max_stressed_run >= MIN_STRESS_CLASH_RUN:
             findings.append(
                 Finding(
-                    law="Singability check",
+                    law="Stress check",
                     severity="warning",
                     section=section,
                     detail=(
-                        f"Source is ~{source_count} syllables/morae; the "
-                        f"shipped line is ~{shipped_count} English syllables — "
-                        f"a {delta_ratio:.0%} gap. Not proof of a rhythm "
-                        "problem (languages differ in syllable structure), "
-                        "but worth a human read, especially if the ruling's "
-                        "singability_rhythm score claims this is strong."
+                        f"{max_stressed_run} consecutive stressed syllables in the "
+                        "shipped line — a likely stress clash. Provisional "
+                        "threshold from general English prosody, not corpus-"
+                        "calibrated per genre; a prompt to listen to the line, "
+                        "not a verdict."
+                    ),
+                )
+            )
+        if max_unstressed_run >= MIN_STRESS_LAPSE_RUN:
+            findings.append(
+                Finding(
+                    law="Stress check",
+                    severity="warning",
+                    section=section,
+                    detail=(
+                        f"{max_unstressed_run} consecutive unstressed syllables — "
+                        "a likely stress lapse (a rhythmically flat stretch). "
+                        "Same disclosed-limits caveat as the clash check above."
                     ),
                 )
             )
 
-    # --- Stress: clash/lapse in the shipped line, English-internal, no
-    # source or melody needed (Phase 3A) --------------------------------
-    stress_pattern = _stress_pattern_for_clash_detection(final)
-    max_stressed_run, max_unstressed_run = _max_stress_runs(stress_pattern)
-    if max_stressed_run >= MIN_STRESS_CLASH_RUN:
-        findings.append(
-            Finding(
-                law="Stress check",
-                severity="warning",
-                section=section,
-                detail=(
-                    f"{max_stressed_run} consecutive stressed syllables in the "
-                    "shipped line — a likely stress clash. Provisional "
-                    "threshold from general English prosody, not corpus-"
-                    "calibrated per genre; a prompt to listen to the line, "
-                    "not a verdict."
-                ),
-            )
-        )
-    if max_unstressed_run >= MIN_STRESS_LAPSE_RUN:
-        findings.append(
-            Finding(
-                law="Stress check",
-                severity="warning",
-                section=section,
-                detail=(
-                    f"{max_unstressed_run} consecutive unstressed syllables — "
-                    "a likely stress lapse (a rhythmically flat stretch). "
-                    "Same disclosed-limits caveat as the clash check above."
-                ),
-            )
-        )
-
-    # --- Rhyme: measured, not judged (Phase 3B) — see engine/rhyme.py ---
-    rhyme_density_value = _compute_rhyme_density(_non_empty_lines(final))
+        # --- Rhyme: measured, not judged (Phase 3B) — see engine/rhyme.py -
+        rhyme_density_value = _compute_rhyme_density(_non_empty_lines(final))
 
     return SectionVerification(
         section=section,
@@ -751,8 +762,9 @@ def verify_result(result_dict: dict) -> VerificationReport:
         except Exception:  # noqa: BLE001 — full-room results have another shape
             continue
 
+    target_language = result_dict.get("target_language", "English")
     for section in sections:
-        report.sections.append(verify_section(section))
+        report.sections.append(verify_section(section, target_language=target_language))
 
     source_sections = [
         (s["name"], s["source_text"])

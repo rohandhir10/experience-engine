@@ -12,14 +12,14 @@ export function useAdaptSubmit() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(text: string) {
+  async function submit(text: string, targetLanguage: string = "English") {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/adapt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, target_language: targetLanguage }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {

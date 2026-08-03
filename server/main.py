@@ -48,8 +48,9 @@ from pydantic import BaseModel
 
 from engine import config
 from engine.llm_client import LLMError, create_default_client
-from engine.models import SongInput
+from engine.models import SUPPORTED_TARGET_LANGUAGES, SongInput
 from engine.pipeline import run_engine
+from engine.rhythm import is_latin_script
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 
@@ -124,6 +125,11 @@ def _check_quota(ip: str) -> None:
 
 class AdaptRequest(BaseModel):
     text: str
+    # "English" (the original, only-ever-supported direction) unless the
+    # caller asks for one of the reverse pairings — see
+    # engine/models.py::SUPPORTED_TARGET_LANGUAGES for exactly which
+    # directions actually exist.
+    target_language: str = "English"
 
 
 @app.get("/health")
@@ -149,6 +155,7 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
     ip = _client_ip(http_request)
 
     text = request.text.strip()
+    target_language = request.target_language.strip() or "English"
     if not text:
         raise HTTPException(status_code=400, detail="Paste a song first.")
     if len(text) > MAX_INPUT_CHARS:
@@ -159,13 +166,34 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
                 "song. Try a single song rather than a whole album."
             ),
         )
+    if target_language not in SUPPORTED_TARGET_LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{target_language!r} isn't a supported target language. "
+                f"AURA currently supports: {', '.join(sorted(SUPPORTED_TARGET_LANGUAGES))}."
+            ),
+        )
+    if target_language != "English" and not is_latin_script(text):
+        # A real (if imperfect) guard, not full language detection: every
+        # non-English target direction expects an English source, and a
+        # majority-non-Latin-script paste is a strong signal this is one
+        # of the *other* directions (Hindi/Korean/Japanese/Spanish source)
+        # that this target language was never built or verified for.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Adapting into {target_language} expects English lyrics as "
+                "the source. This text doesn't look like English."
+            ),
+        )
 
-    result_id = cache.content_id(text)
+    result_id = cache.content_id(text, target_language=target_language)
     cached = cache.get(result_id)
     if cached is not None:
         logger.info(
-            "adapt id=%s ip=%s cache=hit duration=%.2fs",
-            result_id, ip, time.monotonic() - started,
+            "adapt id=%s ip=%s target=%s cache=hit duration=%.2fs",
+            result_id, ip, target_language, time.monotonic() - started,
         )
         return cached
 
@@ -176,13 +204,13 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
     # a wrong match here would silently serve one song's adaptation for a
     # different one. Also stored under this exact text's own id, so the
     # next byte-identical repeat of *this* paste is a fast exact hit too.
-    similar = cache.find_similar(text)
+    similar = cache.find_similar(text, target_language=target_language)
     if similar is not None:
         matched_id, matched_result, similarity = similar
-        cache.set(result_id, matched_result, source_text=text)
+        cache.set(result_id, matched_result, source_text=text, target_language=target_language)
         logger.info(
-            "adapt id=%s ip=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
-            result_id, ip, matched_id, similarity, time.monotonic() - started,
+            "adapt id=%s ip=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
+            result_id, ip, target_language, matched_id, similarity, time.monotonic() - started,
         )
         return matched_result
 
@@ -194,13 +222,17 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     try:
-        song = SongInput(source_language="unspecified", sections=sections)
+        song = SongInput(
+            source_language="unspecified",
+            target_language=target_language,
+            sections=sections,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     logger.info(
-        "adapt id=%s ip=%s cache=miss sections=%d chars=%d starting engine run",
-        result_id, ip, len(sections), len(text),
+        "adapt id=%s ip=%s target=%s cache=miss sections=%d chars=%d starting engine run",
+        result_id, ip, target_language, len(sections), len(text),
     )
 
     try:
@@ -255,7 +287,7 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         ", ".join(sorted({f.law for f in errors + warnings})),
     )
 
-    cache.set(result_id, experience_result, source_text=text)
+    cache.set(result_id, experience_result, source_text=text, target_language=target_language)
     # Measured, not estimated (engine/models.py::LLMCallRecord) — every
     # real API call this request made, so cost/latency stays visible in
     # production logs instead of only being knowable after building a

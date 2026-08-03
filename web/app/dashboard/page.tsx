@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
 import { useAdaptSubmit } from "@/lib/useAdaptSubmit";
+import { sourceHintFor } from "@/lib/languages";
 
 const MIN_ROWS = 5;
 const MAX_TEXTAREA_HEIGHT_PX = 320;
@@ -12,6 +14,7 @@ const MAX_TEXTAREA_HEIGHT_PX = 320;
 export default function DashboardPage() {
   const { submit, loading, error } = useAdaptSubmit();
   const [text, setText] = useState("");
+  const [targetLanguage, setTargetLanguage] = useState("English");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   if (loading) {
@@ -35,12 +38,19 @@ export default function DashboardPage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               What would you like to adapt today?
             </h1>
+            <p className="mt-2 text-[13px] text-ink/40 dark:text-ink-dark/40">
+              {sourceHintFor(targetLanguage)}
+            </p>
+
+            <div className="mt-4">
+              <TargetLanguageSelect value={targetLanguage} onChange={setTargetLanguage} />
+            </div>
 
             <form
-              className="mt-7 w-full max-w-2xl"
+              className="mt-5 w-full max-w-2xl"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (text.trim() && !loading) submit(text);
+                if (text.trim() && !loading) submit(text, targetLanguage);
               }}
             >
               <label htmlFor="dashboard-lyrics" className="sr-only">
@@ -57,7 +67,7 @@ export default function DashboardPage() {
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && text.trim()) {
                     e.preventDefault();
-                    submit(text);
+                    submit(text, targetLanguage);
                   }
                 }}
                 placeholder="Paste song lyrics…"
