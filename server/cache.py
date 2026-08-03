@@ -57,7 +57,7 @@ SIMILARITY_THRESHOLD = 0.92
 # Deliberately NOT bumped retroactively for every past change (that
 # would be pure busywork with no real value) - only from here forward,
 # starting now.
-CACHE_VERSION = "5"
+CACHE_VERSION = "6"
 
 
 def normalize_text(text: str) -> str:

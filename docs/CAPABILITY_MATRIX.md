@@ -324,6 +324,83 @@ scale of what was missing.
   that requires the user resubmitting real songs, same as every other
   Tier 0 fix in this document.
 
+## Multi-line repeated block (couplet/verse/stanza) preservation — detail
+
+Found on the same real production resubmission that validated the
+token-budget fix above (Kun Faya Kun, Hindi → Japanese): the refrain now
+rendered in full, but two OTHER couplets that the source repeats twice
+each (a verse and a bridge) were shipped only once each in the final
+Japanese line. Constraint #7 (`AGENT_BRIEFS["creative_adapter"]`), the
+Judge's `artistic_fidelity` dimension text, and the Judge's Burden of
+Change mechanical paragraph (all in `engine/prompts.py`) previously only
+named a repeated "phrase" or "line" — the model was reading a two-line
+couplet as two individually droppable lines rather than one repeated
+unit, and collapsing it down to one occurrence without logging it as a
+deviation.
+
+- **Fix:** all three locations now explicitly name repeated multi-line
+  blocks ("a couplet, verse, or stanza the source restates verbatim")
+  alongside single repeated phrases/lines, with the same burden-of-proof
+  standard — dropping a repeat count on a multi-line block needs a real,
+  specific justification tied to one of the five scored dimensions, same
+  as any other deviation. Deliberately generic (no hardcoded song,
+  language, or repeat count), so it applies to every language pair, not
+  just Hindi → Japanese.
+- **Tier 0** — prompt text only. No test corpus confirms this actually
+  changes real output; verifying that requires the user resubmitting
+  real songs through the deployed pipeline.
+- **Benchmark coverage:** `tests/test_golden_prompts.py`'s
+  `creative_adapter`/`judge_triage`/`judge_final` hashes updated with a
+  changelog comment recording the change.
+
+## Auto source-language detection on paste — detail
+
+Previously, adapting into any target other than English required the
+user to manually pick the source language from a second dropdown before
+submitting — an extra click that also risked a wrong manual pick if the
+user didn't know or misremembered which of the six roster languages the
+pasted text was actually in.
+
+- **`web/lib/detectLanguage.ts`** (new): a pure, deterministic,
+  client-side heuristic — no LLM call, no network round trip, runs on
+  every keystroke. Scoped ONLY to the six languages in
+  `LANGUAGES`/`engine/models.py::SUPPORTED_LANGUAGES`, not general-
+  purpose language ID: a Unicode script match unambiguously identifies
+  Hindi (Devanagari), Urdu (Perso-Arabic), Korean (Hangul), or Japanese
+  (Kana/Han) among this roster, since no other roster language shares
+  those scripts. Latin-script text is disambiguated between English and
+  Spanish only (the only two Latin-script languages in the roster) via
+  an accented-character/inverted-punctuation check first, falling back
+  to a stopword vote. Declines (returns `null`) rather than guessing when
+  the signal is too thin — under 8 characters, no script majority, or
+  Latin-script text with no Spanish marker and an even/absent stopword
+  vote — leaving the field at its previous value rather than a
+  confident-looking wrong guess.
+- **Wiring (`web/components/InputScreen.tsx`, `web/app/dashboard/page.tsx`):**
+  runs on every textarea change (and on a YouTube-imported draft) and
+  pre-fills the "From" selector, but ONLY until the user manually touches
+  that dropdown themselves — a `sourceLanguageTouched` flag stops
+  auto-detection from fighting a deliberate manual choice. The user can
+  always override the guess; a wrong detection costs one click, same as
+  before this feature existed, never a silent misrouted request, since
+  `source_language` is validated server-side regardless of how it was
+  set.
+- **Tier 1** — the detection itself is deterministic, measured script/
+  stopword matching, not LLM judgment. What's still Tier 0-flavored is
+  the stopword lists themselves: a reasonably common but non-exhaustive
+  hand-picked set for each language, not a corpus-derived frequency
+  table, so genuinely short or atypical Latin-script lyrics can still
+  come back `null` (declined) rather than misidentified — the safer
+  failure mode of the two.
+- **Benchmark coverage:** manually verified via a standalone Node script
+  against one real sample per roster language (Hindi, Urdu, Korean,
+  Japanese, Spanish, English) plus two deliberately thin/ambiguous inputs
+  expected to decline — all matched. No automated test suite exists for
+  the `web/` package yet (no Jest/Vitest configured, `next lint` has
+  never been initialized in this repo), so this has real coverage but not
+  a coverage the CI can enforce today — a gap worth closing generally,
+  not specific to this feature.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

@@ -244,12 +244,24 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 # render every line, in order, including exact repeats at the same count
 # the source uses - devotional/chant repetition is usually the point of
 # the passage, not filler to compress.
+#
+# creative_adapter/judge_triage/judge_final updated again: after the
+# translator-anchor fix above, a real production run (Kun Faya Kun,
+# Hindi -> Japanese) showed the refrain now preserved correctly, but two
+# OTHER couplets that the source repeats twice each (a verse and a
+# bridge) were shipped only once each in the final Japanese line -
+# constraint #7 and the judge's equivalent language only mentioned a
+# repeated "phrase" or "line," and the model was reading a two-line
+# couplet as two individually-droppable lines rather than one repeated
+# unit. All three prompts now explicitly name repeated multi-line blocks
+# (a couplet, verse, or stanza the source restates verbatim) alongside
+# single repeated phrases/lines, with the same burden-of-proof standard.
 EXPECTED_HASHES = {
     "song_dna": "b8e1ece6f0fe4e15",
     "generation_translator": "b0632fd76613a7ba",
-    "creative_adapter": "92fb772341f934ed",
-    "judge_triage": "ceae597a5977944c",
-    "judge_final": "f5c6edf2bba4dd7a",
+    "creative_adapter": "80ea1f64ed14e308",
+    "judge_triage": "c16d519bf129606d",
+    "judge_final": "00b11481ea73fc82",
     "diagnosis_native_speaker": "9452b56158c2d859",
 }
 

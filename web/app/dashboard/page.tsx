@@ -6,6 +6,7 @@ import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
 import { useAdaptSubmit } from "@/lib/useAdaptSubmit";
+import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 
 const MIN_ROWS = 5;
@@ -16,6 +17,9 @@ export default function DashboardPage() {
   const [text, setText] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("English");
   const [sourceLanguage, setSourceLanguage] = useState("English");
+  // Once the user has explicitly picked a "From" language themselves,
+  // auto-detection stops overwriting it.
+  const [sourceLanguageTouched, setSourceLanguageTouched] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const effectiveSourceLanguage = targetLanguage === "English" ? undefined : sourceLanguage;
@@ -50,7 +54,10 @@ export default function DashboardPage() {
                 <TargetLanguageSelect
                   label="From"
                   value={sourceLanguage}
-                  onChange={setSourceLanguage}
+                  onChange={(next) => {
+                    setSourceLanguage(next);
+                    setSourceLanguageTouched(true);
+                  }}
                   options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
                 />
               )}
@@ -83,6 +90,12 @@ export default function DashboardPage() {
                 onChange={(e) => {
                   setText(e.target.value);
                   autoGrow(e.target);
+                  if (!sourceLanguageTouched) {
+                    const detected = detectSourceLanguage(e.target.value);
+                    if (detected && detected !== targetLanguage) {
+                      setSourceLanguage(detected);
+                    }
+                  }
                 }}
                 onKeyDown={(e) => {
                   if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && text.trim()) {

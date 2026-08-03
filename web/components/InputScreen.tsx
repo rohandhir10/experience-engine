@@ -6,6 +6,7 @@ import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
 import { comparisonEntries } from "@/lib/comparison-data";
+import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 import type { YoutubeSource } from "@/lib/useAdaptSubmit";
 
@@ -45,6 +46,10 @@ export function InputScreen({
   // direction except "any supported language -> English", the one case
   // auto-detect has actually been tested against.
   const [sourceLanguage, setSourceLanguage] = useState("English");
+  // Once the user has explicitly picked a "From" language themselves,
+  // auto-detection stops overwriting it — a wrong guess should cost one
+  // click, not a fight with the box every time they type.
+  const [sourceLanguageTouched, setSourceLanguageTouched] = useState(false);
   const [mode, setMode] = useState<"paste" | "youtube">("paste");
   const [youtubeDraft, setYoutubeDraft] = useState<YoutubeDraft | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -65,6 +70,12 @@ export function InputScreen({
   function handleImported(draft: YoutubeDraft) {
     setYoutubeDraft(draft);
     setText(draft.draftText);
+    if (!sourceLanguageTouched) {
+      const detected = detectSourceLanguage(draft.draftText);
+      if (detected && detected !== targetLanguage) {
+        setSourceLanguage(detected);
+      }
+    }
     // A textarea that wasn't yet mounted/measured can't auto-grow from a
     // ref call made before React commits the new value - next tick is
     // enough for that paint to have happened.
@@ -117,7 +128,10 @@ export function InputScreen({
               <TargetLanguageSelect
                 label="From"
                 value={sourceLanguage}
-                onChange={setSourceLanguage}
+                onChange={(next) => {
+                  setSourceLanguage(next);
+                  setSourceLanguageTouched(true);
+                }}
                 options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
                 dark
               />
@@ -193,6 +207,12 @@ export function InputScreen({
                 // the draft's positional timing no longer means anything,
                 // so drop it rather than sync to the wrong lyric line.
                 setYoutubeDraft(null);
+              }
+              if (!sourceLanguageTouched) {
+                const detected = detectSourceLanguage(e.target.value);
+                if (detected && detected !== targetLanguage) {
+                  setSourceLanguage(detected);
+                }
               }
             }}
             onKeyDown={(e) => {
