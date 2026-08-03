@@ -14,13 +14,18 @@ from engine.models import (
     SongInput,
 )
 from engine.pipeline import EngineResult
-from server.mapping import to_experience_result
+from server.mapping import _explain_why, to_experience_result
 from tests.test_pipeline_mock import FAKE_SONG_DNA
 
 
 class _FakeClient:
     def complete_json(self, *args, **kwargs):
         return {"why": "It lands softer this way."}
+
+
+class _AssertNotCalledClient:
+    def complete_json(self, *args, **kwargs):
+        raise AssertionError("the model must not be called when literal == aura")
 
 
 def _engine_result(
@@ -140,3 +145,25 @@ def test_deviations_pass_through_at_fragment_level():
             "justification": "matches the chorus's repeated hook phrasing",
         }
     ]
+
+
+def test_explain_why_skips_the_model_when_literal_and_aura_are_identical():
+    """Forcing the model to always cite a real phrase-level diff means it
+    must have a real diff to cite - a section with none should never
+    reach the model at all, or it'll either invent a difference or pad a
+    non-answer with generic praise, the exact failure this guards."""
+    result = _explain_why(
+        _AssertNotCalledClient(), "thesis", "Stay with me.", "Stay with me.", "no changes"
+    )
+    assert result == "This line stays exactly as the literal reading - no rewrite was needed here."
+
+
+def test_to_experience_result_skips_the_model_for_an_unchanged_section():
+    result = to_experience_result(
+        _AssertNotCalledClient(),
+        # final_line matches _engine_result's translator candidate text
+        # ("Stay, just for tonight.") exactly - a genuinely unchanged line.
+        _engine_result("English", final_line="Stay, just for tonight."),
+        "abc123",
+    )
+    assert "no rewrite was needed" in result["sections"][0]["why"]

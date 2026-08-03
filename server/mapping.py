@@ -15,15 +15,22 @@ from engine.rhythm import count_syllables_text
 from engine.verify import SYLLABLE_DELTA_WARN_RATIO
 
 _WHY_SYSTEM = (
-    "You explain, in ONE plain sentence, what a reader gains from a rewritten "
-    "song lyric compared to a literal translation of it. Never use any of "
-    "these words or their synonyms for internal machinery: compression, "
+    "You explain, in ONE short sentence (under 25 words), what changed "
+    "between a literal translation of a song line and its rewritten "
+    "version, and why that specific change earns its place. You MUST "
+    "name or closely paraphrase at least one real phrase from the literal "
+    "version and the exact phrase that replaced it - a sentence that "
+    "doesn't point at real text is not acceptable no matter how true it "
+    "sounds. Give a concrete, practical reason (rhythm, rhyme, how it's "
+    "actually said out loud, a sharper image) - never a general claim "
+    "about themes, emotional resonance, cultural depth, connection, or "
+    "resilience; those words describe nothing a reader can point to in "
+    "the text. Also never use internal machinery words: compression, "
     "transformation, constitutional, law, dimension, fidelity, invention, "
-    "deviation, adapter, judge, philosophy, artistic, engine. Talk only about "
-    "what the reader notices and feels when reading the second version "
-    "instead of the first - as if a thoughtful friend were pointing out why "
-    "the phrasing choice matters. Respond with ONLY a JSON object: "
-    '{"why": str}.'
+    "deviation, adapter, judge, philosophy, artistic, engine. Write as if "
+    "a thoughtful friend were pointing at the page and naming exactly "
+    "what changed, not praising the song in general. Respond with ONLY a "
+    'JSON object: {"why": str}.'
 )
 
 
@@ -34,13 +41,21 @@ def _explain_why(
     aura: str,
     priority_tradeoffs_made: str,
 ) -> str:
+    if literal.strip() == aura.strip():
+        # Nothing actually changed here - asking the model to justify a
+        # diff that doesn't exist is exactly how it ends up inventing one
+        # (or padding a non-answer with generic praise). Answered directly,
+        # without a model call, rather than risking either.
+        return "This line stays exactly as the literal reading - no rewrite was needed here."
+
     user = (
         f"What this song is really about: {thesis}\n\n"
         f"Literal version:\n{literal}\n\n"
         f"Rewritten version:\n{aura}\n\n"
         f"Internal notes on why the rewrite differs (for your context only, "
         f"don't quote this back): {priority_tradeoffs_made}\n\n"
-        "Give me the one-sentence explanation now."
+        "Give me the one-sentence explanation now - name the specific "
+        "phrase that changed and the practical reason it changed."
     )
     data = client.complete_json(_WHY_SYSTEM, user, max_tokens=300, stage="explain_why")
     return data.get("why", "").strip()
