@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "./SiteHeader";
+import { SystemComparisonCard } from "./SystemComparisonCard";
+import { comparisonEntries } from "@/lib/comparison-data";
 
 const MIN_ROWS = 7;
 const MAX_TEXTAREA_HEIGHT_PX = 420;
@@ -28,11 +30,13 @@ export function InputScreen({
     el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
   }
 
+  const featured = comparisonEntries[0];
+
   return (
-    <main className="flex min-h-screen flex-col px-6 pt-8 sm:px-10">
+    <main className="flex flex-col px-6 pt-8 sm:px-10">
       <SiteHeader active="home" />
 
-      <div className="flex flex-1 flex-col items-center justify-center">
+      <div className="flex min-h-[82vh] flex-col items-center justify-center">
         <div className="flex w-full max-w-xl flex-col items-center text-center">
           <h1 className="animate-fade-up font-serif text-[2.35rem] leading-[1.15] tracking-tight text-ink dark:text-ink-dark sm:text-[2.75rem]">
             Songs, not just their words.
@@ -115,6 +119,30 @@ export function InputScreen({
           </Link>
         </div>
       </div>
+
+      {featured && (
+        <section className="mx-auto mb-28 mt-4 w-full max-w-3xl">
+          <div className="flex items-baseline justify-between gap-4 border-t border-black/[0.05] pt-14 dark:border-white/[0.05]">
+            <h2 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
+              See the difference.
+            </h2>
+            <Link
+              href="/compare"
+              className="whitespace-nowrap text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
+            >
+              More examples →
+            </Link>
+          </div>
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+            Same source lyric, run through Google Translate, a single GPT
+            prompt, and AURA — {featured.title}, a real production run, not
+            a cherry-picked demo.
+          </p>
+          <div className="mt-8">
+            <SystemComparisonCard section={featured.sections[0]} index={0} />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
