@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -97,6 +97,28 @@ class Collection(Base):
     adaptations: Mapped[list["Adaptation"]] = relationship(
         secondary="collection_adaptations", back_populates="collections"
     )
+
+
+class CachedResult(Base):
+    """The actual computed engine output, keyed by server/cache.py's
+    content-addressed id — one row per unique song, shared across
+    whichever users submitted it, regardless of how many Adaptation
+    history rows point at it.
+
+    `normalized_text` is a more aggressive normalization than the id's
+    own hash (case-folded, punctuation stripped, whitespace collapsed) so
+    server/cache.py can do a similarity scan for near-identical pastes
+    (typos, re-formatted line breaks) that the exact hash would miss —
+    see cache.py's find_similar for the actual matching logic and why
+    it's a plain Python scan rather than a database extension.
+    """
+
+    __tablename__ = "cached_results"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
+    result_json: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
 class CollectionAdaptation(Base):

@@ -169,6 +169,23 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         )
         return cached
 
+    # A near-identical paste of a song already in the database (a typo, a
+    # reflowed line break, stray punctuation) won't match the exact hash
+    # above but is, for all practical purposes, a repeat - cache.find_similar
+    # only reports a match above a conservative similarity threshold, since
+    # a wrong match here would silently serve one song's adaptation for a
+    # different one. Also stored under this exact text's own id, so the
+    # next byte-identical repeat of *this* paste is a fast exact hit too.
+    similar = cache.find_similar(text)
+    if similar is not None:
+        matched_id, matched_result, similarity = similar
+        cache.set(result_id, matched_result, source_text=text)
+        logger.info(
+            "adapt id=%s ip=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
+            result_id, ip, matched_id, similarity, time.monotonic() - started,
+        )
+        return matched_result
+
     _check_quota(ip)
 
     try:
@@ -238,7 +255,7 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         ", ".join(sorted({f.law for f in errors + warnings})),
     )
 
-    cache.set(result_id, experience_result)
+    cache.set(result_id, experience_result, source_text=text)
     # Measured, not estimated (engine/models.py::LLMCallRecord) — every
     # real API call this request made, so cost/latency stays visible in
     # production logs instead of only being knowable after building a

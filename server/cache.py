@@ -1,31 +1,53 @@
-"""Content-addressed cache for adaptation results.
+"""Storage for computed adaptation results.
 
-If two different users paste the exact same song, there's no reason to
-pay for and wait on a second engine run — this hashes the normalized
-input text into an id, and that same id doubles as the shareable URL
-slug (/s/<id> in the frontend). Exact-text matching only, deliberately:
-two near-identical pastes of the same song (different line breaks, a
-typo) are treated as different songs rather than attempting fuzzy
-song-identity matching, which is a harder problem not worth solving until
-there's evidence exact-match caching alone isn't catching real repeats.
+Two backends, chosen by whether DATABASE_URL is set:
 
-File-based, not a database — this is still a local-only project, and a
-JSON file per id is the simplest thing that actually works at this stage.
+- No DATABASE_URL (local dev, the test suite, the CLI): falls back to a
+  JSON file per id under server/.cache, exactly as before. Nobody should
+  need Postgres running just to `uvicorn server.main:app --reload`.
+- DATABASE_URL set (Railway): results live in the `cached_results` table
+  (server/db_models.py::CachedResult) so they survive redeploys without
+  needing a volume, and so results are visible to find_similar's
+  cross-user reuse below.
+
+Exact matching (content_id/normalize_text) is unchanged from before: it
+hashes lightly-normalized text (whitespace collapsed, blank lines
+dropped) into an id, and that id doubles as the /s/<id> share-URL slug.
+
+find_similar is new: it catches near-identical pastes of the same song
+(a typo, reflowed line breaks, stray punctuation) that would miss the
+exact hash and needlessly re-run the engine on what is, for all
+practical purposes, the same request. It compares a much more aggressive
+normalization (case-folded, punctuation stripped) via difflib's
+SequenceMatcher, and only reports a match above a conservative
+similarity threshold - a false cache hit here would serve one song's
+adaptation for a different song, which is a correctness bug, not just a
+wasted cache lookup, so this deliberately errs toward re-running the
+engine when in doubt rather than guessing. It's also a plain O(n) scan
+over stored results, not a database extension (no pg_trgm dependency) -
+fine at today's scale, worth revisiting if the result set ever grows
+large enough to make a full scan slow.
 """
 from __future__ import annotations
 
+import difflib
 import hashlib
-import json
+import os
 import re
+import json
 from pathlib import Path
 
 CACHE_DIR = Path(__file__).parent / ".cache"
 
 _WHITESPACE_RE = re.compile(r"[ \t]+")
+_FUZZY_STRIP_RE = re.compile(r"[^\w\s]", re.UNICODE)
+_FUZZY_WHITESPACE_RE = re.compile(r"\s+", re.UNICODE)
+
+SIMILARITY_THRESHOLD = 0.92
 
 
 def normalize_text(text: str) -> str:
-    lines = [ _WHITESPACE_RE.sub(" ", line).strip() for line in text.strip().splitlines() ]
+    lines = [_WHITESPACE_RE.sub(" ", line).strip() for line in text.strip().splitlines()]
     return "\n".join(line for line in lines if line)
 
 
@@ -34,14 +56,80 @@ def content_id(text: str) -> str:
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:16]
 
 
+def fuzzy_key(text: str) -> str:
+    """Case-folded, punctuation-stripped, whitespace-collapsed — deliberately
+    more aggressive than normalize_text, since this is for *comparing*
+    near-duplicates, not for generating a stable id."""
+    stripped = _FUZZY_STRIP_RE.sub(" ", text.lower())
+    return _FUZZY_WHITESPACE_RE.sub(" ", stripped).strip()
+
+
+def _use_db() -> bool:
+    return bool(os.environ.get("DATABASE_URL"))
+
+
 def get(result_id: str) -> dict | None:
+    if _use_db():
+        from . import db
+        from .db_models import CachedResult
+
+        with db.session_scope() as session:
+            row = session.get(CachedResult, result_id)
+            return row.result_json if row else None
+
     path = CACHE_DIR / f"{result_id}.json"
     if not path.exists():
         return None
     return json.loads(path.read_text())
 
 
-def set(result_id: str, result: dict) -> None:
+def set(result_id: str, result: dict, source_text: str | None = None) -> None:
+    if _use_db():
+        from . import db
+        from .db_models import CachedResult
+
+        key = fuzzy_key(source_text) if source_text is not None else ""
+        with db.session_scope() as session:
+            row = session.get(CachedResult, result_id)
+            if row is None:
+                session.add(
+                    CachedResult(id=result_id, normalized_text=key, result_json=result)
+                )
+            else:
+                row.result_json = result
+                if source_text is not None:
+                    row.normalized_text = key
+            session.commit()
+        return
+
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     path = CACHE_DIR / f"{result_id}.json"
     path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+def find_similar(
+    text: str, threshold: float = SIMILARITY_THRESHOLD
+) -> tuple[str, dict, float] | None:
+    """Only checks the database backend — cross-user reuse is the whole
+    point, and there's exactly one user (whoever is running it) in the
+    file-based local/test path, where an exact hash already covers every
+    real repeat."""
+    if not _use_db():
+        return None
+
+    from . import db
+    from .db_models import CachedResult
+
+    key = fuzzy_key(text)
+    if not key:
+        return None
+
+    best: tuple[str, dict, float] | None = None
+    with db.session_scope() as session:
+        for row in session.query(CachedResult).all():
+            if not row.normalized_text:
+                continue
+            ratio = difflib.SequenceMatcher(None, key, row.normalized_text).ratio()
+            if ratio >= threshold and (best is None or ratio > best[2]):
+                best = (row.id, row.result_json, ratio)
+    return best
