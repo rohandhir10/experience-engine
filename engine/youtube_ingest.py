@@ -165,6 +165,46 @@ def fetch_transcript(
     return segments, transcript.language_code, is_generated
 
 
+@dataclass
+class TimedBlock:
+    text: str
+    start: float
+    end: float
+
+
+def group_into_sections_with_timing(
+    segments: list[TranscriptSegment],
+    gap_threshold_seconds: float = DEFAULT_GAP_THRESHOLD_SECONDS,
+) -> list[TimedBlock]:
+    """Same grouping heuristic as group_into_sections, but keeps each
+    block's start (its first caption's start time) and end (its last
+    caption's start + duration) - needed to sync playback to the
+    eventually-adapted lyrics (server/main.py's /api/youtube-draft), not
+    needed by the CLI draft, which only ever wrote text to a JSON file.
+    """
+    if not segments:
+        return []
+
+    blocks: list[list[TranscriptSegment]] = [[segments[0]]]
+    prev_end = segments[0].start + segments[0].duration
+
+    for segment in segments[1:]:
+        gap = segment.start - prev_end
+        if gap >= gap_threshold_seconds:
+            blocks.append([])
+        blocks[-1].append(segment)
+        prev_end = segment.start + segment.duration
+
+    return [
+        TimedBlock(
+            text="\n".join(s.text for s in block),
+            start=block[0].start,
+            end=block[-1].start + block[-1].duration,
+        )
+        for block in blocks
+    ]
+
+
 def group_into_sections(
     segments: list[TranscriptSegment],
     gap_threshold_seconds: float = DEFAULT_GAP_THRESHOLD_SECONDS,
@@ -174,39 +214,14 @@ def group_into_sections(
     analysis - the resulting section count and boundaries are exactly what
     the human is expected to correct before running the engine.
     """
-    if not segments:
-        return []
-
-    blocks: list[list[str]] = [[segments[0].text]]
-    prev_end = segments[0].start + segments[0].duration
-
-    for segment in segments[1:]:
-        gap = segment.start - prev_end
-        if gap >= gap_threshold_seconds:
-            blocks.append([])
-        blocks[-1].append(segment.text)
-        prev_end = segment.start + segment.duration
-
-    return ["\n".join(lines) for lines in blocks]
+    return [b.text for b in group_into_sections_with_timing(segments, gap_threshold_seconds)]
 
 
-def build_song_draft(
-    url_or_id: str,
-    preferred_languages: list[str] | None = None,
-    gap_threshold_seconds: float = DEFAULT_GAP_THRESHOLD_SECONDS,
-) -> dict:
-    """Produces a dict in the same shape as examples/*.json - NOT validated
-    or run through the engine here. The caller writes it to a file for a
-    human to review and correct before ever pointing engine/cli.py at it.
-    """
-    video_id = extract_video_id(url_or_id)
-    segments, language_code, is_generated = fetch_transcript(video_id, preferred_languages)
-    section_texts = group_into_sections(segments, gap_threshold_seconds)
-
-    language_name = _LANGUAGE_NAMES.get(language_code, language_code)
+def _draft_warning(
+    language_code: str, is_generated: bool, gap_threshold_seconds: float
+) -> str:
     caption_kind = "auto-generated (speech-to-text)" if is_generated else "manually created"
-
-    warning = (
+    return (
         f"DRAFT - NOT REVIEWED. Captions were {caption_kind} ({language_code}). "
         + (
             "Auto-generated captions are speech-to-text run on singing, not "
@@ -222,14 +237,68 @@ def build_song_draft(
         "before running this through the engine."
     )
 
+
+def build_song_draft(
+    url_or_id: str,
+    preferred_languages: list[str] | None = None,
+    gap_threshold_seconds: float = DEFAULT_GAP_THRESHOLD_SECONDS,
+) -> dict:
+    """Produces a dict in the same shape as examples/*.json - NOT validated
+    or run through the engine here. The caller writes it to a file for a
+    human to review and correct before ever pointing engine/cli.py at it.
+    """
+    video_id = extract_video_id(url_or_id)
+    segments, language_code, is_generated = fetch_transcript(video_id, preferred_languages)
+    section_texts = group_into_sections(segments, gap_threshold_seconds)
+    language_name = _LANGUAGE_NAMES.get(language_code, language_code)
+
     return {
         "title": None,
         "source_language": language_name,
-        "context_note": warning,
+        "context_note": _draft_warning(language_code, is_generated, gap_threshold_seconds),
         "sections": [
             {"name": f"section_{i + 1}", "source_text": text}
             for i, text in enumerate(section_texts)
         ],
+    }
+
+
+# Matches the blank-line-separated-blocks convention engine/text_ingest.py's
+# split_into_sections expects from the homepage's single textarea - so a
+# web-ingested draft can be edited in exactly the same box, by the exact
+# same rule, as a manually pasted song.
+_SECTION_JOIN = "\n\n"
+
+
+def build_web_draft(
+    url_or_id: str,
+    preferred_languages: list[str] | None = None,
+    gap_threshold_seconds: float = DEFAULT_GAP_THRESHOLD_SECONDS,
+) -> dict:
+    """Like build_song_draft, but shaped for server/main.py's
+    /api/youtube-draft endpoint rather than a CLI-written JSON file:
+    one editable blob of text (same review step the CLI's "must be
+    checked by a human first" warning asks for, just done in the
+    browser's textarea instead of a text editor) plus the per-section
+    timing needed to sync playback afterward.
+
+    Still never touches engine/pipeline.py - this is ingestion, not
+    adaptation. If the section count that comes back from splitting the
+    (possibly hand-edited) draft text later doesn't match len(sections)
+    here, the caller must not attempt to line up timings by position
+    anymore - see server/main.py's adapt().
+    """
+    video_id = extract_video_id(url_or_id)
+    segments, language_code, is_generated = fetch_transcript(video_id, preferred_languages)
+    blocks = group_into_sections_with_timing(segments, gap_threshold_seconds)
+    language_name = _LANGUAGE_NAMES.get(language_code, language_code)
+
+    return {
+        "video_id": video_id,
+        "source_language": language_name,
+        "warning": _draft_warning(language_code, is_generated, gap_threshold_seconds),
+        "draft_text": _SECTION_JOIN.join(b.text for b in blocks),
+        "sections": [{"start": b.start, "end": b.end} for b in blocks],
     }
 
 

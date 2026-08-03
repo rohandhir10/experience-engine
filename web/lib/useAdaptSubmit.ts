@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+export type YoutubeSource = {
+  videoId: string;
+  sectionTimings: { start: number; end: number }[];
+};
+
 /** Shared by every surface that can submit lyrics for adaptation (the
  * marketing homepage, the dashboard) so the fetch/stash/navigate flow
  * isn't duplicated — see app/page.tsx's original comments for why the
@@ -12,14 +17,31 @@ export function useAdaptSubmit() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(text: string, targetLanguage: string = "English") {
+  async function submit(
+    text: string,
+    targetLanguage: string = "English",
+    youtube?: YoutubeSource
+  ) {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/adapt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, target_language: targetLanguage }),
+        body: JSON.stringify({
+          text,
+          target_language: targetLanguage,
+          // Only forwarded when the section count still matches what was
+          // reviewed — if the user edited the draft's blank-line breaks,
+          // youtube_section_timings.length no longer lines up with
+          // anything real, and server/main.py drops it rather than guess.
+          ...(youtube
+            ? {
+                youtube_video_id: youtube.videoId,
+                youtube_section_timings: youtube.sectionTimings,
+              }
+            : {}),
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {

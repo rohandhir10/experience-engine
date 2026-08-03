@@ -11,6 +11,8 @@ from __future__ import annotations
 from engine.llm_client import LLMClient
 from engine.models import SectionResultV1
 from engine.pipeline import EngineResult
+from engine.rhythm import count_syllables_text
+from engine.verify import SYLLABLE_DELTA_WARN_RATIO
 
 _WHY_SYSTEM = (
     "You explain, in ONE plain sentence, what a reader gains from a rewritten "
@@ -51,6 +53,29 @@ def _translator_text(result: SectionResultV1) -> str:
     return result.candidates[0].text if result.candidates else ""
 
 
+def _singability(result: SectionResultV1, aura: str, target_language: str) -> dict | None:
+    """The same measurement engine/verify.py's Singability check already
+    computes, surfaced to the reader instead of staying backend-log-only.
+    Only meaningful for an English shipped line (count_syllables_text is
+    CMU-dictionary-backed - see engine/rhythm.py) and only when there's a
+    real source count to compare against (Latin-script source only, or a
+    counted script like Japanese morae) - None means "nothing to report,"
+    never a fabricated 0.
+    """
+    if target_language != "English":
+        return None
+    source_count = result.source_syllable_count
+    if not source_count:
+        return None
+    shipped_count = count_syllables_text(aura)
+    delta_ratio = abs(shipped_count - source_count) / source_count
+    return {
+        "sourceCount": source_count,
+        "shippedCount": shipped_count,
+        "closeMatch": delta_ratio <= SYLLABLE_DELTA_WARN_RATIO,
+    }
+
+
 def to_experience_result(
     client: LLMClient,
     engine_result: EngineResult,
@@ -82,7 +107,13 @@ def to_experience_result(
             result.ruling.priority_tradeoffs_made,
         )
         sections.append(
-            {"id": result.section, "literal": literal, "aura": aura, "why": why}
+            {
+                "id": result.section,
+                "literal": literal,
+                "aura": aura,
+                "why": why,
+                "singability": _singability(result, aura, engine_result.song.target_language),
+            }
         )
         original.append(
             {"id": result.section, "text": source_by_name.get(result.section, "")}

@@ -1,17 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ExperienceResult } from "@/lib/types";
 import { SiteHeader } from "./SiteHeader";
 import { ComparisonCard } from "./ComparisonCard";
 import { CopyLinkButton } from "./CopyLinkButton";
+import { YoutubeSyncPlayer } from "./YoutubeSyncPlayer";
 
 export function ResultScreen({ result }: { result: ExperienceResult }) {
   const [showOriginal, setShowOriginal] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
   const originalById = Object.fromEntries(
     result.original.map((o) => [o.id, o.text])
   );
+
+  // Only sections that survived review with their timing intact carry
+  // startSeconds/endSeconds (server/main.py drops all of it on a section-
+  // count mismatch) - undefined for every result that didn't come from a
+  // YouTube draft at all, which is most of them.
+  const activeIndex = useMemo(() => {
+    if (!result.videoId) return null;
+    const index = result.sections.findIndex(
+      (s) =>
+        s.startSeconds !== undefined &&
+        s.endSeconds !== undefined &&
+        currentTime >= s.startSeconds &&
+        currentTime < s.endSeconds
+    );
+    return index >= 0 ? index : null;
+  }, [currentTime, result.sections, result.videoId]);
+
+  function handleTimeUpdate(seconds: number) {
+    setCurrentTime((prev) => {
+      // Avoid a state update (and the re-render it triggers) on every
+      // 400ms poll when playback hasn't meaningfully moved - paused video,
+      // or between polls that land within the same second.
+      if (Math.abs(seconds - prev) < 0.5) return prev;
+      const el = cardRefs.current[
+        result.sections.findIndex(
+          (s) =>
+            s.startSeconds !== undefined &&
+            s.endSeconds !== undefined &&
+            seconds >= s.startSeconds &&
+            seconds < s.endSeconds
+        )
+      ];
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return seconds;
+    });
+  }
 
   return (
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
@@ -61,14 +102,27 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
         </p>
       </div>
 
+      {result.videoId && (
+        <div className="animate-fade-up mx-auto mt-14 max-w-2xl">
+          <YoutubeSyncPlayer videoId={result.videoId} onTimeUpdate={handleTimeUpdate} />
+          <p className="mt-3 text-center text-[12px] text-ink/35 dark:text-ink-dark/35">
+            The highlighted section below follows the video as it plays.
+          </p>
+        </div>
+      )}
+
       <div className="mx-auto mt-20 flex max-w-2xl flex-col gap-6 sm:mt-24">
         {result.sections.map((section, i) => (
           <ComparisonCard
             key={section.id}
+            ref={(el) => {
+              cardRefs.current[i] = el;
+            }}
             section={section}
             index={i}
             original={originalById[section.id]}
             showOriginal={showOriginal}
+            active={i === activeIndex}
           />
         ))}
       </div>

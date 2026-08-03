@@ -47,12 +47,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from engine import config
+from engine import youtube_ingest
 from engine.llm_client import LLMError, create_default_client
 from engine.models import SUPPORTED_TARGET_LANGUAGES, SongInput
 from engine.pipeline import run_engine
 from engine.rhythm import is_latin_script
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
+from engine.youtube_ingest import IngestError
 
 from . import cache, db
 from .mapping import to_experience_result
@@ -123,6 +125,11 @@ def _check_quota(ip: str) -> None:
     _daily_runs[key] += 1
 
 
+class YoutubeSectionTiming(BaseModel):
+    start: float
+    end: float
+
+
 class AdaptRequest(BaseModel):
     text: str
     # "English" (the original, only-ever-supported direction) unless the
@@ -130,11 +137,37 @@ class AdaptRequest(BaseModel):
     # engine/models.py::SUPPORTED_TARGET_LANGUAGES for exactly which
     # directions actually exist.
     target_language: str = "English"
+    # Both set together, only when this text came from /api/youtube-draft
+    # and the user didn't restructure the section breaks while reviewing
+    # it (see adapt()'s length check below) — lets the result page sync
+    # playback to a real video instead of just embedding it decoratively.
+    # The engine itself never sees these; timing is server/frontend-only
+    # bookkeeping, matched to sections purely by position.
+    youtube_video_id: str | None = None
+    youtube_section_timings: list[YoutubeSectionTiming] | None = None
+
+
+class YoutubeDraftRequest(BaseModel):
+    url: str
+    preferred_languages: list[str] | None = None
 
 
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.post("/api/youtube-draft")
+def youtube_draft(request: YoutubeDraftRequest) -> dict:
+    """Fetches a video's own captions and groups them into a draft the
+    frontend drops into the same textarea a manual paste would use — see
+    engine/youtube_ingest.py::build_web_draft's docstring for why this
+    is still a review step, not a direct pipe into the engine.
+    """
+    try:
+        return youtube_ingest.build_web_draft(request.url, request.preferred_languages)
+    except IngestError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.get("/health/db")
@@ -286,6 +319,23 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         len(warnings),
         ", ".join(sorted({f.law for f in errors + warnings})),
     )
+
+    if request.youtube_video_id and request.youtube_section_timings:
+        timings = request.youtube_section_timings
+        result_sections = experience_result["sections"]
+        if len(timings) == len(result_sections):
+            experience_result["videoId"] = request.youtube_video_id
+            for section, timing in zip(result_sections, timings):
+                section["startSeconds"] = timing.start
+                section["endSeconds"] = timing.end
+        else:
+            # The user added/removed a section break while reviewing the
+            # draft — positional timing no longer lines up with anything
+            # real, so this drops it rather than guess at a new mapping.
+            logger.info(
+                "adapt id=%s youtube timing discarded: %d timings vs %d sections",
+                result_id, len(timings), len(result_sections),
+            )
 
     cache.set(result_id, experience_result, source_text=text, target_language=target_language)
     # Measured, not estimated (engine/models.py::LLMCallRecord) — every

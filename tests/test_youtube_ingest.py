@@ -103,3 +103,71 @@ def test_build_song_draft_warns_when_auto_generated(monkeypatch):
     draft = yi.build_song_draft("dQw4w9WgXcQ")
     assert "auto-generated" in draft["context_note"]
     assert "speech-to-text" in draft["context_note"]
+
+
+def test_group_into_sections_with_timing_keeps_start_and_end_per_block():
+    segments = [
+        TranscriptSegment(text="line one", start=0.0, duration=2.0),
+        TranscriptSegment(text="line two", start=2.5, duration=2.0),
+        # 5-second gap here (prev ends at 4.5, this starts at 9.5)
+        TranscriptSegment(text="line three", start=9.5, duration=2.0),
+        TranscriptSegment(text="line four", start=12.0, duration=2.0),
+    ]
+    blocks = yi.group_into_sections_with_timing(segments, gap_threshold_seconds=3.0)
+
+    assert [b.text for b in blocks] == ["line one\nline two", "line three\nline four"]
+    assert blocks[0].start == 0.0
+    assert blocks[0].end == 4.5  # last segment in block: start 2.5 + duration 2.0
+    assert blocks[1].start == 9.5
+    assert blocks[1].end == 14.0
+
+
+def test_build_web_draft_shape(monkeypatch):
+    def fake_fetch_transcript(video_id, preferred_languages=None):
+        return (
+            [
+                TranscriptSegment(text="pehli panktee", start=0.0, duration=2.0),
+                TranscriptSegment(text="dusri panktee", start=10.0, duration=2.0),
+            ],
+            "hi",
+            False,
+        )
+
+    monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)
+
+    draft = yi.build_web_draft("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+
+    assert draft["video_id"] == "dQw4w9WgXcQ"
+    assert draft["source_language"] == "Hindi"
+    assert "DRAFT" in draft["warning"]
+    # Two separate blocks (10s gap > default 3s threshold) joined by a
+    # blank line - text_ingest.py's split_into_sections must recover the
+    # same two blocks from this exact string.
+    assert draft["draft_text"] == "pehli panktee\n\ndusri panktee"
+    assert draft["sections"] == [
+        {"start": 0.0, "end": 2.0},
+        {"start": 10.0, "end": 12.0},
+    ]
+
+
+def test_build_web_draft_text_round_trips_through_split_into_sections(monkeypatch):
+    """The whole design depends on this: a web-ingested draft, dropped
+    into the same textarea a manual paste would use, must split back into
+    the same number of sections the timing list has entries for."""
+    from engine.text_ingest import split_into_sections
+
+    def fake_fetch_transcript(video_id, preferred_languages=None):
+        return (
+            [
+                TranscriptSegment(text="verse line", start=0.0, duration=2.0),
+                TranscriptSegment(text="chorus line", start=10.0, duration=2.0),
+            ],
+            "en",
+            False,
+        )
+
+    monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)
+    draft = yi.build_web_draft("dQw4w9WgXcQ")
+
+    sections = split_into_sections(draft["draft_text"])
+    assert len(sections) == len(draft["sections"])

@@ -23,7 +23,11 @@ class _FakeClient:
         return {"why": "It lands softer this way."}
 
 
-def _engine_result(target_language: str) -> EngineResult:
+def _engine_result(
+    target_language: str,
+    final_line: str = "Reste, juste pour ce soir.",
+    source_syllable_count: int | None = None,
+) -> EngineResult:
     song = SongInput(
         source_language="English",
         target_language=target_language,
@@ -38,11 +42,12 @@ def _engine_result(target_language: str) -> EngineResult:
         routing_signals={},
         ruling=JudgeRuling(
             section="verse_1",
-            final_line="Reste, juste pour ce soir.",
+            final_line=final_line,
             priority_tradeoffs_made="test",
             deviations=[],
             invention_penalty=0.0,
         ),
+        source_syllable_count=source_syllable_count,
     )
     return EngineResult(song=song, dna=dna, section_results=[section], room_version="v1")
 
@@ -56,3 +61,36 @@ def test_target_language_passes_through_to_the_frontend_contract():
 def test_default_target_language_is_still_english():
     result = to_experience_result(_FakeClient(), _engine_result("English"), "abc123")
     assert result["targetLanguage"] == "English"
+
+
+def test_singability_is_surfaced_for_english_targets_with_a_source_count():
+    result = to_experience_result(
+        _FakeClient(),
+        _engine_result("English", final_line="Stay with me tonight", source_syllable_count=5),
+        "abc123",
+    )
+    singability = result["sections"][0]["singability"]
+    assert singability is not None
+    assert singability["sourceCount"] == 5
+    assert singability["closeMatch"] is True
+
+
+def test_singability_is_none_without_a_source_count():
+    result = to_experience_result(
+        _FakeClient(),
+        _engine_result("English", source_syllable_count=None),
+        "abc123",
+    )
+    assert result["sections"][0]["singability"] is None
+
+
+def test_singability_is_none_for_non_english_targets():
+    """count_syllables_text is CMU-dictionary-backed (English only) - it
+    would silently mismeasure a Hindi/Korean/Japanese/Spanish shipped line
+    rather than report nothing, so this must stay off for those targets."""
+    result = to_experience_result(
+        _FakeClient(),
+        _engine_result("Hindi", source_syllable_count=5),
+        "abc123",
+    )
+    assert result["sections"][0]["singability"] is None

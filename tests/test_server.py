@@ -232,3 +232,101 @@ def test_adapt_logs_a_warning_for_unresolved_verify_errors(monkeypatch, caplog):
 
     verify_lines = [r.message for r in caplog.records if "verify errors=" in r.message]
     assert "errors=1" in verify_lines[0]
+
+
+def _patch_engine_with_two_sections(monkeypatch, captured: dict):
+    """Like _patch_engine, but returns two sections in the experience
+    result — needed to test youtube timing attachment, which only makes
+    sense against more than a single, always-empty section list."""
+
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+        return _FakeEngineResult()
+
+    def fake_to_experience_result(client, result, result_id, explain_why_client=None):
+        return {
+            "id": result_id,
+            "hook": "test hook",
+            "sourceLanguage": "unspecified",
+            "sections": [
+                {"id": "section_1", "literal": "a", "aura": "a2", "why": "w1"},
+                {"id": "section_2", "literal": "b", "aura": "b2", "why": "w2"},
+            ],
+            "original": [],
+        }
+
+    monkeypatch.setattr(main, "run_engine", fake_run_engine)
+    monkeypatch.setattr(main, "to_experience_result", fake_to_experience_result)
+    monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+
+
+def test_adapt_attaches_matching_youtube_timing(monkeypatch):
+    captured: dict = {}
+    _patch_engine_with_two_sections(monkeypatch, captured)
+
+    request = main.AdaptRequest(
+        text="line one\n\nline two",
+        youtube_video_id="dQw4w9WgXcQ",
+        youtube_section_timings=[
+            main.YoutubeSectionTiming(start=0.0, end=4.5),
+            main.YoutubeSectionTiming(start=9.5, end=14.0),
+        ],
+    )
+    result = main.adapt(request, _FakeRequest())
+
+    assert result["videoId"] == "dQw4w9WgXcQ"
+    assert result["sections"][0]["startSeconds"] == 0.0
+    assert result["sections"][0]["endSeconds"] == 4.5
+    assert result["sections"][1]["startSeconds"] == 9.5
+
+
+def test_adapt_discards_youtube_timing_on_section_count_mismatch(monkeypatch, caplog):
+    """The user edited the reviewed draft and changed the number of
+    sections - positional timing no longer means anything, so it must be
+    dropped rather than mis-synced to the wrong lyric line."""
+    captured: dict = {}
+    _patch_engine_with_two_sections(monkeypatch, captured)
+
+    request = main.AdaptRequest(
+        text="line one\n\nline two",
+        youtube_video_id="dQw4w9WgXcQ",
+        youtube_section_timings=[main.YoutubeSectionTiming(start=0.0, end=4.5)],
+    )
+    with caplog.at_level("INFO", logger="aura.server"):
+        result = main.adapt(request, _FakeRequest())
+
+    assert "videoId" not in result
+    assert "startSeconds" not in result["sections"][0]
+    assert any("timing discarded" in r.message for r in caplog.records)
+
+
+def test_youtube_draft_returns_build_web_draft_result(monkeypatch):
+    def fake_build_web_draft(url, preferred_languages=None):
+        return {
+            "video_id": "dQw4w9WgXcQ",
+            "source_language": "Hindi",
+            "warning": "DRAFT - NOT REVIEWED.",
+            "draft_text": "line one\n\nline two",
+            "sections": [{"start": 0.0, "end": 2.0}, {"start": 10.0, "end": 12.0}],
+        }
+
+    monkeypatch.setattr(main.youtube_ingest, "build_web_draft", fake_build_web_draft)
+
+    request = main.YoutubeDraftRequest(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    result = main.youtube_draft(request)
+
+    assert result["video_id"] == "dQw4w9WgXcQ"
+    assert result["draft_text"] == "line one\n\nline two"
+
+
+def test_youtube_draft_reports_ingest_failure_as_a_400(monkeypatch):
+    def fake_build_web_draft(url, preferred_languages=None):
+        raise main.IngestError("Captions are disabled for this video.")
+
+    monkeypatch.setattr(main.youtube_ingest, "build_web_draft", fake_build_web_draft)
+
+    request = main.YoutubeDraftRequest(url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.youtube_draft(request)
+
+    assert exc_info.value.status_code == 400
+    assert "Captions are disabled" in exc_info.value.detail

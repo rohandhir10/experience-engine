@@ -4,27 +4,58 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
+import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
 import { comparisonEntries } from "@/lib/comparison-data";
 import { sourceHintFor } from "@/lib/languages";
+import type { YoutubeSource } from "@/lib/useAdaptSubmit";
 
 const MIN_ROWS = 6;
 const MAX_TEXTAREA_HEIGHT_PX = 380;
+
+// Mirrors engine/text_ingest.py's split_into_sections exactly - used only
+// to notice when an edit has changed the section *count* a YouTube draft
+// came with, so its per-section timing (positional, not content-matched)
+// gets dropped rather than silently synced to the wrong lines.
+function countBlocks(text: string): number {
+  return text
+    .trim()
+    .split(/\n\s*\n+/)
+    .map((b) => b.trim())
+    .filter(Boolean).length;
+}
 
 export function InputScreen({
   onSubmit,
   loading,
   error,
 }: {
-  onSubmit: (text: string, targetLanguage: string) => void;
+  onSubmit: (text: string, targetLanguage: string, youtube?: YoutubeSource) => void;
   loading: boolean;
   error: string | null;
 }) {
   const [text, setText] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("English");
+  const [mode, setMode] = useState<"paste" | "youtube">("paste");
+  const [youtubeDraft, setYoutubeDraft] = useState<YoutubeDraft | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function submit() {
-    if (text.trim() && !loading) onSubmit(text, targetLanguage);
+    if (!text.trim() || loading) return;
+    const youtube: YoutubeSource | undefined = youtubeDraft
+      ? { videoId: youtubeDraft.videoId, sectionTimings: youtubeDraft.sections }
+      : undefined;
+    onSubmit(text, targetLanguage, youtube);
+  }
+
+  function handleImported(draft: YoutubeDraft) {
+    setYoutubeDraft(draft);
+    setText(draft.draftText);
+    // A textarea that wasn't yet mounted/measured can't auto-grow from a
+    // ref call made before React commits the new value - next tick is
+    // enough for that paint to have happened.
+    setTimeout(() => {
+      if (textareaRef.current) autoGrow(textareaRef.current);
+    }, 0);
   }
 
   function autoGrow(el: HTMLTextAreaElement) {
@@ -58,8 +89,43 @@ export function InputScreen({
           {sourceHintFor(targetLanguage)}
         </p>
 
-        <div className="animate-fade-up mt-5" style={{ animationDelay: "120ms" }}>
+        <div
+          className="animate-fade-up mt-5 flex flex-col items-center gap-4"
+          style={{ animationDelay: "120ms" }}
+        >
           <TargetLanguageSelect value={targetLanguage} onChange={setTargetLanguage} dark />
+
+          <div className="flex items-center gap-1 rounded-full border border-white/10 p-1 text-[13px]">
+            <button
+              type="button"
+              onClick={() => setMode("paste")}
+              className={`rounded-full px-4 py-1.5 transition ${
+                mode === "paste" ? "bg-white text-black" : "text-white/50 hover:text-white/80"
+              }`}
+            >
+              Paste lyrics
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("youtube")}
+              className={`rounded-full px-4 py-1.5 transition ${
+                mode === "youtube" ? "bg-white text-black" : "text-white/50 hover:text-white/80"
+              }`}
+            >
+              From YouTube
+            </button>
+          </div>
+
+          {mode === "youtube" && (
+            <div className="w-full max-w-md">
+              <YoutubeImportField dark onImported={handleImported} />
+              {youtubeDraft && (
+                <p className="mt-3 text-[12px] leading-relaxed text-white/35">
+                  {youtubeDraft.warning} Review the text below before adapting it.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <form
@@ -80,6 +146,12 @@ export function InputScreen({
             onChange={(e) => {
               setText(e.target.value);
               autoGrow(e.target);
+              if (youtubeDraft && countBlocks(e.target.value) !== youtubeDraft.sections.length) {
+                // The edit changed how many sections this splits into -
+                // the draft's positional timing no longer means anything,
+                // so drop it rather than sync to the wrong lyric line.
+                setYoutubeDraft(null);
+              }
             }}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
