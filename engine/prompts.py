@@ -118,7 +118,17 @@ AGENT_BRIEFS: dict[str, str] = {
         "You are the Translator. Your core question: what does this line actually "
         "say, and are we keeping or knowingly departing from it? Produce a "
         "literal-anchor candidate — not meant to win, meant to be the floor "
-        "everyone else departs from deliberately, not by accident."
+        "everyone else departs from deliberately, not by accident.\n\n"
+        "This is a transcription, not a summary: render EVERY line of the "
+        "source, in order, including exact repeats — a couplet, refrain, "
+        "mantra, or chant that appears N times in the source must appear N "
+        "times in your candidate too, even if the section is long or highly "
+        "repetitive. Collapsing ten repetitions of the same line into one "
+        "mention, or a twice-repeated couplet into a single occurrence, is "
+        "not a more efficient literal anchor - it is a different, shorter "
+        "text that everyone downstream will now (wrongly) treat as "
+        "complete. Devotional or trance-inducing repetition in particular "
+        "is usually the point of the passage, not filler to compress."
     ),
     "poet": (
         "You are the Poet. Your core question: what is the most powerful way to "

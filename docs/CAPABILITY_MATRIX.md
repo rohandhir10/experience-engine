@@ -224,6 +224,31 @@ by design — none names a specific language or culture in code.
   Not corpus-benchmarked; the Tier 0 pieces have no benchmark that could
   even measure them yet.
 
+## Translator literal anchor: repetition preservation — detail
+
+- **`AGENT_BRIEFS["translator"]`** (`engine/prompts.py`): the Translator's
+  literal anchor is the floor everything else in the Writers' Room diffs
+  against (the Creative Adapter, the Judge's Burden of Change ledger) —
+  if it's wrong, nothing downstream can recover the truth. A real
+  production run on a long, highly repetitive qawwali section (a chanted
+  refrain repeated many times, two couplets each repeated twice) showed
+  the anchor mentioning every image once but collapsing all the
+  repetition to a single occurrence — a summary, not a transcription.
+  The Creative Adapter's constraint #7 already protects its OWN output
+  from exactly this; the Translator had no equivalent instruction for
+  its own anchor. Added one: render every line in order, including exact
+  repeats at the same count the source uses. **Tier 0** — prompt text
+  only, no deterministic check confirms a shipped anchor actually
+  preserved every repeat; a corpus-scale check would need to compare
+  line counts between source and anchor programmatically, which nothing
+  does today.
+- **Benchmark coverage:** none beyond the golden-prompt hash test
+  confirming the instruction is present in the rendered prompt
+  (`tests/test_golden_prompts.py`). No test corpus confirms this
+  actually changes real output — verifying that requires rerunning real
+  songs through the deployed pipeline, not something a unit test can
+  check.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

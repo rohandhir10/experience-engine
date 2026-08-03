@@ -231,9 +231,22 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 # was never actually being substituted (missing f-string prefix on two
 # lines) - it had been sending the Judge the literal, unsubstituted
 # string "{target_language}" since the gate was first added.
+#
+# generation_translator updated: a real production run on a long, highly
+# repetitive qawwali section (a chanted refrain repeated ~14 times, two
+# couplets each repeated twice) came back with a literal anchor that
+# mentioned every image once but collapsed all the repetition down to a
+# single occurrence - a summary, not a transcription. Nothing downstream
+# could recover the lost repetition (the Creative Adapter/Judge only ever
+# diff against this anchor), and the Creative Adapter's constraint #7
+# already protects exactly this for ITS OWN output but the Translator had
+# no equivalent instruction for its own literal anchor. Added one:
+# render every line, in order, including exact repeats at the same count
+# the source uses - devotional/chant repetition is usually the point of
+# the passage, not filler to compress.
 EXPECTED_HASHES = {
     "song_dna": "b8e1ece6f0fe4e15",
-    "generation_translator": "8e9b94913c4a3da8",
+    "generation_translator": "b0632fd76613a7ba",
     "creative_adapter": "92fb772341f934ed",
     "judge_triage": "ceae597a5977944c",
     "judge_final": "f5c6edf2bba4dd7a",
