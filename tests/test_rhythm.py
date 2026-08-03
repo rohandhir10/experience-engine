@@ -113,11 +113,17 @@ def test_trailing_punctuation_is_ignored():
     assert phrase_end_sustainability("Lock it up.") == "closed"
 
 
-def test_devanagari_and_perso_arabic_scripts_are_unsupported():
-    """Neither script has a spelling-to-pronunciation rule this module can
-    trust (Hindi's schwa deletion in particular is a genuinely unresolved
-    computational-linguistics problem) - None, not a guess."""
-    assert phrase_end_sustainability("यह एक परीक्षण वाक्य है") is None
+def test_devanagari_now_routes_through_the_hindi_g2p_module():
+    """Hindi is resolved via engine/g2p_hi.py's schwa-deletion heuristic
+    (see tests/test_g2p_hi.py for that module's own dedicated coverage) -
+    "है" ends on an explicit vowel sign, an open/sustainable ending."""
+    assert phrase_end_sustainability("यह एक परीक्षण वाक्य है") == "sustainable"
+
+
+def test_perso_arabic_script_is_still_unsupported():
+    """Urdu's script doesn't write short vowels the way Devanagari
+    (mostly) does - a harder problem than Hindi's schwa deletion, not
+    solved by the same module. None, not a guess."""
     assert phrase_end_sustainability("یہ ایک ٹیسٹ جملہ ہے") is None
 
 

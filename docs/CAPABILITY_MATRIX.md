@@ -130,17 +130,22 @@ by design — none names a specific language or culture in code.
   measured — whether a shipped line's last word ends in a sound a singer
   can hold (vowel/nasal/liquid) or an unreleased stop consonant.
   Script-based, not source-language-based: supports Latin-script output
-  (any target written in the Latin alphabet) and Hangul (Korean, via
+  (any target written in the Latin alphabet), Hangul (Korean, via
   algorithmic syllable-block decomposition + standard coda
-  neutralization — real, textbook phonology, not a heuristic). Returns
-  `None` — not a guess — for Devanagari and Perso-Arabic output (Hindi,
-  Urdu), since both need real pronunciation data this module doesn't have
-  (Hindi's schwa-deletion problem specifically is an open computational-
-  linguistics question, not a spelling rule). Unlike Stress/Rhyme above,
+  neutralization — real, textbook phonology, not a heuristic), and
+  Devanagari (Hindi, via `engine/g2p_hi.py`'s schwa-deletion heuristic —
+  see that module for the algorithm; validated against known-correct
+  words कमल/करवट/नमक/एक but disclosed as a heuristic approximation with
+  known exception classes, not a definitive solution). Returns `None` —
+  not a guess — for Perso-Arabic output (Urdu), which needs real
+  pronunciation data this doesn't have (Urdu's script is a consonant-
+  heavy abjad that often omits short vowels entirely — a harder problem
+  than Hindi's, not a smaller version of it). Unlike Stress/Rhyme above,
   this is NOT gated to `target_language == "English"` — it runs for any
   script it supports, regardless of the target language's name.
 - **Benchmark coverage:** unit-tested (`tests/test_rhythm.py`'s Hangul
-  cases hand-verified against known Korean words; `tests/test_verify.py`).
+  cases hand-verified against known Korean words; `tests/test_g2p_hi.py`'s
+  Hindi cases against known-correct words; `tests/test_verify.py`).
   Not corpus-benchmarked; the two Tier 0 pieces have no benchmark that
   could even measure them yet.
 

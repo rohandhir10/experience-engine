@@ -200,9 +200,10 @@ class SectionVerification(BaseModel):
     # "sustainable"/"closed"/None (engine/rhythm.py::phrase_end_sustainability)
     # for the shipped line's last word - script-based, not tied to
     # target_language == "English" the way the CMU-dictionary checks are,
-    # since it works for any Latin-script or Hangul output. None for
-    # Devanagari/Perso-Arabic targets (Hindi, Urdu), which this can't
-    # answer for without real pronunciation data.
+    # since it works for Latin-script, Hangul, and Devanagari (Hindi, via
+    # engine/g2p_hi.py's schwa-deletion heuristic) output. None only for
+    # Perso-Arabic targets (Urdu), which this can't answer for without
+    # real pronunciation data.
     phrase_end_sustainability: str | None = None
     verifiable: bool = True  # False when no translator anchor exists
 
@@ -676,10 +677,11 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
         # --- Rhyme: measured, not judged (Phase 3B) — see engine/rhyme.py -
         rhyme_density_value = _compute_rhyme_density(_non_empty_lines(final))
 
-    # --- Phrase-end sustainability: script-based (Latin, Hangul), not
-    # target_language == "English"-gated the way the CMU-dictionary checks
-    # above are - it works for any target written in one of those two
-    # scripts, and reports None (not a guess) for Devanagari/Perso-Arabic.
+    # --- Phrase-end sustainability: script-based (Latin, Hangul,
+    # Devanagari), not target_language == "English"-gated the way the
+    # CMU-dictionary checks above are - it works for any target written
+    # in one of those three scripts, and reports None (not a guess) for
+    # Perso-Arabic (Urdu).
     non_empty_final_lines = _non_empty_lines(final)
     sustainability = (
         _phrase_end_sustainability(non_empty_final_lines[-1]) if non_empty_final_lines else None
@@ -692,12 +694,12 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
                 section=section,
                 detail=(
                     "This section's last line ends on a stop consonant "
-                    "(p/b/t/d/k/g or its Hangul-coda equivalent) - "
+                    "(or its Hangul/Devanagari-coda equivalent) - "
                     "physically impossible to hold for a sustained note. "
                     "Worth a listen if this is meant to land on a held "
-                    "final note. Only checked for Latin-script and Hangul "
-                    "output; not evaluated here for Devanagari/Perso-"
-                    "Arabic targets."
+                    "final note. Only checked for Latin-script, Hangul, "
+                    "and Devanagari output; not evaluated here for "
+                    "Perso-Arabic (Urdu) targets."
                 ),
             )
         )

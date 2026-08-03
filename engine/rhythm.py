@@ -129,11 +129,13 @@ def source_syllable_estimate(source_text: str) -> int | None:
 # guess. That gives a real answer for whether a block's final sound is a
 # sustained nasal/liquid/open-vowel or an unreleased stop.
 #
-# Devanagari and Perso-Arabic scripts (Hindi, Urdu) are NOT supported here
-# - both need real pronunciation data this module doesn't have (Hindi's
-# schwa-deletion problem in particular is a genuinely hard, still-debated
-# computational-linguistics question, not something a spelling rule can
-# resolve). None means exactly that: no answer, not a guessed one.
+# Devanagari (Hindi) is resolved via engine/g2p_hi.py's schwa-deletion
+# heuristic - see that module for the algorithm and its disclosed limits.
+# Perso-Arabic script (Urdu) is still NOT supported here: it needs real
+# pronunciation data this module doesn't have (Urdu's script is a
+# consonant-heavy abjad that often doesn't write short vowels at all,
+# a harder problem than Hindi's schwa deletion, not a smaller version of
+# it). None means exactly that for Urdu: no answer, not a guessed one.
 _LATIN_STOP_CONSONANTS = frozenset("pbtdkg")
 
 _HANGUL_BASE = 0xAC00
@@ -174,8 +176,8 @@ def _is_hangul_syllable(ch: str) -> bool:
 
 def phrase_end_sustainability(line: str) -> str | None:
     """"sustainable" or "closed" for the last word's final sound, or None
-    if the script isn't one of the two this can actually answer for (see
-    module comment above). Never guesses for Devanagari/Perso-Arabic.
+    if the script isn't one of the three this can actually answer for
+    (see module comment above). Never guesses for Perso-Arabic (Urdu).
     """
     words = re.findall(r"\S+", line.strip())
     if not words:
@@ -191,5 +193,11 @@ def phrase_end_sustainability(line: str) -> str | None:
 
     if is_latin_script(last_word):
         return "closed" if last_char.lower() in _LATIN_STOP_CONSONANTS else "sustainable"
+
+    from .g2p_hi import get_hindi_phonetic_coda
+
+    hindi_coda = get_hindi_phonetic_coda(last_word)
+    if hindi_coda is not None:
+        return hindi_coda["coda_type"]
 
     return None
