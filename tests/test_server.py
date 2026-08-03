@@ -365,6 +365,37 @@ def test_adapt_discards_youtube_timing_on_section_count_mismatch(monkeypatch, ca
     assert any("timing discarded" in r.message for r in caplog.records)
 
 
+def test_adapt_attaches_phoneme_repetition_similarity(monkeypatch):
+    """The song-level Sim_pho correlation is computed by verify_result, not
+    mapping.py's per-section shape - attach it separately onto the same
+    response dict, straight from the report, not recomputed or guessed."""
+    from engine.verify import VerificationReport
+
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+    monkeypatch.setattr(
+        main, "verify_result", lambda *args, **kwargs: VerificationReport(phoneme_repetition_similarity=0.42)
+    )
+
+    result = main.adapt(main.AdaptRequest(text="line one\n\nline two"), _FakeRequest())
+
+    assert result["phonemeRepetitionSimilarity"] == 0.42
+
+
+def test_adapt_leaves_phoneme_repetition_similarity_none_when_unmeasured(monkeypatch):
+    from engine.verify import VerificationReport
+
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+    monkeypatch.setattr(
+        main, "verify_result", lambda *args, **kwargs: VerificationReport(phoneme_repetition_similarity=None)
+    )
+
+    result = main.adapt(main.AdaptRequest(text="line one\n\nline two"), _FakeRequest())
+
+    assert result["phonemeRepetitionSimilarity"] is None
+
+
 def test_youtube_draft_returns_build_web_draft_result(monkeypatch):
     def fake_build_web_draft(url, preferred_languages=None):
         return {

@@ -353,6 +353,13 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         ", ".join(sorted({f.law for f in errors + warnings})),
     )
 
+    # Song-level (a correlation needs the whole song's sections, not one),
+    # so it doesn't fit the per-section shape mapping.py already builds -
+    # attached here instead. None for non-English targets or songs with
+    # too few CMU-resolvable sections; the frontend must treat null as
+    # "not computed," never as a zero score.
+    experience_result["phonemeRepetitionSimilarity"] = report.phoneme_repetition_similarity
+
     if request.youtube_video_id and request.youtube_section_timings:
         timings = request.youtube_section_timings
         result_sections = experience_result["sections"]

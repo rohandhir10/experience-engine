@@ -30,4 +30,9 @@ export type ExperienceResult = {
   sections: SectionComparison[];
   original: OriginalSection[];
   videoId?: string;
+  // Song-level (a correlation across sections, not a per-line number) -
+  // see engine/rhyme.py's module comment for exactly what this compares
+  // (the Translator's anchor vs. the shipped line, English-target only).
+  // null/undefined means "not computed," never a zero score.
+  phonemeRepetitionSimilarity?: number | null;
 };

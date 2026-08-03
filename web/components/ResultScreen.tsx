@@ -100,6 +100,16 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
         <p className="font-serif text-[1.7rem] leading-[1.4] tracking-tight text-ink dark:text-ink-dark sm:text-[2.05rem]">
           {result.hook}
         </p>
+        {result.phonemeRepetitionSimilarity != null && (
+          <p className="mt-5 text-[12px] leading-relaxed text-ink/35 dark:text-ink-dark/35">
+            Repetition pattern:{" "}
+            {result.phonemeRepetitionSimilarity >= 0
+              ? "follows a literal reading of the lyrics, section by section"
+              : "runs opposite a literal reading of the lyrics, section by section"}{" "}
+            ({result.phonemeRepetitionSimilarity >= 0 ? "+" : ""}
+            {result.phonemeRepetitionSimilarity.toFixed(2)})
+          </p>
+        )}
       </div>
 
       {result.videoId && (
