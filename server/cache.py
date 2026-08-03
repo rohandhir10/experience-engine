@@ -45,6 +45,20 @@ _FUZZY_WHITESPACE_RE = re.compile(r"\s+", re.UNICODE)
 
 SIMILARITY_THRESHOLD = 0.92
 
+# Bump this whenever a prompt or pipeline change would make previously
+# cached output stale (wrong "why" copy, a fixed bug, a corrected
+# heuristic) - server/mapping.py's _WHY_SYSTEM rewrite is what exposed
+# the need for this: three real songs kept showing pre-fix output
+# indefinitely, because nothing ever told the cache the logic underneath
+# it had changed. Folded into content_id() below, so bumping it makes
+# every future request for already-cached text miss the cache and
+# regenerate, rather than needing a manual per-song cache clear.
+#
+# Deliberately NOT bumped retroactively for every past change (that
+# would be pure busywork with no real value) - only from here forward,
+# starting now.
+CACHE_VERSION = "2"
+
 
 def normalize_text(text: str) -> str:
     lines = [_WHITESPACE_RE.sub(" ", line).strip() for line in text.strip().splitlines()]
@@ -69,6 +83,13 @@ def content_id(
         key = f"{target_language}::{key}"
     if source_language != "unspecified":
         key = f"{source_language}::{key}"
+    # Unlike target_language/source_language above, this always folds in -
+    # there's no "default" version to stay silently compatible with, and
+    # every id computed before CACHE_VERSION existed still resolves fine
+    # by direct lookup (get() reads by literal id; only a fresh POST for
+    # the same text computes a new, version-tagged id and misses the old
+    # cached row). See CACHE_VERSION's comment for why this exists.
+    key = f"{CACHE_VERSION}::{key}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
@@ -121,12 +142,14 @@ def set(
                         target_language=target_language,
                         source_language=source_language,
                         result_json=result,
+                        cache_version=CACHE_VERSION,
                     )
                 )
             else:
                 row.result_json = result
                 row.target_language = target_language
                 row.source_language = source_language
+                row.cache_version = CACHE_VERSION
                 if source_text is not None:
                     row.normalized_text = key
             session.commit()
@@ -153,6 +176,13 @@ def find_similar(
     source adapted into Hindi can have near-identical normalized_text
     (the fuzzy key only looks at the source side today) while being
     entirely different, non-interchangeable results.
+
+    Also only matches rows computed under the CURRENT CACHE_VERSION.
+    Unlike content_id()'s exact-hash path (where a version bump naturally
+    misses old rows because the id itself changed), this scans stored
+    text directly, so it would otherwise keep resurfacing a pre-bump row
+    for a near-identical resubmission forever, defeating the whole point
+    of bumping CACHE_VERSION in the first place.
     """
     if not _use_db():
         return None
@@ -168,7 +198,11 @@ def find_similar(
     with db.session_scope() as session:
         rows = (
             session.query(CachedResult)
-            .filter_by(target_language=target_language, source_language=source_language)
+            .filter_by(
+                target_language=target_language,
+                source_language=source_language,
+                cache_version=CACHE_VERSION,
+            )
             .all()
         )
         for row in rows:

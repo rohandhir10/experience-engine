@@ -83,9 +83,14 @@ def _patch_known_schema_drift() -> None:
 
     This is a one-off, targeted backfill, not a migration framework - IF
     NOT EXISTS makes it idempotent (safe to run on every startup, forever,
-    with no effect once every environment has the columns). Introduce a
-    real migration tool (Alembic) before this needs to happen a second
-    time; patching individual columns by hand doesn't scale past one.
+    with no effect once every environment has the columns).
+
+    This docstring originally said "introduce Alembic before this needs
+    to happen a second time." It happened a second time (cache_version,
+    below, for server/cache.py's cache-invalidation fix) before that
+    happened. Noted honestly rather than quietly deleting the claim -
+    patching individual columns by hand is proving it does NOT scale
+    past one, and Alembic is overdue, not just "worth considering."
     """
     from sqlalchemy import text
 
@@ -106,6 +111,15 @@ def _patch_known_schema_drift() -> None:
             "UPDATE cached_results SET source_language = 'unspecified' "
             "WHERE source_language IS NULL"
         ))
+        conn.execute(text(
+            "ALTER TABLE cached_results ADD COLUMN IF NOT EXISTS "
+            "cache_version VARCHAR DEFAULT ''"
+        ))
+        # Deliberately NOT backfilled to the current CACHE_VERSION - an
+        # empty string is exactly what a pre-existing row should show:
+        # "computed before this concept existed," which correctly makes
+        # it a version mismatch (not a false match) the next time
+        # find_similar() runs.
 
 
 def session_scope() -> Session:

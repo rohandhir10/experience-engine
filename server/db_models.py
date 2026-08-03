@@ -124,6 +124,13 @@ class CachedResult(Base):
     # being completely different, non-interchangeable results.
     target_language: Mapped[str] = mapped_column(String, default="English")
     source_language: Mapped[str] = mapped_column(String, default="unspecified")
+    # server/cache.py::CACHE_VERSION at the time this row was computed.
+    # find_similar() only reuses rows matching the CURRENT version, so a
+    # row computed under stale prompt/pipeline logic gets regenerated
+    # instead of silently resurfacing old output via a fuzzy (not exact
+    # id) match. Defaults to "" precisely so pre-existing rows (from
+    # before this column existed) never equal a real CACHE_VERSION value.
+    cache_version: Mapped[str] = mapped_column(String, default="")
     result_json: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

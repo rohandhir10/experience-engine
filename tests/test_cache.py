@@ -102,6 +102,39 @@ def test_content_id_unaffected_by_source_language_when_english_target_and_unspec
     )
 
 
+def test_content_id_changes_when_cache_version_bumps(monkeypatch):
+    """The whole point: a prompt/pipeline fix should make previously
+    cached text miss the cache and regenerate, without needing a manual
+    per-song clear."""
+    monkeypatch.setattr(cache, "CACHE_VERSION", "1")
+    v1 = cache.content_id("line one\nline two")
+    monkeypatch.setattr(cache, "CACHE_VERSION", "2")
+    v2 = cache.content_id("line one\nline two")
+    assert v1 != v2
+
+
+def test_db_backend_find_similar_ignores_a_stale_cache_version(sqlite_db, monkeypatch):
+    """A row written under an old CACHE_VERSION must not be resurfaced by
+    find_similar's fuzzy scan after a version bump - that scan doesn't go
+    through content_id() at all, so it's the one path that could quietly
+    keep serving pre-fix output forever without this check."""
+    monkeypatch.setattr(cache, "CACHE_VERSION", "1")
+    result_id = cache.content_id("Hello, World!\nHow are you?")
+    cache.set(result_id, {"hook": "stale"}, source_text="Hello, World!\nHow are you?")
+
+    monkeypatch.setattr(cache, "CACHE_VERSION", "2")
+    assert cache.find_similar("hello world.\nhow are you") is None
+
+
+def test_db_backend_find_similar_still_matches_the_current_version(sqlite_db):
+    result_id = cache.content_id("Hello, World!\nHow are you?")
+    cache.set(result_id, {"hook": "fresh"}, source_text="Hello, World!\nHow are you?")
+
+    match = cache.find_similar("hello world.\nhow are you")
+    assert match is not None
+    assert match[1] == {"hook": "fresh"}
+
+
 def test_db_backend_find_similar_respects_source_language(sqlite_db):
     """Hindi -> Korean and Japanese -> Korean of near-identical text must
     not be treated as the same cached result."""
