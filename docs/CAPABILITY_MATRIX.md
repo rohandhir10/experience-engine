@@ -530,6 +530,73 @@ why-sentence disclosing it.
   `creative_adapter`/`judge_triage`/`judge_final` hashes updated with a
   changelog comment.
 
+## Async engine runs: /api/adapt/start + job polling — detail
+
+Every real test in this document so far has been 1-2 sections, because a
+full multi-section song was silently impossible to run from the deployed
+web app: `web/app/api/adapt/route.ts` sets `maxDuration = 60` with a 55s
+client-side abort — Vercel's Hobby-plan ceiling — but `engine/pipeline.py`
+`run_engine` processes sections strictly sequentially in one HTTP request,
+and each section runs 3-7 of its own sequential LLM calls (Song DNA once,
+then per section: Translator, Creative Adapter, Judge triage, up to 3
+specialists, Judge final). A 6-8 section song is 20-50+ sequential LLM
+calls in a single request — minutes, not seconds — and the token-budget
+scaling added earlier in this document (to fix a truncation bug) makes
+every individual call slower too, tightening this ceiling further. The
+old blocking endpoint made "adapt a whole song" and "keep individual
+calls uncut" work against each other.
+
+- **`server/main.py`:** `/api/adapt` is unchanged (still useful for short
+  songs, local dev, or anything not bound by a serverless timeout). Its
+  validation and actual engine-running logic were extracted into shared
+  helpers (`_validate_adapt_request`, `_build_song`, `_run_adaptation`) so
+  the new endpoints can't drift from what `/api/adapt` already does.
+  `POST /api/adapt/start` runs the same cache/fuzzy-match/quota checks
+  synchronously (fast — a cache hit or fuzzy match returns
+  `{"status": "done", "result": ...}` immediately, same as before), but
+  for a genuine cache miss it starts the actual engine run on a
+  `threading.Thread` and returns `{"status": "pending", "job_id": ...}`
+  right away. This works without an external job queue because the
+  Railway process is a long-lived container, not a serverless function —
+  the background thread simply outlives the HTTP request that started
+  it. `GET /api/adapt/jobs/{job_id}` is a fast in-memory dict lookup
+  returning `{"status": "pending"|"running"|"done"|"error", "result":
+  ..., "error": ...}`.
+- **Job storage is in-memory, single-instance** (a `dict[str, _Job]`
+  behind a lock, pruned by a 1-hour TTL on each new job's creation) — the
+  same tradeoff `_daily_runs` (the existing per-IP quota) already makes,
+  acceptable because this process runs as a single uvicorn worker (see
+  the Dockerfile — no `--workers` flag). A restart drops in-flight jobs;
+  worth revisiting with real persistence (or Postgres-backed job rows,
+  the way `CachedResult` already works) if this ever needs more than one
+  worker process or Railway instance.
+- **`web/app/api/adapt/start/route.ts`, `web/app/api/adapt/jobs/[jobId]/
+  route.ts`** (new): thin proxies, neither needs `/api/adapt/route.ts`'s
+  `maxDuration`/`AbortController` handling since both return almost
+  instantly regardless of how long the underlying engine run takes.
+- **`web/lib/useAdaptSubmit.ts`:** now POSTs to `/api/adapt/start` and, if
+  the response is `"pending"`, polls `/api/adapt/jobs/[jobId]` every
+  2.5s for up to 10 minutes before giving up with a friendly timeout
+  message — the same sessionStorage-stash-then-navigate flow as before
+  once a result (cached or job-completed) is in hand.
+- **Tier 1** — this is infrastructure, not a model-behavior claim; the
+  job lifecycle itself is deterministic and unit-tested
+  (`tests/test_server_jobs.py`, mocking `_run_adaptation` so no real LLM
+  calls are made). What's NOT yet verified is a real, live full-song run
+  end-to-end against the deployed Railway/Vercel pair — that needs the
+  user to actually try a multi-section song against the live site.
+- **Benchmark coverage:** `tests/test_server_jobs.py` (new, 10 tests):
+  cache-hit and fuzzy-match short-circuits create no job; a job
+  transitions pending → running → done with the right result; `LLMError`
+  becomes the same friendly message `/api/adapt` already used (raw
+  exception text never reaches the client); `RuntimeError` is surfaced
+  verbatim (a configuration failure, same as `/api/adapt`); a genuinely
+  unexpected exception in the background thread still resolves the job
+  to `"error"` rather than leaving a poller waiting forever; an unknown
+  `job_id` is a 404; input validation matches `/api/adapt`; the quota is
+  still enforced. `tsc --noEmit` and `next build` both pass clean for the
+  two new frontend routes and `useAdaptSubmit.ts`'s rewrite.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

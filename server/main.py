@@ -7,10 +7,34 @@ or in production via the Dockerfile at the repo root. OPENAI_API_KEY must
 be set in the environment either way.
 
 Endpoints:
-  GET  /health         -> liveness probe for hosting platforms
-  POST /api/adapt      body: {"text": "..."} -> a full ExperienceResult
-  GET  /api/adapt/{id} -> a previously computed ExperienceResult, for the
-                          frontend's shareable /s/[id] page.
+  GET  /health              -> liveness probe for hosting platforms
+  POST /api/adapt           body: {"text": "..."} -> a full ExperienceResult
+                            (blocking - see the job endpoints below for
+                            anything that might run past a serverless
+                            function's timeout).
+  GET  /api/adapt/{id}      -> a previously computed ExperienceResult, for
+                               the frontend's shareable /s/[id] page.
+  POST /api/adapt/start     body: same as /api/adapt -> {"status": "done",
+                            "result": ...} on a cache hit, or
+                            {"status": "pending", "job_id": ...} otherwise
+                            - the engine run continues in a background
+                            thread past this request's return.
+  GET  /api/adapt/jobs/{id} -> {"status": "pending"|"running"|"done"|
+                            "error", "result": ..., "error": ...} - poll
+                            until status is "done" or "error".
+
+Why /api/adapt/start exists: a real multi-section song run is several
+sections deep, each running 3-7 sequential LLM calls of its own (Song DNA
+once, then per section: Translator, Creative Adapter, Judge triage, up to
+3 specialists, Judge final) — a full song routinely takes minutes, well
+past Vercel's 60s Hobby-plan function ceiling (web/app/api/adapt/
+route.ts's maxDuration comment). /api/adapt itself is unchanged and still
+useful for short songs/local dev/anything not bound by a serverless
+timeout; /api/adapt/start moves the actual engine run into a background
+thread that outlives the HTTP request that started it (this process is a
+long-lived Railway container, not a serverless function, so nothing here
+needs an external job queue at today's scale), and the caller polls
+/api/adapt/jobs/{id} — itself a fast dict lookup — until it's done.
 
 Operational behavior:
   - Same-text submissions are served from server/.cache without re-running
@@ -37,9 +61,12 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 import time
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Request
@@ -49,7 +76,7 @@ from pydantic import BaseModel
 from engine import config
 from engine import youtube_ingest
 from engine.llm_client import LLMError, create_default_client
-from engine.models import SUPPORTED_LANGUAGES, SongInput
+from engine.models import SUPPORTED_LANGUAGES, SectionInput, SongInput
 from engine.pipeline import run_engine
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
@@ -192,11 +219,11 @@ def health_db() -> dict:
         raise HTTPException(status_code=503, detail=f"database unreachable: {exc}") from exc
 
 
-@app.post("/api/adapt")
-def adapt(request: AdaptRequest, http_request: Request) -> dict:
-    started = time.monotonic()
-    ip = _client_ip(http_request)
-
+def _validate_adapt_request(request: AdaptRequest) -> tuple[str, str, str]:
+    """Every check /api/adapt used to do inline, shared with /api/adapt/
+    start so the two endpoints can't drift on what counts as a valid
+    request. Raises HTTPException; returns (text, target_language,
+    source_language), each already stripped/defaulted."""
     text = request.text.strip()
     target_language = request.target_language.strip() or "English"
     source_language = request.source_language.strip() or "unspecified"
@@ -246,6 +273,162 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
                 "specified - pick which language the pasted lyrics are in."
             ),
         )
+    return text, target_language, source_language
+
+
+def _build_song(
+    text: str, target_language: str, source_language: str
+) -> tuple[list[SectionInput], SongInput]:
+    try:
+        sections = split_into_sections(text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    try:
+        song = SongInput(
+            source_language=source_language,
+            target_language=target_language,
+            sections=sections,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return sections, song
+
+
+def _run_adaptation(
+    request: AdaptRequest,
+    result_id: str,
+    text: str,
+    target_language: str,
+    source_language: str,
+    sections: list[SectionInput],
+    song: SongInput,
+    ip: str,
+    started: float,
+    log_prefix: str = "adapt",
+) -> dict:
+    """The actual engine run: Song DNA -> Writers' Room -> Judge, then
+    verification and cache write. Shared by the blocking /api/adapt
+    endpoint and the background job /api/adapt/start kicks off - callers
+    differ only in how they turn an LLMError/RuntimeError into a response
+    (an HTTPException here, a job's stored `error` string there), so
+    those propagate uncaught rather than being translated in here.
+    """
+    logger.info(
+        "%s id=%s ip=%s source=%s target=%s cache=miss sections=%d chars=%d starting engine run",
+        log_prefix, result_id, ip, source_language, target_language, len(sections), len(text),
+    )
+
+    client = create_default_client()
+    # apply_corrective_pass: verify.py runs once against the raw output,
+    # and any error-severity finding gets one bounded re-judge
+    # (engine/pipeline.py's Phase 2 corrective pass) before this ships to
+    # a real user — not just logged after the fact.
+    engine_result = run_engine(
+        song, client=client, room_version="v1", apply_corrective_pass=True
+    )
+    # explain_why is presentation text, not adaptation reasoning — the one
+    # call in this request that's a legitimate candidate for a cheaper
+    # model (engine/config.py's EXPLAIN_WHY_MODEL). A separate client so
+    # its calls are still fully measured (merged into the cost log
+    # below), just not on the same model as the rest.
+    explain_why_client = create_default_client(model=config.EXPLAIN_WHY_MODEL)
+    experience_result = to_experience_result(
+        client, engine_result, result_id, explain_why_client=explain_why_client
+    )
+
+    # Verified a second time here, after the corrective pass already ran
+    # inside run_engine — this call never triggers another correction, it
+    # only makes what's still true (if anything) visible in production
+    # logs, since nothing was checking this in the deployed web app until
+    # now.
+    report = verify_result(engine_result.to_dict())
+    errors = [f for f in report.all_findings if f.severity == "error"]
+    warnings = [f for f in report.all_findings if f.severity == "warning"]
+    if errors:
+        logger.warning(
+            "%s id=%s shipped with %d unresolved verify.py error(s) after "
+            "the corrective pass: %s",
+            log_prefix,
+            result_id,
+            len(errors),
+            "; ".join(f"{f.law} ({f.section})" for f in errors),
+        )
+    logger.info(
+        "%s id=%s verify errors=%d warnings=%d laws=[%s]",
+        log_prefix,
+        result_id,
+        len(errors),
+        len(warnings),
+        ", ".join(sorted({f.law for f in errors + warnings})),
+    )
+
+    # Song-level (a correlation needs the whole song's sections, not one),
+    # so it doesn't fit the per-section shape mapping.py already builds -
+    # attached here instead. None for non-English targets or songs with
+    # too few CMU-resolvable sections; the frontend must treat null as
+    # "not computed," never as a zero score.
+    experience_result["phonemeRepetitionSimilarity"] = report.phoneme_repetition_similarity
+
+    if request.youtube_video_id and request.youtube_section_timings:
+        timings = request.youtube_section_timings
+        result_sections = experience_result["sections"]
+        if len(timings) == len(result_sections):
+            experience_result["videoId"] = request.youtube_video_id
+            for section, timing in zip(result_sections, timings):
+                section["startSeconds"] = timing.start
+                section["endSeconds"] = timing.end
+        else:
+            # The user added/removed a section break while reviewing the
+            # draft — positional timing no longer lines up with anything
+            # real, so this drops it rather than guess at a new mapping.
+            logger.info(
+                "%s id=%s youtube timing discarded: %d timings vs %d sections",
+                log_prefix, result_id, len(timings), len(result_sections),
+            )
+
+    cache.set(
+        result_id,
+        experience_result,
+        source_text=text,
+        target_language=target_language,
+        source_language=source_language,
+    )
+    # Measured, not estimated (engine/models.py::LLMCallRecord) — every
+    # real API call this request made, so cost/latency stays visible in
+    # production logs instead of only being knowable after building a
+    # separate benchmark. Aggregated per stage since a section-by-section
+    # breakdown is more log lines than one request needs by default.
+    # Includes explain_why_client's calls too — a different model, but
+    # still real cost from this request, and it would otherwise vanish
+    # from this total silently.
+    calls = client.call_log + explain_why_client.call_log
+    tokens_by_stage: dict[tuple[str, str], list[int]] = {}
+    for record in calls:
+        counts = tokens_by_stage.setdefault((record.stage, record.model), [0, 0])
+        counts[0] += record.prompt_tokens
+        counts[1] += record.completion_tokens
+    stage_summary = ", ".join(
+        f"{stage}[{model}]={prompt}p/{completion}c"
+        for (stage, model), (prompt, completion) in sorted(tokens_by_stage.items())
+    )
+    total_prompt = sum(r.prompt_tokens for r in calls)
+    total_completion = sum(r.completion_tokens for r in calls)
+    llm_latency = sum(r.latency_seconds for r in calls)
+    logger.info(
+        "%s id=%s ip=%s cache=stored sections=%d duration=%.2fs "
+        "llm_calls=%d llm_latency=%.2fs prompt_tokens=%d completion_tokens=%d "
+        "by_stage=[%s]",
+        log_prefix, result_id, ip, len(sections), time.monotonic() - started,
+        len(calls), llm_latency, total_prompt, total_completion, stage_summary,
+    )
+    return experience_result
+
+
+@app.post("/api/adapt")
+def adapt(request: AdaptRequest, http_request: Request) -> dict:
+    started = time.monotonic()
+    ip = _client_ip(http_request)
+    text, target_language, source_language = _validate_adapt_request(request)
 
     result_id = cache.content_id(text, target_language=target_language, source_language=source_language)
     cached = cache.get(result_id)
@@ -281,43 +464,11 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         return matched_result
 
     _check_quota(ip)
+    sections, song = _build_song(text, target_language, source_language)
 
     try:
-        sections = split_into_sections(text)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    try:
-        song = SongInput(
-            source_language=source_language,
-            target_language=target_language,
-            sections=sections,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    logger.info(
-        "adapt id=%s ip=%s source=%s target=%s cache=miss sections=%d chars=%d starting engine run",
-        result_id, ip, source_language, target_language, len(sections), len(text),
-    )
-
-    try:
-        client = create_default_client()
-        # apply_corrective_pass: verify.py runs once against the raw
-        # output, and any error-severity finding gets one bounded re-judge
-        # (engine/pipeline.py's Phase 2 corrective pass) before this ships
-        # to a real user — not just logged after the fact.
-        engine_result = run_engine(
-            song, client=client, room_version="v1", apply_corrective_pass=True
-        )
-        # explain_why is presentation text, not adaptation reasoning — the
-        # one call in this request that's a legitimate candidate for a
-        # cheaper model (engine/config.py's EXPLAIN_WHY_MODEL). A separate
-        # client so its calls are still fully measured (merged into the
-        # cost log below), just not on the same model as the rest.
-        explain_why_client = create_default_client(model=config.EXPLAIN_WHY_MODEL)
-        experience_result = to_experience_result(
-            client, engine_result, result_id, explain_why_client=explain_why_client
+        return _run_adaptation(
+            request, result_id, text, target_language, source_language, sections, song, ip, started
         )
     except LLMError as exc:
         logger.error("adapt id=%s engine failure: %s", result_id, exc)
@@ -329,91 +480,6 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         logger.error("adapt id=%s configuration failure: %s", result_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    # Verified a second time here, after the corrective pass already ran
-    # inside run_engine — this call never triggers another correction, it
-    # only makes what's still true (if anything) visible in production
-    # logs, since nothing was checking this in the deployed web app until
-    # now.
-    report = verify_result(engine_result.to_dict())
-    errors = [f for f in report.all_findings if f.severity == "error"]
-    warnings = [f for f in report.all_findings if f.severity == "warning"]
-    if errors:
-        logger.warning(
-            "adapt id=%s shipped with %d unresolved verify.py error(s) after "
-            "the corrective pass: %s",
-            result_id,
-            len(errors),
-            "; ".join(f"{f.law} ({f.section})" for f in errors),
-        )
-    logger.info(
-        "adapt id=%s verify errors=%d warnings=%d laws=[%s]",
-        result_id,
-        len(errors),
-        len(warnings),
-        ", ".join(sorted({f.law for f in errors + warnings})),
-    )
-
-    # Song-level (a correlation needs the whole song's sections, not one),
-    # so it doesn't fit the per-section shape mapping.py already builds -
-    # attached here instead. None for non-English targets or songs with
-    # too few CMU-resolvable sections; the frontend must treat null as
-    # "not computed," never as a zero score.
-    experience_result["phonemeRepetitionSimilarity"] = report.phoneme_repetition_similarity
-
-    if request.youtube_video_id and request.youtube_section_timings:
-        timings = request.youtube_section_timings
-        result_sections = experience_result["sections"]
-        if len(timings) == len(result_sections):
-            experience_result["videoId"] = request.youtube_video_id
-            for section, timing in zip(result_sections, timings):
-                section["startSeconds"] = timing.start
-                section["endSeconds"] = timing.end
-        else:
-            # The user added/removed a section break while reviewing the
-            # draft — positional timing no longer lines up with anything
-            # real, so this drops it rather than guess at a new mapping.
-            logger.info(
-                "adapt id=%s youtube timing discarded: %d timings vs %d sections",
-                result_id, len(timings), len(result_sections),
-            )
-
-    cache.set(
-        result_id,
-        experience_result,
-        source_text=text,
-        target_language=target_language,
-        source_language=source_language,
-    )
-    # Measured, not estimated (engine/models.py::LLMCallRecord) — every
-    # real API call this request made, so cost/latency stays visible in
-    # production logs instead of only being knowable after building a
-    # separate benchmark. Aggregated per stage since a section-by-section
-    # breakdown is more log lines than one request needs by default.
-    # Includes explain_why_client's calls too — a different model, but
-    # still real cost from this request, and it would otherwise vanish
-    # from this total silently.
-    calls = client.call_log + explain_why_client.call_log
-    tokens_by_stage: dict[tuple[str, str], list[int]] = {}
-    for record in calls:
-        counts = tokens_by_stage.setdefault((record.stage, record.model), [0, 0])
-        counts[0] += record.prompt_tokens
-        counts[1] += record.completion_tokens
-    stage_summary = ", ".join(
-        f"{stage}[{model}]={prompt}p/{completion}c"
-        for (stage, model), (prompt, completion) in sorted(tokens_by_stage.items())
-    )
-    total_prompt = sum(r.prompt_tokens for r in calls)
-    total_completion = sum(r.completion_tokens for r in calls)
-    llm_latency = sum(r.latency_seconds for r in calls)
-    logger.info(
-        "adapt id=%s ip=%s cache=stored sections=%d duration=%.2fs "
-        "llm_calls=%d llm_latency=%.2fs prompt_tokens=%d completion_tokens=%d "
-        "by_stage=[%s]",
-        result_id, ip, len(sections), time.monotonic() - started,
-        len(calls), llm_latency, total_prompt, total_completion, stage_summary,
-    )
-    return experience_result
-
 
 @app.get("/api/adapt/{result_id}")
 def get_adapt(result_id: str) -> dict:
@@ -421,3 +487,134 @@ def get_adapt(result_id: str) -> dict:
     if cached is None:
         raise HTTPException(status_code=404, detail="No result found for this link.")
     return cached
+
+
+@dataclass
+class _Job:
+    status: str = "pending"  # "pending" | "running" | "done" | "error"
+    result: dict | None = None
+    error: str | None = None
+    created_at: float = field(default_factory=time.monotonic)
+
+
+# In-memory, single-instance, resets on restart - same tradeoff as
+# _daily_runs above, acceptable at today's scale (this process runs as
+# one uvicorn worker; see the Dockerfile). _JOB_TTL_SECONDS bounds memory
+# growth from jobs nobody ever polls again, pruned opportunistically on
+# each new job's creation rather than on a timer.
+_jobs: dict[str, _Job] = {}
+_jobs_lock = threading.Lock()
+_JOB_TTL_SECONDS = 3600
+
+
+def _prune_stale_jobs() -> None:
+    cutoff = time.monotonic() - _JOB_TTL_SECONDS
+    for job_id in [jid for jid, job in _jobs.items() if job.created_at < cutoff]:
+        del _jobs[job_id]
+
+
+def _run_job(
+    job_id: str,
+    request: AdaptRequest,
+    result_id: str,
+    text: str,
+    target_language: str,
+    source_language: str,
+    sections: list[SectionInput],
+    song: SongInput,
+    ip: str,
+    started: float,
+) -> None:
+    with _jobs_lock:
+        _jobs[job_id].status = "running"
+    try:
+        experience_result = _run_adaptation(
+            request, result_id, text, target_language, source_language, sections, song, ip, started,
+            log_prefix="job",
+        )
+        with _jobs_lock:
+            _jobs[job_id].status = "done"
+            _jobs[job_id].result = experience_result
+    except LLMError as exc:
+        logger.error("job id=%s engine failure: %s", job_id, exc)
+        with _jobs_lock:
+            _jobs[job_id].status = "error"
+            _jobs[job_id].error = "The engine hit a problem processing this song. Try again in a moment."
+    except RuntimeError as exc:
+        logger.error("job id=%s configuration failure: %s", job_id, exc)
+        with _jobs_lock:
+            _jobs[job_id].status = "error"
+            _jobs[job_id].error = str(exc)
+    except Exception:
+        # A background thread's uncaught exception is otherwise silent -
+        # nothing re-raises it anywhere the poller would see. Whoever's
+        # polling deserves an "error" status, not an indefinite "pending".
+        logger.exception("job id=%s unexpected failure", job_id)
+        with _jobs_lock:
+            _jobs[job_id].status = "error"
+            _jobs[job_id].error = "Something went wrong processing this song. Try again."
+
+
+@app.post("/api/adapt/start")
+def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
+    """Same validation, cache, and quota behavior as /api/adapt, but the
+    actual engine run happens in a background thread that outlives this
+    request - see this module's docstring for why. Returns immediately
+    either with a cached/fuzzy-matched result (status="done") or a job_id
+    to poll (status="pending")."""
+    started = time.monotonic()
+    ip = _client_ip(http_request)
+    text, target_language, source_language = _validate_adapt_request(request)
+
+    result_id = cache.content_id(text, target_language=target_language, source_language=source_language)
+    cached = cache.get(result_id)
+    if cached is not None:
+        logger.info(
+            "adapt/start id=%s ip=%s source=%s target=%s cache=hit duration=%.2fs",
+            result_id, ip, source_language, target_language, time.monotonic() - started,
+        )
+        return {"status": "done", "job_id": None, "result": cached}
+
+    similar = cache.find_similar(text, target_language=target_language, source_language=source_language)
+    if similar is not None:
+        matched_id, matched_result, similarity = similar
+        cache.set(
+            result_id,
+            matched_result,
+            source_text=text,
+            target_language=target_language,
+            source_language=source_language,
+        )
+        logger.info(
+            "adapt/start id=%s ip=%s source=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
+            result_id, ip, source_language, target_language, matched_id, similarity,
+            time.monotonic() - started,
+        )
+        return {"status": "done", "job_id": None, "result": matched_result}
+
+    _check_quota(ip)
+    sections, song = _build_song(text, target_language, source_language)
+
+    with _jobs_lock:
+        _prune_stale_jobs()
+        job_id = uuid.uuid4().hex
+        _jobs[job_id] = _Job()
+
+    thread = threading.Thread(
+        target=_run_job,
+        args=(job_id, request, result_id, text, target_language, source_language, sections, song, ip, started),
+        daemon=True,
+    )
+    thread.start()
+    return {"status": "pending", "job_id": job_id, "result": None}
+
+
+@app.get("/api/adapt/jobs/{job_id}")
+def adapt_job_status(job_id: str) -> dict:
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=404, detail="No job found for this id. It may have expired."
+        )
+    return {"status": job.status, "result": job.result, "error": job.error}
