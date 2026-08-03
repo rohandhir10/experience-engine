@@ -401,6 +401,96 @@ pasted text was actually in.
   a coverage the CI can enforce today — a gap worth closing generally,
   not specific to this feature.
 
+## Law 1 (No Invention) is English-only — non-English false positive fix — detail
+
+Found while investigating a real production output (Kun Faya Kun, Hindi →
+Japanese) where "Maula" (a specific Sufi/devotional address term) was
+shipped as generic "神" (kami, plain "god/deity") with no deviation
+logged and no mention in the why-sentence — an apparent unaudited
+semantic flattening. Tracing why `engine/verify.py`'s existing Law 1
+check hadn't already caught this exposed a much bigger, pre-existing bug:
+
+- **The bug:** Law 1 diffs the Translator's literal anchor against
+  `final_line`, word by word (`_changed_final_words`/`_tokens`). The
+  anchor is always written in English regardless of `target_language`
+  (confirmed: neither `AGENT_BRIEFS["translator"]` nor
+  `generation_prompt_v1` ever instruct it otherwise). `_tokens()`'s regex
+  IS Unicode-aware (it correctly tokenizes Japanese/Hindi/Korean/Urdu
+  text) — but diffing English anchor tokens against non-English final
+  tokens finds near-zero overlap by construction, not because nothing was
+  preserved. In practice this meant Law 1 flagged virtually the ENTIRE
+  final line as an unlogged, unjustified change on every single
+  non-English adaptation — a permanent false alarm, not a real signal.
+  Confirmed directly: diffing an English anchor against a genuinely
+  faithful Japanese line produces a single `('replace', 0, N, 0, M)`
+  opcode — 100% "changed," 0% ledger coverage — regardless of quality.
+  Because this finding is `severity="error"`, it was also auto-triggering
+  `engine/pipeline.py`'s corrective retry (an extra live Judge call) on
+  every non-English section, and corrupting `computed_invention_penalty`
+  (which is partly derived from this same false-zero coverage) for every
+  non-English result's audit trail. This is the "likely out-of-scope"
+  gap flagged in this document's history around the completeness-check
+  work above, now confirmed as actively harmful rather than merely inert.
+- **Fix:** Law 1's word-diff block now only runs when
+  `target_language == "English"`. For every other target, it emits one
+  `severity="warning"` informational finding instead, explicitly saying
+  coverage was not computed for this section and that
+  `ledger_coverage`/`computed_invention_penalty` should not be read as a
+  real measurement here. The ledger-integrity and tautology checks
+  (`fragment_adapted`/`fragment_original` substring containment,
+  tautological-justification detection) are untouched and still run for
+  every language — they check deviations against the anchor/final text
+  directly via substring matching, not cross-script word diffing, so
+  they were never affected by this bug.
+- **Not yet fixed:** the "Maula" → "神" flattening itself is still a real,
+  live quality question (a specific devotional address term rendered as
+  a generic word for deity, unlogged) — this fix makes the audit trail
+  honest about not being able to check that automatically for non-English
+  targets; it doesn't add a new script-agnostic way to catch this class
+  of loss. That would need either a bilingual/semantic comparison (not
+  simple token diffing) or an LLM-judged check, neither of which exists
+  today.
+- **Benchmark coverage:** `tests/test_verify.py` adds direct tests: a
+  genuinely faithful non-English line no longer gets a false Law 1 error,
+  gets exactly one informational warning instead, and the English-target
+  path still flags real unaudited invention (guarding against the fix
+  swallowing the check it exists to protect).
+
+## Poetic register field: short-label requirement + display fallback — detail
+
+Same production run surfaced a second, unrelated display bug: Song DNA's
+`poetic_register` came back as a full descriptive sentence with its own
+reasoning ("The song uses a Persianized Urdu register, with vocabulary
+choices such as 'maula' and 'rangreza' that suggest a devotional and
+emotionally resonant tone.") instead of a short label.
+`web/components/LoreStoryline.tsx` interpolates this field verbatim into
+a fixed template ("This song moves in a {X} register, and this section
+carries a thread of {Y}."), so the sentence-length value produced
+garbled, doubled-up prose in the shipped UI.
+
+- **`engine/prompts.py` (`SONG_DNA_SYSTEM`):** now explicitly requires
+  `poetic_register` to be a short label (a handful of words, e.g. "sacred
+  and devotional," "Persianized Urdu devotional register"), never a full
+  sentence or one that explains its own reasoning, and says where that
+  reasoning belongs instead (per-section analysis, `songwriter_intention`).
+  **Tier 0** — prompt text only; no test corpus confirms the model
+  actually complies every time.
+- **`web/components/LoreStoryline.tsx` (defensive fallback):** a new
+  `isShortLabel()` client-side guard (≤8 words, no sentence punctuation)
+  decides which of two already-correct-content templates to render — the
+  normal interpolated sentence for a short label, or the value standing
+  as its own sentence (its own period, if any, preserved) followed by the
+  dominant-feeling clause, if the guard fails. This is belt-and-suspenders
+  on top of the prompt fix: even after tightening the instruction, a model
+  can still occasionally return a longer value, and the display should
+  degrade gracefully rather than mangle it.
+- **Benchmark coverage:** `tests/test_golden_prompts.py`'s `song_dna` hash
+  updated with a changelog comment. No test suite exists for the `web/`
+  package (see the auto-detect section above for the same gap) — `tsc
+  --noEmit` and `next build` both pass clean, which is compile-time
+  coverage, not behavioral coverage, for the new branch in
+  `LoreStoryline.tsx`.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

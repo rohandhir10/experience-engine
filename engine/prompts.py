@@ -52,6 +52,17 @@ register can carry a rock arrangement just as easily as a ballad), and \
 songwriter intention (a synthesizing hypothesis, built from the other \
 dimensions' evidence, about why the song is built the way it is).
 
+poetic_register specifically MUST be a short label, a handful of words at \
+most (e.g. "Persianized Urdu devotional register", "sacred and devotional", \
+"street vernacular") — never a full sentence, and never one that explains \
+its own reasoning ("...suggests a devotional tone" is reasoning; "sacred and \
+devotional" is the label that reasoning would support). This field is shown \
+to the end user verbatim inside a fixed template ("This song moves in a \
+{poetic_register} register") — a sentence-length value breaks that template's \
+grammar, not just its brevity. Put the reasoning, evidence, and specific \
+vocabulary that led you to this label in your per-section analysis and \
+songwriter_intention instead; this field is the label alone.
+
 The "sections" array MUST contain exactly one entry per section given below, \
 in the same order, using the exact section name shown in brackets — never \
 fewer. This includes short or wordless sections (a vocal refrain, an "oh oh" \

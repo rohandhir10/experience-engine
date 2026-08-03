@@ -802,6 +802,43 @@ def test_no_creative_adapter_candidates_skips_completeness_check():
 
 
 # ---------------------------------------------------------------------------
+# Law 1 is English-only word diffing — a non-English final line must not
+# be falsely flagged as 100% unaudited invention just because it shares no
+# tokens with an English-language anchor
+# ---------------------------------------------------------------------------
+
+
+def test_non_english_target_does_not_falsely_flag_law_1():
+    """The anchor is always English; a genuinely faithful Japanese/Hindi/
+    Korean/Urdu final line shares almost no word-level tokens with it by
+    construction, not because anything was invented. Diffing anyway would
+    flag virtually the entire line as an unlogged, unjustified change on
+    EVERY non-English run - this must not happen."""
+    result = _section("これは日本語の完全に忠実な行です", with_anchor=True)
+    v = verify_section(result, target_language="Japanese")
+    error_findings = [f for f in v.findings if f.severity == "error"]
+    assert not any(f.law == "Law 1 — No Invention" for f in error_findings)
+    assert v.ledger_coverage == 1.0
+
+
+def test_non_english_target_gets_an_informational_note_instead():
+    result = _section("これは日本語の行です", with_anchor=True)
+    v = verify_section(result, target_language="Japanese")
+    law1 = [f for f in v.findings if f.law == "Law 1 — No Invention"]
+    assert len(law1) == 1
+    assert law1[0].severity == "warning"
+
+
+def test_english_target_still_flags_unaudited_invention():
+    """The gate above must not silently swallow the real English-target
+    check it's protecting against false positives elsewhere."""
+    result = _section("A completely different sentence with no overlap")
+    v = verify_section(result, target_language="English")
+    errors = [f for f in v.findings if f.law == "Law 1 — No Invention" and f.severity == "error"]
+    assert errors
+
+
+# ---------------------------------------------------------------------------
 # Structural recurrence — a formal device Song DNA never tagged as a motif
 # ---------------------------------------------------------------------------
 

@@ -6,6 +6,21 @@
 // dominantFeeling is missing (an older stored result, or a section
 // name that didn't resolve - see server/mapping.py::_dominant_feeling),
 // this renders nothing at all rather than a guess.
+//
+// poeticRegister is supposed to be a short label (engine/prompts.py's
+// SONG_DNA_SYSTEM asks for one explicitly), but a model can still send a
+// full descriptive sentence with its own reasoning attached - that breaks
+// the "This song moves in a {X} register" template's grammar (seen in a
+// real production run: "This song moves in a The song uses a Persianized
+// Urdu register... register, and this section..."). isShortLabel is a
+// cheap client-side guard, not a validator of correctness - it only
+// decides which of two already-correct-content templates to use.
+function isShortLabel(text: string): boolean {
+  const trimmed = text.trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  return words.length <= 8 && !/[.!?]/.test(trimmed);
+}
+
 export function LoreStoryline({
   poeticRegister,
   dominantFeeling,
@@ -18,11 +33,23 @@ export function LoreStoryline({
 }) {
   if (!dominantFeeling) return null;
 
+  let sentence: string;
+  if (!poeticRegister) {
+    sentence = `This section carries a thread of ${dominantFeeling}.`;
+  } else if (isShortLabel(poeticRegister)) {
+    sentence = `This song moves in a ${poeticRegister} register, and this section carries a thread of ${dominantFeeling}.`;
+  } else {
+    // Too long/sentence-shaped to interpolate into the template above -
+    // let it stand as its own sentence instead of mangling it.
+    const withPeriod = /[.!?]$/.test(poeticRegister.trim())
+      ? poeticRegister.trim()
+      : `${poeticRegister.trim()}.`;
+    sentence = `${withPeriod} This section carries a thread of ${dominantFeeling}.`;
+  }
+
   return (
     <p className="mt-4 text-[12px] italic leading-relaxed text-ink/35 dark:text-ink-dark/35">
-      {poeticRegister
-        ? `This song moves in a ${poeticRegister} register, and this section carries a thread of ${dominantFeeling}.`
-        : `This section carries a thread of ${dominantFeeling}.`}
+      {sentence}
     </p>
   );
 }

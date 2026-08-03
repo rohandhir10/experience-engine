@@ -256,8 +256,19 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 # unit. All three prompts now explicitly name repeated multi-line blocks
 # (a couplet, verse, or stanza the source restates verbatim) alongside
 # single repeated phrases/lines, with the same burden-of-proof standard.
+#
+# song_dna updated again: a real production run returned poetic_register
+# as a full descriptive sentence with its own reasoning ("The song uses a
+# Persianized Urdu register, with vocabulary choices such as 'maula' and
+# 'rangreza' that suggest a devotional and emotionally resonant tone.")
+# instead of a short label - web/components/LoreStoryline.tsx interpolates
+# this field verbatim into a fixed template ("This song moves in a {X}
+# register"), so a sentence-length value produced garbled, doubled-up
+# prose. SONG_DNA_SYSTEM now explicitly requires a short label (a handful
+# of words, e.g. "sacred and devotional") and says where the reasoning
+# belongs instead (per-section analysis, songwriter_intention).
 EXPECTED_HASHES = {
-    "song_dna": "b8e1ece6f0fe4e15",
+    "song_dna": "a801b39c3ce19679",
     "generation_translator": "b0632fd76613a7ba",
     "creative_adapter": "80ea1f64ed14e308",
     "judge_triage": "c16d519bf129606d",

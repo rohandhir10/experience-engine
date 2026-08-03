@@ -513,36 +513,73 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
             )
 
     # --- Law 1: is every real change accounted for? ------------------------
-    changed = _changed_final_words(anchor, final)
-    uncovered = [w for w in changed if not _covered_by_ledger(w, deviations)]
-    coverage = 1.0 if not changed else 1.0 - (len(uncovered) / len(changed))
+    # This diffs the Translator's anchor against final_line word-by-word,
+    # but the anchor is written in English regardless of target_language
+    # (confirmed empirically: AGENT_BRIEFS["translator"]/generation_prompt_v1
+    # never instruct it otherwise). Diffing English anchor tokens against a
+    # non-English final line finds near-zero overlap by construction, not
+    # because nothing was preserved - it would flag virtually the ENTIRE
+    # final line as an unlogged, unjustified change on every single
+    # non-English run. Since this check is severity="error", that isn't
+    # just a cosmetic false positive - it would trigger a corrective retry
+    # (engine/pipeline.py) on every non-English section regardless of
+    # actual quality, and it would drown any genuine Law 1 finding
+    # underneath. Only run the real diff-based check for an English
+    # target; decline honestly for everything else rather than report a
+    # number that looks measured but isn't.
+    can_diff_against_anchor = target_language == "English"
+    if can_diff_against_anchor:
+        changed = _changed_final_words(anchor, final)
+        uncovered = [w for w in changed if not _covered_by_ledger(w, deviations)]
+        coverage = 1.0 if not changed else 1.0 - (len(uncovered) / len(changed))
 
-    if changed and not deviations:
-        findings.append(
-            Finding(
-                law="Law 1 — No Invention",
-                severity="error",
-                section=section,
-                detail=(
-                    f"The shipped line differs from the literal anchor in "
-                    f"{len(changed)} word(s), but the deviation ledger is empty. "
-                    "Every change is unaudited."
-                ),
+        if changed and not deviations:
+            findings.append(
+                Finding(
+                    law="Law 1 — No Invention",
+                    severity="error",
+                    section=section,
+                    detail=(
+                        f"The shipped line differs from the literal anchor in "
+                        f"{len(changed)} word(s), but the deviation ledger is empty. "
+                        "Every change is unaudited."
+                    ),
+                )
             )
-        )
-    elif uncovered:
-        sample = " ".join(dict.fromkeys(uncovered))[:120]
+        elif uncovered:
+            sample = " ".join(dict.fromkeys(uncovered))[:120]
+            findings.append(
+                Finding(
+                    law="Law 1 — No Invention",
+                    severity="error" if coverage < 0.5 else "warning",
+                    section=section,
+                    detail=(
+                        f"{len(uncovered)} of {len(changed)} changed word(s) "
+                        f"({1 - coverage:.0%}) appear in the final line but in no "
+                        "deviation entry — unlogged, therefore unjustified."
+                    ),
+                    fragment=sample,
+                )
+            )
+    else:
+        changed = []
+        coverage = 1.0
         findings.append(
             Finding(
                 law="Law 1 — No Invention",
-                severity="error" if coverage < 0.5 else "warning",
+                severity="warning",
                 section=section,
                 detail=(
-                    f"{len(uncovered)} of {len(changed)} changed word(s) "
-                    f"({1 - coverage:.0%}) appear in the final line but in no "
-                    "deviation entry — unlogged, therefore unjustified."
+                    "Word-level diffing against the literal anchor is "
+                    "English-only (the anchor itself is always written in "
+                    "English) and was skipped for this "
+                    f"{target_language} final line. The ledger-integrity and "
+                    "justification-quality checks below still run against "
+                    "logged deviations directly, but 'every change accounted "
+                    "for' coverage was not computed here - do not read this "
+                    "section's ledger_coverage/computed_invention_penalty as "
+                    "a real measurement of completeness."
                 ),
-                fragment=sample,
             )
         )
 
