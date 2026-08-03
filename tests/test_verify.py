@@ -606,6 +606,53 @@ def test_verify_result_defaults_to_english_when_target_language_is_absent():
 
 
 # ---------------------------------------------------------------------------
+# Phoneme repetition similarity — adapted from Kim et al. 2023 (ISMIR),
+# song-level (a correlation across sections), not per-section.
+# ---------------------------------------------------------------------------
+
+
+def test_verify_result_computes_phoneme_repetition_similarity_for_english():
+    repetitive = "la la la la la la"
+    varied = "the quick brown fox jumps over the lazy dog"
+    sections = [
+        _section(repetitive, anchor=repetitive, name="verse_1"),
+        _section(varied, anchor=varied, name="verse_2"),
+        _section(repetitive, anchor=repetitive, name="chorus"),
+        _section(varied, anchor=varied, name="bridge"),
+    ]
+    result_dict = {
+        "target_language": "English",
+        "sections": [s.model_dump() for s in sections],
+        "source_sections": [],
+    }
+    report = verify_result(result_dict)
+    assert report.phoneme_repetition_similarity == 1.0
+
+
+def test_verify_result_skips_phoneme_repetition_similarity_for_non_english():
+    """No CMU dictionary for Korean text - same gate as Stress/Singability."""
+    section = _section("True love burns bright and clear tonight")
+    result_dict = {
+        "target_language": "Korean",
+        "sections": [section.model_dump()],
+        "source_sections": [],
+    }
+    report = verify_result(result_dict)
+    assert report.phoneme_repetition_similarity is None
+
+
+def test_verify_result_phoneme_repetition_similarity_is_none_with_too_few_sections():
+    section = _section("True love burns bright and clear tonight")
+    result_dict = {
+        "target_language": "English",
+        "sections": [section.model_dump()],
+        "source_sections": [],
+    }
+    report = verify_result(result_dict)
+    assert report.phoneme_repetition_similarity is None
+
+
+# ---------------------------------------------------------------------------
 # Rhyme density — measured, never judged (Phase 3B)
 # ---------------------------------------------------------------------------
 

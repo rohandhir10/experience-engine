@@ -48,6 +48,7 @@ from pydantic import BaseModel, Field
 
 from .models import Deviation, SectionResultV1
 from .recurrence import detect_recurring_endings
+from .rhyme import phoneme_repetition_similarity as _compute_pho_similarity
 from .rhyme import rhyme_density as _compute_rhyme_density
 from .rhythm import (
     STRESS_UNKNOWN,
@@ -215,6 +216,17 @@ class SectionVerification(BaseModel):
 class VerificationReport(BaseModel):
     sections: list[SectionVerification] = Field(default_factory=list)
     cross_section_findings: list[Finding] = Field(default_factory=list)
+    # Sim_pho, adapted from Kim et al. 2023 (ISMIR) — see engine/rhyme.py's
+    # module comment for exactly what's compared and why (the anchor's
+    # phoneme-repetition density vs. the shipped line's, not source-
+    # language vs. target-language, since AURA only has G2P for English).
+    # Song-level, not per-section: a correlation needs a whole song's
+    # worth of sections to mean anything. None when target_language isn't
+    # English or too few sections have enough CMU-resolvable words on
+    # both sides. Measured, never turned into pass/fail — same standard
+    # as rhyme_density, and for the same reason: no corpus exists yet to
+    # say what correlation is "enough."
+    phoneme_repetition_similarity: float | None = None
 
     @property
     def all_findings(self) -> list[Finding]:
@@ -261,6 +273,16 @@ class VerificationReport(BaseModel):
                 f"words rhyme ({len(rhyme_values)}/{len(verifiable)} sections "
                 "measurable) [computed, NOT judged — no pass/fail threshold "
                 "exists; what counts as 'enough' varies by language and genre]"
+            )
+        if self.phoneme_repetition_similarity is not None:
+            lines.append(
+                f"Phoneme repetition sim: {self.phoneme_repetition_similarity:+.2f} "
+                "correlation between the anchor's and the shipped line's "
+                "phoneme-repetition density across sections (Kim et al. 2023, "
+                "adapted — see engine/rhyme.py) [computed, NOT judged — no "
+                "pass/fail threshold exists; a negative value means the "
+                "adaptation's repetition pattern runs opposite the literal "
+                "anchor's, worth a listen]"
             )
         if mean_computed - mean_reported > 0.2:
             lines.append(
@@ -806,6 +828,17 @@ def verify_result(result_dict: dict) -> VerificationReport:
     target_language = result_dict.get("target_language", "English")
     for section in sections:
         report.sections.append(verify_section(section, target_language=target_language))
+
+    if target_language == "English":
+        # Same anchor/final pairing verify_section already extracts per
+        # section (_translator_anchor) - reused here at the song level,
+        # since a correlation needs the whole song's sections, not one.
+        pho_pairs: list[tuple[str, str]] = []
+        for section in sections:
+            anchor = _translator_anchor(section)
+            if anchor is not None:
+                pho_pairs.append((anchor, section.ruling.final_line))
+        report.phoneme_repetition_similarity = _compute_pho_similarity(pho_pairs)
 
     source_sections = [
         (s["name"], s["source_text"])

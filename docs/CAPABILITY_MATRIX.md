@@ -101,6 +101,38 @@ not an audit shortcut.
 - **Benchmark coverage:** unit-tested (`tests/test_rhyme.py`,
   `tests/test_verify.py`). Not corpus-benchmarked.
 
+## Phoneme repetition similarity — detail
+
+- **Mechanism:** `engine/rhyme.py::phoneme_distinct2` /
+  `phoneme_repetition_similarity`, adapted from Kim, Watanabe, Goto & Nam,
+  "A Computational Evaluation Framework for Singable Lyric Translation"
+  (ISMIR 2023)'s Sim_pho. Their metric compares a source-language
+  section's phoneme-bigram diversity (distinct-2) against the target-
+  language section's, correlated (Spearman) across a whole song. AURA
+  only has a G2P tool for English (the CMU dictionary), so the
+  cross-language comparison isn't reproducible honestly — adapted
+  instead to a same-language comparison AURA can actually make: the
+  Translator's literal anchor vs. the Judge's shipped final line, both
+  English. Asks a related but distinct question from the paper's
+  original: not "does the target preserve the source's repetition
+  pattern" but "did adapting away from the literal anchor distort the
+  repetition pattern a faithful rendering would have had."
+- **Tier:** 1 (computed) when at least 3 sections have a CMU-resolvable
+  phoneme count on both sides; `None` otherwise — never computed from
+  too little data and reported as if it meant something.
+- **Consumer:** `VerificationReport.phoneme_repetition_similarity`
+  (song-level, not per-section), reported in `verify.py`'s summary.
+  Deliberately never turned into a pass/fail Finding — same reasoning as
+  rhyme_density, and the paper itself doesn't establish a hard threshold
+  either, only that singable translations correlate higher on average
+  than non-singable ones across a large corpus.
+- **English-target only** — same gate as Stress/Rhyme/Singability, for
+  the same reason (CMU dictionary).
+- **Benchmark coverage:** unit-tested (`tests/test_rhyme.py`,
+  `tests/test_verify.py`). Not corpus-benchmarked against AURA's own
+  output at scale — the paper's own singable-vs-non-singable averages are
+  a reference point, not a validation of AURA specifically.
+
 ## Poetic register + Tonal Coherence gate + Phrase-end sustainability — detail
 
 Added when the reverse direction (English -> Hindi/Korean/Japanese/
