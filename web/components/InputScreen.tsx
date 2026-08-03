@@ -83,15 +83,19 @@ export function InputScreen({
   const featuredSource = featured?.sections[0]?.source;
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#0b0b0c] px-6 pb-20 pt-8 sm:px-10">
+    <main className="min-h-screen bg-[#0b0b0c] px-6 pb-28 pt-8 sm:px-10">
       {/* A dark, always-on-brand shell (not theme-reactive) so the product
           reads the same regardless of system light/dark mode — matching
           the reference design. Sign In / Get Started live in the nav, same
           as every page, but there's no pricing table or feature grid
-          competing with the input itself. */}
+          competing with the input itself. Fixed top margin below, not
+          flex-1-centered — same convention as every other page
+          (dashboard/pricing/sign-in all use a fixed mt-*), so the gap
+          before the showcase card stays consistent instead of stretching
+          or shrinking with viewport height. */}
       <SiteHeader active="home" forceDark />
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center text-center">
+      <div className="mx-auto flex w-full max-w-2xl flex-col items-center pt-16 text-center sm:pt-20">
         <h1 className="animate-fade-up text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-white sm:text-[2.9rem]">
           Adapt the feeling.
           <br />
@@ -248,19 +252,25 @@ export function InputScreen({
                 {featured.title} — real production run
               </span>
             </div>
-            <div className="grid gap-6 px-6 py-7 sm:grid-cols-2 sm:px-8">
-              <div>
-                <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-white/30">
-                  Original
-                </p>
+            <div className="grid gap-7 px-6 py-7 sm:grid-cols-2 sm:divide-x sm:divide-white/[0.07] sm:px-8">
+              <div className="sm:pr-7">
+                <span className="inline-flex items-center rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">
+                  [ Original ]
+                </span>
                 <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-white/40">
                   {featuredSource}
                 </p>
               </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-accent">
-                  AURA
-                </p>
+              <div className="sm:pl-7">
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-accent"
+                  style={{
+                    background: "rgba(91, 91, 214, 0.14)",
+                    boxShadow: "0 0 12px rgba(91, 91, 214, 0.22)",
+                  }}
+                >
+                  Aura
+                </span>
                 <p className="mt-3 whitespace-pre-line text-[16px] leading-relaxed text-white">
                   {featuredAura}
                 </p>
