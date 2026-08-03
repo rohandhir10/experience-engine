@@ -370,3 +370,46 @@ def test_build_web_draft_text_round_trips_through_split_into_sections(monkeypatc
 
     sections = split_into_sections(draft["draft_text"])
     assert len(sections) == len(draft["sections"])
+
+
+def test_script_mismatch_warning_is_none_when_script_matches_language():
+    assert yi._script_mismatch_warning("तुम साथ हो मेरे प्यार", "hi") is None
+    assert yi._script_mismatch_warning("사랑해 내 마음속에", "ko") is None
+
+
+def test_script_mismatch_warning_flags_a_real_mismatch():
+    warning = yi._script_mismatch_warning(
+        "stay with me tonight my love forever always", "hi"
+    )
+    assert warning is not None
+    assert "mistagged" in warning
+
+
+def test_script_mismatch_warning_says_nothing_for_an_unmapped_language():
+    """Declines rather than guesses for a language code this doesn't have
+    a script range for - same discipline as every other "unsupported"
+    case in this codebase."""
+    assert yi._script_mismatch_warning("some random text", "zz") is None
+
+
+def test_script_mismatch_warning_ignores_a_few_inline_foreign_words():
+    """A couple of English words (an artist credit, a bracketed aside)
+    inside an otherwise-Hindi transcript shouldn't trip this - only a
+    transcript mostly in the wrong script should."""
+    mostly_hindi = "तुम साथ हो मेरे प्यार तुम साथ हो feat DJ Khan तुम साथ हो"
+    assert yi._script_mismatch_warning(mostly_hindi, "hi") is None
+
+
+def test_build_web_draft_surfaces_a_script_mismatch_in_the_warning(monkeypatch):
+    def fake_fetch_transcript(video_id, preferred_languages=None):
+        return (
+            [TranscriptSegment(text="this is all english text", start=0.0, duration=2.0)],
+            "hi",
+            False,
+            0.0,
+        )
+
+    monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)
+    draft = yi.build_web_draft("dQw4w9WgXcQ")
+
+    assert "mistagged" in draft["warning"]

@@ -101,6 +101,59 @@ _LANGUAGE_NAMES = {
     "en": "English",
 }
 
+# Unicode block ranges used only to sanity-check that a transcript's
+# actual script plausibly matches the language YouTube's captions claim
+# it's in - NOT a claim about translation or ASR wording accuracy (that
+# would need the actual audio, which this module deliberately doesn't
+# try to fake a judgment about). This catches a different, real, and
+# fully checkable failure mode: a mistagged or auto-translated
+# transcript, where the caption's script doesn't match its own claimed
+# language at all.
+_SCRIPT_RANGES: dict[str, list[tuple[int, int]]] = {
+    "hi": [(0x0900, 0x097F)],  # Devanagari
+    "mr": [(0x0900, 0x097F)],
+    "pa": [(0x0A00, 0x0A7F)],  # Gurmukhi
+    "ur": [(0x0600, 0x06FF), (0x0750, 0x077F)],  # Perso-Arabic
+    "ar": [(0x0600, 0x06FF), (0x0750, 0x077F)],
+    "ja": [(0x3040, 0x30FF), (0x4E00, 0x9FFF)],  # kana + kanji
+    "ko": [(0xAC00, 0xD7A3), (0x1100, 0x11FF)],  # Hangul syllables + jamo
+    "ru": [(0x0400, 0x04FF)],  # Cyrillic
+    "es": [(0x0041, 0x024F)],  # Latin, including accented letters
+    "en": [(0x0041, 0x024F)],
+}
+# Below this fraction of a transcript's letters actually being in the
+# script its language code implies, something is wrong enough to name
+# plainly - a few inline foreign words (a credit, a bracketed aside)
+# shouldn't trip this, but a transcript mostly in the wrong script should.
+_SCRIPT_MATCH_RATIO = 0.5
+
+
+def _script_mismatch_warning(text: str, language_code: str) -> str | None:
+    """None if `text`'s script plausibly matches language_code, or if
+    language_code isn't one this can check (unmapped languages say
+    nothing rather than guess). Only alphabetic characters count -
+    punctuation, digits, and whitespace carry no script information and
+    would only dilute the ratio either direction.
+    """
+    ranges = _SCRIPT_RANGES.get(language_code.lower())
+    if ranges is None:
+        return None
+
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return None
+
+    matching = sum(1 for c in letters if any(lo <= ord(c) <= hi for lo, hi in ranges))
+    if matching / len(letters) >= _SCRIPT_MATCH_RATIO:
+        return None
+
+    return (
+        f"This transcript is tagged as language code '{language_code}', but "
+        "most of its actual text isn't written in that language's script - "
+        "it may be mistagged or auto-translated. Check it carefully, "
+        "including source_language, before trusting it."
+    )
+
 
 class IngestError(Exception):
     """Raised for any failure a human needs to see plainly, not as a stack trace."""
@@ -298,8 +351,16 @@ def _draft_warning(
     is_generated: bool,
     gap_threshold_seconds: float,
     non_lyric_ratio: float,
+    segments: list[TranscriptSegment] | None = None,
 ) -> str:
     caption_kind = "auto-generated (speech-to-text)" if is_generated else "manually created"
+    script_note = (
+        _script_mismatch_warning(
+            "\n".join(s.text for s in segments), language_code
+        )
+        if segments
+        else None
+    )
     return (
         f"DRAFT - NOT REVIEWED. Captions were {caption_kind} ({language_code}). "
         + (
@@ -318,6 +379,7 @@ def _draft_warning(
             if non_lyric_ratio >= _NON_LYRIC_WARNING_RATIO
             else ""
         )
+        + (f"{script_note} " if script_note else "")
         + f"Section boundaries below were guessed from a >= "
         f"{gap_threshold_seconds:.1f}s pause between captions, not real "
         "verse/chorus structure - rename sections and fix boundaries by hand "
@@ -345,7 +407,7 @@ def build_song_draft(
         "title": None,
         "source_language": language_name,
         "context_note": _draft_warning(
-            language_code, is_generated, gap_threshold_seconds, non_lyric_ratio
+            language_code, is_generated, gap_threshold_seconds, non_lyric_ratio, segments
         ),
         "sections": [
             {"name": f"section_{i + 1}", "source_text": text}
@@ -390,7 +452,7 @@ def build_web_draft(
         "video_id": video_id,
         "source_language": language_name,
         "warning": _draft_warning(
-            language_code, is_generated, gap_threshold_seconds, non_lyric_ratio
+            language_code, is_generated, gap_threshold_seconds, non_lyric_ratio, segments
         ),
         "draft_text": _SECTION_JOIN.join(b.text for b in blocks),
         "sections": [{"start": b.start, "end": b.end} for b in blocks],
