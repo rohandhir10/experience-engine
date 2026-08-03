@@ -1,0 +1,99 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { SiteHeader } from "@/components/SiteHeader";
+import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { LoadingScreen } from "@/components/LoadingScreen";
+import { useAdaptSubmit } from "@/lib/useAdaptSubmit";
+
+const MIN_ROWS = 5;
+const MAX_TEXTAREA_HEIGHT_PX = 320;
+
+export default function DashboardPage() {
+  const { submit, loading, error } = useAdaptSubmit();
+  const [text, setText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  function autoGrow(el: HTMLTextAreaElement) {
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
+  }
+
+  return (
+    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+      <div className="mx-auto max-w-5xl">
+        <SiteHeader />
+
+        <div className="mt-10 flex flex-col gap-10 sm:flex-row">
+          <DashboardSidebar />
+
+          <div className="min-w-0 flex-1">
+            <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
+              What would you like to adapt today?
+            </h1>
+
+            <form
+              className="mt-7 w-full max-w-2xl"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (text.trim() && !loading) submit(text);
+              }}
+            >
+              <label htmlFor="dashboard-lyrics" className="sr-only">
+                Paste song lyrics
+              </label>
+              <textarea
+                ref={textareaRef}
+                id="dashboard-lyrics"
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  autoGrow(e.target);
+                }}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && text.trim()) {
+                    e.preventDefault();
+                    submit(text);
+                  }
+                }}
+                placeholder="Paste song lyrics…"
+                rows={MIN_ROWS}
+                className="w-full resize-none overflow-y-auto rounded-2xl border border-black/[0.08] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+              />
+
+              {error && (
+                <p role="alert" className="mt-3 text-[13px] text-red-500/80">
+                  {error}
+                </p>
+              )}
+
+              <div className="mt-5">
+                <button
+                  type="submit"
+                  disabled={!text.trim()}
+                  className="inline-flex items-center justify-center rounded-full bg-ink px-8 py-3 text-[14px] font-medium text-paper transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30 dark:bg-ink-dark dark:text-paper-dark"
+                >
+                  Adapt Song
+                </button>
+              </div>
+            </form>
+
+            <div className="mt-16 border-t border-black/[0.05] pt-8 dark:border-white/[0.05]">
+              <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
+                Recent Adaptations
+              </h2>
+              <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+                No adaptations yet — the one you paste above will show up
+                here once accounts and history are live.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
