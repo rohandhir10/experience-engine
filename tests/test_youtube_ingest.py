@@ -5,6 +5,8 @@ monkeypatched fetch_transcript.
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
 
 from engine import youtube_ingest as yi
@@ -146,6 +148,118 @@ def test_fetch_transcript_hides_raw_exception_text_when_fetch_fails(monkeypatch)
     assert "try again" in message
 
 
+@dataclass
+class _RawCaption:
+    """Stands in for whatever transcript.fetch() actually returns - real
+    caption objects have .text/.start/.duration, and that's all
+    fetch_transcript reads off them."""
+
+    text: str
+    start: float
+    duration: float
+
+
+class _FakeTranscriptWithCaptions:
+    def __init__(self, captions):
+        self._captions = captions
+        self.language_code = "en"
+        self.is_generated = False
+
+    def fetch(self):
+        return self._captions
+
+
+class _FakeListReturnsTranscript:
+    """A successful listing that hands back one fixed transcript, whatever
+    fetch_transcript asks for it by (manually-created lookup or iteration)."""
+
+    def __init__(self, transcript):
+        self._transcript = transcript
+
+    def list(self, video_id):
+        return self
+
+    def find_manually_created_transcript(self, languages):
+        return self._transcript
+
+    def __iter__(self):
+        return iter([self._transcript])
+
+
+def test_fetch_transcript_filters_out_pure_placeholder_captions(monkeypatch):
+    """"[Music]"/"(Applause)" are real, common YouTube captions for music
+    videos - handing them to the engine as if they were sung lyrics would
+    be a real, silent quality bug, not just an edge case."""
+    captions = [
+        _RawCaption(text="[Music]", start=0.0, duration=3.0),
+        _RawCaption(text="real lyric line", start=3.0, duration=2.0),
+        _RawCaption(text="(Applause)", start=5.0, duration=1.0),
+    ]
+    transcript = _FakeTranscriptWithCaptions(captions)
+    monkeypatch.setattr(yi, "YouTubeTranscriptApi", lambda: _FakeListReturnsTranscript(transcript))
+
+    segments, _, _, non_lyric_ratio = yi.fetch_transcript("dQw4w9WgXcQ")
+
+    assert [s.text for s in segments] == ["real lyric line"]
+    assert non_lyric_ratio == pytest.approx(2 / 3)
+
+
+def test_fetch_transcript_raises_when_only_placeholders_remain(monkeypatch):
+    captions = [
+        _RawCaption(text="[Music]", start=0.0, duration=3.0),
+        _RawCaption(text="[Applause]", start=3.0, duration=1.0),
+    ]
+    transcript = _FakeTranscriptWithCaptions(captions)
+    monkeypatch.setattr(yi, "YouTubeTranscriptApi", lambda: _FakeListReturnsTranscript(transcript))
+
+    with pytest.raises(IngestError) as exc_info:
+        yi.fetch_transcript("dQw4w9WgXcQ")
+    assert "no real lyric content" in str(exc_info.value)
+
+
+def test_fetch_transcript_filters_a_bare_music_note_and_combined_placeholders(monkeypatch):
+    """A solitary "♪" (common for a pure instrumental stretch) and a
+    combined caption like "[Music] [Applause]" both need to be caught -
+    neither is a single clean "[Music]" match, but both are still nothing
+    but placeholders."""
+    captions = [
+        _RawCaption(text="♪♪♪", start=0.0, duration=2.0),
+        _RawCaption(text="[Music] [Applause]", start=2.0, duration=2.0),
+        _RawCaption(text="real lyric line", start=4.0, duration=2.0),
+    ]
+    transcript = _FakeTranscriptWithCaptions(captions)
+    monkeypatch.setattr(yi, "YouTubeTranscriptApi", lambda: _FakeListReturnsTranscript(transcript))
+
+    segments, _, _, non_lyric_ratio = yi.fetch_transcript("dQw4w9WgXcQ")
+
+    assert [s.text for s in segments] == ["real lyric line"]
+    assert non_lyric_ratio == pytest.approx(2 / 3)
+
+
+def test_fetch_transcript_leaves_a_lyric_line_with_a_music_note_alone(monkeypatch):
+    """Only a caption that's NOTHING but a placeholder gets dropped - a
+    real lyric line that happens to include a music note symbol must
+    survive untouched."""
+    captions = [_RawCaption(text="♪ real lyric line ♪", start=0.0, duration=2.0)]
+    transcript = _FakeTranscriptWithCaptions(captions)
+    monkeypatch.setattr(yi, "YouTubeTranscriptApi", lambda: _FakeListReturnsTranscript(transcript))
+
+    segments, _, _, non_lyric_ratio = yi.fetch_transcript("dQw4w9WgXcQ")
+
+    assert [s.text for s in segments] == ["♪ real lyric line ♪"]
+    assert non_lyric_ratio == 0.0
+
+
+def test_draft_warning_flags_a_high_non_lyric_ratio():
+    warning = yi._draft_warning("en", False, 3.0, non_lyric_ratio=0.5)
+    assert "non-speech placeholders" in warning
+
+
+def test_draft_warning_stays_quiet_below_the_non_lyric_threshold():
+    warning = yi._draft_warning("en", False, 3.0, non_lyric_ratio=0.1)
+    assert "non-speech placeholders" not in warning
+
+
 def test_build_song_draft_shape_and_warning(monkeypatch):
     def fake_fetch_transcript(video_id, preferred_languages=None):
         return (
@@ -155,6 +269,7 @@ def test_build_song_draft_shape_and_warning(monkeypatch):
             ],
             "hi",
             False,
+            0.0,
         )
 
     monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)
@@ -177,6 +292,7 @@ def test_build_song_draft_warns_when_auto_generated(monkeypatch):
             [TranscriptSegment(text="garbled asr text", start=0.0, duration=2.0)],
             "hi",
             True,
+            0.0,
         )
 
     monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)
@@ -212,6 +328,7 @@ def test_build_web_draft_shape(monkeypatch):
             ],
             "hi",
             False,
+            0.0,
         )
 
     monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)
@@ -245,6 +362,7 @@ def test_build_web_draft_text_round_trips_through_split_into_sections(monkeypatc
             ],
             "en",
             False,
+            0.0,
         )
 
     monkeypatch.setattr(yi, "fetch_transcript", fake_fetch_transcript)

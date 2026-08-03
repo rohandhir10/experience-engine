@@ -45,6 +45,47 @@ DEFAULT_GAP_THRESHOLD_SECONDS = 3.0
 
 _VIDEO_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
+# Non-lyric placeholder captions - YouTube's auto-captioner and human
+# captioners alike insert these for music videos ("[Music]" over an
+# instrumental intro, "(Applause)" at a live performance's end). Only
+# matched when a caption's ENTIRE stripped text is one of these - a real
+# lyric line that merely contains a music note symbol alongside actual
+# words is left alone; this only drops captions that are nothing but the
+# placeholder itself, which would otherwise be handed to the engine as
+# if they were sung lyrics.
+_NON_LYRIC_WORDS = {
+    "music",
+    "applause",
+    "laughter",
+    "inaudible",
+    "instrumental",
+    "silence",
+    "indistinct",
+}
+_NON_LYRIC_STRIP_RE = re.compile(r"[\[\]\(\)♪]")
+
+
+def _is_non_lyric_caption(text: str) -> bool:
+    """True only when a caption is nothing but bracket/paren/note-symbol
+    punctuation and known placeholder words, in any combination - "[Music]",
+    bare "♪" or "♪♪♪", "[Music] [Applause]". A real lyric line that merely
+    contains a note symbol or the word "music" alongside other words is
+    left alone; this only strips a caption that IS the placeholder, not
+    one that mentions one.
+    """
+    stripped = _NON_LYRIC_STRIP_RE.sub(" ", text).strip().lower()
+    if not stripped:
+        return True  # nothing left but brackets/note symbols
+    words = stripped.split()
+    return all(word in _NON_LYRIC_WORDS for word in words)
+
+
+# If more than this fraction of fetched captions are nothing but such
+# placeholders, the video's real lyric content is thin enough that the
+# human reviewing the draft needs to be told plainly, not just left to
+# notice a suspiciously short draft on their own.
+_NON_LYRIC_WARNING_RATIO = 0.3
+
 # Common ISO 639-1 codes for languages this project has actually tested
 # against - not exhaustive. Anything unmapped is passed through as-is so a
 # human filling in the draft can correct it themselves.
@@ -99,16 +140,21 @@ def extract_video_id(url_or_id: str) -> str:
 
 def fetch_transcript(
     video_id: str, preferred_languages: list[str] | None = None
-) -> tuple[list[TranscriptSegment], str, bool]:
+) -> tuple[list[TranscriptSegment], str, bool, float]:
     """Fetches the best available transcript for a video.
 
     Prefers a manually-created transcript over an auto-generated one, and
     prefers preferred_languages (if given) over whatever else is available.
-    Returns (segments, language_code, is_generated) so the caller can warn
-    the human when the only transcript available is auto-generated.
+    Returns (segments, language_code, is_generated, non_lyric_ratio) - the
+    last so the caller can warn the human when a meaningful fraction of
+    the raw captions were nothing but placeholders like "[Music]" (already
+    dropped from `segments` by the time this returns), which the video's
+    real lyric content being thin, not a fetch failure.
 
     Raises IngestError with a plain-language reason on any failure - no
-    transcript available, transcripts disabled, video unavailable, etc.
+    transcript available, transcripts disabled, video unavailable, or a
+    transcript that came back with no real lyric content at all once
+    placeholder captions are excluded.
     """
     api = YouTubeTranscriptApi()
     try:
@@ -175,15 +221,24 @@ def fetch_transcript(
             "now. This is usually temporary - try again in a moment."
         ) from exc
 
-    segments = [
-        TranscriptSegment(text=s.text.strip(), start=s.start, duration=s.duration)
-        for s in fetched
-        if s.text.strip()
-    ]
-    if not segments:
+    raw_segments = [s for s in fetched if s.text.strip()]
+    if not raw_segments:
         raise IngestError(f"Transcript for video {video_id!r} came back empty.")
 
-    return segments, transcript.language_code, is_generated
+    segments = [
+        TranscriptSegment(text=s.text.strip(), start=s.start, duration=s.duration)
+        for s in raw_segments
+        if not _is_non_lyric_caption(s.text)
+    ]
+    non_lyric_ratio = 1 - (len(segments) / len(raw_segments))
+    if not segments:
+        raise IngestError(
+            f"Transcript for video {video_id!r} has no real lyric content - "
+            "every caption is a non-speech placeholder like \"[Music]\" or "
+            '"(Applause)", not sung words.'
+        )
+
+    return segments, transcript.language_code, is_generated, non_lyric_ratio
 
 
 @dataclass
@@ -239,7 +294,10 @@ def group_into_sections(
 
 
 def _draft_warning(
-    language_code: str, is_generated: bool, gap_threshold_seconds: float
+    language_code: str,
+    is_generated: bool,
+    gap_threshold_seconds: float,
+    non_lyric_ratio: float,
 ) -> str:
     caption_kind = "auto-generated (speech-to-text)" if is_generated else "manually created"
     return (
@@ -250,6 +308,14 @@ def _draft_warning(
             "check every line against the actual audio before trusting this "
             "text. "
             if is_generated
+            else ""
+        )
+        + (
+            f"About {non_lyric_ratio:.0%} of this video's captions were "
+            "non-speech placeholders like \"[Music]\" or \"(Applause)\" "
+            "(already excluded below) - the real lyric content here may be "
+            "thinner than a typical song. "
+            if non_lyric_ratio >= _NON_LYRIC_WARNING_RATIO
             else ""
         )
         + f"Section boundaries below were guessed from a >= "
@@ -269,14 +335,18 @@ def build_song_draft(
     human to review and correct before ever pointing engine/cli.py at it.
     """
     video_id = extract_video_id(url_or_id)
-    segments, language_code, is_generated = fetch_transcript(video_id, preferred_languages)
+    segments, language_code, is_generated, non_lyric_ratio = fetch_transcript(
+        video_id, preferred_languages
+    )
     section_texts = group_into_sections(segments, gap_threshold_seconds)
     language_name = _LANGUAGE_NAMES.get(language_code, language_code)
 
     return {
         "title": None,
         "source_language": language_name,
-        "context_note": _draft_warning(language_code, is_generated, gap_threshold_seconds),
+        "context_note": _draft_warning(
+            language_code, is_generated, gap_threshold_seconds, non_lyric_ratio
+        ),
         "sections": [
             {"name": f"section_{i + 1}", "source_text": text}
             for i, text in enumerate(section_texts)
@@ -310,14 +380,18 @@ def build_web_draft(
     anymore - see server/main.py's adapt().
     """
     video_id = extract_video_id(url_or_id)
-    segments, language_code, is_generated = fetch_transcript(video_id, preferred_languages)
+    segments, language_code, is_generated, non_lyric_ratio = fetch_transcript(
+        video_id, preferred_languages
+    )
     blocks = group_into_sections_with_timing(segments, gap_threshold_seconds)
     language_name = _LANGUAGE_NAMES.get(language_code, language_code)
 
     return {
         "video_id": video_id,
         "source_language": language_name,
-        "warning": _draft_warning(language_code, is_generated, gap_threshold_seconds),
+        "warning": _draft_warning(
+            language_code, is_generated, gap_threshold_seconds, non_lyric_ratio
+        ),
         "draft_text": _SECTION_JOIN.join(b.text for b in blocks),
         "sections": [{"start": b.start, "end": b.end} for b in blocks],
     }
