@@ -267,12 +267,27 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 # prose. SONG_DNA_SYSTEM now explicitly requires a short label (a handful
 # of words, e.g. "sacred and devotional") and says where the reasoning
 # belongs instead (per-section analysis, songwriter_intention).
+#
+# creative_adapter/judge_triage/judge_final updated again: a real
+# production run (a reggaeton song, Spanish -> Hindi) showed an entire
+# second occurrence of a call-and-response block dropped from the shipped
+# line - the source restates the same setup twice, each time landing on a
+# deliberately different final line/punchline (a common device in rap/
+# reggaeton, distinct from the verbatim-repeat couplets tested so far).
+# Constraint #7's "restates verbatim" wording didn't cover a near-repeat
+# that diverges on its own ending, so the model treated the second
+# occurrence as droppable. All three prompts now explicitly protect a
+# call-and-response/setup-and-twist block (same lead-in, different
+# landing each time) with the same burden-of-proof standard as a verbatim
+# repeat - the contrast between the two endings is the device's whole
+# point, so losing the second occurrence is a worse loss, not a smaller
+# one.
 EXPECTED_HASHES = {
     "song_dna": "a801b39c3ce19679",
     "generation_translator": "b0632fd76613a7ba",
-    "creative_adapter": "80ea1f64ed14e308",
-    "judge_triage": "c16d519bf129606d",
-    "judge_final": "00b11481ea73fc82",
+    "creative_adapter": "60d65edb0a025127",
+    "judge_triage": "a73f58003a532894",
+    "judge_final": "7bdb60f54ec1cc9c",
     "diagnosis_native_speaker": "9452b56158c2d859",
 }
 

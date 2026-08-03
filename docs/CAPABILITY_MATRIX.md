@@ -491,6 +491,45 @@ garbled, doubled-up prose in the shipped UI.
   coverage, not behavioral coverage, for the new branch in
   `LoreStoryline.tsx`.
 
+## Call-and-response / setup-and-twist block preservation — detail
+
+Found on the first reggaeton test (Spanish → Hindi, a genre and register
+distinct from every real production run tested before this — non-
+devotional, urban vernacular, code-switched slang): the source restates
+the same setup twice ("Pa' un VIP... Say Cheese... que sonrían las que
+ya **les metí**" / "En un VIP... Say Cheese... que sonrían las que ya se
+**olvidaron de mí**") — a call-and-response device landing on a
+deliberately different final line each time (bravado curdling into "they
+forgot about me"). The literal anchor correctly preserved both. The
+shipped Hindi line kept only the first occurrence, dropping the second —
+and with it the song's actual punchline — with nothing in the
+why-sentence disclosing it.
+
+- **Root cause:** the multi-line-block fix above (constraint #7 etc.)
+  protects a block the source "restates **verbatim**." A call-and-
+  response block is NOT verbatim — it diverges deliberately on its own
+  ending — so the instruction as written didn't cover it, and the model
+  read the second occurrence as droppable precisely because it wasn't an
+  exact repeat.
+- **Fix:** constraint #7, the Judge's `artistic_fidelity` dimension text,
+  and the Judge's Burden of Change mechanical paragraph all now
+  explicitly protect a call-and-response/setup-and-twist block (same
+  lead-in restated, a different final line each time) with the same
+  burden-of-proof standard as a verbatim repeat — explicitly framed as a
+  WORSE loss to drop, not a smaller one, since the contrast between the
+  two landings is the device's entire point. Generic across genre and
+  language, not scoped to reggaeton or Spanish.
+- **Tier 0** — prompt text only; no test corpus confirms this changes
+  real output. This is now the third real-production iteration on the
+  same underlying class of bug (verbatim single-line → verbatim
+  multi-line block → non-verbatim call-and-response block); a fourth
+  real song could plausibly surface a fourth variant this instruction
+  still doesn't cover (e.g. a repeated block with a varied MIDDLE line
+  rather than a varied ending) — worth watching for specifically.
+- **Benchmark coverage:** `tests/test_golden_prompts.py`'s
+  `creative_adapter`/`judge_triage`/`judge_final` hashes updated with a
+  changelog comment.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and
