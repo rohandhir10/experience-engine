@@ -10,11 +10,47 @@ import re
 from engine.models import Candidate, SectionInput, SongInput
 from engine.pipeline import run_engine
 from engine.routing import compute_routing_signals
+from engine.writers_room_v1 import _content_max_tokens, _judge_max_tokens
 
 from .test_pipeline_mock import FAKE_SONG_DNA
 from engine.models import SongDNA
 
 DNA = SongDNA.model_validate(FAKE_SONG_DNA)
+
+
+# ---------------------------------------------------------------------------
+# Token budget scaling — pure functions, zero LLM calls
+# ---------------------------------------------------------------------------
+
+
+def test_content_max_tokens_grows_with_source_length():
+    short = _content_max_tokens("a short line", num_outputs=1)
+    long = _content_max_tokens("a much longer source line " * 200, num_outputs=1)
+    assert long > short
+
+
+def test_content_max_tokens_scales_with_num_outputs():
+    source = "a line of source text " * 50
+    one = _content_max_tokens(source, num_outputs=1)
+    five = _content_max_tokens(source, num_outputs=5)
+    assert five > one
+
+
+def test_content_max_tokens_never_drops_below_floor():
+    assert _content_max_tokens("", num_outputs=1, floor=1200) == 1200
+
+
+def test_judge_max_tokens_grows_with_candidate_count():
+    source = "a line of source text " * 50
+    few = _judge_max_tokens(source, num_candidates=2)
+    many = _judge_max_tokens(source, num_candidates=6)
+    assert many > few
+
+
+def test_judge_max_tokens_grows_with_source_length():
+    small = _judge_max_tokens("short", num_candidates=6)
+    large = _judge_max_tokens("a long repetitive refrain " * 200, num_candidates=6)
+    assert large > small
 
 
 # ---------------------------------------------------------------------------

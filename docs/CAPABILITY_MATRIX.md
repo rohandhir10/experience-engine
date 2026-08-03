@@ -249,6 +249,81 @@ by design — none names a specific language or culture in code.
   songs through the deployed pipeline, not something a unit test can
   check.
 
+## Generation token-budget scaling + shipped-line completeness check — detail
+
+Found via a real production resubmission of the same Kun Faya Kun section
+that exposed the repetition-preservation gap above, this time Hindi →
+Japanese: the Translator's literal anchor correctly preserved every
+repeat (that fix held), but the shipped Japanese Aura output was ~20
+characters — one couplet's gist — against the anchor's 800+ characters
+of correctly-repeated content. The entire sacred "Kun Fayakun" refrain
+and a full stanza were silently dropped. The why-sentence description
+only covered the tiny surviving change and gave no indication of the
+scale of what was missing.
+
+- **Root cause (`engine/writers_room_v1.py`):** `_generate`'s Creative
+  Adapter call generates all 5 full candidates in one LLM response under
+  a flat `max_tokens=4000`, regardless of source section length. A long,
+  highly repetitive section that must preserve its repetition (per the
+  fix above) needs meaningfully more output tokens than a short one;
+  the Judge's own `judge_triage`/`judge_final` calls had the same flat-
+  `max_tokens=3000` problem, needing to carry both the final line's own
+  content and a Burden of Change ledger entry per candidate.
+  `engine/llm_client.py`'s `complete_json` retries once on invalid JSON,
+  but has no `finish_reason` check and no length-sanity check anywhere —
+  a token-budget-truncated response can still "succeed" by producing a
+  syntactically valid, drastically shorter retry, with nothing
+  downstream ever told this happened.
+- **Fix 1 — scale the budget instead of guessing a flat constant:**
+  `_content_max_tokens(source_text, num_outputs, overhead_per_output,
+  floor)` estimates ~2 characters per token (deliberately generous —
+  accurate for token-dense CJK output, oversized for Latin-script
+  output, since the failure being guarded against is truncation, not
+  wasted budget) and multiplies by how many full outputs the call must
+  produce. Applied to `translator` (1 output), `creative_adapter` (5
+  outputs), and a `_judge_max_tokens(source_text, num_candidates)`
+  variant (1 output, but overhead grows with candidate count) for
+  `judge_triage`, `judge_final`, the schema-validation retry, and the
+  corrective retry path. **Tier 1** in the narrow sense that the scaling
+  itself is deterministic arithmetic, not LLM judgment — but whether a
+  larger budget actually prevents truncation for any given real model
+  response is not something a unit test can confirm; no test corpus
+  exists proving this changes real output.
+- **Fix 2 — a deterministic safeguard for when it happens anyway
+  (`engine/verify.py`):** a new `completeness` `Finding`, severity
+  `"error"`, comparing the shipped `final_line`'s character length
+  against the MEDIAN length of that section's own `creative_adapter`
+  candidates (`_creative_candidate_median_length`) — deliberately NOT
+  compared against the Translator's anchor, which in every real example
+  seen is written in English regardless of target language (confirmed:
+  `AGENT_BRIEFS["translator"]` and `generation_prompt_v1` never instruct
+  the Translator in what language to write its anchor), so a legitimately
+  dense target script could look short next to an English anchor without
+  being incomplete. Comparing same-script siblings instead avoids that
+  false-positive class. Fires when the shipped line is under 35% of its
+  siblings' median length, and only when that median itself is at least
+  40 characters (too-short siblings make the ratio meaningless noise,
+  not signal). Because it is `severity="error"`, it automatically
+  triggers `engine/pipeline.py`'s existing
+  `retry_section_with_finding` corrective-retry mechanism — no new
+  wiring needed there. Note that retry re-runs only the Judge against
+  the existing candidates (it does not regenerate the Creative Adapter's
+  candidates), so this check is a genuine safety net against
+  truncation in the Judge's own final-line synthesis; Fix 1 above is
+  what actually prevents the candidates themselves from being truncated
+  in the first place.
+- **Benchmark coverage:** `tests/test_writers_room_v1.py` unit-tests
+  `_content_max_tokens`/`_judge_max_tokens` as pure functions (grows with
+  source length, grows with output/candidate count, floors correctly).
+  `tests/test_verify.py` unit-tests the completeness `Finding` directly
+  (flags a severely truncated line, stays quiet on a line close to its
+  siblings' length, stays quiet when siblings are too short to compare
+  meaningfully). No golden-prompt hash changed — this touched token
+  budgets and a new deterministic check, not prompt text. No test corpus
+  confirms either fix changes real output from the deployed pipeline —
+  that requires the user resubmitting real songs, same as every other
+  Tier 0 fix in this document.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

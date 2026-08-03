@@ -734,6 +734,74 @@ def test_missing_translator_anchor_is_unverifiable_not_a_crash():
 
 
 # ---------------------------------------------------------------------------
+# Completeness — the shipped line compared against its own siblings, not
+# the (usually English) anchor
+# ---------------------------------------------------------------------------
+
+
+def _section_with_candidates(final_line: str, sibling_lengths: list[int]) -> SectionResultV1:
+    """Like _section, but with several creative_adapter siblings of the
+    given char lengths (instead of just one, whose text always equals
+    final_line and would make the completeness ratio trivially 1.0)."""
+    candidates = [Candidate(id="a1", agent="translator", text=ANCHOR, round="generation")]
+    for i, length in enumerate(sibling_lengths):
+        candidates.append(
+            Candidate(
+                id=f"c{i}",
+                agent="creative_adapter",
+                text="x" * length,
+                round="generation",
+                philosophy="maximum_fidelity",
+            )
+        )
+    return SectionResultV1(
+        section="verse_1",
+        candidates=candidates,
+        routing_signals={},
+        ruling=JudgeRuling(
+            section="verse_1",
+            final_line=final_line,
+            priority_tradeoffs_made="test",
+            deviations=[],
+            invention_penalty=0.0,
+        ),
+    )
+
+
+def test_severely_truncated_final_line_is_flagged():
+    # Reproduces the real Japanese-target failure: a ~20-character shipped
+    # line against ~300-character creative_adapter siblings.
+    result = _section_with_candidates("x" * 20, [300, 310, 295])
+    v = verify_section(result)
+    findings = [f for f in v.findings if f.law == "completeness"]
+    assert len(findings) == 1
+    assert findings[0].severity == "error"
+
+
+def test_final_line_close_to_sibling_length_is_not_flagged():
+    result = _section_with_candidates("x" * 90, [100, 95, 105])
+    v = verify_section(result)
+    assert not [f for f in v.findings if f.law == "completeness"]
+
+
+def test_short_siblings_do_not_trigger_the_completeness_check():
+    # Median well under _COMPLETENESS_MIN_MEDIAN — too small to mean
+    # anything, so the check should stay quiet rather than flag noise.
+    result = _section_with_candidates("x" * 5, [20, 22, 18])
+    v = verify_section(result)
+    assert not [f for f in v.findings if f.law == "completeness"]
+
+
+def test_no_creative_adapter_candidates_skips_completeness_check():
+    result = _section("x" * 5, with_anchor=True)
+    v = verify_section(result)
+    # The default _section fixture has exactly one creative_adapter
+    # candidate whose text equals final_line, so ratio is always 1.0 —
+    # this asserts that shape stays quiet, not that the check is skipped.
+    assert not [f for f in v.findings if f.law == "completeness"]
+
+
+# ---------------------------------------------------------------------------
 # Structural recurrence — a formal device Song DNA never tagged as a motif
 # ---------------------------------------------------------------------------
 

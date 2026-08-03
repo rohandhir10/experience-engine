@@ -42,12 +42,51 @@ def _new_id() -> str:
     return uuid.uuid4().hex[:8]
 
 
+def _content_max_tokens(
+    source_text: str, num_outputs: int = 1, overhead_per_output: int = 250, floor: int = 1200
+) -> int:
+    """Scales an LLM call's max_tokens budget to the source section's
+    length, instead of a flat constant that silently truncates long or
+    highly repetitive sections. Found via a real production run: a
+    qawwali refrain repeated ~14 times shipped a Japanese output that
+    dropped ~95% of its content, including the entire sacred "Kun
+    Fayakun" refrain - the flat max_tokens=4000 budget for 5 full
+    candidates of a long section couldn't fit, and complete_json's
+    retry-on-invalid-JSON mechanism quietly produced a shorter, still
+    schema-valid response instead of raising anything.
+
+    ~2 characters per token is a deliberately generous (i.e. token-heavy)
+    estimate - roughly right for token-dense CJK output, safely oversized
+    for Latin-script languages - since the failure mode being guarded
+    against is truncation, not wasted budget.
+    """
+    chars = len(source_text)
+    tokens_per_output = (chars // 2) + overhead_per_output
+    return max(floor, tokens_per_output * num_outputs)
+
+
+def _judge_max_tokens(source_text: str, num_candidates: int) -> int:
+    """The Judge's output scales with both the source section's length
+    (final_line must be able to carry as much content as the source) and
+    the number of candidates it reasons about — more candidates means
+    more Burden of Change ledger entries and dimension-score references,
+    on top of the final_line's own content budget.
+    """
+    return _content_max_tokens(
+        source_text,
+        num_outputs=1,
+        overhead_per_output=300 + 200 * max(1, num_candidates),
+        floor=2048,
+    )
+
+
 def _ruling_with_retry(
     client: LLMClient,
     system: str,
     user: str,
     ruling_data: dict,
     section_name: str,
+    max_tokens: int = 3000,
 ) -> JudgeRuling:
     """Parses a ruling dict, retrying the call once with a corrective
     message if validation fails. The Judge occasionally invents a label
@@ -72,7 +111,7 @@ def _ruling_with_retry(
             "exact field names and enum values the schema specifies."
         )
         retry_data = client.complete_json(
-            system, corrective_user, max_tokens=3000, stage="judge_schema_retry"
+            system, corrective_user, max_tokens=max_tokens, stage="judge_schema_retry"
         )
         ruling = retry_data.get("ruling") if isinstance(retry_data.get("ruling"), dict) else retry_data
         return JudgeRuling(section=section_name, **ruling)
@@ -94,7 +133,12 @@ def _generate(
         "translator", source_text, dna, section_name, room_memory, target_language, voice,
         profile,
     )
-    data = client.complete_json(system, user, stage="translator")
+    data = client.complete_json(
+        system,
+        user,
+        max_tokens=_content_max_tokens(source_text, num_outputs=1, overhead_per_output=150),
+        stage="translator",
+    )
     translator_text = data["text"]
     # Things the source encodes that English has no channel for. Decided
     # once, here, then binding for the whole song via RoomMemory.
@@ -117,7 +161,12 @@ def _generate(
     system, user = prompts.creative_adapter_prompt(
         source_text, dna, section_name, room_memory, target_language, voice, profile
     )
-    data = client.complete_json(system, user, max_tokens=4000, stage="creative_adapter")
+    data = client.complete_json(
+        system,
+        user,
+        max_tokens=_content_max_tokens(source_text, num_outputs=5, overhead_per_output=200),
+        stage="creative_adapter",
+    )
     for item in data.get("candidates", []):
         candidate_text = item["text"]
         candidates.append(
@@ -194,14 +243,19 @@ def run_section(
         voice,
         profile,
     )
-    triage_data = client.complete_json(system, user, max_tokens=3000, stage="judge_triage")
+    judge_tokens = _judge_max_tokens(source_text, len(candidates))
+    triage_data = client.complete_json(
+        system, user, max_tokens=judge_tokens, stage="judge_triage"
+    )
 
     specialists_invoked: list[str] = []
     specialist_critiques: list[Critique] = []
 
     ready = bool(triage_data.get("ready_to_rule"))
     if ready and triage_data.get("ruling"):
-        ruling = _ruling_with_retry(client, system, user, triage_data["ruling"], section_name)
+        ruling = _ruling_with_retry(
+            client, system, user, triage_data["ruling"], section_name, max_tokens=judge_tokens
+        )
     else:
         if ready:
             # The Judge said it was ready but the ruling was missing/empty —
@@ -236,8 +290,12 @@ def run_section(
             voice,
             profile,
         )
-        final_data = client.complete_json(system, user, max_tokens=3000, stage="judge_final")
-        ruling = _ruling_with_retry(client, system, user, final_data, section_name)
+        final_data = client.complete_json(
+            system, user, max_tokens=judge_tokens, stage="judge_final"
+        )
+        ruling = _ruling_with_retry(
+            client, system, user, final_data, section_name, max_tokens=judge_tokens
+        )
 
     ruling.specialists_invoked = specialists_invoked
     ruling.voice = voice
@@ -301,10 +359,13 @@ def retry_section_with_finding(
         "Produce a corrected ruling that resolves it without introducing a "
         "new violation elsewhere:\n\n" + finding_detail
     )
+    judge_tokens = _judge_max_tokens(source_text, len(result.candidates))
     data = client.complete_json(
-        system, corrective_user, max_tokens=3000, stage="corrective_retry"
+        system, corrective_user, max_tokens=judge_tokens, stage="corrective_retry"
     )
-    ruling = _ruling_with_retry(client, system, corrective_user, data, section_name)
+    ruling = _ruling_with_retry(
+        client, system, corrective_user, data, section_name, max_tokens=judge_tokens
+    )
     ruling.specialists_invoked = result.specialists_invoked
     ruling.voice = voice
 

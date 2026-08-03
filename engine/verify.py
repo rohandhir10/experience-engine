@@ -427,6 +427,27 @@ def _translator_anchor(result: SectionResultV1) -> str | None:
     return None
 
 
+# Below this fraction of the creative_adapter candidates' own median length,
+# a shipped final_line is flagged as suspiciously incomplete rather than a
+# legitimately terse choice among its own siblings.
+_COMPLETENESS_RATIO = 0.35
+# Candidates shorter than this (chars) are too small for length comparison
+# to mean anything - skip the check rather than flag noise.
+_COMPLETENESS_MIN_MEDIAN = 40
+
+
+def _creative_candidate_median_length(result: SectionResultV1) -> int | None:
+    lengths = sorted(
+        len(c.text) for c in result.candidates if c.agent == "creative_adapter" and c.text
+    )
+    if not lengths:
+        return None
+    mid = len(lengths) // 2
+    if len(lengths) % 2:
+        return lengths[mid]
+    return (lengths[mid - 1] + lengths[mid]) // 2
+
+
 def verify_section(result: SectionResultV1, target_language: str = "English") -> SectionVerification:
     section = result.section
     ruling = result.ruling
@@ -458,6 +479,38 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
     final = ruling.final_line
     deviations = ruling.deviations
     norm_anchor, norm_final = _normalize(anchor), _normalize(final)
+
+    # --- Completeness: is the shipped line a fragment of its own siblings? -
+    # Deliberately compared against the Creative Adapter's OWN candidates
+    # (same target language, same script) rather than the Translator's
+    # anchor (usually written in English regardless of target_language) -
+    # a legitimately dense target script (e.g. CJK) can make a complete
+    # line look short next to an English anchor, but it can't make it look
+    # short next to its own siblings in the same script. Caught a real
+    # production failure: a Japanese final_line of ~20 characters shipped
+    # from a section whose creative_adapter candidates ran ~300+ characters
+    # each, silently dropping the entire sacred refrain and a full stanza -
+    # nothing upstream (schema-valid JSON, a plausible-looking why-sentence)
+    # would have caught it without this check.
+    median_len = _creative_candidate_median_length(result)
+    if median_len is not None and median_len >= _COMPLETENESS_MIN_MEDIAN:
+        ratio = len(final) / median_len
+        if ratio < _COMPLETENESS_RATIO:
+            findings.append(
+                Finding(
+                    law="completeness",
+                    severity="error",
+                    section=section,
+                    detail=(
+                        f"The shipped final line is {len(final)} character(s), "
+                        f"only {ratio:.0%} of its own creative_adapter "
+                        f"candidates' median length ({median_len} characters). "
+                        "This looks like truncated or dropped content, not a "
+                        "deliberately terse choice."
+                    ),
+                    fragment=final[:120],
+                )
+            )
 
     # --- Law 1: is every real change accounted for? ------------------------
     changed = _changed_final_words(anchor, final)
