@@ -64,10 +64,7 @@ import os
 import threading
 import time
 import uuid
-from collections import defaultdict
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from datetime import date
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -82,7 +79,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import cache, db
+from . import cache, db, jobs, quota
 from .mapping import to_experience_result
 
 logging.basicConfig(
@@ -123,12 +120,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# {(day, ip): engine runs today}. In-memory on purpose: this is a
-# single-instance cost guard, not billing infrastructure. Restarting the
-# process resets it, which is acceptable at this stage.
-_daily_runs: dict[tuple[str, str], int] = defaultdict(int)
-
-
 def _client_ip(request: Request) -> str:
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
@@ -137,10 +128,10 @@ def _client_ip(request: Request) -> str:
 
 
 def _check_quota(ip: str) -> None:
-    if DAILY_LIMIT <= 0:
-        return
-    key = (date.today().isoformat(), ip)
-    if _daily_runs[key] >= DAILY_LIMIT:
+    # server/quota.py: Postgres-backed (atomic, safe across more than one
+    # process/instance) when DATABASE_URL is set, an in-memory dict
+    # otherwise - see that module's docstring.
+    if not quota.check_and_increment(ip, DAILY_LIMIT):
         raise HTTPException(
             status_code=429,
             detail=(
@@ -148,7 +139,6 @@ def _check_quota(ip: str) -> None:
                 "processed songs are still free to view and share."
             ),
         )
-    _daily_runs[key] += 1
 
 
 class YoutubeSectionTiming(BaseModel):
@@ -489,28 +479,17 @@ def get_adapt(result_id: str) -> dict:
     return cached
 
 
-@dataclass
-class _Job:
-    status: str = "pending"  # "pending" | "running" | "done" | "error"
-    result: dict | None = None
-    error: str | None = None
-    created_at: float = field(default_factory=time.monotonic)
-
-
-# In-memory, single-instance, resets on restart - same tradeoff as
-# _daily_runs above, acceptable at today's scale (this process runs as
-# one uvicorn worker; see the Dockerfile). _JOB_TTL_SECONDS bounds memory
-# growth from jobs nobody ever polls again, pruned opportunistically on
-# each new job's creation rather than on a timer.
-_jobs: dict[str, _Job] = {}
-_jobs_lock = threading.Lock()
-_JOB_TTL_SECONDS = 3600
-
-
-def _prune_stale_jobs() -> None:
-    cutoff = time.monotonic() - _JOB_TTL_SECONDS
-    for job_id in [jid for jid, job in _jobs.items() if job.created_at < cutoff]:
-        del _jobs[job_id]
+# Bounds how many engine runs can be mid-flight at once, regardless of
+# how many /api/adapt/start requests land at the same time. Each run is
+# several dozen sequential LLM calls at its peak (a full multi-section
+# song) - with no cap, a burst of concurrent submissions would all hit
+# the LLM provider simultaneously and risk provider-side rate-limit
+# failures across every concurrent job, not just the newest one. The
+# number itself is a starting guess, not a measured ceiling - tune via
+# AURA_MAX_CONCURRENT_RUNS once real concurrent traffic exists to learn
+# from.
+MAX_CONCURRENT_RUNS = int(os.environ.get("AURA_MAX_CONCURRENT_RUNS", "4"))
+_run_slots = threading.Semaphore(MAX_CONCURRENT_RUNS)
 
 
 def _run_job(
@@ -525,34 +504,28 @@ def _run_job(
     ip: str,
     started: float,
 ) -> None:
-    with _jobs_lock:
-        _jobs[job_id].status = "running"
-    try:
-        experience_result = _run_adaptation(
-            request, result_id, text, target_language, source_language, sections, song, ip, started,
-            log_prefix="job",
-        )
-        with _jobs_lock:
-            _jobs[job_id].status = "done"
-            _jobs[job_id].result = experience_result
-    except LLMError as exc:
-        logger.error("job id=%s engine failure: %s", job_id, exc)
-        with _jobs_lock:
-            _jobs[job_id].status = "error"
-            _jobs[job_id].error = "The engine hit a problem processing this song. Try again in a moment."
-    except RuntimeError as exc:
-        logger.error("job id=%s configuration failure: %s", job_id, exc)
-        with _jobs_lock:
-            _jobs[job_id].status = "error"
-            _jobs[job_id].error = str(exc)
-    except Exception:
-        # A background thread's uncaught exception is otherwise silent -
-        # nothing re-raises it anywhere the poller would see. Whoever's
-        # polling deserves an "error" status, not an indefinite "pending".
-        logger.exception("job id=%s unexpected failure", job_id)
-        with _jobs_lock:
-            _jobs[job_id].status = "error"
-            _jobs[job_id].error = "Something went wrong processing this song. Try again."
+    with _run_slots:
+        jobs.set_running(job_id)
+        try:
+            experience_result = _run_adaptation(
+                request, result_id, text, target_language, source_language, sections, song, ip, started,
+                log_prefix="job",
+            )
+            jobs.set_done(job_id, experience_result)
+        except LLMError as exc:
+            logger.error("job id=%s engine failure: %s", job_id, exc)
+            jobs.set_error(
+                job_id, "The engine hit a problem processing this song. Try again in a moment."
+            )
+        except RuntimeError as exc:
+            logger.error("job id=%s configuration failure: %s", job_id, exc)
+            jobs.set_error(job_id, str(exc))
+        except Exception:
+            # A background thread's uncaught exception is otherwise silent -
+            # nothing re-raises it anywhere the poller would see. Whoever's
+            # polling deserves an "error" status, not an indefinite "pending".
+            logger.exception("job id=%s unexpected failure", job_id)
+            jobs.set_error(job_id, "Something went wrong processing this song. Try again.")
 
 
 @app.post("/api/adapt/start")
@@ -595,10 +568,8 @@ def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
     _check_quota(ip)
     sections, song = _build_song(text, target_language, source_language)
 
-    with _jobs_lock:
-        _prune_stale_jobs()
-        job_id = uuid.uuid4().hex
-        _jobs[job_id] = _Job()
+    job_id = uuid.uuid4().hex
+    jobs.create(job_id)
 
     thread = threading.Thread(
         target=_run_job,
@@ -611,10 +582,9 @@ def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
 
 @app.get("/api/adapt/jobs/{job_id}")
 def adapt_job_status(job_id: str) -> dict:
-    with _jobs_lock:
-        job = _jobs.get(job_id)
+    job = jobs.get(job_id)
     if job is None:
         raise HTTPException(
             status_code=404, detail="No job found for this id. It may have expired."
         )
-    return {"status": job.status, "result": job.result, "error": job.error}
+    return job

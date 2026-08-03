@@ -183,6 +183,16 @@ def find_similar(
     text directly, so it would otherwise keep resurfacing a pre-bump row
     for a near-identical resubmission forever, defeating the whole point
     of bumping CACHE_VERSION in the first place.
+
+    Scans in two passes rather than one to avoid a real scaling problem:
+    loading the full ORM row (including result_json - every section,
+    candidate, and ruling this song ever computed) for every candidate
+    row just to compare its normalized_text is memory/bandwidth that
+    grows linearly with the size of the whole cache table, on every
+    single cache-miss request, when only the eventual winner's full
+    payload is ever actually needed. The first pass fetches only
+    (id, normalized_text) for the scan; the second pass fetches the one
+    winning row's full result_json, if there is one.
     """
     if not _use_db():
         return None
@@ -194,10 +204,9 @@ def find_similar(
     if not key:
         return None
 
-    best: tuple[str, dict, float] | None = None
     with db.session_scope() as session:
-        rows = (
-            session.query(CachedResult)
+        candidates = (
+            session.query(CachedResult.id, CachedResult.normalized_text)
             .filter_by(
                 target_language=target_language,
                 source_language=source_language,
@@ -205,10 +214,24 @@ def find_similar(
             )
             .all()
         )
-        for row in rows:
-            if not row.normalized_text:
+
+        best_id: str | None = None
+        best_ratio = 0.0
+        for row_id, normalized_text in candidates:
+            if not normalized_text:
                 continue
-            ratio = difflib.SequenceMatcher(None, key, row.normalized_text).ratio()
-            if ratio >= threshold and (best is None or ratio > best[2]):
-                best = (row.id, row.result_json, ratio)
-    return best
+            ratio = difflib.SequenceMatcher(None, key, normalized_text).ratio()
+            if ratio >= threshold and ratio > best_ratio:
+                best_id, best_ratio = row_id, ratio
+
+        if best_id is None:
+            return None
+
+        winner = session.get(CachedResult, best_id)
+        if winner is None:
+            # Deleted between the scan above and this lookup - vanishingly
+            # unlikely (nothing in this codebase deletes cached_results
+            # rows today), but a real cache miss is the correct fallback,
+            # not a crash.
+            return None
+        return best_id, winner.result_json, best_ratio

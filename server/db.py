@@ -51,10 +51,32 @@ _engine = None
 _SessionLocal: sessionmaker | None = None
 
 
+
+# Explicit rather than SQLAlchemy's bare defaults (pool_size=5,
+# max_overflow=10) so the actual ceiling is visible and tunable here
+# instead of implied. Sized for today's single-worker deployment (see
+# the Dockerfile) with headroom for /api/adapt/start's background job
+# threads (server/main.py's MAX_CONCURRENT_RUNS) each holding a
+# connection concurrently, plus normal request traffic — not a measured
+# number, a documented starting point. Also bounded by whatever
+# Railway's managed Postgres plan actually allows (commonly ~20-100
+# connections on hobby/starter tiers): raising POOL_SIZE past that
+# ceiling just moves the failure from "pool exhausted" to "Postgres
+# refused the connection," so check the plan's actual limit before
+# tuning this up for real concurrent traffic.
+POOL_SIZE = int(os.environ.get("AURA_DB_POOL_SIZE", "10"))
+MAX_OVERFLOW = int(os.environ.get("AURA_DB_MAX_OVERFLOW", "10"))
+
+
 def get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(_database_url(), pool_pre_ping=True)
+        _engine = create_engine(
+            _database_url(),
+            pool_pre_ping=True,
+            pool_size=POOL_SIZE,
+            max_overflow=MAX_OVERFLOW,
+        )
     return _engine
 
 

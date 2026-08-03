@@ -135,6 +135,43 @@ class CachedResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AdaptationJob(Base):
+    """Status for one /api/adapt/start background engine run
+    (server/jobs.py). Backed by Postgres (rather than the in-memory dict
+    this replaced) specifically so job status is visible to whichever
+    process/instance a poll happens to land on - a job started on one
+    Railway worker and polled via a request routed to a different one is
+    exactly the failure an in-memory dict can't survive, and moving to a
+    shared table is what actually removes that ceiling on running more
+    than one instance/worker. Falls back to an in-memory dict when
+    DATABASE_URL isn't set (local dev, tests) - see server/jobs.py.
+    """
+
+    __tablename__ = "adaptation_jobs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    status: Mapped[str] = mapped_column(String, default="pending")  # pending|running|done|error
+    result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class DailyQuotaUsage(Base):
+    """Per-(day, ip) run count backing server.main's daily submission cap
+    (AURA_DAILY_LIMIT). Same reasoning as AdaptationJob above: an
+    in-memory dict can't be checked-and-incremented consistently across
+    more than one process, so a burst split across instances could blow
+    past the intended per-IP limit. Falls back to an in-memory dict when
+    DATABASE_URL isn't set - see server/quota.py.
+    """
+
+    __tablename__ = "daily_quota_usage"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)  # ISO date, e.g. "2026-08-03"
+    ip: Mapped[str] = mapped_column(String, primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class CollectionAdaptation(Base):
     """Many-to-many join: a collection groups adaptations, and one
     adaptation can sit in more than one collection (e.g. both "Hindi Rock"

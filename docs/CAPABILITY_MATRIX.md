@@ -562,14 +562,12 @@ calls uncut" work against each other.
   it. `GET /api/adapt/jobs/{job_id}` is a fast in-memory dict lookup
   returning `{"status": "pending"|"running"|"done"|"error", "result":
   ..., "error": ...}`.
-- **Job storage is in-memory, single-instance** (a `dict[str, _Job]`
-  behind a lock, pruned by a 1-hour TTL on each new job's creation) — the
-  same tradeoff `_daily_runs` (the existing per-IP quota) already makes,
-  acceptable because this process runs as a single uvicorn worker (see
-  the Dockerfile — no `--workers` flag). A restart drops in-flight jobs;
-  worth revisiting with real persistence (or Postgres-backed job rows,
-  the way `CachedResult` already works) if this ever needs more than one
-  worker process or Railway instance.
+- **Job storage** (`server/jobs.py`): originally an in-memory
+  `dict[str, _Job]`, single-instance only. Superseded by the scalability
+  pass below — see "Scalability audit" for why and what replaced it
+  (Postgres-backed when `DATABASE_URL` is set, in-memory fallback
+  otherwise, matching `server/cache.py`'s existing backend-split
+  convention).
 - **`web/app/api/adapt/start/route.ts`, `web/app/api/adapt/jobs/[jobId]/
   route.ts`** (new): thin proxies, neither needs `/api/adapt/route.ts`'s
   `maxDuration`/`AbortController` handling since both return almost
@@ -585,7 +583,7 @@ calls uncut" work against each other.
   calls are made). What's NOT yet verified is a real, live full-song run
   end-to-end against the deployed Railway/Vercel pair — that needs the
   user to actually try a multi-section song against the live site.
-- **Benchmark coverage:** `tests/test_server_jobs.py` (new, 10 tests):
+- **Benchmark coverage:** `tests/test_server_jobs.py` (new, 9 tests):
   cache-hit and fuzzy-match short-circuits create no job; a job
   transitions pending → running → done with the right result; `LLMError`
   becomes the same friendly message `/api/adapt` already used (raw
@@ -596,6 +594,134 @@ calls uncut" work against each other.
   `job_id` is a 404; input validation matches `/api/adapt`; the quota is
   still enforced. `tsc --noEmit` and `next build` both pass clean for the
   two new frontend routes and `useAdaptSubmit.ts`'s rewrite.
+
+## Scalability audit — detail
+
+A deliberate pass over the whole project (not triggered by a specific
+real-song test, unlike almost everything else in this document) asking
+"what breaks first under real concurrent load or a growing dataset,"
+prompted by the async-job work above having just added a THIRD piece of
+in-memory, single-instance state (`_jobs`) alongside an existing one
+(`_daily_runs`). Six findings, ranked by actual impact; the first four
+are fixed here, the last two are documented, not touched.
+
+1. **In-memory job store (`_jobs`).** Single-process only — a poll
+   landing on a different process/instance than the one that started the
+   background thread gets a 404 for a job that's still running elsewhere.
+   The sharpest of the six, since it's the newest piece of state and the
+   one most directly in the way of ever running more than one Railway
+   worker.
+2. **In-memory daily quota (`_daily_runs`).** Same disease — resets on
+   restart, and can't be enforced consistently across more than one
+   instance (a burst split across two processes could each independently
+   believe they're the day's first request for that IP).
+3. **`cache.py::find_similar()`'s full-row over-fetch.** The fuzzy-match
+   scan pulled the ENTIRE `result_json` (every section/candidate/ruling
+   the song ever computed) into memory for every row matching the
+   language pair, just to compare `normalized_text` in a loop — cost
+   grows linearly with the whole cached-songs table's size, on every
+   single cache-miss request, even though only the eventual winner's
+   payload is ever needed.
+4. **Unbounded background threads.** Nothing capped how many engine runs
+   could be mid-flight at once — a burst of concurrent submissions would
+   spawn a thread each and all hit the LLM provider simultaneously,
+   risking provider-side rate-limit failures across every concurrent job,
+   not just the newest one.
+5. **No explicit DB connection pool sizing.** `server/db.py` used
+   SQLAlchemy's bare defaults — not wrong, just implicit.
+6. **Schema managed by `create_all()` + hand-patched `ALTER TABLE IF NOT
+   EXISTS` calls, not a real migration tool.** Already flagged twice in
+   `server/db.py`'s own comments as "proving it does not scale past one."
+   The largest, riskiest item here — introducing Alembic (or similar)
+   is a real infra decision (migration history, rollback story,
+   deployment ordering) that deserves its own conversation, not a fixup
+   bundled into a broader pass. Documented, not touched.
+
+**Fixes for 1-5:**
+
+- **`server/jobs.py`** (new): same backend split as `server/cache.py` —
+  `DATABASE_URL` set → Postgres (`server/db_models.py::AdaptationJob`),
+  so job status is visible to whichever process/instance a poll lands
+  on; not set (local dev, tests) → an in-memory dict, since there's
+  exactly one process and nothing to share state with. `server/main.py`'s
+  `_run_job`/`adapt_start`/`adapt_job_status` now call this module
+  (`create`/`set_running`/`set_done`/`set_error`/`get`) instead of
+  touching a raw dict directly.
+- **`server/quota.py`** (new): same split for the daily cap —
+  `DATABASE_URL` set → an atomic `INSERT ... ON CONFLICT DO UPDATE ...
+  RETURNING count` against `server/db_models.py::DailyQuotaUsage`, so a
+  burst of concurrent requests across more than one process can't each
+  read the same stale count and both believe they're under the limit (a
+  plain SELECT-then-UPDATE can't give that guarantee); not set → an
+  in-memory dict, exactly as before this module existed.
+- **`server/cache.py::find_similar()`**: rewritten as two passes — fetch
+  only `(id, normalized_text)` for the similarity scan, then fetch the
+  ONE winning row's full `result_json` only if a match clears the
+  threshold. Behavior is unchanged; the DB round-trip's cost no longer
+  scales with the size of the whole cache table's payloads.
+- **`server/main.py::MAX_CONCURRENT_RUNS`** (new, `AURA_MAX_CONCURRENT_
+  RUNS` env var, default 4): a `threading.Semaphore` around the actual
+  engine run, so at most N background jobs run at once regardless of how
+  many `/api/adapt/start` requests arrive simultaneously — the rest
+  queue behind the semaphore rather than all hitting the LLM provider at
+  once. The number itself is a starting guess, not a measured ceiling.
+- **`server/db.py`**: explicit `pool_size`/`max_overflow` (via
+  `AURA_DB_POOL_SIZE`/`AURA_DB_MAX_OVERFLOW`, defaulting to 10/10)
+  instead of SQLAlchemy's implicit defaults — documented as bounded by
+  whatever Railway's managed Postgres plan actually allows; raising this
+  past the plan's real connection ceiling just moves the failure from
+  "pool exhausted" to "Postgres refused the connection."
+
+**What this does NOT fix, and why:**
+
+- **The O(n) scan itself is still O(n)** — `find_similar()` is cheaper
+  per row now, but still a full Python-side scan over every row in the
+  language pair. Fine at today's scale; would need a real similarity
+  index (e.g. Postgres `pg_trgm`) if the cached-songs table ever grows
+  large enough to make even the lightweight scan slow — `cache.py`'s own
+  docstring already flagged this as "worth revisiting," unchanged by
+  this pass.
+- **No connection reuse across requests in `engine/llm_client.py`** — a
+  fresh `openai.OpenAI` client (and its own `httpx` connection pool) is
+  constructed on every `create_default_client()` call, i.e. twice per
+  adaptation request. Under high concurrency this multiplies socket/file-
+  descriptor usage instead of reusing keep-alive connections across
+  requests. Not fixed here — would need a shared, thread-safe client
+  instance rather than the current per-request construction, and that's
+  a real behavior change to code this session didn't otherwise touch.
+- **Multi-worker/multi-instance Docker deployment itself** — fixes 1-2
+  above remove the state-sharing blocker, but the Dockerfile still runs a
+  single `uvicorn` process with no `--workers` flag. Actually turning on
+  more than one worker/instance is a deliberate deployment change (cost,
+  and needs a smoke test against real Postgres) — this pass makes it
+  *safe* to do, it doesn't do it.
+- **No edge-level rate limiting or abuse protection** (WAF, IP
+  reputation, bot filtering) in front of the API — the per-IP daily quota
+  is a cost guard, not abuse protection; this is unrelated to throughput
+  scaling and out of scope for this pass.
+- **Alembic / real migrations** — see finding 6 above.
+
+**Tier 1** — every fix here is deterministic infrastructure, not a
+model-behavior claim. **Verification gap, disclosed honestly**: this
+sandbox has no live Postgres instance and no `DATABASE_URL`, so the new
+DB-backed paths (`AdaptationJob`, `DailyQuotaUsage`, the atomic UPSERT)
+are verified by (a) a SQLite schema smoke test
+(`tests/test_db_models.py`) confirming the models themselves are sound,
+and (b) compiling the UPSERT statement against the real Postgres SQL
+dialect to catch syntax errors — but NOT by actually executing it against
+a running Postgres. The in-memory fallback paths (what every test in
+this session actually ran against, since no `DATABASE_URL` is set here)
+are fully exercised by `tests/test_jobs.py` and `tests/test_quota.py`.
+Confirming the Postgres path end-to-end needs a real deploy with
+`DATABASE_URL` set, which only the user can do from here.
+
+**Benchmark coverage:** `tests/test_jobs.py` (7 tests, in-memory backend:
+create/get/status-transitions/errors/pruning), `tests/test_quota.py` (3
+tests, in-memory backend: allow-up-to-limit-then-block, independent IPs,
+disabled quota), `tests/test_db_models.py` (+4: `AdaptationJob` defaults
+and updates, `DailyQuotaUsage` keying), `tests/test_cache.py` (unchanged,
+all still passing against the rewritten `find_similar()`). 415 tests
+total, all passing.
 
 ## Urdu source grounding — detail
 

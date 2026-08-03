@@ -18,16 +18,19 @@ from fastapi.testclient import TestClient
 
 import server.main as main
 from engine.llm_client import LLMError
+from server import jobs, quota
 
 VALID_BODY = {"text": "line one\n\nline two", "target_language": "English"}
 
 
 @pytest.fixture(autouse=True)
 def _reset_module_state(monkeypatch):
-    # _jobs and _daily_runs are in-memory, module-level dicts - reset them
-    # per test so runs don't leak across tests (or hit the quota).
-    monkeypatch.setattr(main, "_jobs", {})
-    monkeypatch.setattr(main, "_daily_runs", defaultdict(int))
+    # jobs/quota are in-memory (no DATABASE_URL in the test environment) -
+    # reset their module-level dicts per test so runs don't leak across
+    # tests (or hit the quota).
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.setattr(jobs, "_jobs", {})
+    monkeypatch.setattr(quota, "_memory_counts", defaultdict(int))
     monkeypatch.setattr(main, "DAILY_LIMIT", 0)
 
 
@@ -57,7 +60,7 @@ def test_adapt_start_returns_cached_result_without_creating_a_job(client, monkey
     assert response.status_code == 200
     body = response.json()
     assert body == {"status": "done", "job_id": None, "result": canned}
-    assert main._jobs == {}
+    assert jobs._jobs == {}
 
 
 def test_adapt_start_returns_fuzzy_match_without_creating_a_job(client, monkeypatch):
@@ -73,7 +76,7 @@ def test_adapt_start_returns_fuzzy_match_without_creating_a_job(client, monkeypa
     assert response.status_code == 200
     body = response.json()
     assert body == {"status": "done", "job_id": None, "result": canned}
-    assert main._jobs == {}
+    assert jobs._jobs == {}
 
 
 def test_adapt_start_runs_engine_in_background_and_job_completes(client, monkeypatch):

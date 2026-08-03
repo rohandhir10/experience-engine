@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from server.db import Base
-from server.db_models import Adaptation, Collection, User
+from server.db_models import Adaptation, AdaptationJob, Collection, DailyQuotaUsage, User
 
 
 def _sqlite_session():
@@ -103,3 +103,41 @@ def test_collection_groups_adaptations_many_to_many():
     fetched = session.query(Collection).filter_by(name="Hindi Rock").one()
     assert {a.result_id for a in fetched.adaptations} == {"abc123", "def456"}
     assert collection in a1.collections
+
+
+def test_adaptation_job_defaults_to_pending_with_no_result():
+    session = _sqlite_session()
+    session.add(AdaptationJob(id="job-1"))
+    session.commit()
+
+    fetched = session.get(AdaptationJob, "job-1")
+    assert fetched.status == "pending"
+    assert fetched.result_json is None
+    assert fetched.error is None
+    assert fetched.created_at is not None
+
+
+def test_adaptation_job_can_be_updated_to_done():
+    session = _sqlite_session()
+    session.add(AdaptationJob(id="job-2"))
+    session.commit()
+
+    row = session.get(AdaptationJob, "job-2")
+    row.status = "done"
+    row.result_json = {"sections": []}
+    session.commit()
+
+    fetched = session.get(AdaptationJob, "job-2")
+    assert fetched.status == "done"
+    assert fetched.result_json == {"sections": []}
+
+
+def test_daily_quota_usage_is_keyed_by_day_and_ip():
+    session = _sqlite_session()
+    session.add(DailyQuotaUsage(day="2026-08-03", ip="1.2.3.4", count=1))
+    session.add(DailyQuotaUsage(day="2026-08-03", ip="5.6.7.8", count=1))
+    session.commit()
+
+    fetched = session.get(DailyQuotaUsage, ("2026-08-03", "1.2.3.4"))
+    assert fetched.count == 1
+    assert session.query(DailyQuotaUsage).count() == 2
