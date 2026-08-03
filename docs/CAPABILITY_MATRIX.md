@@ -181,6 +181,45 @@ by design — none names a specific language or culture in code.
   Not corpus-benchmarked; the two Tier 0 pieces have no benchmark that
   could even measure them yet.
 
+## Urdu source grounding — detail
+
+Urdu was added late (full open language matrix + Urdu, source and
+target), after the four-language matrix above was frozen — it is not a
+fifth column in that table, which is scoped to the original phase. This
+section documents what exists for it instead.
+
+- **`engine/grounding/urdu.py::count_urdu`** — syllable counting for
+  Perso-Arabic script. Urdu is an **abjad**, not an abugida like
+  Devanagari: short vowels are optional diacritics (i'raab) that
+  ordinary written Urdu — including virtually all real pasted lyrics —
+  omits entirely. Without them there is no deterministic way to recover
+  which consonant clusters carry a vowel; guessing would produce a count
+  that looks exact and is fabricated. **Tier 1, but gated**: the counter
+  only runs when a text's letters are, on average, at least half marked
+  with explicit diacritics (`_MIN_DIACRITIC_DENSITY`) — the one case
+  that genuinely is deterministic, the same algorithm used for
+  fully-voweled Arabic. Ordinary undiacritized Urdu returns `None`,
+  honestly, rather than approximating — the same discipline
+  `engine/rhythm.py::phrase_end_sustainability` already applies by
+  declining Urdu output outright. In practice this means: a diwan or
+  religious text pasted with full tashkil gets a real count; a pasted
+  song lyric almost always gets `None`.
+- **`engine/profiles/urdu.json`** — genre traditions (ghazal couplet
+  independence, radif/qafiya rhyme-refrain, qawwali's repetition-driven
+  structure), the register axis (Persian/Arabic-derived literary diction
+  vs. everyday Hindustani — the mirror image of Hindi's own axis),
+  classical symbol calibration (moth/flame, wine/tavern/saqi, the
+  deliberate sacred-vs-worldly ambiguity of *ishq*), and a five-term
+  anchor lexicon (junoon, wisal, hijr, rind, saqi). **Tier 0** — authored
+  from established literary-historical knowledge of the ghazal
+  tradition, not from a corpus or native-speaker review; treat it with
+  the same caution as any other profile's authored content.
+- **Benchmark coverage:** unit-tested (`tests/test_grounding.py`'s Urdu
+  cases, hand-traced against known-correct diacritized words before the
+  code was written, same discipline as the Hindi/Hangul counters).
+  Not corpus-benchmarked, and the profile's authored content has no
+  native-speaker review yet.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

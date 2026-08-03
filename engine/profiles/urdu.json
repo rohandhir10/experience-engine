@@ -1,0 +1,44 @@
+{
+  "code": "ur",
+  "name": "Urdu",
+  "scripts": ["Perso-Arabic (Nastaliq)"],
+  "genre_traditions": "The ghazal is the dominant classical form: a sequence of autonomous couplets (sher), each a self-contained thought that must stand on its own even divorced from its neighbors — do not flatten a ghazal into a single continuous narrative, that erases its actual structure. The nazm is through-composed on one connected theme, closer to what English calls a poem. Qawwali is Sufi-devotional, built on repetition and rising intensity rather than argument or narrative development. Urdu vocabulary is also the register backbone of Hindi film (Bollywood) song — much of what gets called a 'Hindi' film lyric is linguistically Hindustani, drawing its emotional vocabulary from here.",
+  "register_axis": "The central axis runs from heavily Persian/Arabic-derived literary diction (classical ghazal and Sufi verse: ishq, junoon, wisal, gham) to everyday spoken Hindustani closer to colloquial Hindi-Urdu. Choosing mohabbat over pyaar, or gham over dukh, places a line in a specific literary lineage versus ordinary speech — the reverse framing of the same axis Hindi's own profile documents from its side.",
+  "rhyme_convention": "The ghazal's rhyme is stricter than casual pop convention: a qafiya (the rhyme proper) is followed by a radif — a whole word or phrase repeated verbatim at the end of both lines of the opening couplet (matla) and the second line of every couplet after it. The radif's repetition is structural, not incidental, and must survive adaptation the way a chorus hook must.",
+  "symbol_calibration": "Archetypal WITHIN the Urdu ghazal tradition, not exotic markers to an outside reader: the moth and flame (parwana/shama) for self-destroying love, wine and the tavern (mai, maikhana, saqi) as both literal intoxication and a Sufi figure for union with the divine, the rose and nightingale (gul-o-bulbul) for beauty and longing, and the deliberate ambiguity between sacred and worldly love (ishq-e-haqiqi vs. ishq-e-majazi) that a ghazal often refuses to resolve. Collapsing that ambiguity into only-sacred or only-romantic is a common mistranslation, not a simplification.",
+  "structural_traps": [
+    "Urdu and Hindi are the same spoken language grammatically (Hindustani): the copula and subject pronoun are frequently dropped, second-person pronouns (tu/tum/aap) encode intimacy or distance English 'you' erases, and verb agreement can carry the speaker's gender even with no pronoun present.",
+    "A ghazal couplet's independence from its neighbors is a feature, not a gap to be smoothed over with added connective narrative.",
+    "The sacred/profane ambiguity of ishq (is the beloved human or divine?) is frequently the entire point of a couplet — resolving it explicitly in either direction is a loss, not a clarification."
+  ],
+  "grammatical_scaffolding_note": "Urdu drops the copula and often the subject pronoun, and its postpositional phrases translate into English prepositional ones, exactly as in Hindi. Supplying 'is/are', a subject pronoun, or a preposition is required for the English to parse and does not count against the Compression Floor. Adding an explicit 'because', 'although', or 'which' to spell out a relation the source left for the reader to infer does count against it.",
+  "emotional_baseline": "Classical ghazal convention treats separation (hijr/firaq) and grief as the genre's default emotional register, not personal excess — naming heartbreak or longing outright is a convention of the form, not melodrama to be softened. The Restraint Ceiling still applies: do not add feeling-words beyond what the source states, but do not strip the directness the tradition itself calls for.",
+  "grounding_language_code": "ur",
+  "anchor_lexicon": [
+    {
+      "term": "junoon",
+      "meaning": "obsessive passion or madness, often for a cause, a beloved, or the divine — carries admiration, not pathology",
+      "target_recognizability": "low"
+    },
+    {
+      "term": "wisal",
+      "meaning": "union with the beloved — in Sufi register, ambiguous between a lover and the divine",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "hijr",
+      "meaning": "separation from the beloved, the ghazal's default emotional state rather than an unusual crisis",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "rind",
+      "meaning": "the free-spirited, wine-drinking nonconformist persona — often stands in for spiritual seeking outside religious orthodoxy, not literal drunkenness",
+      "target_recognizability": "none"
+    },
+    {
+      "term": "saqi",
+      "meaning": "the cupbearer who pours the wine — in Sufi verse, a figure for the source of divine intoxication/grace, not a literal bartender",
+      "target_recognizability": "none"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ from engine.grounding.devanagari import count_hindi
 from engine.grounding.hangul import count_korean, sino_korean_syllables
 from engine.grounding.japanese import count_japanese, count_morae_in_kana
 from engine.grounding.spanish import _count_line, _count_word, count_spanish
+from engine.grounding.urdu import count_urdu
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +280,46 @@ def test_japanese_returns_none_for_non_japanese():
 
 
 # ---------------------------------------------------------------------------
+# Urdu — Perso-Arabic abjad; only fully-diacritized text is countable
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "word,expected,why",
+    [
+        ("بِسْمِ", 2, "bis-mi: kasra, then sukun closes the middle consonant, then kasra"),
+        ("کِتابْ", 2, "ki-taab: kasra gives the first nucleus, bare ا gives the second, final sukun marks ب as vowelless"),
+        ("قَوْل", 1, "qawl: fatha gives one nucleus, sukun closes the وْ glide, no second"),
+    ],
+)
+def test_urdu_diacritized_word_counts(word: str, expected: int, why: str):
+    result = count_urdu(word)
+    assert result is not None, why
+    assert result.value == expected, f"{word}: expected {expected} ({why})"
+    assert result.unit == "syllables"
+
+
+def test_urdu_declines_ordinary_undiacritized_text():
+    """Real pasted Urdu lyrics almost never carry i'raab — the short
+    vowels are genuinely not written, so there is nothing honest to
+    count. This must return None, not a number that looks exact and
+    is actually guessed.
+    """
+    assert count_urdu("کتاب اردو میں لکھا ہے") is None
+
+
+def test_urdu_returns_none_for_non_urdu_text():
+    assert count_urdu("just english here") is None
+    assert count_urdu("   ") is None
+
+
+def test_urdu_result_discloses_why_it_only_works_here():
+    result = count_urdu("بِسْمِ اللّٰہِ")
+    assert result is not None
+    assert result.caveat and "omits them entirely" in result.caveat
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -298,7 +339,7 @@ def test_unknown_language_returns_none_rather_than_guessing():
 
 
 def test_registered_languages_include_every_shipped_language():
-    assert {"hi", "ko", "es", "ja"}.issubset(set(supported_languages()))
+    assert {"hi", "ko", "es", "ja", "ur"}.issubset(set(supported_languages()))
 
 
 def test_counters_register_on_package_import_alone():
