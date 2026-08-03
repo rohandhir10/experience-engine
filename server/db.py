@@ -1,0 +1,74 @@
+"""Postgres wiring for server/db_models.py.
+
+DATABASE_URL is read from the environment — on Railway, that's the
+Postgres plugin's connection string, referenced as an env var on this
+service (Railway doesn't attach a plugin to a service automatically).
+
+No auth provider is chosen yet (Clerk vs. NextAuth/Auth.js are both still
+open), so this deliberately does not include a sessions/tokens table —
+Clerk hosts identity itself and needs none, while NextAuth's Postgres
+adapter expects its own exact table shapes. Building a custom sessions
+table now would very likely be replaced wholesale by whichever is picked,
+so the users table is the only thing that's genuinely provider-agnostic
+today. Revisit once that decision is made.
+
+Tables are created with `Base.metadata.create_all()` at startup rather
+than via Alembic migrations — there's no real data yet, so a schema
+change costs nothing right now. Introduce a real migration tool before
+this stops being true (i.e. before any production row exists that a
+raw `create_all` diff could silently fail to alter).
+"""
+from __future__ import annotations
+
+import os
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def _database_url() -> str:
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL is not set. On Railway, add a variable on this "
+            "service referencing the Postgres plugin's connection string."
+        )
+    # Railway (and Heroku-style platforms) commonly hand out
+    # postgres://... — SQLAlchemy's psycopg3 dialect requires the
+    # postgresql+psycopg:// form.
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://"):
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
+_engine = None
+_SessionLocal: sessionmaker | None = None
+
+
+def get_engine():
+    global _engine
+    if _engine is None:
+        _engine = create_engine(_database_url(), pool_pre_ping=True)
+    return _engine
+
+
+def get_sessionmaker() -> sessionmaker:
+    global _SessionLocal
+    if _SessionLocal is None:
+        _SessionLocal = sessionmaker(bind=get_engine(), expire_on_commit=False)
+    return _SessionLocal
+
+
+def create_all() -> None:
+    from . import db_models  # noqa: F401 - registers models on Base.metadata
+    Base.metadata.create_all(bind=get_engine())
+
+
+def session_scope() -> Session:
+    return get_sessionmaker()()

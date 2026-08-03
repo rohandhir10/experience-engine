@@ -39,6 +39,7 @@ import logging
 import os
 import time
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import date
 
 from fastapi import FastAPI, HTTPException, Request
@@ -52,7 +53,7 @@ from engine.pipeline import run_engine
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 
-from . import cache
+from . import cache, db
 from .mapping import to_experience_result
 
 logging.basicConfig(
@@ -67,7 +68,24 @@ ALLOWED_ORIGINS = os.environ.get(
     "AURA_ALLOWED_ORIGINS", "http://localhost:3000"
 ).split(",")
 
-app = FastAPI(title="AURA engine API")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    # Best-effort: DATABASE_URL isn't set in local/test environments that
+    # never touch Postgres, and nothing on the /api/adapt path depends on
+    # it yet, so a missing or unreachable database logs a warning here
+    # rather than crashing the whole API.
+    if not os.environ.get("DATABASE_URL"):
+        logger.warning("DATABASE_URL not set - skipping database init")
+    else:
+        try:
+            db.create_all()
+            logger.info("database tables ready")
+        except Exception:
+            logger.exception("database init failed")
+    yield
+
+
+app = FastAPI(title="AURA engine API", lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -111,6 +129,18 @@ class AdaptRequest(BaseModel):
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/health/db")
+def health_db() -> dict:
+    from sqlalchemy import text
+
+    try:
+        with db.get_engine().connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "ok"}
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"database unreachable: {exc}") from exc
 
 
 @app.post("/api/adapt")
