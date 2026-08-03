@@ -156,7 +156,39 @@ by design — none names a specific language or culture in code.
   grotesque or literal in the target language (the general form of "a
   raven eating flesh reads as horror, not devotion"). **Tier 0** — pure
   LLM judgment, prompt text only, no deterministic check backs it, and no
-  test corpus yet confirms it actually catches real cases.
+  test corpus yet confirms it actually catches real cases. Had a real bug
+  from when it was first added until this was noticed while editing
+  adjacent text: two of its `{target_language}` placeholders were missing
+  their f-string prefix, so the Judge had been receiving the literal,
+  unsubstituted string `"{target_language}"` in this gate's instructions
+  the whole time, rather than the actual target language name.
+- **Authenticity gate, extended to connotation** (same function):
+  previously only asked "would a native speaker actually say this,"
+  which checks structural naturalness but not whether a word's actual
+  emotional charge survived. Added after a real production output
+  translated Korean "땡" (a game-show wrong-answer buzzer) as English
+  "ding" (which reads as success/approval) — structurally defensible,
+  denotationally similar, but backwards in what a listener actually
+  feels. The gate now explicitly asks whether an interjection/sound-word/
+  slang term's polarity (mocking vs. celebratory, rejection vs.
+  affirmation) matches the source, not just its literal meaning. **Tier
+  0** — same caveats as above.
+- **Burden of Change: specific/loaded words protected, not just
+  structural devices** (same function): the deviation ledger's existing
+  language protected "a repeated phrase, a rhetorical question, a working
+  image" from being dropped with a weak justification like "sounds
+  smoother." Added after real production outputs showed the same
+  weak-justification failure applied to single word choices too —
+  "consumo" (consumption, an extraction/exploitation metaphor central to
+  the song) rendered as generic "use"; "sobra" (scraps/refuse, implying
+  discarded worthlessness) rendered as generic "left" — both structurally
+  fine, both quietly dropping the specific charge the source word was
+  chosen for. Now requires the same real, specific justification (rhythm,
+  rhyme, genuine unnaturalness) that dropping a repeated phrase already
+  did. **Tier 0** — same caveats as above; no test corpus confirms this
+  actually changes real output, since verifying it requires rerunning
+  real songs through the full pipeline post-deploy, not something a unit
+  test can check.
 - **Phrase-end sustainability** (`engine/rhythm.py::phrase_end_sustainability`,
   `verify.py`'s "Phrase-end sustainability check"): **Tier 1**, actually
   measured — whether a shipped line's last word ends in a sound a singer

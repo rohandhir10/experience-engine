@@ -213,12 +213,30 @@ def _v1_prompts() -> dict[str, tuple[str, str]]:
 # whose concrete image survives translation but reads as unintentionally
 # grotesque or literal in the target language) and reference
 # poetic_register in genre_authenticity.
+#
+# judge_triage/judge_final updated again, following real production
+# outputs showing two distinct failures the existing rules didn't cover:
+# (1) the Authenticity gate now explicitly covers connotation/polarity,
+# not just structural naturalness - a word choice that's structurally
+# accurate but flips the source's actual emotional charge (a rejection
+# reading as an endorsement, e.g. a wrong-answer buzzer landing as a
+# success chime) now fails this gate even though no dictionary would
+# call it wrong; (2) the Burden of Change ledger now explicitly protects
+# specific/marked/thematically loaded WORDS, not just structural devices
+# (repeated phrases, rhetorical questions, images) - replacing a
+# deliberately loaded word ("consumption") with a safer generic synonym
+# ("use") needs the same real justification dropping a repeated phrase
+# would. Also fixed two pre-existing, unrelated bugs found while editing
+# this text: the Tonal Coherence gate's own {target_language} placeholder
+# was never actually being substituted (missing f-string prefix on two
+# lines) - it had been sending the Judge the literal, unsubstituted
+# string "{target_language}" since the gate was first added.
 EXPECTED_HASHES = {
     "song_dna": "b8e1ece6f0fe4e15",
     "generation_translator": "8e9b94913c4a3da8",
     "creative_adapter": "92fb772341f934ed",
-    "judge_triage": "6f9d943b757401ea",
-    "judge_final": "5b94d6b079c8c3b8",
+    "judge_triage": "ceae597a5977944c",
+    "judge_final": "f5c6edf2bba4dd7a",
     "diagnosis_native_speaker": "9452b56158c2d859",
 }
 
