@@ -29,7 +29,7 @@ export default function DashboardPage() {
         <SiteHeader />
 
         <div className="mt-10 flex flex-col gap-10 sm:flex-row">
-          <DashboardSidebar />
+          <DashboardSidebar active="home" />
 
           <div className="min-w-0 flex-1">
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
