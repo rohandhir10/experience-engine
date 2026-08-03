@@ -21,6 +21,15 @@ function isShortLabel(text: string): boolean {
   return words.length <= 8 && !/[.!?]/.test(trimmed);
 }
 
+// "a intimate register" reads as a grammar error, not a content problem -
+// a plain first-letter vowel check isn't linguistically perfect (silent h,
+// "university"-style consonant sounds spelled with a vowel), but it's
+// right for every label this field realistically produces, and a wrong
+// guess here is cosmetic, not a fabricated claim about the song.
+function indefiniteArticleFor(text: string): "a" | "an" {
+  return /^[aeiou]/i.test(text.trim()) ? "an" : "a";
+}
+
 export function LoreStoryline({
   poeticRegister,
   dominantFeeling,
@@ -37,7 +46,8 @@ export function LoreStoryline({
   if (!poeticRegister) {
     sentence = `This section carries a thread of ${dominantFeeling}.`;
   } else if (isShortLabel(poeticRegister)) {
-    sentence = `This song moves in a ${poeticRegister} register, and this section carries a thread of ${dominantFeeling}.`;
+    const article = indefiniteArticleFor(poeticRegister);
+    sentence = `This song moves in ${article} ${poeticRegister} register, and this section carries a thread of ${dominantFeeling}.`;
   } else {
     // Too long/sentence-shaped to interpolate into the template above -
     // let it stand as its own sentence instead of mangling it.
