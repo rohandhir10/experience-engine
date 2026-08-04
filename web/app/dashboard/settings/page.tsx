@@ -1,6 +1,6 @@
 import { DashboardStub } from "@/components/DashboardStub";
 
-export const metadata = { title: "AURA — Settings" };
+export const metadata = { title: "CASTIA — Settings" };
 
 export default function SettingsPage() {
   return (

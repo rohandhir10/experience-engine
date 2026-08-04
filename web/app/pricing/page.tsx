@@ -1,14 +1,14 @@
 import { SiteHeader } from "@/components/SiteHeader";
 
 export const metadata = {
-  title: "AURA — Pricing",
-  description: "Plans for AURA. Billing isn't live yet.",
+  title: "CASTIA — Pricing",
+  description: "Plans for CASTIA. Billing isn't live yet.",
 };
 
 const TIERS = [
   {
     name: "Free",
-    blurb: "Try AURA with no account.",
+    blurb: "Try CASTIA with no account.",
     features: ["A few adaptations per day", "Full comparison view", "No credit card"],
   },
   {
@@ -39,7 +39,7 @@ export default function PricingPage() {
             Pricing.
           </h1>
           <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
-            AURA is free to try right now, for everyone, with no account
+            CASTIA is free to try right now, for everyone, with no account
             needed. These are the plans we're building toward — billing
             isn't live yet, so nothing below is charged.
           </p>

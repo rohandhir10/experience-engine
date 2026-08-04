@@ -1,15 +1,15 @@
 # experience-engine
 
-## AURA
+## CASTIA
 
-AURA (Adaptive Understanding & Re-expression Architecture) is a research-grade
+CASTIA (Adaptive Understanding & Re-expression Architecture) is a research-grade
 system design for preserving emotional impact, poetic meaning, cultural
 context, and narrative intent across languages — deliberately not a
 translation engine. See the full technical design document:
 
-[`docs/AURA_ARCHITECTURE.md`](docs/AURA_ARCHITECTURE.md)
+[`docs/CASTIA_ARCHITECTURE.md`](docs/CASTIA_ARCHITECTURE.md)
 
-The **Experience Graph** is AURA's canonical central representation — a
+The **Experience Graph** is CASTIA's canonical central representation — a
 language-independent graph every lyric, dialogue line, or poem is compiled
 into before any re-expression occurs. See:
 
@@ -61,13 +61,13 @@ followed by the Writers' Room pipeline — V1 minimal room by default, or
 the full seven-agent room via `--room full` — callable via
 `python -m engine.cli examples/sample_song.json`. It calls OpenAI by
 default (`OPENAI_API_KEY`); Anthropic is kept in the codebase as an
-inactive alternate provider (`AURA_PROVIDER=anthropic`). See:
+inactive alternate provider (`CASTIA_PROVIDER=anthropic`). See:
 
 [`docs/ENGINE.md`](docs/ENGINE.md)
 
 ## V2: multilingual
 
-The design for extending AURA from Hindi → English to a multilingual
+The design for extending CASTIA from Hindi → English to a multilingual
 adaptation engine — Language Profiles, per-language deterministic
 grounding (Devanagari, Hangul, morae, Arabic meter), a Cultural Anchor
 framework, and a phased rollout — without changing the constitution, the

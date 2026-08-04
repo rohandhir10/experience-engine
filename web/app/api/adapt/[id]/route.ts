@@ -17,7 +17,7 @@ export async function GET(
     });
   } catch {
     return NextResponse.json(
-      { error: "AURA is temporarily unreachable." },
+      { error: "CASTIA is temporarily unreachable." },
       { status: 502 }
     );
   }

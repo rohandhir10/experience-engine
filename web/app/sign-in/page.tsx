@@ -3,7 +3,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { auth, signIn, signOut } from "@/auth";
 
 export const metadata = {
-  title: "AURA — Sign In",
+  title: "CASTIA — Sign In",
   description: "Sign in with Google to keep your adaptation history.",
 };
 
@@ -59,7 +59,7 @@ export default async function SignInPage() {
               Keep your adaptations.
             </h1>
             <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
-              You don't need an account to use AURA — sign in to keep a
+              You don't need an account to use CASTIA — sign in to keep a
               history of every song you adapt, on any device.
             </p>
             <form
@@ -83,7 +83,7 @@ export default async function SignInPage() {
               Accounts aren't live yet.
             </h1>
             <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
-              You don't need one to use AURA — every adaptation is free to
+              You don't need one to use CASTIA — every adaptation is free to
               try right now. (Deployment note: set AUTH_SECRET,
               AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET to enable sign-in.)
             </p>
@@ -94,7 +94,7 @@ export default async function SignInPage() {
           href="/music#lyrics"
           className="mt-6 text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
         >
-          Just take me to AURA →
+          Just take me to CASTIA →
         </Link>
       </div>
     </main>

@@ -13,7 +13,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       type="button"
-      title="Copy the AURA lyrics for this section"
+      title="Copy the CASTIA lyrics for this section"
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setCopied(true);
@@ -92,7 +92,7 @@ export const ComparisonCard = forwardRef<
           <span
             className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-accent"
           >
-            Aura
+            Castia
           </span>
           <p className="max-w-prose font-serif text-[19px] leading-relaxed text-ink dark:text-ink-dark sm:text-[21px]">
             <DeviationText text={section.aura} deviations={section.deviations} why={section.why} />

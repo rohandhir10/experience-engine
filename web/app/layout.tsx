@@ -3,9 +3,9 @@ import "./globals.css";
 import { AmbientGlow } from "@/components/AmbientGlow";
 
 export const metadata: Metadata = {
-  title: "AURA — Feel the song again",
+  title: "CASTIA — Feel the song again",
   description:
-    "Paste a song. AURA gives you back the version that means what it feels like to those who already understand it.",
+    "Paste a song. CASTIA gives you back the version that means what it feels like to those who already understand it.",
 };
 
 export default function RootLayout({

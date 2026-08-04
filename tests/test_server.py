@@ -109,7 +109,7 @@ def test_adapt_logs_clean_verification_with_no_findings(monkeypatch, caplog):
     captured: dict = {}
     _patch_engine(monkeypatch, _FakeEngineResult(), captured)
 
-    with caplog.at_level("INFO", logger="aura.server"):
+    with caplog.at_level("INFO", logger="castia.server"):
         request = main.AdaptRequest(text="line one\nline two")
         main.adapt(request, _FakeRequest())
 
@@ -284,7 +284,7 @@ def test_adapt_logs_a_warning_for_unresolved_verify_errors(monkeypatch, caplog):
     captured: dict = {}
     _patch_engine(monkeypatch, _FakeEngineResult(sections=[section]), captured)
 
-    with caplog.at_level("INFO", logger="aura.server"):
+    with caplog.at_level("INFO", logger="castia.server"):
         request = main.AdaptRequest(text="line one\nline two")
         main.adapt(request, _FakeRequest())
 
@@ -357,7 +357,7 @@ def test_adapt_discards_youtube_timing_on_section_count_mismatch(monkeypatch, ca
         youtube_video_id="dQw4w9WgXcQ",
         youtube_section_timings=[main.YoutubeSectionTiming(start=0.0, end=4.5)],
     )
-    with caplog.at_level("INFO", logger="aura.server"):
+    with caplog.at_level("INFO", logger="castia.server"):
         result = main.adapt(request, _FakeRequest())
 
     assert "videoId" not in result
@@ -648,8 +648,8 @@ def test_comics_adapt_endpoint_records_history_for_a_signed_in_user(monkeypatch)
 
     authed_request = _FakeRequest()
     authed_request.headers = {
-        "x-aura-user-id": "user-42",
-        "x-aura-internal-secret": "test-secret",
+        "x-castia-user-id": "user-42",
+        "x-castia-internal-secret": "test-secret",
     }
 
     request = main.ComicsAdaptRequest(

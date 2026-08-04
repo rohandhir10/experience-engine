@@ -1,6 +1,6 @@
 import { DashboardStub } from "@/components/DashboardStub";
 
-export const metadata = { title: "AURA — Billing" };
+export const metadata = { title: "CASTIA — Billing" };
 
 export default function BillingPage() {
   return (

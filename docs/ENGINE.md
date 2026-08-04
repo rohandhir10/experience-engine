@@ -31,16 +31,16 @@ or the routing logic.
   ```bash
   pip install -r requirements.txt
   export ANTHROPIC_API_KEY=sk-ant-...
-  export AURA_PROVIDER=anthropic
+  export CASTIA_PROVIDER=anthropic
   ```
 
 Optional environment overrides (see `engine/config.py`):
 
-- `AURA_PROVIDER` — `openai` (default) or `anthropic`.
-- `AURA_OPENAI_MODEL` — defaults to `gpt-4o`.
-- `AURA_ANTHROPIC_MODEL` — defaults to `claude-sonnet-5` (only relevant
-  when `AURA_PROVIDER=anthropic`).
-- `AURA_MAX_TOKENS` — defaults to `4096` per call (Song DNA and Judge calls
+- `CASTIA_PROVIDER` — `openai` (default) or `anthropic`.
+- `CASTIA_OPENAI_MODEL` — defaults to `gpt-4o`.
+- `CASTIA_ANTHROPIC_MODEL` — defaults to `claude-sonnet-5` (only relevant
+  when `CASTIA_PROVIDER=anthropic`).
+- `CASTIA_MAX_TOKENS` — defaults to `4096` per call (Song DNA and Judge calls
   request more headroom internally).
 
 Never put an API key directly in a chat message, a committed file, or a
@@ -152,7 +152,7 @@ What it checks:
   used to score perfectly: 100% ledger coverage, 0.0 invention penalty,
   zero findings, PASS. This one fails a run whose shipped lyrics never
   meaningfully depart from the Translator's literal anchor, because
-  AURA's output is supposed to be an adaptation the original writer would
+  CASTIA's output is supposed to be an adaptation the original writer would
   recognize as their own work, not a translation of it.
 
   It is checked **song-wide, never per line**. A single section that

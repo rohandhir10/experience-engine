@@ -1,4 +1,4 @@
-# AURA — Technical Design Document
+# CASTIA — Technical Design Document
 
 **Adaptive Understanding & Re-expression Architecture**
 
@@ -9,8 +9,8 @@ Scope: System design only — no application code, no APIs, no frontend
 
 ## 1. Purpose and Design Philosophy
 
-AURA is not a translation engine. A translation engine maps source tokens to
-target tokens under a fidelity-to-surface-form objective. AURA's objective is
+CASTIA is not a translation engine. A translation engine maps source tokens to
+target tokens under a fidelity-to-surface-form objective. CASTIA's objective is
 different and stricter: given an expression in a source language, produce a
 target-language expression that a native reader of the target culture would
 experience with the **same emotional impact, poetic effect, cultural
@@ -48,7 +48,7 @@ generation, self-critique, and selection — not lookup or substitution.
    committing to a single generation.
 5. **Auditability over black-box output.** Every stage's output is a typed,
    inspectable artifact. A human or downstream system can always ask "why did
-   AURA choose this rendering" and get a structured answer tracing back
+   CASTIA choose this rendering" and get a structured answer tracing back
    through IMR, candidate generation, and evaluation scores.
 6. **Long-horizon consistency is architected, not incidental.** For anything
    longer than a single utterance (a poem, a scene, a novel), voice, motif,
@@ -448,7 +448,7 @@ doing for a source-culture reader," not "what should replace it."
 **Failure modes**
 - *Missed references*: culturally-loaded content not in the knowledge base
   and not recognized by the model goes through as if it were literal,
-  reintroducing exactly the flattening AURA exists to prevent.
+  reintroducing exactly the flattening CASTIA exists to prevent.
 - *Over-flagging*: benign literal content misidentified as culturally loaded
   (false positive), leading to unnecessary re-authoring downstream that
   distorts otherwise-fine literal content.
@@ -515,7 +515,7 @@ meaning.
   instead of relying on raw context length.
 - *Character voice drift undetected*: subtle voice inconsistency introduced
   either in the source (translation of a serialized work by multiple
-  authors) or by AURA itself across segments processed independently.
+  authors) or by CASTIA itself across segments processed independently.
 - *Misattributed discourse relations* especially in non-linear narratives
   (flashbacks, unreliable narration) where surface order doesn't match
   narrative order.
@@ -670,7 +670,7 @@ produced downstream by DGM.
   source culture).
 - *Under-adaptation*: playing it safe with literal/explanatory strategies
   that preserve accuracy but kill the emotional/poetic effect — the exact
-  failure mode AURA is built to avoid, so this module's output must be
+  failure mode CASTIA is built to avoid, so this module's output must be
   audited against that risk specifically (see EEE).
 - *Motif inconsistency across a long work* if LHM lookup misses a prior
   occurrence (e.g. due to paraphrase drift making retrieval fail) — see LHM
@@ -823,7 +823,7 @@ Score each candidate on how well it reproduces the *target reader's*
 emotional/aesthetic experience relative to the `IMRNode`'s
 `emotional_signature` and `narrative_function` — not relative to the source
 text's literal wording. This is the module most directly responsible for
-enforcing AURA's actual objective, as distinct from generic translation
+enforcing CASTIA's actual objective, as distinct from generic translation
 quality.
 
 **Inputs**
@@ -1082,7 +1082,7 @@ Provide a structured escalation and review point for cases the automated
 pipeline is not confident about, and a governance point for promoting model
 upgrades (MAL) or knowledge base updates (CRR/LHM). This module is optional
 per deployment policy but architecturally always present as an interface,
-because research-grade and production-grade uses of AURA will want
+because research-grade and production-grade uses of CASTIA will want
 different levels of human involvement, and the rest of the system must not
 assume it's either always-on or always-off.
 
@@ -1163,7 +1163,7 @@ different trust levels apply to each:
 A `RenderResult` is not a string. It is: the final selected text per
 segment, plus the full `SelectionRecord` chain, plus a pointer to the
 `IMRNode` and `PipelineTrace` that produced it. This is intentional —
-AURA's deliverable is not just an output, it's an accountable derivation of
+CASTIA's deliverable is not just an output, it's an accountable derivation of
 that output, because emotional/cultural equivalence claims should be
 inspectable, not asserted.
 

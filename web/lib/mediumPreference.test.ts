@@ -41,7 +41,7 @@ describe("mediumPreference", () => {
   });
 
   it("ignores a garbage value some other code path may have left behind", () => {
-    localStorage.setItem("aura-last-medium", "not-a-real-medium");
+    localStorage.setItem("castia-last-medium", "not-a-real-medium");
     expect(readMediumPreference()).toBeNull();
   });
 });

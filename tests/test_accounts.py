@@ -197,7 +197,7 @@ def test_favorite_endpoint_404s_for_a_song_not_in_history(client, monkeypatch, s
     response = client.post(
         "/api/me/adaptations/nope/favorite",
         json={"is_favorite": True},
-        headers={"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"},
+        headers={"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"},
     )
     assert response.status_code == 404
 
@@ -210,7 +210,7 @@ def test_favorite_endpoint_requires_the_internal_secret(client, monkeypatch, sql
     response = client.post(
         "/api/me/adaptations/song-c/favorite",
         json={"is_favorite": True},
-        headers={"X-Aura-User-Id": user["id"]},  # no secret
+        headers={"X-Castia-User-Id": user["id"]},  # no secret
     )
     assert response.status_code == 401
     assert accounts.list_adaptations(user["id"])[0]["isFavorite"] is False
@@ -343,7 +343,7 @@ def test_collection_endpoints_round_trip(client, monkeypatch, sqlite_db):
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("col-j", "u@m.com", None)
     accounts.record_adaptation(user["id"], "song-e", "Spanish")
-    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+    headers = {"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"}
 
     created = client.post("/api/me/collections", json={"name": "Reggaeton"}, headers=headers)
     assert created.status_code == 200
@@ -377,7 +377,7 @@ def test_collection_endpoints_round_trip(client, monkeypatch, sqlite_db):
 def test_collection_endpoints_reject_blank_names(client, monkeypatch, sqlite_db):
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("col-k", "u@m.com", None)
-    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+    headers = {"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"}
     response = client.post("/api/me/collections", json={"name": "   "}, headers=headers)
     assert response.status_code == 400
 
@@ -387,7 +387,7 @@ def test_malformed_collection_id_is_a_404_not_a_500(client, monkeypatch, sqlite_
     indistinguishable from a well-formed id that isn't yours."""
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("col-l", "u@m.com", None)
-    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+    headers = {"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"}
 
     assert client.delete("/api/me/collections/not-a-uuid", headers=headers).status_code == 404
     assert (
@@ -406,7 +406,7 @@ def test_collection_endpoints_require_the_internal_secret(client, monkeypatch, s
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("col-m", "u@m.com", None)
     response = client.post(
-        "/api/me/collections", json={"name": "X"}, headers={"X-Aura-User-Id": user["id"]}
+        "/api/me/collections", json={"name": "X"}, headers={"X-Castia-User-Id": user["id"]}
     )
     assert response.status_code == 401
     assert accounts.list_collections(user["id"]) == []
@@ -416,7 +416,7 @@ def test_favorite_endpoint_round_trip(client, monkeypatch, sqlite_db):
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("fav-6", "u@m.com", None)
     accounts.record_adaptation(user["id"], "song-d", "Spanish")
-    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+    headers = {"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"}
 
     response = client.post(
         "/api/me/adaptations/song-d/favorite", json={"is_favorite": True}, headers=headers
@@ -444,7 +444,7 @@ def test_sync_endpoint_rejects_a_wrong_secret(client, monkeypatch):
     response = client.post(
         "/api/users/sync",
         json={"google_sub": "s"},
-        headers={"X-Aura-Internal-Secret": "wrong"},
+        headers={"X-Castia-Internal-Secret": "wrong"},
     )
     assert response.status_code == 401
 
@@ -452,14 +452,14 @@ def test_sync_endpoint_rejects_a_wrong_secret(client, monkeypatch):
 def test_me_adaptations_requires_the_user_header(client, monkeypatch):
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     response = client.get(
-        "/api/me/adaptations", headers={"X-Aura-Internal-Secret": "right"}
+        "/api/me/adaptations", headers={"X-Castia-Internal-Secret": "right"}
     )
     assert response.status_code == 400
 
 
 def test_forwarded_user_id_is_ignored_without_the_secret(client, monkeypatch, sqlite_db):
     """The security property: a browser hitting the API directly with a
-    forged X-Aura-User-Id must NOT get history written for that user."""
+    forged X-Castia-User-Id must NOT get history written for that user."""
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("google-sub-7", "u@m.com", None)
     cache.set("cached-song", {"hook": "x"}, source_text="la la la")
@@ -467,7 +467,7 @@ def test_forwarded_user_id_is_ignored_without_the_secret(client, monkeypatch, sq
     response = client.post(
         "/api/adapt",
         json={"text": "la la la"},
-        headers={"X-Aura-User-Id": user["id"]},  # no secret
+        headers={"X-Castia-User-Id": user["id"]},  # no secret
     )
     assert response.status_code == 200
     assert accounts.list_adaptations(user["id"]) == []
@@ -481,7 +481,7 @@ def test_cache_hit_with_valid_secret_records_history(client, monkeypatch, sqlite
     response = client.post(
         "/api/adapt",
         json={"text": "do re mi"},
-        headers={"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"},
+        headers={"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"},
     )
     assert response.status_code == 200
     history = accounts.list_adaptations(user["id"])
@@ -592,7 +592,7 @@ def test_save_endpoint_404s_for_an_unknown_result(client, monkeypatch, sqlite_db
     user = accounts.sync_user("save-h", "u@m.com", None)
     response = client.post(
         "/api/me/adaptations/nope/save",
-        headers={"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"},
+        headers={"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"},
     )
     assert response.status_code == 404
 
@@ -601,7 +601,7 @@ def test_save_then_favorite_round_trip_via_endpoints(client, monkeypatch, sqlite
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("save-i", "u@m.com", None)
     cache.set("r3", {"hook": "H"}, source_text="lyrics")
-    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+    headers = {"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"}
 
     assert client.get("/api/me/adaptations/r3", headers=headers).json()["saved"] is False
     assert client.post("/api/me/adaptations/r3/save", headers=headers).status_code == 200

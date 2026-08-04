@@ -1,4 +1,4 @@
-# AURA V2 — Multilingual Design
+# CASTIA V2 — Multilingual Design
 
 Extends the existing engine. Nothing here replaces Song DNA, the Writers'
 Room, the Burden of Change constitution, the Judge, the five dimensions,
@@ -334,7 +334,7 @@ constitution laws, the five dimensions, the five philosophies, and
   reviewers.
 
 **Configuration** — profiles load from `engine/profiles/` at import, with
-an `AURA_PROFILE_DIR` override so a profile can be iterated without a
+an `CASTIA_PROFILE_DIR` override so a profile can be iterated without a
 code change.
 
 ## 9. Product rollout
@@ -350,7 +350,7 @@ per-language failure modes are invisible without per-language evaluation.
 | 1 | **Hindi/Urdu/Punjabi** | Already the de facto language — formalizing it as a profile is the strongest possible regression test of the profile system itself. Existing corpus, existing reviewer access, zero new artistic risk. Also unlocks Devanagari grounding, which is missing today. |
 | 2 | **Korean** | Best value-to-effort of any new language: grounding is near-trivial (Hangul blocks), the K-pop market has enormous existing demand for English lyric translation, and the reviewer pool is large and reachable. |
 | 3 | **Spanish** | Largest speaker base; syllable rules are documented and dictionary-free; easiest reviewer recruitment; Latin script means parts of the existing path already work. |
-| 4 | **Japanese** | Artistically the domain where AURA *should* shine most (restraint, implication, omitted subjects) — and where failure is most invisible to a non-speaker. Mora counting is clean for kana; kanji readings add a real dependency. |
+| 4 | **Japanese** | Artistically the domain where CASTIA *should* shine most (restraint, implication, omitted subjects) — and where failure is most invisible to a non-speaker. Mora counting is clean for kana; kanji readings add a real dependency. |
 | 5 | **Russian** | Syllables trivial, but the load-bearing unit is stress, which needs a dictionary. Strong verse tradition sets a high artistic bar. |
 | 6 | **Arabic** | Deliberately last. Undiacritized text blocks deterministic grounding, and classical meter means syllable count is the wrong unit entirely. Highest combined technical and artistic risk. |
 
@@ -413,7 +413,7 @@ counter per language, re-deriving every word list in `verify.py` per
 target, and recruiting native-speaker reviewers *of the target*. Treat it
 as V3 with its own design pass, not as a continuation of V2.
 
-Throughout: AURA exists to preserve artistic experience, not to translate
+Throughout: CASTIA exists to preserve artistic experience, not to translate
 words. Every addition above serves that principle by giving the existing
 machinery the tradition-specific knowledge it needs to apply the same
 constitution correctly in more places — not by loosening it.

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       {
         error: timedOut
           ? "This song is taking longer than usual to adapt. Please try again."
-          : "AURA is temporarily unreachable. Please try again in a few minutes.",
+          : "CASTIA is temporarily unreachable. Please try again in a few minutes.",
       },
       { status: timedOut ? 504 : 502 }
     );

@@ -11,7 +11,7 @@ about), and the Python side stays the sole owner of user rows.
 
 Trust model: these functions are called from endpoints gated by
 `require_internal_secret` (server/main.py) — a shared secret
-(AURA_INTERNAL_API_SECRET) known only to the Next.js server, which is
+(CASTIA_INTERNAL_API_SECRET) known only to the Next.js server, which is
 the party that actually verified the Google sign-in. A user id arriving
 in a header is only ever honored alongside that secret; nothing here is
 callable by a browser directly.

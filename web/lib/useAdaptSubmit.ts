@@ -94,7 +94,7 @@ export function useAdaptSubmit() {
         startBody.status === "done" ? startBody.result : await pollJob(startBody.job_id);
 
       try {
-        sessionStorage.setItem(`aura-result-${result.id}`, JSON.stringify(result));
+        sessionStorage.setItem(`castia-result-${result.id}`, JSON.stringify(result));
       } catch {
         // Covered by the share page's network fallback.
       }

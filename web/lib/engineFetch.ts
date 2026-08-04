@@ -15,10 +15,10 @@ export async function engineFetchAsUser(
   init?: { method?: string; body?: unknown }
 ): Promise<NextResponse> {
   const session = await auth().catch(() => null);
-  if (!session?.auraUserId) {
+  if (!session?.castiaUserId) {
     return NextResponse.json({ error: "Sign in first." }, { status: 401 });
   }
-  const secret = process.env.AURA_INTERNAL_API_SECRET;
+  const secret = process.env.CASTIA_INTERNAL_API_SECRET;
   if (!secret) {
     return NextResponse.json(
       { error: "Accounts are not configured on this deployment." },
@@ -32,15 +32,15 @@ export async function engineFetchAsUser(
       method: init?.method ?? "GET",
       headers: {
         "Content-Type": "application/json",
-        "X-Aura-Internal-Secret": secret,
-        "X-Aura-User-Id": session.auraUserId,
+        "X-Castia-Internal-Secret": secret,
+        "X-Castia-User-Id": session.castiaUserId,
       },
       ...(init?.body === undefined ? {} : { body: JSON.stringify(init.body) }),
       cache: "no-store",
     });
   } catch {
     return NextResponse.json(
-      { error: "AURA is temporarily unreachable. Please try again in a few minutes." },
+      { error: "CASTIA is temporarily unreachable. Please try again in a few minutes." },
       { status: 502 }
     );
   }

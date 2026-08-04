@@ -2,10 +2,10 @@
 text. The engine is imported and *used*, never modified.
 
 Systems:
-  aura            — the full engine (Song DNA + V1 Writers' Room).
-  gpt_single      — one bare prompt to the same OpenAI model AURA uses.
+  castia            — the full engine (Song DNA + V1 Writers' Room).
+  gpt_single      — one bare prompt to the same OpenAI model CASTIA uses.
                     This is the critical ablation: it isolates the value
-                    of AURA's process from the value of its model.
+                    of CASTIA's process from the value of its model.
   claude_single   — the same bare prompt to Anthropic's model.
   google_translate— machine translation floor (deep-translator's free
                     endpoint; no API key, may be rate-limited/blocked —
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 MANUAL_DIR = Path(__file__).parent / "manual"
 
 # The single-prompt baseline. Deliberately a *good* prompt — beating a
-# strawman proves nothing. It asks for exactly what AURA promises.
+# strawman proves nothing. It asks for exactly what CASTIA promises.
 SINGLE_PROMPT = (
     "Translate these {source_language} song lyrics into English. "
     "Do not translate literally: preserve the emotional impact, imagery, "
@@ -50,8 +50,8 @@ class System(Protocol):
     def run(self, song: SongInput) -> list[str] | None: ...
 
 
-class AuraSystem:
-    name = "aura"
+class CastiaSystem:
+    name = "castia"
 
     def __init__(self, client_factory: Callable[[], LLMClient]):
         self._client_factory = client_factory
@@ -147,7 +147,7 @@ def default_systems() -> list[System]:
     from engine.llm_client import AnthropicLLMClient, OpenAILLMClient
 
     return [
-        AuraSystem(OpenAILLMClient),
+        CastiaSystem(OpenAILLMClient),
         SinglePromptSystem("gpt_single", OpenAILLMClient),
         SinglePromptSystem("claude_single", AnthropicLLMClient),
         GoogleTranslateSystem(),

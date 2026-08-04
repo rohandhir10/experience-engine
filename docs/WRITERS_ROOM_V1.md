@@ -455,7 +455,7 @@ emotional registers before the result generalizes.
 (2) Bollynook; (3) FilmyQuotes; (4) single-prompt GPT/Claude — "translate
 preserving emotional impact," one shot, no room — the ablation
 `FEASIBILITY_EXPERIMENT.md` §5.4 always intended to run once V1 existed;
-(5) AURA (V1, burden-of-change Judge); (6) *optional* — a human literary
+(5) CASTIA (V1, burden-of-change Judge); (6) *optional* — a human literary
 adaptation, sourced separately, evaluated diagnostically rather than as a
 pass/fail bar.
 
@@ -465,10 +465,10 @@ unlabeled, order randomized. With five systems instead of two, reviewers
 data via Bradley-Terry aggregation; a forced single choice across five
 options discards information). Reviewers also score each candidate on the
 five dimensions in §9.2, not just an overall preference — this is what
-turns the result into "AURA wins on X, loses on Y" instead of a single
+turns the result into "CASTIA wins on X, loses on Y" instead of a single
 undifferentiated win/loss.
 
-**Success criterion.** AURA's average rank on **Artistic Fidelity
+**Success criterion.** CASTIA's average rank on **Artistic Fidelity
 specifically** must beat Google Translate, Bollynook, FilmyQuotes, and
 single-prompt GPT/Claude, replicated on held-out songs never used to tune
 a prompt. Comparison against a human literary adaptation is diagnostic
@@ -527,7 +527,7 @@ failure it was built to fix. But that made the whole scoring apparatus
 one-directional: a run that shipped the Translator's literal anchor
 verbatim passed every check with a perfect score. Optimized against, the
 safest way to satisfy the constitution was to stop adapting altogether —
-i.e. to become a translator, the one thing AURA exists not to be.
+i.e. to become a translator, the one thing CASTIA exists not to be.
 
 The verifier therefore carries an **adaptation floor** as the opposing
 signal, reported as *adaptation distance* beside the invention penalty.

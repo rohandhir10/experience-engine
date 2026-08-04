@@ -1,7 +1,7 @@
 """Output normalization, so formatting can't leak which system produced
 what. Every system's output is reduced to the same shape: a list of plain
 section texts — no [section] headers, no quotes, no markdown, uniform
-whitespace. If AURA's output kept its line-break style while Google
+whitespace. If CASTIA's output kept its line-break style while Google
 Translate's arrived as one run-on paragraph, reviewers would identify
 systems by typography instead of judging the writing.
 """

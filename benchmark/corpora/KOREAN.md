@@ -33,7 +33,7 @@ that would expose it if the claim is wrong:
 
 ## Baselines to collect per song
 
-Per `benchmark/systems.py`, AURA and the two single-prompt baselines run
+Per `benchmark/systems.py`, CASTIA and the two single-prompt baselines run
 automatically. Two need manual collection into
 `benchmark/manual/<song_id>/`:
 

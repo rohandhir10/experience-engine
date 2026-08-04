@@ -17,7 +17,7 @@ whole song can simply fail to notice.
 Note what this module does NOT try to check: whether the recurring
 element's target-language rendering is WORDED identically every time. For
 a named cultural term that is the right bar (Law 5). For a structural
-device like a radif it is the wrong one — AURA is an adaptation engine,
+device like a radif it is the wrong one — CASTIA is an adaptation engine,
 not a translator, and the whole point is that "kya hai" earns a
 differently-worded English line each time. What must stay consistent is
 the STRUCTURAL FUNCTION (each line closes on the same kind of question),

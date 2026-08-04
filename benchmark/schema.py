@@ -3,8 +3,8 @@
 The benchmark deliberately has its own evaluation rubric (the four
 dimensions below) rather than reusing the engine's five scored
 dimensions — reviewers must judge outputs as listeners, not audit them
-against AURA's internal criteria, or the rubric itself would bias the
-comparison toward what AURA optimizes.
+against CASTIA's internal criteria, or the rubric itself would bias the
+comparison toward what CASTIA optimizes.
 """
 from __future__ import annotations
 

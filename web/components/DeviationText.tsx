@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { DeviationFragment } from "@/lib/types";
 import { splitByDeviations } from "@/lib/deviationHighlight";
 
-// Renders the shipped AURA line with a dotted underline on each phrase the
+// Renders the shipped CASTIA line with a dotted underline on each phrase the
 // Burden-of-Change ledger names, and a click-to-toggle tooltip showing the
 // literal wording it replaced. The tooltip reuses the section's own `why`
 // sentence for its prose - never `deviation.justification` directly, which

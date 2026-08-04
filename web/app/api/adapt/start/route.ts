@@ -9,13 +9,13 @@ import { ENGINE_API_URL } from "@/lib/api";
 // _authed_user_id). Anonymous users get an empty pair and everything
 // works exactly as before accounts existed.
 async function identityHeaders(): Promise<Record<string, string>> {
-  const secret = process.env.AURA_INTERNAL_API_SECRET;
+  const secret = process.env.CASTIA_INTERNAL_API_SECRET;
   if (!secret) return {};
   const session = await auth().catch(() => null);
-  if (!session?.auraUserId) return {};
+  if (!session?.castiaUserId) return {};
   return {
-    "X-Aura-Internal-Secret": secret,
-    "X-Aura-User-Id": session.auraUserId,
+    "X-Castia-Internal-Secret": secret,
+    "X-Castia-User-Id": session.castiaUserId,
   };
 }
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     });
   } catch {
     return NextResponse.json(
-      { error: "AURA is temporarily unreachable. Please try again in a few minutes." },
+      { error: "CASTIA is temporarily unreachable. Please try again in a few minutes." },
       { status: 502 }
     );
   }

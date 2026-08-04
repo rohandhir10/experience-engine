@@ -1,4 +1,4 @@
-# AURA — web frontend
+# CASTIA — web frontend
 
 A Next.js (App Router) + Tailwind frontend for Product 1, now wired to the
 real Python engine end to end. Still local-only — no deployment, no auth.
@@ -63,7 +63,7 @@ engine entirely and serves the cached result instantly — see
   number isn't actually computed, it isn't shown.
 - No hosted backend *yet*. The frontend deploys via Vercel (git-connected,
   root directory `web/`), but a submitted song only works when the engine
-  API is reachable at `AURA_ENGINE_API_URL`.
+  API is reachable at `CASTIA_ENGINE_API_URL`.
 
 ## Deploying the backend
 
@@ -71,12 +71,12 @@ The repo root has a `Dockerfile` for the engine API. On any Docker host
 (Railway, Render, Fly.io):
 
 1. Point the service at this repo, Dockerfile build, port 8000.
-2. Set `OPENAI_API_KEY`. Optional: `AURA_DAILY_LIMIT` (default 10
-   engine runs/IP/day), `AURA_MAX_INPUT_CHARS` (default 8000),
-   `AURA_LLM_TIMEOUT` (default 120s).
+2. Set `OPENAI_API_KEY`. Optional: `CASTIA_DAILY_LIMIT` (default 10
+   engine runs/IP/day), `CASTIA_MAX_INPUT_CHARS` (default 8000),
+   `CASTIA_LLM_TIMEOUT` (default 120s).
 3. Mount a volume at `/app/server/.cache` so results (and their share
    URLs) survive restarts.
 4. In Vercel → Project Settings → Environment Variables, set
-   `AURA_ENGINE_API_URL` to the deployed API's URL and redeploy.
+   `CASTIA_ENGINE_API_URL` to the deployed API's URL and redeploy.
 
 `GET /health` is the liveness probe.

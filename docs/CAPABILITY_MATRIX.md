@@ -1,11 +1,11 @@
-# AURA capability matrix
+# CASTIA capability matrix
 
 A verified audit of what the engine actually does, per supported language,
 against the craft dimensions that determine adaptation quality. Every cell
 is checked against the implementation directly — file, module, or
 function named — never estimated. Update this file whenever a phase adds,
 removes, or changes a capability; treat it as the source of truth for
-"what does AURA actually do" ahead of any prose description elsewhere.
+"what does CASTIA actually do" ahead of any prose description elsewhere.
 
 Supported languages (fixed roster, per the scope freeze): Hindi (`hi`),
 Korean (`ko`), Japanese (`ja`), Spanish (`es`) — as source languages, all
@@ -108,10 +108,10 @@ not an audit shortcut.
   "A Computational Evaluation Framework for Singable Lyric Translation"
   (ISMIR 2023)'s Sim_pho. Their metric compares a source-language
   section's phoneme-bigram diversity (distinct-2) against the target-
-  language section's, correlated (Spearman) across a whole song. AURA
+  language section's, correlated (Spearman) across a whole song. CASTIA
   only has a G2P tool for English (the CMU dictionary), so the
   cross-language comparison isn't reproducible honestly — adapted
-  instead to a same-language comparison AURA can actually make: the
+  instead to a same-language comparison CASTIA can actually make: the
   Translator's literal anchor vs. the Judge's shipped final line, both
   English. Asks a related but distinct question from the paper's
   original: not "does the target preserve the source's repetition
@@ -129,9 +129,9 @@ not an audit shortcut.
 - **English-target only** — same gate as Stress/Rhyme/Singability, for
   the same reason (CMU dictionary).
 - **Benchmark coverage:** unit-tested (`tests/test_rhyme.py`,
-  `tests/test_verify.py`). Not corpus-benchmarked against AURA's own
+  `tests/test_verify.py`). Not corpus-benchmarked against CASTIA's own
   output at scale — the paper's own singable-vs-non-singable averages are
-  a reference point, not a validation of AURA specifically.
+  a reference point, not a validation of CASTIA specifically.
 
 ## Poetic register + Tonal Coherence gate + Phrase-end sustainability — detail
 
@@ -254,7 +254,7 @@ by design — none names a specific language or culture in code.
 Found via a real production resubmission of the same Kun Faya Kun section
 that exposed the repetition-preservation gap above, this time Hindi →
 Japanese: the Translator's literal anchor correctly preserved every
-repeat (that fix held), but the shipped Japanese Aura output was ~20
+repeat (that fix held), but the shipped Japanese Castia output was ~20
 characters — one couplet's gist — against the anchor's 800+ characters
 of correctly-repeated content. The entire sacred "Kun Fayakun" refrain
 and a full stanza were silently dropped. The why-sentence description
@@ -659,14 +659,14 @@ are fixed here, the last two are documented, not touched.
   ONE winning row's full `result_json` only if a match clears the
   threshold. Behavior is unchanged; the DB round-trip's cost no longer
   scales with the size of the whole cache table's payloads.
-- **`server/main.py::MAX_CONCURRENT_RUNS`** (new, `AURA_MAX_CONCURRENT_
+- **`server/main.py::MAX_CONCURRENT_RUNS`** (new, `CASTIA_MAX_CONCURRENT_
   RUNS` env var, default 4): a `threading.Semaphore` around the actual
   engine run, so at most N background jobs run at once regardless of how
   many `/api/adapt/start` requests arrive simultaneously — the rest
   queue behind the semaphore rather than all hitting the LLM provider at
   once. The number itself is a starting guess, not a measured ceiling.
 - **`server/db.py`**: explicit `pool_size`/`max_overflow` (via
-  `AURA_DB_POOL_SIZE`/`AURA_DB_MAX_OVERFLOW`, defaulting to 10/10)
+  `CASTIA_DB_POOL_SIZE`/`CASTIA_DB_MAX_OVERFLOW`, defaulting to 10/10)
   instead of SQLAlchemy's implicit defaults — documented as bounded by
   whatever Railway's managed Postgres plan actually allows; raising this
   past the plan's real connection ceiling just moves the failure from
@@ -787,14 +787,14 @@ shipped no sessions/tokens table. Resolved in favor of **Auth.js
   JWT cookie, and the Python side (`server/accounts.py`) stays the sole
   owner of user rows. On first sign-in the Auth.js `jwt` callback POSTs
   to the engine's `/api/users/sync`, which upserts the user and returns
-  `{id, plan}`; that id is stashed in the token as `auraUserId` and
+  `{id, plan}`; that id is stashed in the token as `castiaUserId` and
   travels with every subsequent request.
 - **Trust model (`server/main.py`).** The engine API is a separate
   service on Railway — it never sees the Google sign-in, so it cannot
-  verify a user id on its own. `AURA_INTERNAL_API_SECRET` is a shared
+  verify a user id on its own. `CASTIA_INTERNAL_API_SECRET` is a shared
   secret known only to the Next.js server (the party that *did* verify
-  the sign-in). `_authed_user_id()` honors a forwarded `X-Aura-User-Id`
-  **only** when paired with the correct `X-Aura-Internal-Secret`;
+  the sign-in). `_authed_user_id()` honors a forwarded `X-Castia-User-Id`
+  **only** when paired with the correct `X-Castia-Internal-Secret`;
   otherwise it returns `None` and the request proceeds anonymously.
   A browser calling the engine directly with a forged user-id header
   therefore writes nothing — covered by an explicit test
@@ -816,7 +816,7 @@ shipped no sessions/tokens table. Resolved in favor of **Auth.js
   have. No `AUTH_SECRET`/`AUTH_GOOGLE_ID` → `/sign-in` renders the
   original "accounts aren't live yet" copy plus a deployment note,
   instead of a button that fails at click time. No
-  `AURA_INTERNAL_API_SECRET` → sign-in still works, history silently
+  `CASTIA_INTERNAL_API_SECRET` → sign-in still works, history silently
   doesn't record.
 - **Frontend:** `web/auth.ts` (config + sync callback),
   `app/api/auth/[...nextauth]/route.ts` (handlers),
@@ -833,7 +833,7 @@ shipped no sessions/tokens table. Resolved in favor of **Auth.js
   `web/.env.example` (Next.js), with `.env`/`.env*.local` added to
   `.gitignore` (previously absent, and now carrying real secrets):
   `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
-  `AURA_INTERNAL_API_SECRET` (must match on both services).
+  `CASTIA_INTERNAL_API_SECRET` (must match on both services).
 - **Tier 1** — deterministic application code, no model behavior.
   **Verification gap, disclosed:** `tests/test_accounts.py` (12 tests)
   runs against a real sqlite-file database via `DATABASE_URL`, so the
@@ -1131,7 +1131,7 @@ keep reframing around its one example.
   keeping both.
 - **Removed:** `app/compare/page.tsx`, `components/
   SystemComparisonCard.tsx`, `lib/comparison-data.ts` (the "GATE Google
-  Translate / GPT single-prompt / AURA" three-way comparison view built
+  Translate / GPT single-prompt / CASTIA" three-way comparison view built
   around the one Hindi/Punjabi benchmark entry). `benchmark/cli.py` and
   `benchmark/README.md` are untouched — the benchmark tooling itself is
   still real and still useful for internal quality checks; it's the
@@ -1171,7 +1171,7 @@ page: large varied-width cards, each mostly a product visual with
 minimal text).
 
 - **The constraint that shaped this, same as the last two entries:** the
-  reference's cards are real product screenshots. AURA has no
+  reference's cards are real product screenshots. CASTIA has no
   screenshot library, and this sandbox has no way to generate new ones
   that would themselves need to be captured, reviewed, and kept in sync
   with the real UI. The honest substitute is `components/MockWindow.tsx`
@@ -1341,7 +1341,7 @@ than restyling on top of the same structure.
   `dark:bg-paper-dark` usage site-wide picked up the new colors
   automatically — this was not a one-page patch. Two hardcoded (non-token)
   instances of the old purple would NOT have been caught by that alone
-  and were fixed by hand: `ComparisonCard.tsx`'s "AURA" pill (dropped a
+  and were fixed by hand: `ComparisonCard.tsx`'s "CASTIA" pill (dropped a
   `boxShadow` neon-glow effect entirely, not just recolored it — a
   blurred halo is itself part of the visual language being removed), and
   `/alternate-homepage`'s hero gradient (updated for consistency, though
@@ -1409,8 +1409,8 @@ than restyling on top of the same structure.
 
 ## /comics: panel-by-panel script workspace scaffold — detail
 
-The first piece of a deliberate second product surface (`AURA Comics`,
-alongside `AURA Music`), on the strategy that both front ends can share
+The first piece of a deliberate second product surface (`CASTIA Comics`,
+alongside `CASTIA Music`), on the strategy that both front ends can share
 one headless Reasoning Engine and one "literal / adapted / why" value
 proposition, just with a different input mechanism and review UI per
 medium. Explicitly NOT linked from primary nav or the marketing
@@ -1515,7 +1515,7 @@ bottleneck.
   `UploadFile`'s async `.read()` specifically so it runs in FastAPI's
   threadpool like every other endpoint here and needs no new
   pytest-asyncio dependency just to unit-test. A 15MB size cap
-  (`AURA_MAX_IMAGE_BYTES`) rejects anything clearly wrong before it ever
+  (`CASTIA_MAX_IMAGE_BYTES`) rejects anything clearly wrong before it ever
   reaches Tesseract.
 - **`web/app/api/comics/ocr/route.ts`** (new): proxies to the above,
   same shape as `app/api/youtube-draft/route.ts` — re-packages the
@@ -1580,7 +1580,7 @@ check rather than another prompt tweak.
   (`section.errors` -> `retry_section_with_finding`) — no new pipeline
   wiring needed, same as the completeness check two entries up.
 - **Deliberately does NOT try to match wording between anchor and final.**
-  AURA adapts, not translates — recurrence.py's own docstring states the
+  CASTIA adapts, not translates — recurrence.py's own docstring states the
   whole point of a source-side refrain is that it "earns a differently-
   worded English line each time." Matching exact repeated wording in the
   shipped text would false-positive on every legitimately-reworded
@@ -1705,7 +1705,7 @@ changes, one preventative and one corrective.
 
 Direct follow-up on real product direction: the target content for
 /comics is Japanese manga, Chinese manhua, and Spanish/French indie
-comics, on top of AURA's existing Hindi/Korean/Urdu roster. The
+comics, on top of CASTIA's existing Hindi/Korean/Urdu roster. The
 Tesseract-based scaffold from two entries up made that untenable — it
 needs a system-level language pack installed per script AND a language
 picked by the user before every OCR run (Tesseract can't reliably guess
@@ -1735,7 +1735,7 @@ needs no per-language setup.
   threaded through** (`server/main.py`'s endpoint, `lib/comicsOcr.ts`,
   the Next.js proxy route) — the whole point of this switch is that
   nobody has to pick one. It survives only as an optional
-  `imageContext.languageHints` bias (`_LANGUAGE_HINTS`, AURA language
+  `imageContext.languageHints` bias (`_LANGUAGE_HINTS`, CASTIA language
   name -> BCP-47 code) for the rare case a caller already knows the
   language; an unrecognized or absent value sends no hint at all rather
   than raising, unlike the old Tesseract version's `OcrError` on an
@@ -1941,9 +1941,9 @@ single OCR run; see the "Switch to Google Cloud Vision" entry).
   adds a `detected_languages` field to `extract_text_regions`'s return
   shape: `[{"language_code", "language_name", "confidence"}]`.
   `language_name` uses a new `_LANGUAGE_NAMES` map — deliberately
-  broader than AURA's current 6-language roster (adds French, Chinese
+  broader than CASTIA's current 6-language roster (adds French, Chinese
   Simplified/Traditional) since real target content for /comics
-  includes languages AURA doesn't adapt yet; an unrecognized BCP-47 code
+  includes languages CASTIA doesn't adapt yet; an unrecognized BCP-47 code
   is still reported (as `language_name: null`) rather than hidden, so a
   human reviewing a chapter isn't told nothing just because there's no
   engine profile for what Vision found.
@@ -2173,7 +2173,7 @@ entries) into a real HTTP endpoint and a real "Adapt chapter" button in
   new From/Into language selectors (reusing `TargetLanguageSelect`,
   same component `InputScreen.tsx` uses) and an "Adapt chapter" button.
   The "From" selector auto-fills from `guessChapterLanguage`'s detected-
-  language guess the first time it resolves to one of AURA's 6
+  language guess the first time it resolves to one of CASTIA's 6
   supported languages, using the exact same "auto-detect until the
   human touches it" `sourceLanguageTouched` pattern `InputScreen.tsx`
   already established for a pasted song. On a successful adapt call,
@@ -2373,7 +2373,7 @@ previous two entries said so explicitly).
   on `/music` and `/comics` (via a new `active="music" | "webtoons"`
   value), that lets someone hop directly between the two workspaces
   without going back through `/`. Clicking the inactive side writes
-  `localStorage["aura-last-medium"]` and navigates. Extracted into its
+  `localStorage["castia-last-medium"]` and navigates. Extracted into its
   own client component (`MediumSwitcher.tsx`) rather than making
   `SiteHeader` itself interactive, for the same reason Sign In doesn't
   branch on session there today: `SiteHeader` renders from both server
@@ -2386,7 +2386,7 @@ previous two entries said so explicitly).
   of `/music#features` — both are stale from that move and are fixed
   here, not new behavior.
 - **What this does NOT do:** `/` still doesn't read
-  `aura-last-medium` yet — visiting `/` always shows the chooser
+  `castia-last-medium` yet — visiting `/` always shows the chooser
   regardless of what this switcher has written. That read/redirect side
   was explicitly scoped as a separate next step. No switcher appears
   anywhere in `/dashboard` (still music-only, untouched, same open
@@ -2394,7 +2394,7 @@ previous two entries said so explicitly).
 - **Tier 1** — deterministic routing/state, no model-quality claim.
   **Verified live:** real Chromium/Playwright pass on the production
   build — clicked Webtoons from `/music`, confirmed navigation to
-  `/comics` AND read `localStorage.getItem("aura-last-medium")` back as
+  `/comics` AND read `localStorage.getItem("castia-last-medium")` back as
   `"webtoons"` (not just clicked-and-assumed); clicked Music from
   `/comics`, confirmed the reverse. Screenshots of the header on both
   pages confirm correct active-state highlighting and correct theming
@@ -2585,6 +2585,68 @@ previous two entries said so explicitly).
   updated for the now-required `medium` field — 52 Vitest tests total,
   up from 48. `tsc --noEmit`, `next build`, and all 536 Python tests
   stayed green (Python side untouched this round).
+
+## Product rename: AURA → CASTIA
+
+- **What it is:** a full-codebase rename from AURA to Castia (domain:
+  `usecastia.com`, to be booked separately). 76 files touched via three
+  ordered case-sensitive passes (`AURA`→`CASTIA`, `Aura`→`Castia`,
+  `aura`→`castia`), covering: the visible brand everywhere (`Logo.tsx`,
+  page titles/metadata, marketing copy, dashboard/comics UI strings),
+  every code comment and doc (`docs/*.md`, `README.md`,
+  `docs/AURA_ARCHITECTURE.md` → `docs/CASTIA_ARCHITECTURE.md`), the 17
+  `AURA_*` environment variables (`AURA_INTERNAL_API_SECRET`,
+  `AURA_ENGINE_API_URL`, etc. → `CASTIA_*`), the two internal HTTP
+  headers (`X-Aura-User-Id`/`X-Aura-Internal-Secret` →
+  `X-Castia-User-Id`/`X-Castia-Internal-Secret`), the NextAuth session
+  field (`auraUserId` → `castiaUserId`), client-side storage keys
+  (`aura-last-medium`, `aura-result-*`, the CSV export filename), the
+  benchmark system identifier (`AuraSystem`/`"aura"` →
+  `CastiaSystem`/`"castia"`), and both `package.json`/`package-lock.json`
+  package names.
+- **One deliberate exception, NOT renamed:** the per-section wire-shape
+  field that carries the adapted line itself —
+  `SectionComparison.aura` (`web/lib/types.ts`), `section.aura`
+  (`ComparisonCard.tsx`), the `aura` parameter/dict-key in
+  `server/mapping.py`, and the matching test fixtures
+  (`tests/test_mapping.py`, `tests/test_server.py`'s two JSON fixture
+  lines) all still say `aura`. This field is embedded in
+  `cached_results.result_json` for every song ever adapted; renaming it
+  would have silently broken every already-shared `/s/[id]` link and
+  every already-cached result the moment this deployed (the frontend
+  would read a `castia` key that doesn't exist in old cached JSON and
+  render a blank adapted line) — a real data-corruption risk for zero
+  user-visible benefit, since nobody sees this JSON key name directly.
+  The *visible* label built from this field (the "Aura" badge on
+  `ComparisonCard`) was still renamed to "Castia" — only the underlying
+  data key stayed put.
+- **What this does NOT do:** does not touch the actual deployed
+  Railway/Vercel environment variables — those still need the newly-named
+  `CASTIA_*` vars added (with the same values) on both platforms before
+  or immediately after this deploys, or the app breaks (this was an
+  explicit, confirmed tradeoff, not an oversight — the alternative was
+  leaving all 17 env vars as `AURA_*` forever). Does not regenerate the
+  static marketing screenshots (`web/public/screenshots/*.png`) — those
+  are baked pixel images from a real past run and still visibly show
+  "AURA" in the captured UI; regenerating them needs
+  `web/scripts/capture-screenshots.mjs` run against a live instance, not
+  a text rename. Does not rename the GitHub repository itself
+  (`experience-engine`) or touch anything outside this rename's file
+  list.
+- **Tier 1** — mechanical text substitution, no model-quality claim.
+  **Verified:** a scripted before/after diff confirmed only the intended
+  wire-field exception remains lowercase-`aura` anywhere in the
+  codebase; all 536 Python tests and all 52 Vitest tests pass unchanged;
+  `tsc --noEmit` and `next build` are clean; a live Chromium pass against
+  the production build confirmed the header logo, page titles, the
+  comics workspace heading, and the demo result page's section label all
+  read "CASTIA"/"Castia" correctly, while the demo result's adapted-line
+  *text itself* still rendered correctly (proving the kept `aura` field
+  still round-trips end to end despite everything around it being
+  renamed).
+- **Benchmark coverage:** no new tests written (this is a rename, not
+  new behavior) — existing coverage (536 + 52) serves as the regression
+  check, and it stayed green throughout.
 
 ## Deliberately deferred out of Phase 3
 

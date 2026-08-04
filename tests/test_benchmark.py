@@ -18,7 +18,7 @@ from benchmark.runner import run_benchmark
 from benchmark.schema import DIMENSIONS
 from engine.models import SectionInput, SongInput
 
-SYSTEM_NAMES = ("aura", "gpt_single", "claude_single", "google_translate")
+SYSTEM_NAMES = ("castia", "gpt_single", "claude_single", "google_translate")
 
 
 class FakeSystem:
@@ -130,7 +130,7 @@ def test_permutation_test_sanity():
     assert paired_permutation_test(noise) > 0.5
 
 
-def _simulate_ratings(run_dir: Path, favored: str = "aura") -> None:
+def _simulate_ratings(run_dir: Path, favored: str = "castia") -> None:
     """Writes ratings as if reviewers consistently preferred `favored`."""
     key = json.loads((run_dir / "blind" / "key.json").read_text())
     by_reviewer: dict[str, list[dict]] = {}
@@ -154,22 +154,22 @@ def _simulate_ratings(run_dir: Path, favored: str = "aura") -> None:
 
 
 def test_report_deblinds_and_ranks_correctly(run_dir: Path):
-    _simulate_ratings(run_dir, favored="aura")
+    _simulate_ratings(run_dir, favored="castia")
     report = analyze(run_dir)
-    assert "| aura | 5.00 | 5.00 | 5.00 | 5.00 | 5.00 |" in report
+    assert "| castia | 5.00 | 5.00 | 5.00 | 5.00 | 5.00 |" in report
     assert "Honest limitations" in report
     assert (run_dir / "report.md").exists()
-    # aura should top the best-overall table
+    # castia should top the best-overall table
     best_section = report.split("## Best-overall picks")[1].split("## ")[0]
     data_rows = [
         l for l in best_section.splitlines()
         if l.startswith("| ") and not l.startswith("| System")
     ]
-    assert data_rows[0].startswith("| aura |")
+    assert data_rows[0].startswith("| castia |")
 
 
 def test_report_significance_columns_present(run_dir: Path):
-    _simulate_ratings(run_dir, favored="aura")
+    _simulate_ratings(run_dir, favored="castia")
     report = analyze(run_dir)
     assert "| Baseline | Dimension | n pairs | Mean diff | p |" in report
     assert "gpt_single" in report

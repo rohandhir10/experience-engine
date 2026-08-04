@@ -100,11 +100,11 @@ def rhyme_density(lines: list[str]) -> float | None:
 #
 # What's NOT reproduced here: the paper's cross-LANGUAGE comparison
 # (source-language phonemes vs. target-language phonemes) needs a G2P
-# tool per language — AURA only has one for English (the CMU dictionary,
+# tool per language — CASTIA only has one for English (the CMU dictionary,
 # same as rhythm.py/rhyming_part_word above). Comparing phonemes across
 # two different languages' phoneme inventories with only one language's
 # G2P available isn't possible without fabricating the other side.
-# Adapted instead to the comparison AURA CAN make honestly with the tools
+# Adapted instead to the comparison CASTIA CAN make honestly with the tools
 # that exist: the Translator's literal anchor (English, maximally
 # faithful) against the Judge's shipped final line (English, the actual
 # adaptation) — same language, same CMU dictionary, real measurement.

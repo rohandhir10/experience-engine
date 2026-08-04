@@ -41,7 +41,7 @@ export default function SharedResultPage() {
       return;
     }
 
-    const stashed = sessionStorage.getItem(`aura-result-${id}`);
+    const stashed = sessionStorage.getItem(`castia-result-${id}`);
     if (stashed) {
       try {
         setResult(JSON.parse(stashed));

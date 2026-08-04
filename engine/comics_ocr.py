@@ -10,7 +10,7 @@ switch). Tesseract required a language pack installed per script AND a
 language picked before every run, with no reliable way to guess script
 on its own; the real target content this product needs to handle
 (Japanese manga, Chinese manhua, Spanish/French indie comics, alongside
-AURA's existing Hindi/Korean/Urdu roster) made that untenable. Cloud
+CASTIA's existing Hindi/Korean/Urdu roster) made that untenable. Cloud
 Vision auto-detects script/language per block of text and needs no
 per-language setup on this server at all.
 
@@ -72,7 +72,7 @@ _REQUEST_TIMEOUT_SECONDS = 30.0
 # basically legible to a person.
 _LOW_CONFIDENCE_THRESHOLD = 60.0
 
-# AURA's language names -> BCP-47 codes, used ONLY as an optional
+# CASTIA's language names -> BCP-47 codes, used ONLY as an optional
 # `imageContext.languageHints` bias when the caller happens to know the
 # language - never required, never used to gate or reject a request.
 # Cloud Vision auto-detects script/language per block on its own; this
@@ -89,8 +89,8 @@ _LANGUAGE_HINTS = {
 # BCP-47 code -> a human-readable name, for surfacing what Vision itself
 # detected (page.property.detectedLanguages) back to the frontend - NOT
 # the same direction as _LANGUAGE_HINTS above, and deliberately broader
-# than AURA's current 6-language roster: real target content for
-# /comics (Chinese manhua, French indie comics) isn't a language AURA
+# than CASTIA's current 6-language roster: real target content for
+# /comics (Chinese manhua, French indie comics) isn't a language CASTIA
 # adapts yet, but a human reviewing a chapter still benefits from being
 # told plainly "this looks like Chinese," rather than seeing nothing
 # just because there's no engine profile for it. An unrecognized code

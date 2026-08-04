@@ -268,7 +268,7 @@ export function InputScreen({
         </Link>
       </div>
 
-      {/* A language matrix, not a single lyric — AURA supports six
+      {/* A language matrix, not a single lyric — CASTIA supports six
           languages in any direction, and the only real, fully-benchmarked
           comparison example ever generated (see benchmark/README.md)
           happens to be one Hindi/Punjabi song. Showing that one example
@@ -329,7 +329,7 @@ export function InputScreen({
           >
             <Image
               src="/screenshots/comparison-card.png"
-              alt="A real AURA result: the literal reading next to the adapted line, with a plain-language reason for the change"
+              alt="A real CASTIA result: the literal reading next to the adapted line, with a plain-language reason for the change"
               width={672}
               height={637}
               className="w-full rounded-lg border border-white/10"
@@ -361,7 +361,7 @@ export function InputScreen({
           >
             <Image
               src="/screenshots/dashboard-workspace.png"
-              alt="The AURA dashboard: language pickers and lyric box alongside the sidebar for saved collections"
+              alt="The CASTIA dashboard: language pickers and lyric box alongside the sidebar for saved collections"
               width={900}
               height={420}
               className="w-full rounded-lg border border-white/10"

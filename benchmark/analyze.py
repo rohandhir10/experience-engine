@@ -4,7 +4,7 @@ a markdown report with real significance tests.
 Statistics, chosen to be defensible without heavy dependencies:
 
 - Per dimension, per system: mean rating and n.
-- AURA vs. each baseline: paired differences on matched (reviewer, song)
+- CASTIA vs. each baseline: paired differences on matched (reviewer, song)
   pairs, tested with a two-sided paired sign-flip permutation test —
   exact in spirit, assumption-light (no normality claim), and honest at
   the small sample sizes this benchmark will start with.
@@ -78,7 +78,7 @@ def paired_permutation_test(
     return hits / iterations
 
 
-def analyze(run_dir: Path, primary: str = "aura") -> str:
+def analyze(run_dir: Path, primary: str = "castia") -> str:
     key = load_key(run_dir)
     labeled = deblind(load_ratings(run_dir), key)
 
@@ -102,7 +102,7 @@ def analyze(run_dir: Path, primary: str = "aura") -> str:
     systems = sorted({system for system, _ in scores})
 
     lines = [
-        "# AURA blind benchmark report",
+        "# CASTIA blind benchmark report",
         "",
         f"- Reviewers: {len(reviewers)}",
         f"- Songs: {len(songs)}",

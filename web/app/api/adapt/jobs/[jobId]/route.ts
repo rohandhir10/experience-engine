@@ -14,7 +14,7 @@ export async function GET(
     upstream = await fetch(`${ENGINE_API_URL}/api/adapt/jobs/${params.jobId}`);
   } catch {
     return NextResponse.json(
-      { error: "AURA is temporarily unreachable. Please try again in a few minutes." },
+      { error: "CASTIA is temporarily unreachable. Please try again in a few minutes." },
       { status: 502 }
     );
   }

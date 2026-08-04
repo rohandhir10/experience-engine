@@ -222,7 +222,7 @@ class VerificationReport(BaseModel):
     # Sim_pho, adapted from Kim et al. 2023 (ISMIR) — see engine/rhyme.py's
     # module comment for exactly what's compared and why (the anchor's
     # phoneme-repetition density vs. the shipped line's, not source-
-    # language vs. target-language, since AURA only has G2P for English).
+    # language vs. target-language, since CASTIA only has G2P for English).
     # Song-level, not per-section: a correlation needs a whole song's
     # worth of sections to mean anything. None when target_language isn't
     # English or too few sections have enough CMU-resolvable words on
@@ -244,7 +244,7 @@ class VerificationReport(BaseModel):
 
     def summary(self) -> str:
         verifiable = [s for s in self.sections if s.verifiable]
-        lines = ["AURA constitution verification", "=" * 34, ""]
+        lines = ["CASTIA constitution verification", "=" * 34, ""]
         if not verifiable:
             lines.append("No verifiable sections (no translator anchor found).")
             return "\n".join(lines)
@@ -388,7 +388,7 @@ def _check_repeated_line_preservation(
     fill the difference, hiding the loss from an aggregate count/length
     check.
 
-    This does not try to match WORDING between anchor and final — AURA
+    This does not try to match WORDING between anchor and final — CASTIA
     adapts, so a repeated line legitimately earns a different rendering
     each occurrence (see recurrence.py's module docstring). It checks a
     cruder but reliable structural proxy instead: if the anchor has
@@ -1050,7 +1050,7 @@ def verify_result(result_dict: dict) -> VerificationReport:
                         "shipped lyrics are, throughout, the Translator's "
                         "literal anchor. Every other check here passes on a "
                         "verbatim translation, so this is the one that will "
-                        "not: AURA's output is supposed to be an adaptation "
+                        "not: CASTIA's output is supposed to be an adaptation "
                         "the original writer would recognize as their own "
                         "work, not a translation of it. Read the Creative "
                         "Adapter's candidates for this run — if none of them "
@@ -1149,7 +1149,7 @@ def verify_result(result_dict: dict) -> VerificationReport:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Verify a finished AURA run against the Burden of Change "
+            "Verify a finished CASTIA run against the Burden of Change "
             "constitution. Deterministic; no LLM calls, no API key."
         )
     )

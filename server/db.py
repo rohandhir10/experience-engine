@@ -65,8 +65,8 @@ _SessionLocal: sessionmaker | None = None
 # ceiling just moves the failure from "pool exhausted" to "Postgres
 # refused the connection," so check the plan's actual limit before
 # tuning this up for real concurrent traffic.
-POOL_SIZE = int(os.environ.get("AURA_DB_POOL_SIZE", "10"))
-MAX_OVERFLOW = int(os.environ.get("AURA_DB_MAX_OVERFLOW", "10"))
+POOL_SIZE = int(os.environ.get("CASTIA_DB_POOL_SIZE", "10"))
+MAX_OVERFLOW = int(os.environ.get("CASTIA_DB_MAX_OVERFLOW", "10"))
 
 
 def get_engine():

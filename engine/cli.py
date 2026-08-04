@@ -15,7 +15,7 @@ from .pipeline import run_engine
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the AURA engine on one song.")
+    parser = argparse.ArgumentParser(description="Run the CASTIA engine on one song.")
     parser.add_argument(
         "song_file",
         type=Path,

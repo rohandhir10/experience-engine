@@ -1,6 +1,6 @@
 export type Medium = "music" | "webtoons";
 
-const STORAGE_KEY = "aura-last-medium";
+const STORAGE_KEY = "castia-last-medium";
 
 // Client-side only, deliberately not synced to the account (server/
 // accounts.py owns user rows; web/auth.ts's own doc comment explains why

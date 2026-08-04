@@ -17,13 +17,13 @@ export const maxDuration = 60;
 // in their history (medium="webtoons"). Degrades to anonymous, exactly
 // like the music side, if signed out or the internal secret isn't set.
 async function identityHeaders(): Promise<Record<string, string>> {
-  const secret = process.env.AURA_INTERNAL_API_SECRET;
+  const secret = process.env.CASTIA_INTERNAL_API_SECRET;
   if (!secret) return {};
   const session = await auth().catch(() => null);
-  if (!session?.auraUserId) return {};
+  if (!session?.castiaUserId) return {};
   return {
-    "X-Aura-Internal-Secret": secret,
-    "X-Aura-User-Id": session.auraUserId,
+    "X-Castia-Internal-Secret": secret,
+    "X-Castia-User-Id": session.castiaUserId,
   };
 }
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       {
         error: timedOut
           ? "This chapter is taking longer than usual to adapt. Please try again with fewer panels."
-          : "AURA is temporarily unreachable. Please try again in a few minutes.",
+          : "CASTIA is temporarily unreachable. Please try again in a few minutes.",
       },
       { status: timedOut ? 504 : 502 }
     );

@@ -16,7 +16,7 @@ import { engineFetchAsUser } from "@/lib/engineFetch";
 // a combined list safe to show).
 export async function GET(request: NextRequest) {
   const session = await auth().catch(() => null);
-  if (!session?.auraUserId) {
+  if (!session?.castiaUserId) {
     return NextResponse.json({ adaptations: [], signedIn: false });
   }
 

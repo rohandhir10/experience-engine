@@ -2,45 +2,45 @@
 
 PROVIDER selects which model adapter engine/llm_client.py builds by
 default. OpenAI is the active default; Anthropic is kept in the codebase
-but inactive — set AURA_PROVIDER=anthropic to switch back to it.
+but inactive — set CASTIA_PROVIDER=anthropic to switch back to it.
 """
 import os
 
-PROVIDER = os.environ.get("AURA_PROVIDER", "openai")  # "openai" (active) | "anthropic" (inactive)
+PROVIDER = os.environ.get("CASTIA_PROVIDER", "openai")  # "openai" (active) | "anthropic" (inactive)
 
-OPENAI_MODEL = os.environ.get("AURA_OPENAI_MODEL", "gpt-4o")
-ANTHROPIC_MODEL = os.environ.get("AURA_ANTHROPIC_MODEL", "claude-sonnet-5")
-MAX_TOKENS = int(os.environ.get("AURA_MAX_TOKENS", "4096"))
+OPENAI_MODEL = os.environ.get("CASTIA_OPENAI_MODEL", "gpt-4o")
+ANTHROPIC_MODEL = os.environ.get("CASTIA_ANTHROPIC_MODEL", "claude-sonnet-5")
+MAX_TOKENS = int(os.environ.get("CASTIA_MAX_TOKENS", "4096"))
 
 # server/mapping.py::_explain_why — the reader-facing "why this changed"
 # sentence. Presentation, not adaptation reasoning: it doesn't touch the
 # engine's own output, so it's the lowest-risk place to use a cheaper
 # model. Defaults to a cheaper OpenAI model only when OpenAI is actually
-# the active provider — if AURA_PROVIDER=anthropic, there's no hardcoded
+# the active provider — if CASTIA_PROVIDER=anthropic, there's no hardcoded
 # "cheap Anthropic model" assumption here, so it falls back to the same
 # model as everything else rather than silently guessing at one.
 #
 # Provisional, not yet quality-validated: this should be confirmed against
 # a real side-by-side test (a blind sample of explanations, same songs,
 # both models) before being trusted as a free win. Set
-# AURA_EXPLAIN_WHY_MODEL to the main model to revert instantly if that
+# CASTIA_EXPLAIN_WHY_MODEL to the main model to revert instantly if that
 # test doesn't hold up.
 EXPLAIN_WHY_MODEL = os.environ.get(
-    "AURA_EXPLAIN_WHY_MODEL",
+    "CASTIA_EXPLAIN_WHY_MODEL",
     "gpt-4o-mini" if PROVIDER == "openai" else ANTHROPIC_MODEL,
 )
 
 # Per-request timeout and SDK-level retry budget for LLM calls. A full
 # section can legitimately take a while, but a call that hangs past this
 # is dead — fail it and let the engine's own error handling surface it.
-LLM_TIMEOUT_SECONDS = float(os.environ.get("AURA_LLM_TIMEOUT", "120"))
-LLM_MAX_RETRIES = int(os.environ.get("AURA_LLM_MAX_RETRIES", "2"))
+LLM_TIMEOUT_SECONDS = float(os.environ.get("CASTIA_LLM_TIMEOUT", "120"))
+LLM_MAX_RETRIES = int(os.environ.get("CASTIA_LLM_MAX_RETRIES", "2"))
 
 # See engine/llm_client.py::OpenAILLMClient — forces the OpenAI HTTP client
 # to connect over IPv4 only, a mitigation for environments with broken
 # IPv6 egress. On by default; set to "0" to rule it out if it isn't the
 # actual cause of a connection failure.
-FORCE_IPV4 = os.environ.get("AURA_FORCE_IPV4", "1") != "0"
+FORCE_IPV4 = os.environ.get("CASTIA_FORCE_IPV4", "1") != "0"
 
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",

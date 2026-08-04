@@ -341,7 +341,7 @@ tonal choices already made. Later sections inherit this context
 automatically — the Cultural Historian doesn't re-argue a convention
 already settled in verse one; the Film Critic checks new candidates against
 payoffs the room already committed to setting up. This is the same
-consistency requirement `AURA_ARCHITECTURE.md`'s Long-Horizon Memory module
+consistency requirement `CASTIA_ARCHITECTURE.md`'s Long-Horizon Memory module
 (LHM) exists to solve, scoped here specifically to one room's working
 session on one song, not the cross-work memory LHM handles at the
 production-pipeline level.
@@ -374,7 +374,7 @@ Two categories of input, handled completely differently:
   what to whom has been reversed or lost, not merely re-expressed) — a
   candidate can depart enormously from literal wording, but it cannot
   invert the underlying fact of the line. This is the same principle as
-  `BCC` (Back-Translation & Consistency Checker) in `AURA_ARCHITECTURE.md`
+  `BCC` (Back-Translation & Consistency Checker) in `CASTIA_ARCHITECTURE.md`
   §7.2: emotional license is not license to get the basic facts backwards.
 
 **Weighted priorities (used to choose among surviving candidates, in this
@@ -417,7 +417,7 @@ The Judge never simply outputs a final line. It outputs:
 ```
 
 This is the room's equivalent of `SelectionRecord` in
-`AURA_ARCHITECTURE.md` §7.3 — the deliverable is not just a line, it's an
+`CASTIA_ARCHITECTURE.md` §7.3 — the deliverable is not just a line, it's an
 auditable creative decision, so that a human creative lead reviewing the
 room's output (Stage 5 of `PRODUCTION_WORKFLOW.md`) can see exactly what
 was weighed and overrule the Judge with full context, rather than having to

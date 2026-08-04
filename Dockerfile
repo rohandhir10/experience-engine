@@ -1,11 +1,11 @@
-# AURA engine API. Build from the repo root:
-#   docker build -t aura-api .
-#   docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... aura-api
+# CASTIA engine API. Build from the repo root:
+#   docker build -t castia-api .
+#   docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... castia-api
 #
 # Mount a volume at /app/server/.cache to persist results (and their
 # shareable URLs) across container restarts:
 #   docker run -p 8000:8000 -e OPENAI_API_KEY=sk-... \
-#     -v aura-cache:/app/server/.cache aura-api
+#     -v castia-cache:/app/server/.cache castia-api
 #
 # Binds to $PORT if set, defaulting to 8000 for local `docker run` above.
 # Platforms like Railway assign their own port and route traffic to it —

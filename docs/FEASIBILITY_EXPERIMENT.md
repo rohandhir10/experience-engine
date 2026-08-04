@@ -1,4 +1,4 @@
-# AURA Feasibility Experiment
+# CASTIA Feasibility Experiment
 
 **Hypothesis test, not product design.**
 **Question:** Can an AI consistently generate lyric translations that
@@ -8,14 +8,14 @@ conventional translations?
 Status: Pre-registered experiment design. No Experience Graph, no
 multi-module pipeline, no infrastructure. The goal here is a single
 falsifiable answer, obtained as cheaply as possible, before any further
-investment in the architecture in `AURA_ARCHITECTURE.md` /
+investment in the architecture in `CASTIA_ARCHITECTURE.md` /
 `EXPERIENCE_GRAPH.md` is justified.
 
 ---
 
 ## 0. Framing
 
-Before this experiment, "AURA works" is an untested belief resting on two
+Before this experiment, "CASTIA works" is an untested belief resting on two
 separate claims bundled together:
 
 1. An LLM, prompted correctly, can identify the emotional/cultural
@@ -55,7 +55,7 @@ WMT human evaluation campaigns — and for RLHF preference data collection).
   - **Condition A — Conventional:** an existing literal/professional
     translation of the excerpt, or output of a standard MT system
     (DeepL/Google Translate) if no professional translation exists.
-  - **Condition B — AURA-prototype:** output of the minimal two-stage
+  - **Condition B — CASTIA-prototype:** output of the minimal two-stage
     prototype in §5.
 - **Judges see:** the original-language excerpt (text, and audio if
   available — see §3.4) plus both candidate translations, **unlabeled and
@@ -84,7 +84,7 @@ translation will often *also* be preferred as "more emotionally faithful"
 even if the judge is actually just responding to writing quality, not
 emotional fidelity. If Condition B wins on preference but also wins on
 fluency by a similar margin, the experiment has **not** shown what the
-hypothesis claims — it has shown "AURA writes more fluently," a much
+hypothesis claims — it has shown "CASTIA writes more fluently," a much
 weaker and less interesting result. The experiment is only informative if
 we can distinguish these two outcomes, so fluency is collected
 independently and used as a covariate in analysis (§4.3), not folded into
@@ -92,11 +92,11 @@ the main question.
 
 ### 1.4 What this experiment deliberately does not test
 
-- Whether AURA works across many language pairs (tested on one pair only,
+- Whether CASTIA works across many language pairs (tested on one pair only,
   see §3.1).
-- Whether AURA works on long-form lyrics/full songs (tested on short
+- Whether CASTIA works on long-form lyrics/full songs (tested on short
   excerpts only, see §3.2).
-- Whether AURA's advantage, if any, comes from the "experience
+- Whether CASTIA's advantage, if any, comes from the "experience
   decomposition" step specifically vs. just being a stronger underlying
   model prompted more carefully (addressed by an ablation, §5.4, run only
   if the main result is positive — no reason to pay for it otherwise).
@@ -167,7 +167,7 @@ Rationale for constraining to one pair, and for this specific pair:
   judge pool available via paid panels, (b) well-documented cases where
   literal/fan translations are criticized specifically for losing
   emotional/cultural nuance (han, jeong — concepts with no direct English
-  analog), giving a real, not synthetic, gap for AURA to close, and (c)
+  analog), giving a real, not synthetic, gap for CASTIA to close, and (c)
   existing conventional translations (official subtitle translations, fan
   translation communities) to use as Condition A without commissioning new
   ones.
@@ -185,7 +185,7 @@ Rationale for constraining to one pair, and for this specific pair:
 - **Unit:** single couplets or short verses (2–4 lines), not full songs.
 - **Why:** a full song entangles many separate emotional beats, formal
   constraints (rhyme, meter, singability), and structural narrative arc —
-  exactly the kind of complexity `AURA_ARCHITECTURE.md`'s full pipeline
+  exactly the kind of complexity `CASTIA_ARCHITECTURE.md`'s full pipeline
   exists to handle, and exactly what this experiment is explicitly *not*
   trying to test yet. A short excerpt isolates a single emotional/cultural
   unit, which is the smallest thing the hypothesis can be checked against
@@ -193,8 +193,8 @@ Rationale for constraining to one pair, and for this specific pair:
 - **Count:** 24 excerpts. Enough for a meaningful sample (§4.1) without
   requiring a large commissioning/licensing effort. Selected to span a
   deliberate range: some carrying clear culturally-specific affect concepts
-  (the "hard" cases AURA should have most advantage on), some more
-  universal/archetypal emotional content (a harder test — does AURA still
+  (the "hard" cases CASTIA should have most advantage on), some more
+  universal/archetypal emotional content (a harder test — does CASTIA still
   help, or only on the obviously culture-bound cases?).
 - **Sourcing:** published, rights-cleared lyrics where a conventional
   translation already exists publicly (official or reputable fan
@@ -238,7 +238,7 @@ of yet.
 ### 4.2 Primary success criterion (pre-registered, decided before data
 collection)
 
-> **AURA's prototype (Condition B) must be preferred over the conventional
+> **CASTIA's prototype (Condition B) must be preferred over the conventional
 > translation (Condition A) in ≥ 60% of judgments, aggregated across
 > excerpts and judges, with a binomial test p < 0.05, AND this result must
 > hold on a held-out second batch of excerpts not used for any prompt
@@ -257,7 +257,7 @@ used to evaluate it.
   (e.g. B wins preference only on excerpts where B also has a
   substantially higher fluency score, and shows no advantage on excerpts
   where fluency scores are matched) — the result should be reported as
-  "AURA produces more fluent output," not as support for the emotional-
+  "CASTIA produces more fluent output," not as support for the emotional-
   fidelity hypothesis. This is a stricter bar than the primary criterion
   and is the actual test of whether the *mechanism* (functional
   decomposition, not just a capable LLM) is doing the work.
@@ -316,7 +316,7 @@ in English that produces this same felt effect for a reader — you do not
 need to preserve the literal content, do not translate word for word"),
 generate the candidate.
 
-This mirrors the architectural principle from `AURA_ARCHITECTURE.md` (no
+This mirrors the architectural principle from `CASTIA_ARCHITECTURE.md` (no
 direct source→target path) in its smallest possible form: two prompts, a
 hard boundary between them, no shared context that would let the model
 silently fall back to literal translation in call 2.
@@ -356,7 +356,7 @@ preserving its emotional impact, not literally"), no structured
 intermediate note. If B beats C on the same preference task, that's
 evidence the two-stage decomposition step specifically is doing work, not
 just "LLMs are good at this if you ask nicely" — the actual claim
-underlying the entire AURA architecture. This ablation is explicitly
+underlying the entire CASTIA architecture. This ablation is explicitly
 deferred until after a positive primary result, since there's no reason to
 spend judge-hours on it if the base hypothesis doesn't clear its bar at
 all.
@@ -367,12 +367,12 @@ all.
 
 - **Primary criterion met, fluency confound ruled out, ablation (if run)
   favors B:** proceed to invest in the fuller architecture
-  (`AURA_ARCHITECTURE.md`) — the core mechanism is validated on the
+  (`CASTIA_ARCHITECTURE.md`) — the core mechanism is validated on the
   smallest unit; the rest of the system exists to extend it to full songs,
   multiple language pairs, and long-horizon consistency.
 - **Primary criterion met but fluency confound not ruled out, or ablation
   fails:** the underlying model may already be capable of this without
-  AURA's specific mechanism — worth a cheaper follow-up (better prompting
+  CASTIA's specific mechanism — worth a cheaper follow-up (better prompting
   alone) before committing to the full architecture.
 - **Primary criterion not met, or fails to replicate:** treat the core
   hypothesis as unsupported at current model capability. Re-test

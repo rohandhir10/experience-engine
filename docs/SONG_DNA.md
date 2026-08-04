@@ -27,7 +27,7 @@ before a single word of English is written. Every other agent in
 Historian, Film Critic, Psychologist, and the Judge — reads from this
 document instead of the source lyric directly. This is the same
 architectural discipline as the no-direct-path principle in
-`AURA_ARCHITECTURE.md`, applied to craft instead of to language: no agent
+`CASTIA_ARCHITECTURE.md`, applied to craft instead of to language: no agent
 re-expresses from the raw lyric, because the raw lyric is not the thing
 that needs to survive. The DNA is.
 

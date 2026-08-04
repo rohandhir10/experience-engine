@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       {
         error: timedOut
           ? "Reading this panel is taking longer than usual. Please try again."
-          : "AURA is temporarily unreachable. Please try again in a few minutes.",
+          : "CASTIA is temporarily unreachable. Please try again in a few minutes.",
       },
       { status: timedOut ? 504 : 502 }
     );

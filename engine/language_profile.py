@@ -23,7 +23,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 PROFILE_DIR = Path(
-    os.environ.get("AURA_PROFILE_DIR", Path(__file__).parent / "profiles")
+    os.environ.get("CASTIA_PROFILE_DIR", Path(__file__).parent / "profiles")
 )
 
 

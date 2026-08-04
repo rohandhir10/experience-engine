@@ -1,11 +1,11 @@
-# Deploying AURA + enabling sign-in
+# Deploying CASTIA + enabling sign-in
 
 Two services, plus one thing only a human with a Google account can do.
 
 | Piece | Where it runs | What it needs |
 | --- | --- | --- |
-| Engine API (`server/`, `engine/`) | Railway (persistent container) | `OPENAI_API_KEY`, `DATABASE_URL`, `AURA_INTERNAL_API_SECRET` |
-| Web app (`web/`) | Vercel | `AURA_ENGINE_API_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AURA_INTERNAL_API_SECRET` |
+| Engine API (`server/`, `engine/`) | Railway (persistent container) | `OPENAI_API_KEY`, `DATABASE_URL`, `CASTIA_INTERNAL_API_SECRET` |
+| Web app (`web/`) | Vercel | `CASTIA_ENGINE_API_URL`, `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `CASTIA_INTERNAL_API_SECRET` |
 | Google OAuth client | Google Cloud Console | created by hand, once |
 
 Full variable lists live in `.env.example` (engine) and `web/.env.example`.
@@ -34,16 +34,16 @@ them" means.
 
 ```bash
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # AUTH_SECRET
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # AURA_INTERNAL_API_SECRET
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # CASTIA_INTERNAL_API_SECRET
 ```
 
-`AURA_INTERNAL_API_SECRET` goes on **both** services and must be
+`CASTIA_INTERNAL_API_SECRET` goes on **both** services and must be
 byte-identical. See §5 for what happens when it isn't.
 
 ## 3. Railway (engine)
 
 Set `OPENAI_API_KEY`, `DATABASE_URL` (the Postgres plugin's connection
-string), `AURA_INTERNAL_API_SECRET`, and `AURA_ALLOWED_ORIGINS` (your
+string), `CASTIA_INTERNAL_API_SECRET`, and `CASTIA_ALLOWED_ORIGINS` (your
 Vercel domain).
 
 On boot the service runs `alembic upgrade head`
@@ -60,7 +60,7 @@ Check afterwards:
 
 ## 4. Vercel (web)
 
-Set `AURA_ENGINE_API_URL` to the Railway public domain, plus the four
+Set `CASTIA_ENGINE_API_URL` to the Railway public domain, plus the four
 auth variables. Redeploy after adding them — Vercel does not apply new
 env vars to an existing build.
 
@@ -74,7 +74,7 @@ Visit `/sign-in`. What you see tells you where you are:
 | --- | --- |
 | "Accounts aren't live yet" | `AUTH_SECRET` or `AUTH_GOOGLE_ID` missing on Vercel |
 | `redirect_uri_mismatch` from Google | §1, step 3 |
-| Signed in, but no history ever appears | **`AURA_INTERNAL_API_SECRET` differs between the two services** |
+| Signed in, but no history ever appears | **`CASTIA_INTERNAL_API_SECRET` differs between the two services** |
 | Signed in, history empty, engine logs `user sync failed: 503` | `DATABASE_URL` unset on Railway |
 
 That third row is the one worth internalising: a mismatched internal

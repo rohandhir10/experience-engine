@@ -50,9 +50,9 @@ needs an external job queue at today's scale), and the caller polls
 Operational behavior:
   - Same-text submissions are served from server/.cache without re-running
     the engine (server/cache.py); the id doubles as the share-URL slug.
-  - Input is length-capped (AURA_MAX_INPUT_CHARS) so one paste can't run
+  - Input is length-capped (CASTIA_MAX_INPUT_CHARS) so one paste can't run
     an unbounded number of engine sections.
-  - A simple per-IP daily quota (AURA_DAILY_LIMIT, in-memory, resets on
+  - A simple per-IP daily quota (CASTIA_DAILY_LIMIT, in-memory, resets on
     restart) caps LLM spend from any single client. Cache hits don't
     count against it. Set to 0 to disable.
   - Endpoints are plain `def`, so FastAPI runs them in its threadpool —
@@ -100,16 +100,16 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
-logger = logging.getLogger("aura.server")
+logger = logging.getLogger("castia.server")
 
-MAX_INPUT_CHARS = int(os.environ.get("AURA_MAX_INPUT_CHARS", "8000"))
-DAILY_LIMIT = int(os.environ.get("AURA_DAILY_LIMIT", "10"))
+MAX_INPUT_CHARS = int(os.environ.get("CASTIA_MAX_INPUT_CHARS", "8000"))
+DAILY_LIMIT = int(os.environ.get("CASTIA_DAILY_LIMIT", "10"))
 # A full-resolution chapter-slice PNG can be several megabytes; this caps
 # a single panel upload well above any normal slice, not just above a
 # typical one, so this only ever rejects something clearly wrong (a
 # non-panel file, a batch accidentally concatenated) rather than a real
 # comic page.
-MAX_IMAGE_BYTES = int(os.environ.get("AURA_MAX_IMAGE_BYTES", str(15 * 1024 * 1024)))
+MAX_IMAGE_BYTES = int(os.environ.get("CASTIA_MAX_IMAGE_BYTES", str(15 * 1024 * 1024)))
 # Shared secret between the Next.js server and this API, for the
 # account endpoints (/api/users/sync, /api/me/*) and for trusting a
 # user id forwarded on adapt requests. The Next.js side is the party
@@ -117,9 +117,9 @@ MAX_IMAGE_BYTES = int(os.environ.get("AURA_MAX_IMAGE_BYTES", str(15 * 1024 * 102
 # how it proves a request came from it and not from a browser talking
 # to this API directly. Unset -> account endpoints answer 503 and
 # forwarded user ids are ignored (accounts off, everything else works).
-INTERNAL_API_SECRET = os.environ.get("AURA_INTERNAL_API_SECRET", "")
+INTERNAL_API_SECRET = os.environ.get("CASTIA_INTERNAL_API_SECRET", "")
 ALLOWED_ORIGINS = os.environ.get(
-    "AURA_ALLOWED_ORIGINS", "http://localhost:3000"
+    "CASTIA_ALLOWED_ORIGINS", "http://localhost:3000"
 ).split(",")
 
 @asynccontextmanager
@@ -143,7 +143,7 @@ async def _lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="AURA engine API", lifespan=_lifespan)
+app = FastAPI(title="CASTIA engine API", lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -163,9 +163,9 @@ def _require_internal_secret(request: Request) -> None:
     if not INTERNAL_API_SECRET:
         raise HTTPException(
             status_code=503,
-            detail="Accounts are not configured on this deployment (AURA_INTERNAL_API_SECRET unset).",
+            detail="Accounts are not configured on this deployment (CASTIA_INTERNAL_API_SECRET unset).",
         )
-    if request.headers.get("x-aura-internal-secret") != INTERNAL_API_SECRET:
+    if request.headers.get("x-castia-internal-secret") != INTERNAL_API_SECRET:
         raise HTTPException(status_code=401, detail="Invalid internal secret.")
 
 
@@ -173,9 +173,9 @@ def _required_user_id(request: Request) -> str:
     """For the /api/me/* endpoints, which are meaningless without a user.
     The internal secret is checked separately by _require_internal_secret
     — this only pulls the id out."""
-    user_id = request.headers.get("x-aura-user-id")
+    user_id = request.headers.get("x-castia-user-id")
     if not user_id:
-        raise HTTPException(status_code=400, detail="X-Aura-User-Id header is required.")
+        raise HTTPException(status_code=400, detail="X-Castia-User-Id header is required.")
     return user_id
 
 
@@ -187,12 +187,12 @@ def _authed_user_id(request: Request) -> str | None:
     than raising: a missing/bad pairing means the request proceeds as
     anonymous, exactly like before accounts existed — history is an
     enhancement to an adapt request, never a gate on it."""
-    user_id = request.headers.get("x-aura-user-id")
+    user_id = request.headers.get("x-castia-user-id")
     if not user_id:
         return None
     if not INTERNAL_API_SECRET:
         return None
-    if request.headers.get("x-aura-internal-secret") != INTERNAL_API_SECRET:
+    if request.headers.get("x-castia-internal-secret") != INTERNAL_API_SECRET:
         return None
     return user_id
 
@@ -653,7 +653,7 @@ def _validate_adapt_request(request: AdaptRequest) -> tuple[str, str, str]:
             status_code=400,
             detail=(
                 f"{target_language!r} isn't a supported target language. "
-                f"AURA currently supports: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
+                f"CASTIA currently supports: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
             ),
         )
     if source_language != "unspecified":
@@ -662,7 +662,7 @@ def _validate_adapt_request(request: AdaptRequest) -> tuple[str, str, str]:
                 status_code=400,
                 detail=(
                     f"{source_language!r} isn't a supported source language. "
-                    f"AURA currently supports: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
+                    f"CASTIA currently supports: {', '.join(sorted(SUPPORTED_LANGUAGES))}."
                 ),
             )
         if source_language == target_language:
@@ -929,9 +929,9 @@ def get_adapt(result_id: str) -> dict:
 # the LLM provider simultaneously and risk provider-side rate-limit
 # failures across every concurrent job, not just the newest one. The
 # number itself is a starting guess, not a measured ceiling - tune via
-# AURA_MAX_CONCURRENT_RUNS once real concurrent traffic exists to learn
+# CASTIA_MAX_CONCURRENT_RUNS once real concurrent traffic exists to learn
 # from.
-MAX_CONCURRENT_RUNS = int(os.environ.get("AURA_MAX_CONCURRENT_RUNS", "4"))
+MAX_CONCURRENT_RUNS = int(os.environ.get("CASTIA_MAX_CONCURRENT_RUNS", "4"))
 _run_slots = threading.Semaphore(MAX_CONCURRENT_RUNS)
 
 

@@ -373,7 +373,7 @@ def test_songs_without_anchors_are_unaffected():
 def test_verbatim_translation_fails_even_though_every_other_check_passes():
     """The bug this exists to fix: a song shipped as the Translator's
     literal anchor scored 100% coverage, 0.0 invention penalty, zero
-    findings, PASS — a perfect grade for the one thing AURA is not.
+    findings, PASS — a perfect grade for the one thing CASTIA is not.
     """
     report = verify_result({"sections": [_section(ANCHOR).model_dump()]})
     section = report.sections[0]
@@ -488,7 +488,7 @@ def test_dropped_repeated_couplet_is_an_error():
 
 
 def test_repeated_couplet_preserved_with_different_wording_each_time_is_fine():
-    """AURA adapts, not translates - a repeated line legitimately earns a
+    """CASTIA adapts, not translates - a repeated line legitimately earns a
     different rendering each occurrence (see recurrence.py). This checks
     that reworded-but-still-repeated content isn't penalized just because
     the wording differs between occurrences.

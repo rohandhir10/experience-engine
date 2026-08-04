@@ -1,6 +1,6 @@
 import { DashboardStub } from "@/components/DashboardStub";
 
-export const metadata = { title: "AURA — Usage" };
+export const metadata = { title: "CASTIA — Usage" };
 
 export default function UsagePage() {
   return (

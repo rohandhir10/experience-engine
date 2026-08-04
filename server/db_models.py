@@ -164,7 +164,7 @@ class AdaptationJob(Base):
 
 class DailyQuotaUsage(Base):
     """Per-(day, ip) run count backing server.main's daily submission cap
-    (AURA_DAILY_LIMIT). Same reasoning as AdaptationJob above: an
+    (CASTIA_DAILY_LIMIT). Same reasoning as AdaptationJob above: an
     in-memory dict can't be checked-and-incremented consistently across
     more than one process, so a burst split across instances could blow
     past the intended per-IP limit. Falls back to an in-memory dict when

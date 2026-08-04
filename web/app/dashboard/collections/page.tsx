@@ -2,7 +2,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { CollectionsManager } from "@/components/CollectionsManager";
 
-export const metadata = { title: "AURA — Collections" };
+export const metadata = { title: "CASTIA — Collections" };
 
 // No longer a DashboardStub: collections are real (server/accounts.py).
 export default function CollectionsPage() {

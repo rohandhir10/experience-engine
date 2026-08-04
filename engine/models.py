@@ -34,7 +34,7 @@ class SectionInput(BaseModel):
     voice: str | None = None
 
 
-# AURA's supported language roster, for either side of a direction: the
+# CASTIA's supported language roster, for either side of a direction: the
 # original 4 ("Hindi"/"Korean"/"Japanese"/"Spanish") + English, plus Urdu
 # (added when direct, non-English-pivot pairs were opened up). Any two
 # distinct languages from this set are a supported direction now (full

@@ -5,13 +5,13 @@ export function Logo({ force }: { force?: "light" }) {
   if (force === "light") {
     return (
       <span className="text-sm font-medium tracking-[0.2em] text-white/70">
-        AURA
+        CASTIA
       </span>
     );
   }
   return (
     <span className="text-sm font-medium tracking-[0.2em] text-ink/60 dark:text-ink-dark/60">
-      AURA
+      CASTIA
     </span>
   );
 }

@@ -4,7 +4,7 @@ export type HighlightSegment =
   | { type: "text"; text: string }
   | { type: "deviation"; text: string; deviation: DeviationFragment };
 
-// Splits the shipped AURA line into plain-text and deviation segments, so
+// Splits the shipped CASTIA line into plain-text and deviation segments, so
 // only the phrases the Judge's ledger actually names get an interactive
 // underline. A deviation whose fragmentAdapted isn't found verbatim in the
 // text is dropped, not guessed at a position - the ledger is LLM-authored

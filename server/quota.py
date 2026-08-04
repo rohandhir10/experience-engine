@@ -1,4 +1,4 @@
-"""Per-(day, ip) daily submission cap backing AURA_DAILY_LIMIT.
+"""Per-(day, ip) daily submission cap backing CASTIA_DAILY_LIMIT.
 
 Same backend split as server/jobs.py/cache.py: DATABASE_URL set ->
 Postgres (server/db_models.py::DailyQuotaUsage) via an atomic
@@ -29,7 +29,7 @@ def check_and_increment(ip: str, daily_limit: int) -> bool:
     today's total for this ip), False if ip has already reached
     daily_limit today. daily_limit <= 0 disables the quota entirely,
     without touching either backend — matches the pre-existing
-    AURA_DAILY_LIMIT=0 convention.
+    CASTIA_DAILY_LIMIT=0 convention.
     """
     if daily_limit <= 0:
         return True

@@ -4,8 +4,8 @@
 and Cultural Meaning for Non-Literal Cross-Lingual Re-Expression**
 
 Status: Research-grade specification — canonical internal representation of
-AURA, superseding and formalizing the flat `IMRNode` sketched in
-`AURA_ARCHITECTURE.md` §5.1.
+CASTIA, superseding and formalizing the flat `IMRNode` sketched in
+`CASTIA_ARCHITECTURE.md` §5.1.
 
 ---
 
@@ -13,7 +13,7 @@ AURA, superseding and formalizing the flat `IMRNode` sketched in
 
 Machine translation systems represent text as sequences of tokens and
 optimize for surface-level correspondence between source and target
-strings. This representation is structurally incapable of the task AURA is
+strings. This representation is structurally incapable of the task CASTIA is
 built for: preserving what a piece of language *does* to a reader — its
 emotional trajectory, its symbolic weight, its narrative function, its
 cultural resonance — independent of the words used to do it. We propose the
@@ -34,7 +34,7 @@ mode it exists to prevent.
 
 ### 1.1 Why a graph, and not a flat record
 
-The earlier architectural sketch of AURA's interlingual representation
+The earlier architectural sketch of CASTIA's interlingual representation
 (`IMRNode`, one flat record per segment) is adequate for describing a single
 line in isolation, but it cannot represent the thing that actually carries
 most of a work's emotional and aesthetic power: **relationships between
@@ -88,11 +88,11 @@ fusing all four into a single queryable structure that a generation system
 can be built against, with an explicit, versioned schema rather than an
 implicit prompt convention.
 
-### 1.3 Position in the AURA pipeline
+### 1.3 Position in the CASTIA pipeline
 
 Every ingestible unit — a lyric line, a dialogue turn, a stanza — is
 compiled into an Experience Graph fragment by the Layer 1 understanding
-modules (SED, CRR, NDC in `AURA_ARCHITECTURE.md`) and assembled by what was
+modules (SED, CRR, NDC in `CASTIA_ARCHITECTURE.md`) and assembled by what was
 previously called the IMR builder, now understood as the **Experience Graph
 Constructor**. Layer 3 (TCA, PFP, DGM) reads the graph to plan and generate;
 Layer 4 (EEE, BCC) evaluates candidates *against* the graph; Layer 5 (LHM)
@@ -129,7 +129,7 @@ source text again. The graph is the interface.
    content, and vice versa. The four representational subsystems
    (emotional, symbolic, narrative, cultural) are cross-linked but not
    merged into a single undifferentiated blob.
-6. **The schema is versioned, not the model.** As per `AURA_ARCHITECTURE.md`
+6. **The schema is versioned, not the model.** As per `CASTIA_ARCHITECTURE.md`
    §3.1 and §10.1, the models that populate the graph are expected to
    improve; the graph schema is the stable contract those models are
    expected to fill in, and it evolves under its own versioning discipline
@@ -232,7 +232,7 @@ here.
 | `dominance` | float [-1, 1] | Captures felt agency/power (helplessness vs. control) — a dimension VAD literature treats as separate from valence/arousal and which matters distinctly for narrative voice (a victim's line and a victor's line can share valence and arousal but must not share dominance). |
 | `discrete_tags` | open-vocabulary list of strings | Dimensional scores alone flatten culturally-specific affect concepts with no clean VAD equivalent (e.g. *saudade*, *mono no aware*, *schadenfreude*) — kept open-vocabulary specifically so the system is not forced to approximate these onto whatever affect taxonomy happened to be built into training data. |
 | `temporal_scope` | `instantaneous \| sustained \| building` | Distinguishes a flash of feeling from a mood that colors an entire passage — collapsing this loses information PFP/DGM need to decide whether an emotional effect should be concentrated in one line or distributed. |
-| `is_ironic_or_masked` | boolean | Marks cases (from SED's cross-check, `AURA_ARCHITECTURE.md` §4.2) where literal sentiment and detected affect diverge — exists so downstream modules don't have to re-derive this themselves from raw scores, and so the divergence is an explicit, auditable claim rather than implicit in a low confidence score. |
+| `is_ironic_or_masked` | boolean | Marks cases (from SED's cross-check, `CASTIA_ARCHITECTURE.md` §4.2) where literal sentiment and detected affect diverge — exists so downstream modules don't have to re-derive this themselves from raw scores, and so the divergence is an explicit, auditable claim rather than implicit in a low confidence score. |
 
 ### 4.5 `SymbolNode` (SY)
 
@@ -265,7 +265,7 @@ See §11.
 | Field | Type | Why it exists |
 |---|---|---|
 | `function_type` | open vocabulary, seeded from Proppian/Genettean categories (e.g. `setup`, `complication`, `climax`, `resolution`, `foreshadowing`, `callback`, `characterization`) | Encodes *why this unit exists in the larger work*, distinct from what it literally says — needed because a technically-accurate rendering that fails to still set up a later payoff is a narrative failure invisible to purely local (emotional/propositional) evaluation. |
-| `payoff_ref` | optional `ExperienceUnit` id | Explicit pointer instead of relying on evaluators to rediscover the connection — required for EEE's narrative-fidelity check (`AURA_ARCHITECTURE.md` §7.1) to verify a foreshadowing unit's rendering still plausibly sets up its named payoff. |
+| `payoff_ref` | optional `ExperienceUnit` id | Explicit pointer instead of relying on evaluators to rediscover the connection — required for EEE's narrative-fidelity check (`CASTIA_ARCHITECTURE.md` §7.1) to verify a foreshadowing unit's rendering still plausibly sets up its named payoff. |
 
 ### 4.8 `AgentNode` (AG)
 
@@ -273,13 +273,13 @@ Represents a character, speaker, or addressee.
 
 | Field | Type | Why it exists |
 |---|---|---|
-| `voice_signature` | structured record of lexical/register/syntactic tendencies | Required so DGM can condition generation to keep a character's voice consistent — without a graph-native place to store this, voice consistency would depend entirely on model context length, which does not scale to long works (see `AURA_ARCHITECTURE.md` LHM rationale). |
+| `voice_signature` | structured record of lexical/register/syntactic tendencies | Required so DGM can condition generation to keep a character's voice consistent — without a graph-native place to store this, voice consistency would depend entirely on model context length, which does not scale to long works (see `CASTIA_ARCHITECTURE.md` LHM rationale). |
 | `emotional_arc_ref` | ordered list of `EmotionNode` ids associated with this agent across the work | Makes a character's emotional trajectory a first-class, queryable object rather than something that has to be reconstructed by walking the entire graph on demand. |
 
 ### 4.9 `FormalConstraintNode` (FM)
 
 Prosodic/poetic form attached to a unit (meter, rhyme, repetition,
-syllable count) — see `AURA_ARCHITECTURE.md` §6.2 (PFP) for the module that
+syllable count) — see `CASTIA_ARCHITECTURE.md` §6.2 (PFP) for the module that
 populates this.
 
 | Field | Type | Why it exists |
@@ -332,7 +332,7 @@ that claim is operationalized.
 
 | Field | Type | Why it exists |
 |---|---|---|
-| `created_by` | `{module, model_id, model_version}` (via MAL, `AURA_ARCHITECTURE.md` §3.1) | Enables exactly the kind of audit principle 2 requires: if a claim later turns out wrong, provenance identifies which model/module produced it, which matters both for debugging and for MAL's shadow-evaluation comparisons across model versions. |
+| `created_by` | `{module, model_id, model_version}` (via MAL, `CASTIA_ARCHITECTURE.md` §3.1) | Enables exactly the kind of audit principle 2 requires: if a claim later turns out wrong, provenance identifies which model/module produced it, which matters both for debugging and for MAL's shadow-evaluation comparisons across model versions. |
 | `created_at` | timestamp | Needed for reproducibility and for detecting stale claims after a knowledge base update (e.g. a cultural equivalence that was valid when the graph was built but has since been revised). |
 | `source_span` | offset range into `WorkNode`'s raw text (redundant with `ExperienceUnit.span` for unit-anchored nodes, but required independently for nodes like `PropositionNode` whose evidentiary span may be narrower than the whole unit) | Every claim must be traceable to the literal text that licenses it — this is what makes the graph auditable rather than merely plausible. |
 | `revision_of` | optional node id | Supports non-destructive correction (e.g. HITL overriding an automated claim) without deleting the original — preserves the audit trail principle established for `SelectionRecord` in the architecture doc. |
@@ -355,7 +355,7 @@ graphs to remain fully auditable.
 
 | Field | Type | Why it exists |
 |---|---|---|
-| `value` | float [0, 1] | The base confidence estimate — required so downstream modules (especially SA, `AURA_ARCHITECTURE.md` §7.3) can weigh competing claims instead of treating all graph content as equally certain. |
+| `value` | float [0, 1] | The base confidence estimate — required so downstream modules (especially SA, `CASTIA_ARCHITECTURE.md` §7.3) can weigh competing claims instead of treating all graph content as equally certain. |
 | `method` | `model_inference \| rule_based \| human_annotated \| ensemble_agreement` | Different methods warrant different downstream trust policies (e.g. a policy may treat `human_annotated` as effectively ground truth and `model_inference` as always subject to EEE re-verification) — collapsing method into the scalar value would make that policy impossible to express. |
 | `ensemble_variance` | float?, present only when `method = ensemble_agreement` | High variance across independently-queried models (via MAL's ensemble routing) is itself a signal that a claim is genuinely uncertain or that the underlying text is ambiguous — this is a materially different situation from a single confident-but-wrong model, and needs to be visible as its own field, not folded into `value`. |
 | `evidence_spans` | list of source offset ranges | A confidence score without pointers to what generated it cannot be audited or contested — this is the field an HITL reviewer actually reads to judge whether to trust the claim. |
@@ -405,7 +405,7 @@ that specific effect).
 
 `is_ironic_or_masked` (§4.4) exists because emotion detected from surface
 sentiment and emotion actually intended can diverge, and this divergence is
-itself meaningful content that a translator (human or AURA) must
+itself meaningful content that a translator (human or CASTIA) must
 reproduce — flattening it into "just report the true emotion" would
 discard the fact that the text is *performing* a different emotion on the
 surface, which is often exactly the poetic effect being achieved.
@@ -461,7 +461,7 @@ knowledge base. This is a direct consequence of design principle 1: if the
 graph embedded "in French, this idiom becomes X," the graph would no
 longer be language-independent, it would be a source-plus-one-target
 structure, and would need to be rebuilt per target language rather than
-built once per source unit and reused for every target language AURA is
+built once per source unit and reused for every target language CASTIA is
 ever asked to render into.
 
 ### 10.3 The `untranslatable` flag as compensation trigger
@@ -557,7 +557,7 @@ Notes on this instantiation:
 
 ## 13. Consumption Patterns
 
-How Layer 3–5 modules from `AURA_ARCHITECTURE.md` query the graph, briefly,
+How Layer 3–5 modules from `CASTIA_ARCHITECTURE.md` query the graph, briefly,
 to ground the schema in actual use:
 
 | Module | Primary query pattern |
@@ -574,7 +574,7 @@ to ground the schema in actual use:
 ## 14. Failure Modes and Limitations
 
 - **Graph fragmentation under parallel construction.** When segments are
-  processed in parallel (per `AURA_ARCHITECTURE.md` OC fan-out), long-range
+  processed in parallel (per `CASTIA_ARCHITECTURE.md` OC fan-out), long-range
   edges (`FORESHADOWS`, `RECURS_AS`, `ECHOES`) require a reconciliation pass
   after fan-in, since a segment processed in isolation cannot know about a
   motif established in a segment it hasn't seen. This is a structural cost
@@ -617,7 +617,7 @@ to ground the schema in actual use:
   a shared graph across an author's full body of work (or a genre, or a
   cultural tradition) would let motif/symbol recognition benefit from
   patterns beyond a single work, feeding back into the global
-  `CulturalKnowledgeBase` described in `AURA_ARCHITECTURE.md` §8.1's future
+  `CulturalKnowledgeBase` described in `CASTIA_ARCHITECTURE.md` §8.1's future
   improvements.
 - **Quantitative validation against human literary judgment.** The
   representational choices here (VAD + open categorical tags; occurrence-

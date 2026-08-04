@@ -28,7 +28,7 @@ from .systems import default_systems
 
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
-    parser = argparse.ArgumentParser(description="AURA blind benchmark")
+    parser = argparse.ArgumentParser(description="CASTIA blind benchmark")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_run = sub.add_parser("run", help="Run all systems over the corpus")

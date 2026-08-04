@@ -6,7 +6,7 @@ import { PipelineDiagram } from "@/components/PipelineDiagram";
 import { LANGUAGES } from "@/lib/languages";
 
 export const metadata = {
-  title: "AURA — an alternate layout",
+  title: "CASTIA — an alternate layout",
   description: "A visual-forward homepage layout, built around real product screenshots.",
 };
 
@@ -52,7 +52,7 @@ export default function AlternateHomepage() {
               href="/music#lyrics"
               className="rounded-full bg-white px-6 py-2.5 text-[14px] font-medium text-black transition active:scale-[0.97]"
             >
-              Try AURA
+              Try CASTIA
             </Link>
             <Link
               href="/sign-in"
@@ -66,7 +66,7 @@ export default function AlternateHomepage() {
             <div className="overflow-hidden rounded-t-2xl border border-b-0 border-white/10 shadow-2xl">
               <Image
                 src="/screenshots/hero.png"
-                alt="AURA's paste-lyrics screen: language picker, YouTube import toggle, and the adaptation box"
+                alt="CASTIA's paste-lyrics screen: language picker, YouTube import toggle, and the adaptation box"
                 width={672}
                 height={680}
                 className="w-full"
@@ -86,7 +86,7 @@ export default function AlternateHomepage() {
         <p className="text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
           Most translation tools optimize for word-for-word accuracy and lose
           everything that made the song worth adapting — the repetition, the
-          restraint, the specific image the writer chose on purpose. AURA
+          restraint, the specific image the writer chose on purpose. CASTIA
           keeps a literal reading as the floor, then earns every real
           departure from it with a reason you can actually check.
         </p>
@@ -103,7 +103,7 @@ export default function AlternateHomepage() {
           <div className="overflow-hidden rounded-xl border border-black/[0.08] shadow-lg dark:border-white/[0.08]">
             <Image
               src="/screenshots/comparison-card.png"
-              alt="A real AURA result: the literal reading next to the adapted line, with a plain-language reason for the change"
+              alt="A real CASTIA result: the literal reading next to the adapted line, with a plain-language reason for the change"
               width={672}
               height={637}
               className="w-full"

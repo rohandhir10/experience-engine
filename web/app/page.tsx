@@ -81,7 +81,7 @@ export default function Home() {
         >
           <Image
             src="/screenshots/comparison-card.png"
-            alt="A real AURA result: the literal reading next to the adapted line, with a plain-language reason for the change"
+            alt="A real CASTIA result: the literal reading next to the adapted line, with a plain-language reason for the change"
             width={672}
             height={637}
             className="w-full rounded-lg border border-white/10"

@@ -9,7 +9,7 @@ actually behind `client.complete_json(...)`.
 Two providers are implemented:
   - OpenAI (`OpenAILLMClient`) — the active default.
   - Anthropic (`AnthropicLLMClient`) — kept in the codebase, inactive by
-    default. Set AURA_PROVIDER=anthropic (engine/config.py) to use it.
+    default. Set CASTIA_PROVIDER=anthropic (engine/config.py) to use it.
 
 Swapping providers never touches any other module — pipeline.py, the
 Writers' Room, and Song DNA generation all call `complete_json` on
@@ -185,7 +185,7 @@ class OpenAILLMClient(LLMClient):
                 # like the fast, repeated "Connection error." failures this
                 # was added for, rather than a slow timeout. Binding the local
                 # address forces httpx to resolve and connect over IPv4 only.
-                # A hypothesis, not a confirmed diagnosis — AURA_FORCE_IPV4=0
+                # A hypothesis, not a confirmed diagnosis — CASTIA_FORCE_IPV4=0
                 # disables this if it turns out not to be the cause.
                 http_client = httpx.Client(
                     transport=httpx.HTTPTransport(local_address="0.0.0.0")
@@ -236,7 +236,7 @@ class OpenAILLMClient(LLMClient):
 
 class AnthropicLLMClient(LLMClient):
     """Inactive by default (engine/config.py PROVIDER). Kept in the
-    codebase rather than removed — set AURA_PROVIDER=anthropic to use it.
+    codebase rather than removed — set CASTIA_PROVIDER=anthropic to use it.
     """
 
     def __init__(self, model: str | None = None, api_key: str | None = None):
@@ -280,7 +280,7 @@ _PROVIDERS: dict[str, type[LLMClient]] = {
 
 def create_default_client(model: str | None = None) -> LLMClient:
     """Builds the client for whichever provider is active
-    (config.PROVIDER / AURA_PROVIDER env var). Defaults to OpenAI.
+    (config.PROVIDER / CASTIA_PROVIDER env var). Defaults to OpenAI.
 
     `model` overrides that provider's default model (e.g. a cheaper model
     for a lower-stakes call like server/mapping.py's explain_why) — still
@@ -290,6 +290,6 @@ def create_default_client(model: str | None = None) -> LLMClient:
     cls = _PROVIDERS.get(provider)
     if cls is None:
         raise RuntimeError(
-            f"Unknown AURA_PROVIDER {provider!r}; expected one of {list(_PROVIDERS)}"
+            f"Unknown CASTIA_PROVIDER {provider!r}; expected one of {list(_PROVIDERS)}"
         )
     return cls(model=model) if model else cls()

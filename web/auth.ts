@@ -7,19 +7,19 @@ import { ENGINE_API_URL } from "@/lib/api";
 // owner of user rows; giving Auth.js its own users/accounts/sessions
 // tables would duplicate that store in the exact way server/db.py's
 // docstring warned about. The JWT cookie carries the only session state
-// that exists, and our own user id rides inside it (auraUserId below).
+// that exists, and our own user id rides inside it (castiaUserId below).
 //
 // Required env vars (Vercel project settings):
 //   AUTH_SECRET          - `npx auth secret` or any long random string
 //   AUTH_GOOGLE_ID       - Google OAuth client id
 //   AUTH_GOOGLE_SECRET   - Google OAuth client secret
-//   AURA_INTERNAL_API_SECRET - same value as on the Railway service;
+//   CASTIA_INTERNAL_API_SECRET - same value as on the Railway service;
 //                          proves sync/history calls come from this
 //                          server, not a browser (see server/main.py).
 
 declare module "next-auth" {
   interface Session {
-    auraUserId?: string;
+    castiaUserId?: string;
     plan?: string;
   }
 }
@@ -40,7 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "X-Aura-Internal-Secret": process.env.AURA_INTERNAL_API_SECRET ?? "",
+              "X-Castia-Internal-Secret": process.env.CASTIA_INTERNAL_API_SECRET ?? "",
             },
             body: JSON.stringify({
               google_sub: profile.sub,
@@ -50,7 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
           if (res.ok) {
             const user = await res.json();
-            token.auraUserId = user.id;
+            token.castiaUserId = user.id;
             token.plan = user.plan;
           } else {
             console.error(`user sync failed: ${res.status}`);
@@ -62,7 +62,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      if (typeof token.auraUserId === "string") session.auraUserId = token.auraUserId;
+      if (typeof token.castiaUserId === "string") session.castiaUserId = token.castiaUserId;
       if (typeof token.plan === "string") session.plan = token.plan;
       return session;
     },

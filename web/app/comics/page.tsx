@@ -119,7 +119,7 @@ export default function ComicsPage() {
   const chapterLanguage = guessChapterLanguage(panels);
 
   // Pre-fills "From" with Cloud Vision's own guess once it's available
-  // and recognized (AURA only adapts its 6-language roster today, even
+  // and recognized (CASTIA only adapts its 6-language roster today, even
   // though Vision itself can detect more) - same "auto-detect until the
   // human touches it" rule InputScreen.tsx already uses for a pasted
   // song's source language.
@@ -170,7 +170,7 @@ export default function ComicsPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "aura-comics-script.csv";
+    link.download = "castia-comics-script.csv";
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -182,7 +182,7 @@ export default function ComicsPage() {
 
         <div className="mt-10">
           <p className="text-[12px] uppercase tracking-[0.15em] text-accent">
-            AURA Comics — early scaffold
+            CASTIA Comics — early scaffold
           </p>
           <h1 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
             Panel-by-panel script workspace

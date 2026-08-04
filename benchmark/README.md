@@ -1,6 +1,6 @@
-# AURA blind benchmark
+# CASTIA blind benchmark
 
-The evidence machine: runs AURA against real alternatives on identical
+The evidence machine: runs CASTIA against real alternatives on identical
 songs, blinds everything, collects bilingual reviewer ratings, and
 produces a report with actual significance tests. Independent of the
 engine — imports it, never modifies it.
@@ -9,8 +9,8 @@ engine — imports it, never modifies it.
 
 | System | How it runs |
 |---|---|
-| `aura` | The full engine (Song DNA + V1 Writers' Room) |
-| `gpt_single` | One well-written prompt to the same OpenAI model AURA uses — the ablation that isolates AURA's *process* from its model |
+| `castia` | The full engine (Song DNA + V1 Writers' Room) |
+| `gpt_single` | One well-written prompt to the same OpenAI model CASTIA uses — the ablation that isolates CASTIA's *process* from its model |
 | `claude_single` | The same single prompt to Anthropic's model (skipped if no `ANTHROPIC_API_KEY`) |
 | `google_translate` | Machine-translation floor via deep-translator's free endpoint; falls back to a manual file if the endpoint is unavailable |
 | `bollynook`, `filmyquotes` | No APIs exist; paste their published translations into `benchmark/manual/<song_id>/<system>.txt` (sections separated by blank lines). Missing file = skipped for that song, never faked |
@@ -55,18 +55,18 @@ system can be retried without re-paying for the others.
 - Clear and easy to read
 
 This rubric is deliberately NOT the engine's internal five dimensions —
-reviewers judge as listeners, not as auditors of AURA's own criteria.
+reviewers judge as listeners, not as auditors of CASTIA's own criteria.
 
 ## The report
 
 `report.md` contains mean ratings per system per dimension, best-overall
-shares, and AURA-vs-each-baseline paired differences tested with a
+shares, and CASTIA-vs-each-baseline paired differences tested with a
 two-sided sign-flip permutation test on matched (reviewer × song) pairs —
 assumption-light and honest at small n. It also states its own
 limitations (sample size, recruited reviewers, missing baselines) because
 evidence that survives scrutiny beats a bigger number that doesn't.
 
-**Pre-registered success criterion** (docs/WRITERS_ROOM_V1.md §9.5): AURA
+**Pre-registered success criterion** (docs/WRITERS_ROOM_V1.md §9.5): CASTIA
 must beat Google Translate, Bollynook, FilmyQuotes, and single-prompt
 GPT/Claude on artistic fidelity specifically, replicated on held-out
 songs never used to tune a prompt. A pilot with 2–3 songs and 2–3
@@ -85,7 +85,7 @@ python -m benchmark.cli run --corpus examples --run-id comparison_1
 ```
 
 This writes `benchmark/runs/comparison_1/outputs/<song_id>/<system>.json`
-per system that succeeded (`aura`, `gpt_single`, `google_translate` —
+per system that succeeded (`castia`, `gpt_single`, `google_translate` —
 `claude_single` isn't shown on this page). Copy each system's `sections`
 text into the matching `ComparisonEntry` in `comparison-data.ts` by hand —
 there's no automated sync, on purpose: a human should look at what got

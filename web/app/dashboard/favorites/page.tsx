@@ -2,7 +2,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { RecentAdaptations } from "@/components/RecentAdaptations";
 
-export const metadata = { title: "AURA — Favorites" };
+export const metadata = { title: "CASTIA — Favorites" };
 
 // No longer a DashboardStub: favorites are real now (the star in any
 // history list writes through to server/accounts.py::set_favorite).
