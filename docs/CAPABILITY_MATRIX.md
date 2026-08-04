@@ -2648,6 +2648,71 @@ previous two entries said so explicitly).
   new behavior) — existing coverage (536 + 52) serves as the regression
   check, and it stayed green throughout.
 
+## Public API (v1) — detail
+
+- **What it is:** the first real, callable public API — `POST /v1/adapt`
+  and `POST /v1/comics/adapt`, gated by a real API key
+  (`Authorization: Bearer <key>`) instead of a signed-in session. Both
+  are thin wrappers: `_adapt_or_serve_cached`/`_comics_adapt_or_serve_cached`
+  were extracted out of `/api/adapt`/`/api/comics/adapt` so the exact
+  same cache-hit/fuzzy-hit/engine-run/history-recording logic runs for
+  both the browser and API-key callers — no new engine behavior, no
+  drift risk between the two paths. Keys are issued/listed/revoked from
+  a real dashboard page (`/dashboard/settings`, no longer a
+  `DashboardStub`) backed by `server/api_keys.py` and two new tables
+  (`ApiKey`, `ApiKeyUsage`, migration `0003_add_api_keys.py`). Only a
+  key's hash is ever stored; the raw value is shown to the human exactly
+  once, at creation, in the settings page itself. Rate limiting is a new
+  per-key daily dimension (`CASTIA_API_DAILY_LIMIT`, default 1000/day),
+  deliberately separate from the existing per-IP `CASTIA_DAILY_LIMIT` —
+  an API caller is identified by its key, not by an IP that many
+  legitimate calls could share. The stale "API — Soon" badges in
+  `SiteHeader` and `DashboardSidebar` were updated to "Beta" and now
+  link to the settings page, since the API genuinely exists now.
+- **A real, pre-existing bug found and fixed along the way, unrelated to
+  this feature:** `migrate_to_head()` crashed with "duplicate column:
+  medium" on any genuinely fresh database (confirmed on the
+  already-pushed code from before this round, with zero API-key
+  involvement) — `0001_baseline.py`'s `create_all(checkfirst=True)`
+  builds every table from CURRENT model definitions, so a fresh database
+  already got `medium` from the baseline, and `0002`'s unconditional
+  `ADD COLUMN` collided with it. Never surfaced on Railway's real
+  database (that table predates the migration system, so `checkfirst`
+  skips it there), but would have broken any brand-new environment setup
+  outright. Fixed by making `0002` and `0003` each check-before-act
+  (existence-guarded), matching the `IF NOT EXISTS` pattern
+  `server/db.py::_patch_known_schema_drift` already used for this exact
+  class of problem — verified by actually running `migrate_to_head()`
+  against both a fresh database and a simulated pre-existing one, not
+  assumed from reading the code.
+- **What this does NOT do:** no async job/poll pattern for `/v1/*` yet —
+  a long comics chapter can still time out synchronously, same known,
+  disclosed limitation the browser-facing comics endpoint has. No
+  published API docs page (the settings page shows the request shape
+  inline, but there's no dedicated reference). No billing/metering tied
+  to a plan tier — `CASTIA_API_DAILY_LIMIT` is a flat global default for
+  every key, not yet plan-aware even though `User.plan` already has
+  `creator`/`studio`/`enterprise` tiers defined. No CORS opened up for
+  browser-based third-party callers — this is a server-to-server API
+  today.
+- **Tier 1** — deterministic auth/rate-limiting/routing logic, no
+  model-quality claim (the underlying adaptation quality is whatever the
+  existing engine already provides, unchanged by this round).
+  **Verified:** 566 Python tests (13 new: key issuance/resolution/
+  revocation/rate-limiting in `tests/test_api_keys.py`; `/v1/adapt` and
+  `/v1/comics/adapt` success/auth-failure/rate-limit/history-recording,
+  and explicit proof the per-IP browser quota does NOT gate an API-key
+  caller, in `tests/test_v1_api.py`; 2 new migration regression tests in
+  `tests/test_migrations.py` that would have caught the pre-existing bug
+  above) plus a live Chromium/Playwright pass against the production
+  build confirming key creation shows the raw value with a copy button,
+  revocation immediately updates the list UI, and the header/sidebar
+  badges read "Beta" and link correctly.
+- **Benchmark coverage:** 553 → 566 Python tests; 52 Vitest tests
+  unchanged (no new pure-logic module on the frontend this round — the
+  settings page is a real component, verified live instead). `tsc
+  --noEmit` and `next build` clean.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

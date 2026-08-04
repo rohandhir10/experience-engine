@@ -93,7 +93,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, cache, db, jobs, quota
+from . import accounts, api_keys, cache, db, jobs, quota
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -110,6 +110,13 @@ DAILY_LIMIT = int(os.environ.get("CASTIA_DAILY_LIMIT", "10"))
 # non-panel file, a batch accidentally concatenated) rather than a real
 # comic page.
 MAX_IMAGE_BYTES = int(os.environ.get("CASTIA_MAX_IMAGE_BYTES", str(15 * 1024 * 1024)))
+# Per-API-key daily cap for the public /v1/* endpoints (server/api_keys.py) -
+# a separate dimension from CASTIA_DAILY_LIMIT above, which is per-IP and
+# only ever gates the anonymous browser flow. A real API caller is
+# identified by its key, not by IP (many legitimate calls can share one
+# IP - a studio's own server, a shared office network), so it needs its
+# own limit, not the browser one repurposed.
+API_DAILY_LIMIT = int(os.environ.get("CASTIA_API_DAILY_LIMIT", "1000"))
 # Shared secret between the Next.js server and this API, for the
 # account endpoints (/api/users/sync, /api/me/*) and for trusting a
 # user id forwarded on adapt requests. The Next.js side is the party
@@ -197,6 +204,35 @@ def _authed_user_id(request: Request) -> str | None:
     return user_id
 
 
+def _require_api_key(request: Request) -> dict:
+    """Gate for the public /v1/* endpoints - a real third-party caller,
+    not the Next.js server (that's _authed_user_id's job, a different
+    trust chain entirely). Reads `Authorization: Bearer <key>`, resolves
+    it via server/api_keys.py, enforces the per-key daily limit, and
+    records the key as used. Raises HTTPException; returns
+    {"user_id", "key_id"} on success - the public API is unconditionally
+    off (401 on every request) if DATABASE_URL isn't set, since a key
+    can't be issued or checked without a database at all.
+    """
+    header = request.headers.get("authorization", "")
+    if not header.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Pass it as 'Authorization: Bearer <key>'.",
+        )
+    raw_key = header[len("Bearer "):].strip()
+    resolved = api_keys.resolve_key(raw_key)
+    if resolved is None:
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key.")
+    if not api_keys.check_and_increment_usage(resolved["key_id"], API_DAILY_LIMIT):
+        raise HTTPException(
+            status_code=429,
+            detail=f"Daily API request limit ({API_DAILY_LIMIT}) exceeded for this key.",
+        )
+    api_keys.touch_last_used(resolved["key_id"])
+    return resolved
+
+
 def _check_quota(ip: str) -> None:
     # server/quota.py: Postgres-backed (atomic, safe across more than one
     # process/instance) when DATABASE_URL is set, an in-memory dict
@@ -265,6 +301,10 @@ class CollectionRequest(BaseModel):
 
 class MembershipRequest(BaseModel):
     member: bool
+
+
+class ApiKeyRequest(BaseModel):
+    name: str
 
 
 @app.get("/health")
@@ -372,6 +412,18 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
     persistence comics has had; see GET /api/comics/adapt/{result_id}
     below for the share-link read side this unlocks.
     """
+    return _comics_adapt_or_serve_cached(request, _authed_user_id(http_request))
+
+
+def _comics_adapt_or_serve_cached(request: ComicsAdaptRequest, user_id: str | None) -> dict:
+    """The actual cache-hit / run-engine flow for a comics chapter,
+    shared by /api/comics/adapt (browser, session-derived user_id) and
+    /v1/comics/adapt (public API, user_id resolved from the API key
+    instead of a session) - same split as
+    _adapt_or_serve_cached does for songs, and for the same reason: only
+    the auth story differs between the two callers, not what actually
+    happens once a user_id is known.
+    """
     non_empty_panels = [p for p in request.panels if p.text.strip()]
     if not non_empty_panels:
         raise HTTPException(
@@ -385,7 +437,7 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
     )
     cached = cache.get(result_id)
     if cached is not None:
-        _record_history(_authed_user_id(http_request), result_id, request.source_language, medium="webtoons")
+        _record_history(user_id, result_id, request.source_language, medium="webtoons")
         return {"id": result_id, **cached}
 
     try:
@@ -433,7 +485,7 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
         target_language=request.target_language,
         source_language=request.source_language,
     )
-    _record_history(_authed_user_id(http_request), result_id, request.source_language, medium="webtoons")
+    _record_history(user_id, result_id, request.source_language, medium="webtoons")
     return {"id": result_id, **payload}
 
 
@@ -503,6 +555,44 @@ def _collection_name(raw: str) -> str:
             status_code=400, detail="Collection names are limited to 100 characters."
         )
     return name
+
+
+@app.get("/api/me/api-keys")
+def me_list_api_keys(http_request: Request) -> dict:
+    """Never returns a raw key or hash - server/api_keys.py::list_keys
+    only ever exposes each key's prefix, same one-time-reveal convention
+    as GitHub/Stripe."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    return {"apiKeys": api_keys.list_keys(user_id)}
+
+
+@app.post("/api/me/api-keys")
+def me_create_api_key(request: ApiKeyRequest, http_request: Request) -> dict:
+    """Returns the RAW key exactly once - the dashboard settings page
+    must show it to the human immediately and never again."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    name = request.name.strip() or "Unnamed key"
+    created = api_keys.generate_key(user_id, name)
+    if created is None:
+        raise HTTPException(
+            status_code=503,
+            detail="API keys need a database (DATABASE_URL is unset on this deployment).",
+        )
+    return created
+
+
+@app.delete("/api/me/api-keys/{key_id}")
+def me_revoke_api_key(key_id: str, http_request: Request) -> dict:
+    """Scoped by user_id (server/api_keys.py::revoke_key) - a key
+    belonging to someone else 404s, indistinguishable from one that
+    doesn't exist."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    if not api_keys.revoke_key(user_id, key_id):
+        raise HTTPException(status_code=404, detail="No such API key.")
+    return {"id": key_id, "revoked": True}
 
 
 @app.get("/api/me/collections")
@@ -851,11 +941,22 @@ def _run_adaptation(
     return experience_result
 
 
-@app.post("/api/adapt")
-def adapt(request: AdaptRequest, http_request: Request) -> dict:
+def _adapt_or_serve_cached(
+    request: AdaptRequest,
+    http_request: Request,
+    user_id: str | None,
+    enforce_ip_quota: bool,
+    log_prefix: str = "adapt",
+) -> dict:
+    """The actual cache-hit / fuzzy-hit / run-engine flow, shared by
+    /api/adapt (browser, per-IP quota, session-derived user_id) and
+    /v1/adapt (public API, per-API-key quota already enforced by the
+    caller before this runs, user_id resolved from the key instead of a
+    session). Only the auth/quota gating differs between the two
+    callers - this is the part that must not drift between them.
+    """
     started = time.monotonic()
     ip = _client_ip(http_request)
-    user_id = _authed_user_id(http_request)
     text, target_language, source_language = _validate_adapt_request(request)
 
     result_id = cache.content_id(text, target_language=target_language, source_language=source_language)
@@ -865,8 +966,8 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         # records the relationship, not the compute.
         _record_history(user_id, result_id, source_language)
         logger.info(
-            "adapt id=%s ip=%s source=%s target=%s cache=hit duration=%.2fs",
-            result_id, ip, source_language, target_language, time.monotonic() - started,
+            "%s id=%s ip=%s source=%s target=%s cache=hit duration=%.2fs",
+            log_prefix, result_id, ip, source_language, target_language, time.monotonic() - started,
         )
         return cached
 
@@ -889,29 +990,37 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
         )
         _record_history(user_id, result_id, source_language)
         logger.info(
-            "adapt id=%s ip=%s source=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
-            result_id, ip, source_language, target_language, matched_id, similarity,
+            "%s id=%s ip=%s source=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
+            log_prefix, result_id, ip, source_language, target_language, matched_id, similarity,
             time.monotonic() - started,
         )
         return matched_result
 
-    _check_quota(ip)
+    if enforce_ip_quota:
+        _check_quota(ip)
     sections, song = _build_song(text, target_language, source_language)
 
     try:
         return _run_adaptation(
             request, result_id, text, target_language, source_language, sections, song, ip, started,
+            log_prefix=log_prefix,
             user_id=user_id,
         )
     except LLMError as exc:
-        logger.error("adapt id=%s engine failure: %s", result_id, exc)
+        logger.error("%s id=%s engine failure: %s", log_prefix, result_id, exc)
         raise HTTPException(
             status_code=502,
             detail="The engine hit a problem processing this song. Try again in a moment.",
         ) from exc
     except RuntimeError as exc:
-        logger.error("adapt id=%s configuration failure: %s", result_id, exc)
+        logger.error("%s id=%s configuration failure: %s", log_prefix, result_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/adapt")
+def adapt(request: AdaptRequest, http_request: Request) -> dict:
+    user_id = _authed_user_id(http_request)
+    return _adapt_or_serve_cached(request, http_request, user_id, enforce_ip_quota=True)
 
 
 @app.get("/api/adapt/{result_id}")
@@ -1035,3 +1144,33 @@ def adapt_job_status(job_id: str) -> dict:
             status_code=404, detail="No job found for this id. It may have expired."
         )
     return job
+
+
+# --- Public API (v1) ---------------------------------------------------
+# For third-party callers with an API key (server/api_keys.py), not the
+# Next.js server or a signed-in browser session - a genuinely different
+# trust chain from every /api/* route above. Thin wrappers: no new
+# engine behavior, just the existing adapt flows gated by
+# _require_api_key instead of a session, and without the per-IP browser
+# quota (the per-key daily limit is the real gate here). Deliberately
+# synchronous, same disclosed limitation /api/adapt itself had before
+# /api/adapt/start existed - no async job/poll pattern for v1 callers
+# yet.
+
+
+@app.post("/v1/adapt")
+def v1_adapt(request: AdaptRequest, http_request: Request) -> dict:
+    api_key_context = _require_api_key(http_request)
+    return _adapt_or_serve_cached(
+        request,
+        http_request,
+        api_key_context["user_id"],
+        enforce_ip_quota=False,
+        log_prefix="v1_adapt",
+    )
+
+
+@app.post("/v1/comics/adapt")
+def v1_comics_adapt(request: ComicsAdaptRequest, http_request: Request) -> dict:
+    api_key_context = _require_api_key(http_request)
+    return _comics_adapt_or_serve_cached(request, api_key_context["user_id"])

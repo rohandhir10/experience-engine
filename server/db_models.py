@@ -191,3 +191,50 @@ class CollectionAdaptation(Base):
     adaptation_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("adaptations.id"), primary_key=True
     )
+
+
+class ApiKey(Base):
+    """A key for the public API (server/api_keys.py), separate from the
+    browser-facing account model: a signed-in user can hold several keys
+    (e.g. one per project), each independently revocable. Only `key_hash`
+    is ever stored — the raw key is returned to the user exactly once, at
+    creation time, the same one-time-reveal convention every real API-key
+    product uses (GitHub PATs, Stripe secret keys), so a leaked database
+    can't be turned into working credentials.
+
+    `key_prefix` exists purely for the dashboard's key list to be
+    recognizable (e.g. "sk_live_a1b2...") without ever re-deriving or
+    storing the full raw key — same reasoning GitHub/Stripe show a
+    prefix, not the full token, once a key has been created.
+    """
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    key_hash: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    key_prefix: Mapped[str] = mapped_column(String, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # NULL = active. Never deleted outright - a revoked key stays as a
+    # record of "this credential existed and was cut off here", same
+    # audit-trail reasoning as soft-delete elsewhere in real API products.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped["User"] = relationship()
+
+
+class ApiKeyUsage(Base):
+    """Per-(day, api_key) request count backing server/api_keys.py's rate
+    limit - same atomic-UPSERT-under-concurrency reasoning as
+    DailyQuotaUsage above, keyed by api_key_id instead of ip since a
+    third-party API caller is identified by its key, not a browser's
+    source IP (which a server-to-server caller doesn't meaningfully have
+    one of anyway)."""
+
+    __tablename__ = "api_key_usage"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)
+    api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id"), primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)

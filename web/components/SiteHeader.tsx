@@ -53,9 +53,15 @@ export function SiteHeader({
             Pricing
           </Link>
         )}
-        <span
-          className={`hidden items-center gap-1.5 text-[13px] sm:inline-flex ${
-            forceDark ? "text-white/25" : "text-ink/30 dark:text-ink-dark/30"
+        {/* server/main.py's /v1/* routes are real now (keys managed on
+            /dashboard/settings) - "Beta" replaces "Soon" for the same
+            reason DashboardSidebar's matching row does: no async
+            job/poll pattern yet, no published docs page yet, same
+            disclosure convention as Webtoons' own "Beta" badge. */}
+        <Link
+          href="/dashboard/settings"
+          className={`hidden items-center gap-1.5 text-[13px] transition sm:inline-flex ${
+            forceDark ? "text-white/25 hover:text-white/50" : "text-ink/30 hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"
           }`}
         >
           API
@@ -66,9 +72,9 @@ export function SiteHeader({
                 : "bg-black/[0.05] text-ink/35 dark:bg-white/10 dark:text-ink-dark/40"
             }`}
           >
-            Soon
+            Beta
           </span>
-        </span>
+        </Link>
 
         {right}
 

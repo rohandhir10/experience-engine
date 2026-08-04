@@ -29,6 +29,9 @@ const LIVE_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>([
   "home",
   "favorites",
   "collections",
+  // API key management (server/api_keys.py) is real now - the only real
+  // content Settings has today, but real is real.
+  "settings",
 ]);
 
 function NavRow({
@@ -90,12 +93,22 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
           live={LIVE_SECTIONS.has(item.key)}
         />
       ))}
-      <div className="flex items-center justify-between px-3 py-2 text-[13px] text-ink/30 dark:text-ink-dark/30">
+      {/* server/main.py's /v1/* routes are real now (keys managed on the
+          Settings page below) - "Beta" discloses the actual gap
+          honestly: no async job/poll pattern for a long chapter, no
+          published docs page yet, same convention as Webtoons' own
+          "Beta" badge elsewhere in this app. Links to Settings since
+          that's where a key is actually issued - there's no separate
+          docs page to send this to yet. */}
+      <Link
+        href="/dashboard/settings"
+        className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px] text-ink/30 transition hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"
+      >
         <span>API</span>
         <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/35 dark:bg-white/10 dark:text-ink-dark/40">
-          Soon
+          Beta
         </span>
-      </div>
+      </Link>
     </nav>
   );
 }
