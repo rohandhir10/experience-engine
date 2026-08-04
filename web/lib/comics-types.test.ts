@@ -13,6 +13,7 @@ function panel(overrides: Partial<ComicPanel> = {}): ComicPanel {
     ocrStatus: "idle",
     ocrRegions: null,
     ocrMessage: null,
+    detectedLanguages: null,
     ...overrides,
   };
 }

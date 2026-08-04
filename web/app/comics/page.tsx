@@ -7,6 +7,7 @@ import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
 import { naturalCompare } from "@/lib/naturalSort";
 import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
+import { guessChapterLanguage } from "@/lib/chapterLanguage";
 
 // Not linked from primary nav or the marketing homepage - reachable only
 // by URL, same convention as /alternate-homepage. Per the project's
@@ -33,6 +34,7 @@ export default function ComicsPage() {
         ocrStatus: "idle" as const,
         ocrRegions: null,
         ocrMessage: null,
+        detectedLanguages: null,
       }))
       .sort((a, b) => naturalCompare(a.fileName, b.fileName));
 
@@ -57,6 +59,7 @@ export default function ComicsPage() {
         ocrStatus: "done",
         ocrRegions: result.regions,
         ocrMessage: result.warning,
+        detectedLanguages: result.detectedLanguages,
         // Only pre-fills an empty field - never overwrites text the
         // human has already reviewed/edited by hand.
         extractedText: panel.extractedText.trim() ? panel.extractedText : result.fullText,
@@ -77,6 +80,8 @@ export default function ComicsPage() {
       return prev.filter((p) => p.id !== id);
     });
   }
+
+  const chapterLanguage = guessChapterLanguage(panels);
 
   function exportCsv() {
     const blob = new Blob([panelsToCsv(panels)], { type: "text/csv" });
@@ -116,9 +121,18 @@ export default function ComicsPage() {
           ) : (
             <>
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[13px] text-ink/45 dark:text-ink-dark/45">
-                  {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
-                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-[13px] text-ink/45 dark:text-ink-dark/45">
+                    {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
+                  </p>
+                  {chapterLanguage && (
+                    <span className="rounded-full border border-black/[0.08] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.08] dark:text-ink-dark/50">
+                      Detected language: {chapterLanguage.languageName ?? chapterLanguage.languageCode}
+                      {chapterLanguage.ocrdPanelCount > 1 &&
+                        ` (${chapterLanguage.agreeingPanelCount} of ${chapterLanguage.ocrdPanelCount} OCR'd panels)`}
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-4">
                   <label className="cursor-pointer text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70">
                     Add more

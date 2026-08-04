@@ -1926,6 +1926,70 @@ Nothing existed to let a human fix that before this entry.
   493-test Python suite both re-run and still green (this change didn't
   touch Python at all).
 
+## Comics: chapter-level source-language capture — detail
+
+Item #2 of the chapter-level-context roadmap scoped out after the
+bubble reading-order fix above: capturing what language a chapter is
+actually in, which the eventual `/api/comics/adapt` call will need to
+run the Translator correctly, and which the old Tesseract setup had no
+way to provide at all (a human had to pick a language before every
+single OCR run; see the "Switch to Google Cloud Vision" entry).
+
+- **`engine/comics_ocr.py::_detected_languages`** (new): reads Vision's
+  own page-level script/language detection
+  (`page.property.detectedLanguages`), sorted most-confident first, and
+  adds a `detected_languages` field to `extract_text_regions`'s return
+  shape: `[{"language_code", "language_name", "confidence"}]`.
+  `language_name` uses a new `_LANGUAGE_NAMES` map — deliberately
+  broader than AURA's current 6-language roster (adds French, Chinese
+  Simplified/Traditional) since real target content for /comics
+  includes languages AURA doesn't adapt yet; an unrecognized BCP-47 code
+  is still reported (as `language_name: null`) rather than hidden, so a
+  human reviewing a chapter isn't told nothing just because there's no
+  engine profile for what Vision found.
+- **`lib/chapterLanguage.ts::guessChapterLanguage`** (new): a plain
+  majority vote over every OCR'd panel's own top-detected language —
+  deliberately not a real chapter-level analysis. A chapter genuinely
+  mixing two languages (a loanword-heavy line, a bilingual gag) still
+  only ever reports one winner; stated as a known limitation, not
+  hidden. Returns `null` when no panel has been OCR'd yet — never
+  fabricates a guess from zero evidence.
+- **`app/comics/page.tsx`**: shows the guessed language as a small
+  badge next to the panel count ("Detected language: Korean (2 of 3
+  OCR'd panels)") — the singular-panel case omits the fraction
+  ("Detected language: Korean") since "1 of 1" adds nothing. Every
+  panel's `detectedLanguages` is stored on `ComicPanel` from its own
+  `runPanelOcr` call; the aggregation itself is pure derived state
+  (`guessChapterLanguage(panels)`), not stored separately, so it's
+  always in sync with whatever panels have been OCR'd so far as more
+  panels run.
+- **What this does NOT do yet**: this only DISPLAYS the guess — nothing
+  reads it back into an actual language selector, and it isn't yet
+  threaded into any adaptation call (there is no `/api/comics/adapt`
+  yet; see the chapter-level-context roadmap). It's also not
+  correctable by the human if Vision's guess is wrong, unlike the
+  bubble reading-order fix two entries up, which the human can actually
+  edit — a real gap for a future pass, not addressed here.
+- **Tier 1** for the aggregation logic itself (deterministic majority
+  vote); the underlying language DETECTION is Cloud Vision's own,
+  unverified black box, same epistemic status as every other Vision
+  output in this document.
+- **Benchmark coverage:** 4 new `tests/test_comics_ocr.py` tests
+  (most-confident-first ordering, an unrecognized code reporting a null
+  name, `_detected_languages` ignoring entries with no language code,
+  and handling a page with no `property` key at all — 497 Python tests
+  total, up from 493) and 6 new `lib/chapterLanguage.test.ts` tests (no
+  OCR'd panels yet, a single panel's language, a real majority vote
+  across panels, only reading each panel's own top-ranked detection
+  rather than taking a max across all of them, an unrecognized
+  language's raw code, and empty-detection panels being excluded from
+  the vote — 44 web tests total, up from 38). Verified end-to-end with
+  a real Playwright run (mocking only the OCR network response) that
+  uploaded two panels, ran OCR on both with a mocked Korean detection,
+  and confirmed the exact banner text "Detected language: Korean (2 of
+  2 OCR'd panels)" rendered — not just that the aggregation function
+  passed in isolation.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

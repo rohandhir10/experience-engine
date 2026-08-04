@@ -86,6 +86,28 @@ _LANGUAGE_HINTS = {
     "Urdu": "ur",
 }
 
+# BCP-47 code -> a human-readable name, for surfacing what Vision itself
+# detected (page.property.detectedLanguages) back to the frontend - NOT
+# the same direction as _LANGUAGE_HINTS above, and deliberately broader
+# than AURA's current 6-language roster: real target content for
+# /comics (Chinese manhua, French indie comics) isn't a language AURA
+# adapts yet, but a human reviewing a chapter still benefits from being
+# told plainly "this looks like Chinese," rather than seeing nothing
+# just because there's no engine profile for it. An unrecognized code
+# is reported as the raw BCP-47 string rather than hidden.
+_LANGUAGE_NAMES = {
+    "en": "English",
+    "hi": "Hindi",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "es": "Spanish",
+    "ur": "Urdu",
+    "fr": "French",
+    "zh": "Chinese",
+    "zh-Hans": "Chinese (Simplified)",
+    "zh-Hant": "Chinese (Traditional)",
+}
+
 
 class OcrError(Exception):
     """Raised for any OCR failure a human needs to see plainly, not a stack trace."""
@@ -164,16 +186,50 @@ def _bounding_box(vertices: list[dict]) -> dict:
     return {"x": x, "y": y, "width": max(xs) - x, "height": max(ys) - y}
 
 
+def _detected_languages(page: dict) -> list[dict]:
+    """Reads Vision's own page-level script/language detection
+    (page.property.detectedLanguages), sorted most-confident first. This
+    is the actual "no language picker needed" payoff of switching to
+    Cloud Vision (see this module's docstring) - the old Tesseract
+    version had no equivalent at all, so a chapter's source language had
+    to be picked by the human before every single OCR run. `language_name`
+    is None for any BCP-47 code this project doesn't recognize (see
+    _LANGUAGE_NAMES) rather than guessing or omitting the entry outright.
+    """
+    languages = page.get("property", {}).get("detectedLanguages", [])
+    result = [
+        {
+            "language_code": lang["languageCode"],
+            "language_name": _LANGUAGE_NAMES.get(lang["languageCode"]),
+            "confidence": round(lang.get("confidence", 0.0) * 100, 1),
+        }
+        for lang in languages
+        if lang.get("languageCode")
+    ]
+    result.sort(key=lambda entry: entry["confidence"], reverse=True)
+    return result
+
+
 def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dict:
     """Sends one panel image to Google Cloud Vision's
     DOCUMENT_TEXT_DETECTION feature and returns:
     {"regions": [{"text", "bbox": {x, y, width, height}, "confidence"}],
      "full_text": str, "warning": str | None,
-     "image_width": int, "image_height": int}
+     "image_width": int, "image_height": int,
+     "detected_languages": [{"language_code", "language_name", "confidence"}]}
 
     bbox values are pixel coordinates in the original image - the
     caller is expected to scale them against the image's actual
     rendered size, not assume any fixed display resolution.
+
+    detected_languages is Vision's own page-level script/language
+    detection, most-confident first - empty when nothing was detected
+    (e.g. no text found at all). This is the frontend's actual source
+    for "what language is this chapter probably in," replacing what
+    used to require a human picking a language before every Tesseract
+    run; see components/comics/PanelWorkspace.tsx and lib/
+    chapterLanguage.ts for how it's aggregated across a whole chapter's
+    panels.
 
     `language` is accepted for signature compatibility with the
     pre-Cloud-Vision version of this function but is NOT used to gate
@@ -236,6 +292,7 @@ def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dic
             "warning": "No text detected in this panel. Type it in by hand.",
             "image_width": 0,
             "image_height": 0,
+            "detected_languages": [],
         }
 
     page = pages[0]
@@ -268,4 +325,5 @@ def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dic
         "warning": warning,
         "image_width": page.get("width", 0),
         "image_height": page.get("height", 0),
+        "detected_languages": _detected_languages(page),
     }

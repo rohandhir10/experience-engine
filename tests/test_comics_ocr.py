@@ -17,7 +17,14 @@ import json
 import pytest
 
 from engine import comics_ocr
-from engine.comics_ocr import OcrError, _access_token, _bounding_box, _block_text, extract_text_regions
+from engine.comics_ocr import (
+    OcrError,
+    _access_token,
+    _bounding_box,
+    _block_text,
+    _detected_languages,
+    extract_text_regions,
+)
 
 
 class _FakeResponse:
@@ -30,16 +37,16 @@ class _FakeResponse:
         return self._json_body
 
 
-def _vision_success_response(blocks: list[dict], width: int = 500, height: int = 600) -> dict:
-    return {
-        "responses": [
-            {
-                "fullTextAnnotation": {
-                    "pages": [{"width": width, "height": height, "blocks": blocks}],
-                }
-            }
-        ]
-    }
+def _vision_success_response(
+    blocks: list[dict],
+    width: int = 500,
+    height: int = 600,
+    detected_languages: list[dict] | None = None,
+) -> dict:
+    page: dict = {"width": width, "height": height, "blocks": blocks}
+    if detected_languages is not None:
+        page["property"] = {"detectedLanguages": detected_languages}
+    return {"responses": [{"fullTextAnnotation": {"pages": [page]}}]}
 
 
 def _block(text_words: list[str], vertices: list[dict], confidence: float) -> dict:
@@ -155,6 +162,63 @@ def test_no_text_detected_returns_empty_regions_and_a_warning(monkeypatch):
     result = extract_text_regions(b"fake-image-bytes")
     assert result["regions"] == []
     assert result["warning"] == "No text detected in this panel. Type it in by hand."
+    assert result["detected_languages"] == []
+
+
+def test_detected_languages_are_surfaced_most_confident_first(monkeypatch):
+    blocks = [
+        _block(["a"], [{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}, {"x": 0, "y": 10}], 0.9)
+    ]
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(
+            200,
+            _vision_success_response(
+                blocks,
+                detected_languages=[
+                    {"languageCode": "en", "confidence": 0.1},
+                    {"languageCode": "ko", "confidence": 0.92},
+                ],
+            ),
+        ),
+    )
+    result = extract_text_regions(b"fake-image-bytes")
+    assert result["detected_languages"] == [
+        {"language_code": "ko", "language_name": "Korean", "confidence": 92.0},
+        {"language_code": "en", "language_name": "English", "confidence": 10.0},
+    ]
+
+
+def test_unrecognized_detected_language_reports_raw_code_with_no_name(monkeypatch):
+    blocks = [
+        _block(["a"], [{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}, {"x": 0, "y": 10}], 0.9)
+    ]
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(
+            200,
+            _vision_success_response(
+                blocks, detected_languages=[{"languageCode": "th", "confidence": 0.8}]
+            ),
+        ),
+    )
+    result = extract_text_regions(b"fake-image-bytes")
+    assert result["detected_languages"] == [
+        {"language_code": "th", "language_name": None, "confidence": 80.0}
+    ]
+
+
+def test_detected_languages_function_ignores_entries_with_no_language_code():
+    page = {"property": {"detectedLanguages": [{"confidence": 0.9}, {"languageCode": "ja", "confidence": 0.5}]}}
+    assert _detected_languages(page) == [
+        {"language_code": "ja", "language_name": "Japanese", "confidence": 50.0}
+    ]
+
+
+def test_detected_languages_function_handles_missing_property():
+    assert _detected_languages({}) == []
 
 
 def test_http_error_status_raises_ocr_error(monkeypatch):

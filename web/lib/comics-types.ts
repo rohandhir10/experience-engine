@@ -27,11 +27,28 @@ export type ComicPanel = {
   // low") or a fetch/decoding failure message - always surfaced to the
   // human, never swallowed.
   ocrMessage: string | null;
+  // Cloud Vision's own page-level script/language detection from the
+  // most recent successful OCR run, most confident first - null until
+  // one has run. This is the actual "no language picker needed" payoff
+  // of Cloud Vision over the old Tesseract setup (see engine/
+  // comics_ocr.py's docstring); lib/chapterLanguage.ts aggregates this
+  // across every panel to guess the WHOLE CHAPTER's source language.
+  detectedLanguages: DetectedLanguage[] | null;
 };
 
 export type OcrRegion = {
   text: string;
   bbox: { x: number; y: number; width: number; height: number };
+  confidence: number;
+};
+
+export type DetectedLanguage = {
+  languageCode: string;
+  // Null when Vision detected a real script/language this project
+  // doesn't have a human-readable name for yet (see engine/
+  // comics_ocr.py's _LANGUAGE_NAMES) - the raw BCP-47 code is still
+  // shown rather than hidden.
+  languageName: string | null;
   confidence: number;
 };
 
