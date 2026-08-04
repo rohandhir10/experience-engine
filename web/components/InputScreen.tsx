@@ -6,6 +6,8 @@ import Link from "next/link";
 import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
+import { PipelineDiagramDark } from "./PipelineDiagramDark";
+import { ScrollReveal } from "./ScrollReveal";
 import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 import type { YoutubeSource } from "@/lib/useAdaptSubmit";
@@ -369,6 +371,30 @@ export function InputScreen({
           </FeatureCard>
         </div>
       </div>
+
+      {/* An honest architecture diagram, not a screenshot - the actual
+          Writers' Room pipeline (docs/WRITERS_ROOM_V1.md), server-side
+          and with no UI surface to screenshot in the first place. Real
+          scroll-triggered reveal (ScrollReveal, not the page-load-only
+          .animate-fade-up the sections above use) since this sits well
+          below the fold. */}
+      <ScrollReveal className="mx-auto mt-24 w-full max-w-4xl">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+          Under the hood
+        </p>
+        <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-white sm:text-[2rem]">
+          A real Writers' Room, not one prompt.
+        </h2>
+        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
+          Every line goes through the same pipeline: a literal translation to
+          anchor against, five differently-angled creative rewrites, then a
+          Judge that rules against the anchor and logs every real departure
+          with a reason — the same "why" note shown above.
+        </p>
+        <div className="mt-8">
+          <PipelineDiagramDark />
+        </div>
+      </ScrollReveal>
     </main>
   );
 }

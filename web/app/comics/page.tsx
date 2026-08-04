@@ -14,6 +14,8 @@ import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
 import { RedrawRequestError, redrawPanel, resolveRedrawRegionText } from "@/lib/comicsRedraw";
 import { writeMediumPreference } from "@/lib/mediumPreference";
+import { ComicsPipelineDiagram } from "@/components/ComicsPipelineDiagram";
+import { ScrollReveal } from "@/components/ScrollReveal";
 
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
 // screen) with a "Beta" badge, rather than reachable only by URL - it
@@ -245,9 +247,29 @@ export default function ComicsPage() {
           </p>
 
           {panels.length === 0 ? (
-            <div className="mt-8">
-              <PanelUploader onFilesSelected={addFiles} />
-            </div>
+            <>
+              <div className="mt-8">
+                <PanelUploader onFilesSelected={addFiles} />
+              </div>
+
+              <ScrollReveal className="mx-auto mt-20 w-full max-w-4xl rounded-2xl bg-[#141a2b] p-8 sm:p-10">
+                <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+                  Under the hood
+                </p>
+                <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
+                  Real OCR, then the same Writers' Room as music.
+                </h2>
+                <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
+                  A chapter's panels go through Google Cloud Vision, then Chapter DNA (the
+                  cast/tone profile for the whole chapter), then the identical
+                  Translator → Creative Adapter → Judge pipeline the music side uses — not
+                  a separate, lesser engine.
+                </p>
+                <div className="mt-8">
+                  <ComicsPipelineDiagram />
+                </div>
+              </ScrollReveal>
+            </>
           ) : (
             <>
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3">

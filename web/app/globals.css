@@ -52,9 +52,35 @@
   animation: drift-b 26s ease-in-out infinite;
 }
 
+/* A single glowing dot traveling left-to-right along an architecture
+   diagram's connecting line, looping - purely decorative motion meant
+   to read as "an active engine," not a claim about real per-request
+   telemetry (nothing here is wired to an actual request). */
+@keyframes travel-dot {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+.animate-travel-dot {
+  animation: travel-dot 3.2s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-drift-a,
-  .animate-drift-b {
+  .animate-drift-b,
+  .animate-travel-dot {
     animation: none;
   }
 }

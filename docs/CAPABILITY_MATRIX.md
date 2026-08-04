@@ -2857,6 +2857,67 @@ previous two entries said so explicitly).
   from 52. `tsc --noEmit` and `next build` clean. 588 Python tests
   unchanged (backend untouched this round).
 
+## Landing page: architecture diagrams + scroll motion — detail
+
+- **What it is:** the first slice of the "premium landing page" redesign
+  brief — the parts that were honestly buildable without fabricating
+  capabilities (see the earlier conversation's pushback on the original
+  brief's morphing-video hero, fake audio waveform switcher, invented
+  ROI math, and working-looking cURL example for a dead endpoint — none
+  of that shipped; this entry is only the real, honest pieces).
+  - `components/ScrollReveal.tsx` — real scroll-triggered motion via
+    IntersectionObserver, distinct from the pre-existing
+    `.animate-fade-up` CSS class (which only ever plays once at mount,
+    so content below the fold had already finished "animating" long
+    before a scrolling visitor reached it — not a scroll reveal at all,
+    just a page-load stagger). Fires once per section, respects
+    `prefers-reduced-motion` the same way `AmbientGlow`'s drift
+    animations already do.
+  - `components/PipelineDiagramDark.tsx` (new, for `/music`) and
+    `components/ComicsPipelineDiagram.tsx` (new, for `/comics`) — honest,
+    dark, Vercel/Stripe-style architecture diagrams of the REAL
+    pipelines. Music: Source lyrics → Translator → Creative Adapter →
+    Judge → Verified output. Comics: Panel upload → OCR → Chapter DNA →
+    Writers' Room → Adapted script — deliberately NOT the original
+    brief's "OCR & Vision Agent → Adversarial Translation Pipeline →
+    Typesetting Agent," which named two mechanisms that don't exist
+    (there's no adversarial step, and typesetting/redraw is a separate,
+    optional feature per-panel, not something every chapter runs
+    through). The existing theme-adaptive `components/
+    PipelineDiagram.tsx` (still used on `/alternate-homepage`) was left
+    untouched rather than converted to dark-only, so that page doesn't
+    break.
+  - A new `.animate-travel-dot` CSS keyframe — a glowing dot traveling
+    each diagram's connecting line, looping. Purely decorative
+    "active engine" motion, explicitly documented in both diagram
+    components as NOT a claim about real per-request telemetry —
+    nothing here is wired to an actual request.
+  - `/music`'s "How it works" section gained a new "Under the hood"
+    block (the dark diagram, wrapped in `ScrollReveal`) below the
+    existing feature cards. `/comics`' empty state (before any panels
+    are uploaded) gained a matching dark "Under the hood" card —
+    deliberately dark even though the rest of that page is light-themed,
+    the same "a technical section can break the page's own theme for
+    weight" pattern `PipelineDiagramDark` already established on
+    `/music`.
+- **What this does NOT do:** no hero-section rebuild yet (still the
+  existing literal/adapted/why screenshot, not restyled), no
+  glassmorphism/blur pass beyond what already existed, no persona-split
+  toggle, no value-anchoring/ROI section, no API code-sample section —
+  all deferred pieces from the original brief, not started this round.
+- **Tier 1** — this is presentation/motion, no model-quality claim.
+  **Verified live:** a real Chromium/Playwright pass scrolled to each
+  new section on the production build and confirmed (via rendered
+  screenshots, not assumed) that both diagrams render with correct
+  stage labels and connecting-dot styling, and that `ScrollReveal`
+  actually fires (opacity/translate resolved to visible) once scrolled
+  into view rather than being invisible or still mid-transition.
+- **Benchmark coverage:** no new automated tests — this is presentation
+  layer with no non-trivial pure logic to unit test (`ScrollReveal`'s
+  IntersectionObserver behavior isn't practically unit-testable in this
+  project's jsdom-free Vitest harness); `tsc --noEmit`, `next build`,
+  all 588 Python tests, and all 58 Vitest tests stayed green throughout.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
