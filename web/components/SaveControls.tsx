@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Collection } from "@/lib/collections";
+import { CollectionMenu } from "./CollectionMenu";
 
 /** Star + "file into a collection" for the result page (/s/[id]).
  *
@@ -24,7 +25,6 @@ export function SaveControls({ resultId }: { resultId: string }) {
   const [isFavorite, setIsFavorite] = useState(false);
   const [collectionIds, setCollectionIds] = useState<string[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -139,50 +139,14 @@ export function SaveControls({ resultId }: { resultId: string }) {
         </svg>
       </button>
 
-      {collections.length > 0 && (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-expanded={menuOpen}
-            className="text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
-          >
-            {collectionIds.length > 0 ? `In ${collectionIds.length}` : "Save to…"}
-          </button>
-          {menuOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-10"
-                onClick={() => setMenuOpen(false)}
-                aria-hidden="true"
-              />
-              <div className="absolute right-0 top-full z-20 mt-1 max-h-64 w-56 overflow-y-auto rounded-xl border border-black/[0.08] bg-paper p-1 shadow-lg dark:border-white/[0.08] dark:bg-[#1b1b1d]">
-                {collections.map((collection) => {
-                  const member = collectionIds.includes(collection.id);
-                  return (
-                    <button
-                      key={collection.id}
-                      type="button"
-                      onClick={() => toggleCollection(collection.id, !member)}
-                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink/70 transition hover:bg-black/[0.04] dark:text-ink-dark/70 dark:hover:bg-white/[0.06]"
-                    >
-                      <span
-                        className={`w-3 shrink-0 text-[11px] ${
-                          member ? "text-accent" : "text-transparent"
-                        }`}
-                        aria-hidden="true"
-                      >
-                        ✓
-                      </span>
-                      <span className="min-w-0 truncate">{collection.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      <CollectionMenu
+        collections={collections}
+        memberIds={collectionIds}
+        onToggle={toggleCollection}
+        onCollectionCreated={(created) => setCollections((prev) => [created, ...prev])}
+        emptyLabel="Save to…"
+        ariaLabel="Save this adaptation to a collection"
+      />
     </div>
   );
 }

@@ -998,9 +998,27 @@ with nothing reading or writing them.
     on a public share page is worse than no star. Same reasoning excludes
     `/s/demo`, whose result isn't a real cached adaptation — a star that
     always fails and flips back would be worse than its absence.
-- **Still not built:** creating a collection from either menu (you have
-  to visit /dashboard/collections first), and any notion of sharing a
-  collection.
+- **Creating a collection from inside the menu**
+  (`components/CollectionMenu.tsx`) — extracted as a shared component
+  once the popover was about to be a third near-identical copy of the
+  same markup (history list, result page).
+  - **Fixes a real first-use dead end.** Both menus previously hid
+    themselves when the user had no collections — which is exactly the
+    moment they most need to make one. A new user could not discover
+    collections from the surfaces where filing actually happens; they
+    had to already know to visit `/dashboard/collections`. The menu now
+    always renders, with "＋ New collection" in it.
+  - **Creating files the song immediately.** The reason to create a
+    collection at that moment is the song in front of you, so making
+    the user create it and then click it again would be pure busywork.
+    On the result page this chains correctly through `ensureSaved`, so
+    creating a collection from someone else's shared link saves the
+    song, creates the collection, and files it in one action.
+  - A failed create keeps the typed name and the form open with an
+    inline error, rather than silently discarding what was written.
+- **Still not built:** renaming or deleting a collection from these
+  menus (that stays on `/dashboard/collections`, where there's room for
+  a confirm step), and any notion of sharing a collection.
 
 ## Urdu source grounding — detail
 
