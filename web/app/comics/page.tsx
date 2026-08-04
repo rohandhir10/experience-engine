@@ -46,6 +46,7 @@ export default function ComicsPage() {
         ocrRegions: null,
         ocrMessage: null,
         detectedLanguages: null,
+        voice: null,
       }))
       .sort((a, b) => naturalCompare(a.fileName, b.fileName));
 
@@ -116,7 +117,7 @@ export default function ComicsPage() {
     setAdaptError(null);
     try {
       const result = await adaptChapter(
-        eligiblePanels.map((p) => ({ id: p.id, text: p.extractedText })),
+        eligiblePanels.map((p) => ({ id: p.id, text: p.extractedText, voice: p.voice || undefined })),
         sourceLanguage,
         targetLanguage
       );

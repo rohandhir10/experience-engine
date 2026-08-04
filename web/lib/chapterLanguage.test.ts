@@ -18,6 +18,7 @@ function panel(
     ocrRegions: null,
     ocrMessage: null,
     detectedLanguages,
+    voice: null,
     ...overrides,
   };
 }

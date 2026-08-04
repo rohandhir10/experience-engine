@@ -14,6 +14,7 @@ function panel(overrides: Partial<ComicPanel> = {}): ComicPanel {
     ocrRegions: null,
     ocrMessage: null,
     detectedLanguages: null,
+    voice: null,
     ...overrides,
   };
 }
@@ -25,7 +26,7 @@ describe("panelsToCsv", () => {
       panel({ fileName: "b.jpg", extractedText: "world" }),
     ]);
     const lines = csv.split("\n");
-    expect(lines[0]).toBe("panel,file_name,extracted_text,adapted_text,why");
+    expect(lines[0]).toBe("panel,file_name,voice,extracted_text,adapted_text,why");
     expect(lines[1]).toContain('"1"');
     expect(lines[1]).toContain('"a.jpg"');
     expect(lines[2]).toContain('"2"');
@@ -35,5 +36,12 @@ describe("panelsToCsv", () => {
   it("escapes embedded quotes so the CSV stays parseable", () => {
     const csv = panelsToCsv([panel({ extractedText: 'she said "hi"' })]);
     expect(csv).toContain('"she said ""hi"""');
+  });
+
+  it("writes an empty voice cell when unattributed, and the name when set", () => {
+    const csv = panelsToCsv([panel({ voice: null }), panel({ voice: "Guard Captain" })]);
+    const lines = csv.split("\n");
+    expect(lines[1]).toContain('""');
+    expect(lines[2]).toContain('"Guard Captain"');
   });
 });

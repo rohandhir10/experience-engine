@@ -2268,6 +2268,61 @@ previous two entries said so explicitly).
   neither reads nor writes the tracked state). 523 Python tests total,
   up from 516. No web changes this round — this is backend-only state.
 
+## Voice/character selector — detail
+
+- **What it is:** a free-text "Speaker" field in the comics panel
+  workspace (`web/components/comics/PanelWorkspace.tsx`), one per panel,
+  with native HTML `<datalist>` autocomplete built from every voice
+  already typed elsewhere in the chapter — no fixed cast list, no extra
+  dependency. Blank means unattributed (narration, unclear speaker),
+  same as before this field existed.
+- **Why it matters:** this is the human-facing control for machinery
+  that was built but never actually driven by real UI interaction —
+  `BubbleInput.voice` is what item #4 (Writers' Room wiring) and item #6
+  (honorific tracking) both key off of. Before this, `voice` could only
+  ever be set by a test fixture. Now a person tagging "Guard Captain" on
+  panel 1 and panel 5 is what makes the Judge's per-character voice
+  consistency and honorific-register tracking actually engage across
+  those panels.
+- **Threaded end to end:** `ComicPanel.voice` (web state, persisted
+  through CSV export/import) → `adaptChapter()`'s panel payload →
+  `ComicsPanelText.voice` (`server/main.py`) → `BubbleInput(voice=...)`
+  fed to `adapt_chapter`. A panel with no speaker typed sends `voice:
+  undefined`/`None` through every layer — the "never overwrite, blank is
+  a valid state" behavior established for OCR pre-fill applies here too.
+- **What this does NOT do:** there's no structured cast list or
+  per-character metadata (age, relationship, honorific baseline) beyond
+  the string name itself — `ChapterDNA.characters[].name` and this
+  field are matched by exact string equality, so "Guard Captain" and
+  "the guard captain" are different voices to the system. No dedicated
+  cast-management UI; the datalist is the entire discoverability
+  mechanism. Nothing validates a typed name against `ChapterDNA`'s
+  character list, so a typo silently creates a new, unrelated voice
+  bucket instead of erroring.
+- **Verified two ways:** `tests/test_server.py::
+  test_comics_adapt_endpoint_threads_voice_into_bubble_input` confirms
+  the field survives the FastAPI boundary intact (a named panel keeps
+  its string, an unnamed one stays `None`) — Tier 1, deterministic.
+  Separately, a live Next.js production build was exercised in a real
+  Chromium browser via Playwright: two real panel images uploaded,
+  "Guard Captain" typed into panel 1's Speaker field, confirmed by
+  reading the rendered screenshot; switching to panel 2 showed its own
+  independent (empty) Speaker field; the `<datalist>` DOM was inspected
+  directly and contained `<option value="Guard Captain">` reachable
+  from panel 2 — the autocomplete genuinely offers names typed on other
+  panels, not just the active one. This was a real rendered check, not
+  an assumption from reading the code.
+- **Tier 1** — this is UI plumbing and payload threading, fully
+  deterministic; there's no Tier 0 judgment call in this feature itself
+  (the honorific-tracking accuracy it feeds into is already tracked as
+  Tier 0 in the entry above).
+- **Benchmark coverage:** 1 new Python test (`tests/test_server.py`,
+  524 total, up from 523), 1 new Vitest CSV-column test plus 2 fixture
+  updates for the new required field (`web/lib/comics-types.test.ts`,
+  `web/lib/chapterLanguage.test.ts` — 45 total, up from 44), confirmed
+  clean `tsc --noEmit` and `next build`, and the live-browser Playwright
+  pass described above.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

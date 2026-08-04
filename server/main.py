@@ -324,6 +324,11 @@ def comics_ocr_endpoint(
 class ComicsPanelText(BaseModel):
     id: str
     text: str
+    # Free-text name of who's speaking, typed by the human reviewing the
+    # panel (web/components/comics/PanelWorkspace.tsx) - threaded
+    # straight through to BubbleInput.voice below. None/omitted means
+    # unattributed, same as before this field existed.
+    voice: str | None = None
 
 
 class ComicsAdaptRequest(BaseModel):
@@ -344,12 +349,12 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest) -> dict:
     Each PANEL is treated as one adaptation unit ("bubble" in engine
     terms), not each individually-detected OCR region — a panel with
     several speech bubbles is adapted as one combined block of dialogue
-    for now. No voice/character attribution either: nothing in the
-    current UI tags a panel with a speaking character, so every bubble
-    goes in unattributed (BubbleInput.voice=None) — Chapter DNA's
-    per-character voice profiles get generated but the per-bubble voice
-    consistency machinery they'd otherwise drive isn't actually
-    exercised by this endpoint yet.
+    for now. `ComicsPanelText.voice`, when the human reviewing a panel
+    names a speaker (components/comics/PanelWorkspace.tsx), threads
+    straight through to BubbleInput.voice — this is what actually
+    drives per-character voice consistency and honorific-register
+    tracking (engine/comics_adapt.py). A panel left unattributed still
+    adapts fine; it just doesn't get either benefit.
 
     Deliberately synchronous — the same known limitation /api/adapt
     itself had before /api/adapt/start existed: a chapter with many
@@ -370,7 +375,10 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest) -> dict:
             source_language=request.source_language,
             target_language=request.target_language,
             context_note=request.context_note,
-            bubbles=[BubbleInput(id=p.id, source_text=p.text) for p in non_empty_panels],
+            bubbles=[
+                BubbleInput(id=p.id, source_text=p.text, voice=p.voice)
+                for p in non_empty_panels
+            ],
         )
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

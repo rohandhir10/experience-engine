@@ -18,7 +18,17 @@ import type { ComicPanel } from "@/lib/comics-types";
  * reorder control: the human fixes the order before it ever feeds a
  * chapter-level adaptation pass, the same review step every other
  * ingestion path in this project (YouTube captions, the literal
- * anchor) already requires before trusting machine output. */
+ * anchor) already requires before trusting machine output.
+ *
+ * Speaker/voice: a free-text field, not a dropdown tied to a fixed
+ * roster - the set of characters isn't known until Chapter DNA runs
+ * (and even then a human should be free to name someone it didn't
+ * profile). Autocompletes from names already used on other panels
+ * (native <datalist>, no extra state or library) so the same character
+ * gets typed consistently across a chapter. This is what actually
+ * drives per-character voice consistency and honorific-register
+ * tracking server-side (engine/comics_adapt.py) - a panel left
+ * unattributed still adapts fine, it just doesn't get either benefit. */
 export function PanelWorkspace({
   panels,
   onUpdatePanel,
@@ -60,6 +70,10 @@ export function PanelWorkspace({
       extractedText: active.ocrRegions.map((r) => r.text).join("\n\n"),
     });
   }
+
+  const knownVoices = Array.from(
+    new Set(panels.map((p) => p.voice?.trim()).filter((v): v is string => !!v))
+  ).sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="flex flex-col gap-8 sm:flex-row">
@@ -238,6 +252,28 @@ export function PanelWorkspace({
           </div>
 
           <div className="flex flex-col gap-4">
+            <label className="block">
+              <span className="text-[13px] font-medium text-ink dark:text-ink-dark">
+                Speaker
+              </span>
+              <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                Who's talking in this panel — drives voice consistency and honorific tracking
+                during adaptation. Leave blank if unattributed (narration, unclear speaker).
+              </p>
+              <input
+                type="text"
+                list="comics-known-voices"
+                value={active.voice ?? ""}
+                onChange={(e) => onUpdatePanel(active.id, { voice: e.target.value || null })}
+                placeholder="e.g. Guard Captain"
+                className="mt-1.5 w-full rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2 text-[14px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+              />
+              <datalist id="comics-known-voices">
+                {knownVoices.map((voice) => (
+                  <option key={voice} value={voice} />
+                ))}
+              </datalist>
+            </label>
             <Field
               label="Extracted text"
               hint="Run OCR to pre-fill this, or type/paste the panel's dialogue by hand."

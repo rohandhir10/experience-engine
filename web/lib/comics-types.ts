@@ -34,6 +34,16 @@ export type ComicPanel = {
   // comics_ocr.py's docstring); lib/chapterLanguage.ts aggregates this
   // across every panel to guess the WHOLE CHAPTER's source language.
   detectedLanguages: DetectedLanguage[] | null;
+  // Free-text name of who's speaking in this panel, typed by the human
+  // reviewing it - null/empty means unattributed. Threaded straight
+  // through to engine.models.BubbleInput.voice (lib/comicsAdapt.ts),
+  // which is what actually drives per-character voice consistency and
+  // honorific-register tracking (engine/comics_adapt.py) - without this,
+  // Chapter DNA generates per-character voice profiles that nothing
+  // ever uses. Plain text, not a dropdown tied to a fixed roster: the
+  // set of characters isn't known until Chapter DNA runs, and even then
+  // a human should be free to name someone Chapter DNA didn't profile.
+  voice: string | null;
 };
 
 export type OcrRegion = {
@@ -54,12 +64,21 @@ export type DetectedLanguage = {
 
 export function panelToCsvRow(panel: ComicPanel, index: number): string {
   const cell = (value: string) => `"${value.replace(/"/g, '""')}"`;
-  return [index + 1, panel.fileName, panel.extractedText, panel.adaptedText, panel.why]
+  return [
+    index + 1,
+    panel.fileName,
+    panel.voice ?? "",
+    panel.extractedText,
+    panel.adaptedText,
+    panel.why,
+  ]
     .map((value) => cell(String(value)))
     .join(",");
 }
 
 export function panelsToCsv(panels: ComicPanel[]): string {
-  const header = ["panel", "file_name", "extracted_text", "adapted_text", "why"].join(",");
+  const header = ["panel", "file_name", "voice", "extracted_text", "adapted_text", "why"].join(
+    ","
+  );
   return [header, ...panels.map((panel, index) => panelToCsvRow(panel, index))].join("\n");
 }

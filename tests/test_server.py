@@ -542,6 +542,30 @@ def test_comics_adapt_endpoint_returns_chapter_dna_and_per_panel_results(monkeyp
     ]
 
 
+def test_comics_adapt_endpoint_threads_voice_into_bubble_input(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    captured_chapters = []
+
+    def capturing_adapt_chapter(chapter, dna, client):
+        captured_chapters.append(chapter)
+        return [_FakeSectionResult(b.id, f"adapted {b.id}") for b in chapter.bubbles]
+
+    monkeypatch.setattr(main, "adapt_chapter", capturing_adapt_chapter)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="hello", voice="Guard Captain"),
+            main.ComicsPanelText(id="panel-2", text="goodbye"),
+        ],
+    )
+    main.comics_adapt_endpoint(request)
+
+    bubbles = {b.id: b for b in captured_chapters[0].bubbles}
+    assert bubbles["panel-1"].voice == "Guard Captain"
+    assert bubbles["panel-2"].voice is None
+
+
 def test_comics_adapt_endpoint_skips_panels_with_only_whitespace_text(monkeypatch):
     _patch_comics_adapt(monkeypatch)
 
