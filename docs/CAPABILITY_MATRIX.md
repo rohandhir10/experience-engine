@@ -1160,6 +1160,54 @@ keep reframing around its one example.
   again later, it should launch with more than one language's worth of
   real benchmark runs, not the same single entry re-presented.
 
+## "How it works" visual redesign — detail
+
+A direct follow-up on a visual note: the four-card `USE_CASES` grid from
+the previous entry was plain, uniform bordered boxes with a heading and
+a paragraph — the generic pattern that reads as templated/AI-generated
+regardless of what the copy says, and nothing like the image-forward,
+asymmetric card layout of the reference shown (a Framer-style marketing
+page: large varied-width cards, each mostly a product visual with
+minimal text).
+
+- **The constraint that shaped this, same as the last two entries:** the
+  reference's cards are real product screenshots. AURA has no
+  screenshot library, and this sandbox has no way to generate new ones
+  that would themselves need to be captured, reviewed, and kept in sync
+  with the real UI. The honest substitute is `components/MockWindow.tsx`
+  — a small fake app-window frame (traffic-light dots + a label) around
+  an ABSTRACT, illustrative diagram of a real mechanism: bars standing
+  in for text, pills standing in for language pairs, never real
+  screenshots and never invented lyrics. This is a real design pattern
+  used across marketing sites specifically because it makes a narrower,
+  more honest claim than a screenshot ("this is the shape of the
+  mechanism") without asserting "this is literally what the product
+  renders pixel-for-pixel," which would need to be kept true over time.
+- **Content shown is still constrained to real, verifiable facts,** not
+  decoration for its own sake: the language-pair chips (Hindi→Spanish,
+  Korean→English, Japanese→Urdu) are real supported pairs, the "why"
+  callout text ("the line repeats three times in the source — it
+  repeats three times here too") is the actual repetition-preservation
+  behavior fixed earlier in this document, not invented copy.
+- **Asymmetric grid, not a uniform one** (`sm:col-span-4/2/3/3` across a
+  `grid-cols-6` base) — deliberately varied card widths, since a row of
+  identically-sized boxes is a large part of what read as templated in
+  the first place; varied widths read as designed intent.
+- **Renamed the language-chip strip above this section** ("Six
+  languages, one engine") to avoid duplicating the new "Any language,
+  either direction" feature card's heading — same information, appearing
+  once as a quick roster confirmation near the input, once as a fuller
+  claim inside the features grid.
+- **Tier 1** — presentation only, no logic or copy claims changed beyond
+  the rename above. Verified three ways: `tsc --noEmit` and `next build`
+  (both clean), and — because this is a purely visual change that static
+  checks can't evaluate — an actual rendered screenshot via a local
+  `next start` + Playwright/Chromium (both pre-installed in this
+  sandbox), confirming the asymmetric layout, the mockup windows, and
+  the corrected (non-duplicated) headings all render as intended before
+  shipping. This is the first UI-only change in this document verified
+  by actually looking at it rather than by build/test output alone.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and
