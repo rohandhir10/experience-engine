@@ -2918,6 +2918,44 @@ previous two entries said so explicitly).
   project's jsdom-free Vitest harness); `tsc --noEmit`, `next build`,
   all 588 Python tests, and all 58 Vitest tests stayed green throughout.
 
+### Hero section rework (`/music`)
+
+- **What this builds:** `InputScreen.tsx`'s hero now renders as a two-column
+  layout at `lg` breakpoints and wider (`components/InputScreen.tsx`) — the
+  headline, language picker, and lyric form on the left, and the real
+  literal/adapted/why comparison screenshot (a genuine captured render, not
+  a mockup — see `ComparisonCard.tsx` and `scripts/capture-screenshots.mjs`)
+  on the right with a neutral (non-accent-colored) glow behind it, so the
+  page's one piece of real proof is visible without scrolling instead of
+  only appearing several cards down in "How it works." Below `lg`, it
+  collapses to the original single centered column with the screenshot
+  underneath, unchanged. The now-duplicate first "How it works" card
+  (same screenshot) was removed, leaving that grid with 2 cards.
+- **Bug fixed alongside this:** `scripts/capture-screenshots.mjs` was the
+  one file the earlier AURA→Castia rename missed (its `.mjs` extension
+  wasn't in that rename's file-scan patterns). It referenced the old
+  `AURA_ENGINE_API_URL` env var and captured the hero/language-chip
+  screenshots against `/`, which used to be `InputScreen`'s route but is
+  now the music-vs-webtoons chooser (`InputScreen` moved to `/music`).
+  Fixed both, then re-ran the script against a real build to regenerate
+  `hero.png`, `language-chips.png`, `comparison-card.png`, and
+  `dashboard-workspace.png` — the previous `comparison-card.png` still
+  had "AURA" baked into its pixels from before the rename, which the
+  hero rework made far more visually prominent.
+- **What this does NOT do:** no glassmorphism/blur pass, no persona-split
+  toggle, no value-anchoring/ROI section, no API code-sample section —
+  same deferred brief pieces as before, still not started.
+- **Tier 1** — presentation only, no model-quality claim.
+  **Verified live:** `tsc --noEmit`, `next build` (clean, `/music` at
+  5.31 kB), and all 58 Vitest tests stayed green. A real Chromium/
+  Playwright pass against a production build captured and visually
+  confirmed desktop (1440px), tablet (800px), and mobile (390px)
+  renders — correct two-column layout above `lg`, correct single-column
+  stacking below it, and the regenerated screenshot correctly reading
+  "CASTIA" instead of the stale "AURA."
+- **Benchmark coverage:** no new automated tests — this is presentation
+  layout with no non-trivial pure logic to unit test.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

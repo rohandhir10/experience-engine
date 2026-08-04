@@ -104,9 +104,16 @@ export function InputScreen({
           or shrinking with viewport height. */}
       <SiteHeader active="music" forceDark />
 
+      {/* Two columns from lg up: the real proof (a real captured result,
+          see the image below) sits beside the headline instead of only
+          appearing further down the page - "show, don't just tell,
+          immediately" without inventing a capability to show. Below lg,
+          this collapses to the original single centered column with the
+          image stacked underneath, same content either way. */}
+      <div className="mx-auto grid w-full max-w-5xl gap-12 pt-16 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:gap-10">
       <div
         data-screenshot="hero"
-        className="mx-auto flex w-full max-w-2xl flex-col items-center pt-16 text-center sm:pt-20"
+        className="mx-auto flex w-full max-w-2xl flex-col items-center text-center lg:mx-0 lg:items-start lg:text-left"
       >
         <h1 className="animate-fade-up text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-white sm:text-[2.9rem]">
           Adapt the feeling.
@@ -121,10 +128,10 @@ export function InputScreen({
         </p>
 
         <div
-          className="animate-fade-up mt-5 flex flex-col items-center gap-4"
+          className="animate-fade-up mt-5 flex flex-col items-center gap-4 lg:items-start"
           style={{ animationDelay: "120ms" }}
         >
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             {targetLanguage !== "English" && (
               <TargetLanguageSelect
                 label="From"
@@ -235,7 +242,7 @@ export function InputScreen({
             </p>
           )}
 
-          <div className="mt-6 flex items-center justify-center gap-4">
+          <div className="mt-6 flex items-center justify-center gap-4 lg:justify-start">
             <button
               type="submit"
               disabled={!text.trim() || loading}
@@ -268,6 +275,35 @@ export function InputScreen({
         >
           See how it works
         </Link>
+      </div>
+
+      {/* The real proof, brought up from further down the page instead
+          of only appearing after several scrolls (this exact image also
+          used to be the first "How it works" card - it now lives here
+          instead of there, not duplicated in both places). Still a real
+          captured screenshot, not a mockup - see MockWindow.tsx's own
+          doc comment for why this project won't fabricate one. A soft
+          neutral glow (not colored - AmbientGlow.tsx's own rule reserves
+          the accent color for interactive states, never background
+          decoration) sits behind it so it reads as the page's visual
+          anchor rather than a flat inline image. */}
+      <div
+        className="animate-fade-up relative mx-auto w-full max-w-md lg:mx-0 lg:max-w-none"
+        style={{ animationDelay: "160ms" }}
+      >
+        <div
+          aria-hidden
+          className="absolute -inset-8 -z-10 rounded-full bg-white/[0.06] blur-3xl"
+        />
+        <Image
+          src="/screenshots/comparison-card.png"
+          alt="A real CASTIA result: the literal reading next to the adapted line, with a plain-language reason for the change"
+          width={672}
+          height={637}
+          priority
+          className="w-full rounded-2xl border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)]"
+        />
+      </div>
       </div>
 
       {/* A language matrix, not a single lyric — CASTIA supports six
@@ -326,19 +362,6 @@ export function InputScreen({
 
         <div className="mt-8 grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
           <FeatureCard
-            title="Every real change, with a reason"
-            description="A literal reading sits beside the adapted line, with a plain-language note for every place it departs from it — not a black-box rewrite you have to take on faith."
-          >
-            <Image
-              src="/screenshots/comparison-card.png"
-              alt="A real CASTIA result: the literal reading next to the adapted line, with a plain-language reason for the change"
-              width={672}
-              height={637}
-              className="w-full rounded-lg border border-white/10"
-            />
-          </FeatureCard>
-
-          <FeatureCard
             title="Imports straight from YouTube"
             description="Paste a link and the captions come back as reviewable sections — read them over, fix anything, then adapt. Nothing goes out the door unread."
           >
@@ -357,7 +380,6 @@ export function InputScreen({
           </FeatureCard>
 
           <FeatureCard
-            span="sm:col-span-2"
             title="Keep what you find"
             description="Star a result or file it into a collection from the dashboard — it's there next time, tied to your account, not lost in a chat history."
           >

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Captures real screenshots of the actual running app, used on the main
-// homepage (components/InputScreen.tsx) and app/alternate-homepage/page.tsx
+// Captures real screenshots of the actual running app, used on the music
+// input screen (components/InputScreen.tsx, at /music) and
+// app/alternate-homepage/page.tsx
 // — the deliberate alternative to fabricated/AI-generated "product
 // screenshots." Every image this produces is a real render of real UI,
 // targeted via a handful of inert `data-screenshot="..."` attributes added
@@ -58,7 +59,7 @@ async function main() {
       env: {
         ...process.env,
         AUTH_SECRET: process.env.AUTH_SECRET || "capture-script-placeholder",
-        AURA_ENGINE_API_URL: process.env.AURA_ENGINE_API_URL || "http://localhost:1",
+        CASTIA_ENGINE_API_URL: process.env.CASTIA_ENGINE_API_URL || "http://localhost:1",
       },
       stdio: "ignore",
     }
@@ -70,8 +71,9 @@ async function main() {
     const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium" });
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
-    // Homepage hero — headline, language pickers, textarea, submit.
-    await page.goto(`${BASE_URL}/`, { waitUntil: "networkidle" });
+    // Music input screen hero — headline, language pickers, textarea, submit.
+    // (Lives at /music, not /, since / is now the music-vs-webtoons chooser.)
+    await page.goto(`${BASE_URL}/music`, { waitUntil: "networkidle" });
     await page.waitForTimeout(400);
     await page.locator('[data-screenshot="hero"]').screenshot({
       path: path.join(OUT_DIR, "hero.png"),
