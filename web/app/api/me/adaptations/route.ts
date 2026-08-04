@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { ENGINE_API_URL } from "@/lib/api";
 
 // The signed-in user's adaptation history, proxied from the engine
 // (server/main.py::me_adaptations). Session comes from the Auth.js JWT
 // cookie; the internal secret is what lets the engine trust the user id
-// this route forwards.
-export async function GET() {
+// this route forwards. ?favoritesOnly=true narrows it to favorites -
+// filtered in SQL upstream, not trimmed here.
+export async function GET(request: NextRequest) {
   const session = await auth().catch(() => null);
   if (!session?.auraUserId) {
     return NextResponse.json({ adaptations: [], signedIn: false });
@@ -16,9 +17,11 @@ export async function GET() {
     return NextResponse.json({ adaptations: [], signedIn: true });
   }
 
+  const favoritesOnly = request.nextUrl.searchParams.get("favoritesOnly") === "true";
+
   let upstream: Response;
   try {
-    upstream = await fetch(`${ENGINE_API_URL}/api/me/adaptations`, {
+    upstream = await fetch(`${ENGINE_API_URL}/api/me/adaptations?favorites_only=${favoritesOnly}`, {
       headers: {
         "X-Aura-Internal-Secret": secret,
         "X-Aura-User-Id": session.auraUserId,

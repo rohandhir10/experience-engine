@@ -102,11 +102,47 @@ def record_adaptation(user_id: str, result_id: str, source_language: str | None)
         session.commit()
 
 
-def list_adaptations(user_id: str, limit: int = 50) -> list[dict]:
+def set_favorite(user_id: str, result_id: str, is_favorite: bool) -> bool:
+    """Toggles the favorite flag on one history row. Returns False when
+    the user has no history row for that result — which is also the
+    authorization boundary: the user_id is part of the lookup, so one
+    user can never flip another user's row, and a request for a result
+    they've never adapted is indistinguishable from one that doesn't
+    exist. Returns False (not None) when no database is configured, so
+    callers surface the same "couldn't do it" path either way.
+    """
+    if not _use_db():
+        return False
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import Adaptation
+
+    with db.session_scope() as session:
+        row = (
+            session.query(Adaptation)
+            .filter_by(user_id=_uuid.UUID(user_id), result_id=result_id)
+            .one_or_none()
+        )
+        if row is None:
+            return False
+        row.is_favorite = is_favorite
+        session.commit()
+        return True
+
+
+def list_adaptations(
+    user_id: str, limit: int = 50, favorites_only: bool = False
+) -> list[dict]:
     """Newest-first history for one user, joined against cached_results
     for display fields (hook line, languages). A history row whose cached
     result has vanished still appears — with nulls — rather than
     silently disappearing from the user's history.
+
+    favorites_only filters in SQL rather than trimming the returned list,
+    so `limit` means "50 favorites", not "however many of the 50 newest
+    adaptations happened to be favorited".
     """
     if not _use_db():
         return []
@@ -117,14 +153,14 @@ def list_adaptations(user_id: str, limit: int = 50) -> list[dict]:
     from .db_models import Adaptation, CachedResult
 
     with db.session_scope() as session:
-        rows = (
+        query = (
             session.query(Adaptation, CachedResult)
             .outerjoin(CachedResult, Adaptation.result_id == CachedResult.id)
             .filter(Adaptation.user_id == _uuid.UUID(user_id))
-            .order_by(Adaptation.created_at.desc())
-            .limit(limit)
-            .all()
         )
+        if favorites_only:
+            query = query.filter(Adaptation.is_favorite.is_(True))
+        rows = query.order_by(Adaptation.created_at.desc()).limit(limit).all()
         history: list[dict] = []
         for adaptation, cached in rows:
             result_json = cached.result_json if cached is not None else None

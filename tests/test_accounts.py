@@ -113,7 +113,93 @@ def test_no_database_means_accounts_decline_not_crash(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     assert accounts.sync_user("sub", "e@m.com", None) is None
     assert accounts.list_adaptations("any-id") == []
+    assert accounts.set_favorite("any-id", "result", True) is False
     accounts.record_adaptation("any-id", "result", None)  # no-op, no raise
+
+
+# ---------------------------------------------------------------------------
+# Favorites
+# ---------------------------------------------------------------------------
+
+
+def test_favorite_can_be_set_and_cleared(sqlite_db):
+    user = accounts.sync_user("fav-1", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "song-1", "Hindi")
+
+    assert accounts.set_favorite(user["id"], "song-1", True) is True
+    assert accounts.list_adaptations(user["id"])[0]["isFavorite"] is True
+
+    assert accounts.set_favorite(user["id"], "song-1", False) is True
+    assert accounts.list_adaptations(user["id"])[0]["isFavorite"] is False
+
+
+def test_favoriting_a_song_not_in_your_history_fails(sqlite_db):
+    user = accounts.sync_user("fav-2", "u@m.com", None)
+    assert accounts.set_favorite(user["id"], "never-adapted", True) is False
+
+
+def test_one_user_cannot_favorite_another_users_row(sqlite_db):
+    """The authorization boundary: set_favorite scopes its lookup by
+    user_id, so B flipping A's row is indistinguishable from flipping a
+    row that doesn't exist — it fails, and A's row is untouched."""
+    a = accounts.sync_user("fav-a", "a@m.com", None)
+    b = accounts.sync_user("fav-b", "b@m.com", None)
+    accounts.record_adaptation(a["id"], "shared-song", "Hindi")
+
+    assert accounts.set_favorite(b["id"], "shared-song", True) is False
+    assert accounts.list_adaptations(a["id"])[0]["isFavorite"] is False
+
+
+def test_favorites_only_filters_the_listing(sqlite_db):
+    user = accounts.sync_user("fav-3", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "song-a", "Hindi")
+    accounts.record_adaptation(user["id"], "song-b", "Korean")
+    accounts.set_favorite(user["id"], "song-b", True)
+
+    favorites = accounts.list_adaptations(user["id"], favorites_only=True)
+    assert [entry["resultId"] for entry in favorites] == ["song-b"]
+    assert len(accounts.list_adaptations(user["id"])) == 2
+
+
+def test_favorite_endpoint_404s_for_a_song_not_in_history(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("fav-4", "u@m.com", None)
+    response = client.post(
+        "/api/me/adaptations/nope/favorite",
+        json={"is_favorite": True},
+        headers={"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"},
+    )
+    assert response.status_code == 404
+
+
+def test_favorite_endpoint_requires_the_internal_secret(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("fav-5", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "song-c", "Hindi")
+
+    response = client.post(
+        "/api/me/adaptations/song-c/favorite",
+        json={"is_favorite": True},
+        headers={"X-Aura-User-Id": user["id"]},  # no secret
+    )
+    assert response.status_code == 401
+    assert accounts.list_adaptations(user["id"])[0]["isFavorite"] is False
+
+
+def test_favorite_endpoint_round_trip(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("fav-6", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "song-d", "Spanish")
+    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+
+    response = client.post(
+        "/api/me/adaptations/song-d/favorite", json={"is_favorite": True}, headers=headers
+    )
+    assert response.status_code == 200
+    assert response.json() == {"resultId": "song-d", "isFavorite": True}
+
+    listed = client.get("/api/me/adaptations?favorites_only=true", headers=headers)
+    assert [e["resultId"] for e in listed.json()["adaptations"]] == ["song-d"]
 
 
 # ---------------------------------------------------------------------------

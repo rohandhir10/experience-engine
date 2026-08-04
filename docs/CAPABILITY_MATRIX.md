@@ -843,9 +843,51 @@ shipped no sessions/tokens table. Resolved in favor of **Auth.js
   browser, which this sandbox has neither of. `tsc --noEmit` and
   `next build` pass, which proves the wiring compiles and the routes
   register, not that a real sign-in completes.
-- **Not built:** favorites (the `is_favorite` column is read but nothing
-  toggles it), collections, billing/Stripe, and account deletion —
+- **Not built:** collections, billing/Stripe, and account deletion —
   each is its own feature on top of this foundation, not part of it.
+  (Favorites shipped separately — see below.)
+
+## Favorites — detail
+
+The first feature built on top of accounts. The `is_favorite` column had
+existed since the schema was written but nothing ever wrote to it.
+
+- **`server/accounts.py::set_favorite`** — the authorization boundary is
+  the query itself: `user_id` is part of the `filter_by`, so a user
+  flipping someone else's row is indistinguishable from flipping a row
+  that doesn't exist. Both return `False` → 404. There is no separate
+  ownership check that could drift from the lookup. Covered by
+  `test_one_user_cannot_favorite_another_users_row`, which asserts both
+  that B's attempt fails *and* that A's row is untouched.
+- **`list_adaptations(favorites_only=...)`** filters in SQL, not by
+  trimming the returned list — so `limit` means "50 favorites", not
+  "however many of the 50 newest adaptations happened to be starred".
+- **`POST /api/me/adaptations/{result_id}/favorite`** (engine) →
+  `web/app/api/me/adaptations/[resultId]/favorite/route.ts` (proxy).
+  The proxy only proves *who* is asking; it never checks ownership,
+  because the engine's query already does.
+- **`web/lib/favorites.ts::applyFavorite`** — the optimistic list
+  transform, deliberately extracted from the component as a pure
+  function so its three real cases are testable without a DOM
+  (7 tests): optimistic flip, rollback after a failed write, and
+  dropping a row that no longer belongs on the Favorites page. That last
+  case only fires *after* the write succeeds — a failed unstar leaves
+  the row visible to retry rather than vanishing on a write that never
+  landed.
+- **`components/RecentAdaptations.tsx`** gained the star and a
+  `favoritesOnly` prop, so the dashboard's history list and the
+  Favorites page are one component rather than two that can drift.
+  `app/dashboard/favorites/page.tsx` is no longer a `DashboardStub`.
+- **`components/DashboardSidebar.tsx`** now tracks a `LIVE_SECTIONS` set
+  instead of tagging every non-active row "Soon" — that badge was
+  becoming a lie as features land one at a time, and this keeps it
+  truthful without needing to remember to edit the component's JSX each
+  time.
+- **Tier 1**, same verification gap as accounts: 7 new backend tests run
+  against a real sqlite-file `DATABASE_URL` and 7 new frontend tests
+  cover the list transform, but **no favorite has ever been toggled
+  through a browser** — that needs the Google OAuth round-trip, which
+  still has never been executed anywhere.
 
 ## Urdu source grounding — detail
 

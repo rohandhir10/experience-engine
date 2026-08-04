@@ -149,6 +149,16 @@ def _require_internal_secret(request: Request) -> None:
         raise HTTPException(status_code=401, detail="Invalid internal secret.")
 
 
+def _required_user_id(request: Request) -> str:
+    """For the /api/me/* endpoints, which are meaningless without a user.
+    The internal secret is checked separately by _require_internal_secret
+    — this only pulls the id out."""
+    user_id = request.headers.get("x-aura-user-id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="X-Aura-User-Id header is required.")
+    return user_id
+
+
 def _authed_user_id(request: Request) -> str | None:
     """The signed-in user's id, forwarded by the Next.js server on adapt
     requests — honored ONLY alongside the internal secret, since anyone
@@ -225,6 +235,10 @@ class UserSyncRequest(BaseModel):
     display_name: str | None = None
 
 
+class FavoriteRequest(BaseModel):
+    is_favorite: bool
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -263,12 +277,29 @@ def users_sync(request: UserSyncRequest, http_request: Request) -> dict:
 
 
 @app.get("/api/me/adaptations")
-def me_adaptations(http_request: Request) -> dict:
+def me_adaptations(http_request: Request, favorites_only: bool = False) -> dict:
     _require_internal_secret(http_request)
-    user_id = http_request.headers.get("x-aura-user-id")
-    if not user_id:
-        raise HTTPException(status_code=400, detail="X-Aura-User-Id header is required.")
-    return {"adaptations": accounts.list_adaptations(user_id)}
+    user_id = _required_user_id(http_request)
+    return {
+        "adaptations": accounts.list_adaptations(user_id, favorites_only=favorites_only)
+    }
+
+
+@app.post("/api/me/adaptations/{result_id}/favorite")
+def me_set_favorite(
+    result_id: str, request: FavoriteRequest, http_request: Request
+) -> dict:
+    """Toggles the favorite flag on one of the caller's own history rows.
+    A result the user has never adapted 404s — accounts.set_favorite
+    scopes the lookup by user_id, so this can't be used to probe or flip
+    another user's history."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    if not accounts.set_favorite(user_id, result_id, request.is_favorite):
+        raise HTTPException(
+            status_code=404, detail="No adaptation found in your history for this song."
+        )
+    return {"resultId": result_id, "isFavorite": request.is_favorite}
 
 
 @app.get("/health/db")
