@@ -4,3 +4,10 @@ __pycache__/
 *.result.json
 .venv/
 venv/
+
+# Local env files - these hold real secrets (AUTH_SECRET, Google OAuth
+# credentials, AURA_INTERNAL_API_SECRET, DATABASE_URL). Only the
+# committed *.example templates should ever be in git.
+.env
+.env.local
+.env*.local

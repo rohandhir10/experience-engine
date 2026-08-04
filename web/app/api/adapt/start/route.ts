@@ -1,5 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { ENGINE_API_URL } from "@/lib/api";
+
+// Forwards the signed-in user's id (if any) so the engine records this
+// adaptation in their history. The internal secret is what makes the
+// engine trust the id - a browser can't call the engine with a forged
+// header because it doesn't know the secret (server/main.py's
+// _authed_user_id). Anonymous users get an empty pair and everything
+// works exactly as before accounts existed.
+async function identityHeaders(): Promise<Record<string, string>> {
+  const secret = process.env.AURA_INTERNAL_API_SECRET;
+  if (!secret) return {};
+  const session = await auth().catch(() => null);
+  if (!session?.auraUserId) return {};
+  return {
+    "X-Aura-Internal-Secret": secret,
+    "X-Aura-User-Id": session.auraUserId,
+  };
+}
 
 // Unlike /api/adapt/route.ts, this returns almost immediately - the real
 // engine run happens in a background thread on server/main.py's side
@@ -16,7 +34,7 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/adapt/start`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await identityHeaders()) },
       body: JSON.stringify(body),
     });
   } catch {

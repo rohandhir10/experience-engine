@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
+import { RecentAdaptations } from "@/components/RecentAdaptations";
 import { useAdaptSubmit } from "@/lib/useAdaptSubmit";
 import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
@@ -129,10 +130,7 @@ export default function DashboardPage() {
               <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
                 Recent Adaptations
               </h2>
-              <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
-                No adaptations yet — the one you paste above will show up
-                here once accounts and history are live.
-              </p>
+              <RecentAdaptations />
             </div>
           </div>
         </div>

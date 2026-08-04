@@ -79,7 +79,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import cache, db, jobs, quota
+from . import accounts, cache, db, jobs, quota
 from .mapping import to_experience_result
 
 logging.basicConfig(
@@ -90,6 +90,14 @@ logger = logging.getLogger("aura.server")
 
 MAX_INPUT_CHARS = int(os.environ.get("AURA_MAX_INPUT_CHARS", "8000"))
 DAILY_LIMIT = int(os.environ.get("AURA_DAILY_LIMIT", "10"))
+# Shared secret between the Next.js server and this API, for the
+# account endpoints (/api/users/sync, /api/me/*) and for trusting a
+# user id forwarded on adapt requests. The Next.js side is the party
+# that actually verified the Google sign-in (Auth.js); this secret is
+# how it proves a request came from it and not from a browser talking
+# to this API directly. Unset -> account endpoints answer 503 and
+# forwarded user ids are ignored (accounts off, everything else works).
+INTERNAL_API_SECRET = os.environ.get("AURA_INTERNAL_API_SECRET", "")
 ALLOWED_ORIGINS = os.environ.get(
     "AURA_ALLOWED_ORIGINS", "http://localhost:3000"
 ).split(",")
@@ -129,6 +137,34 @@ def _client_ip(request: Request) -> str:
     if forwarded:
         return forwarded.split(",")[0].strip()
     return request.client.host if request.client else "unknown"
+
+
+def _require_internal_secret(request: Request) -> None:
+    if not INTERNAL_API_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Accounts are not configured on this deployment (AURA_INTERNAL_API_SECRET unset).",
+        )
+    if request.headers.get("x-aura-internal-secret") != INTERNAL_API_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid internal secret.")
+
+
+def _authed_user_id(request: Request) -> str | None:
+    """The signed-in user's id, forwarded by the Next.js server on adapt
+    requests — honored ONLY alongside the internal secret, since anyone
+    can put a header on a request but only the Next.js server (which
+    verified the Google sign-in) knows the secret. Returns None rather
+    than raising: a missing/bad pairing means the request proceeds as
+    anonymous, exactly like before accounts existed — history is an
+    enhancement to an adapt request, never a gate on it."""
+    user_id = request.headers.get("x-aura-user-id")
+    if not user_id:
+        return None
+    if not INTERNAL_API_SECRET:
+        return None
+    if request.headers.get("x-aura-internal-secret") != INTERNAL_API_SECRET:
+        return None
+    return user_id
 
 
 def _check_quota(ip: str) -> None:
@@ -183,6 +219,12 @@ class YoutubeDraftRequest(BaseModel):
     preferred_languages: list[str] | None = None
 
 
+class UserSyncRequest(BaseModel):
+    google_sub: str
+    email: str | None = None
+    display_name: str | None = None
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -199,6 +241,34 @@ def youtube_draft(request: YoutubeDraftRequest) -> dict:
         return youtube_ingest.build_web_draft(request.url, request.preferred_languages)
     except IngestError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/users/sync")
+def users_sync(request: UserSyncRequest, http_request: Request) -> dict:
+    """Called by the Next.js server from Auth.js's jwt callback on
+    sign-in — upserts the user and returns {id, plan} for the session
+    token. See server/accounts.py for the identity split."""
+    _require_internal_secret(http_request)
+    if not request.google_sub.strip():
+        raise HTTPException(status_code=400, detail="google_sub is required.")
+    result = accounts.sync_user(
+        request.google_sub.strip(), request.email, request.display_name
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Accounts need a database (DATABASE_URL is unset on this deployment).",
+        )
+    return result
+
+
+@app.get("/api/me/adaptations")
+def me_adaptations(http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    user_id = http_request.headers.get("x-aura-user-id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="X-Aura-User-Id header is required.")
+    return {"adaptations": accounts.list_adaptations(user_id)}
 
 
 @app.get("/health/db")
@@ -288,6 +358,18 @@ def _build_song(
     return sections, song
 
 
+def _record_history(user_id: str | None, result_id: str, source_language: str) -> None:
+    """History is an enhancement to an adapt request, never a gate on it —
+    a failure here is logged and swallowed so the user still gets their
+    result."""
+    if not user_id:
+        return
+    try:
+        accounts.record_adaptation(user_id, result_id, source_language)
+    except Exception:
+        logger.exception("failed to record history user=%s result=%s", user_id, result_id)
+
+
 def _run_adaptation(
     request: AdaptRequest,
     result_id: str,
@@ -299,6 +381,7 @@ def _run_adaptation(
     ip: str,
     started: float,
     log_prefix: str = "adapt",
+    user_id: str | None = None,
 ) -> dict:
     """The actual engine run: Song DNA -> Writers' Room -> Judge, then
     verification and cache write. Shared by the blocking /api/adapt
@@ -387,6 +470,7 @@ def _run_adaptation(
         target_language=target_language,
         source_language=source_language,
     )
+    _record_history(user_id, result_id, source_language)
     # Measured, not estimated (engine/models.py::LLMCallRecord) — every
     # real API call this request made, so cost/latency stays visible in
     # production logs instead of only being knowable after building a
@@ -422,11 +506,15 @@ def _run_adaptation(
 def adapt(request: AdaptRequest, http_request: Request) -> dict:
     started = time.monotonic()
     ip = _client_ip(http_request)
+    user_id = _authed_user_id(http_request)
     text, target_language, source_language = _validate_adapt_request(request)
 
     result_id = cache.content_id(text, target_language=target_language, source_language=source_language)
     cached = cache.get(result_id)
     if cached is not None:
+        # A cache hit is still this user asking for this song — history
+        # records the relationship, not the compute.
+        _record_history(user_id, result_id, source_language)
         logger.info(
             "adapt id=%s ip=%s source=%s target=%s cache=hit duration=%.2fs",
             result_id, ip, source_language, target_language, time.monotonic() - started,
@@ -450,6 +538,7 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
             target_language=target_language,
             source_language=source_language,
         )
+        _record_history(user_id, result_id, source_language)
         logger.info(
             "adapt id=%s ip=%s source=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
             result_id, ip, source_language, target_language, matched_id, similarity,
@@ -462,7 +551,8 @@ def adapt(request: AdaptRequest, http_request: Request) -> dict:
 
     try:
         return _run_adaptation(
-            request, result_id, text, target_language, source_language, sections, song, ip, started
+            request, result_id, text, target_language, source_language, sections, song, ip, started,
+            user_id=user_id,
         )
     except LLMError as exc:
         logger.error("adapt id=%s engine failure: %s", result_id, exc)
@@ -507,13 +597,14 @@ def _run_job(
     song: SongInput,
     ip: str,
     started: float,
+    user_id: str | None = None,
 ) -> None:
     with _run_slots:
         jobs.set_running(job_id)
         try:
             experience_result = _run_adaptation(
                 request, result_id, text, target_language, source_language, sections, song, ip, started,
-                log_prefix="job",
+                log_prefix="job", user_id=user_id,
             )
             jobs.set_done(job_id, experience_result)
         except LLMError as exc:
@@ -541,11 +632,13 @@ def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
     to poll (status="pending")."""
     started = time.monotonic()
     ip = _client_ip(http_request)
+    user_id = _authed_user_id(http_request)
     text, target_language, source_language = _validate_adapt_request(request)
 
     result_id = cache.content_id(text, target_language=target_language, source_language=source_language)
     cached = cache.get(result_id)
     if cached is not None:
+        _record_history(user_id, result_id, source_language)
         logger.info(
             "adapt/start id=%s ip=%s source=%s target=%s cache=hit duration=%.2fs",
             result_id, ip, source_language, target_language, time.monotonic() - started,
@@ -562,6 +655,7 @@ def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
             target_language=target_language,
             source_language=source_language,
         )
+        _record_history(user_id, result_id, source_language)
         logger.info(
             "adapt/start id=%s ip=%s source=%s target=%s cache=fuzzy_hit matched=%s similarity=%.3f duration=%.2fs",
             result_id, ip, source_language, target_language, matched_id, similarity,
@@ -577,7 +671,7 @@ def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
 
     thread = threading.Thread(
         target=_run_job,
-        args=(job_id, request, result_id, text, target_language, source_language, sections, song, ip, started),
+        args=(job_id, request, result_id, text, target_language, source_language, sections, song, ip, started, user_id),
         daemon=True,
     )
     thread.start()

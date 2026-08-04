@@ -3,10 +3,13 @@ import Link from "next/link";
 import { Logo } from "./Logo";
 
 /** Sign In / Get Started render everywhere (consistent global chrome, like
- * ChatGPT) but do nothing real yet — there's no auth backend, no Stripe,
- * no domain even. Sign In goes to a stub page that says so outright rather
- * than pretending to work. Get Started just takes you to the input, which
- * is the entire product today. */
+ * ChatGPT). Sign In is now real (Auth.js + Google, see web/auth.ts) and
+ * always points at /sign-in, which renders the signed-in state itself
+ * (dashboard link + sign out) rather than this header branching on it —
+ * this component is rendered from BOTH server and client trees
+ * (InputScreen.tsx is "use client"), so it can't read the session here
+ * without a broader refactor. Pricing/Get Started are still cosmetic:
+ * there's no Stripe. */
 export function SiteHeader({
   active,
   right,

@@ -768,6 +768,85 @@ and updates, `DailyQuotaUsage` keying), `tests/test_cache.py` (unchanged,
 all still passing against the rewritten `find_similar()`). 415 tests
 total, all passing.
 
+## Accounts: Auth.js + Google, per-user history — detail
+
+The largest remaining product gap before this: the `User`/`Adaptation`/
+`Collection` models had existed since the schema was first written, and
+the dashboard had history/favorites/collections pages, but there was no
+way to know *whose* history was whose — `server/db.py`'s docstring left
+the provider choice (Clerk vs. NextAuth) explicitly open and deliberately
+shipped no sessions/tokens table. Resolved in favor of **Auth.js
+(NextAuth v5) with Google**, self-hosted, no per-user vendor fee.
+
+- **Identity split (the key design decision).** Auth.js runs with the
+  **JWT session strategy and no database adapter**. That matters: an
+  adapter would have given Auth.js its own `users`/`accounts`/`sessions`
+  tables, duplicating the user store in exactly the way `server/db.py`'s
+  docstring warned about ("NextAuth's Postgres adapter expects its own
+  exact table shapes"). Instead the session lives entirely in the signed
+  JWT cookie, and the Python side (`server/accounts.py`) stays the sole
+  owner of user rows. On first sign-in the Auth.js `jwt` callback POSTs
+  to the engine's `/api/users/sync`, which upserts the user and returns
+  `{id, plan}`; that id is stashed in the token as `auraUserId` and
+  travels with every subsequent request.
+- **Trust model (`server/main.py`).** The engine API is a separate
+  service on Railway — it never sees the Google sign-in, so it cannot
+  verify a user id on its own. `AURA_INTERNAL_API_SECRET` is a shared
+  secret known only to the Next.js server (the party that *did* verify
+  the sign-in). `_authed_user_id()` honors a forwarded `X-Aura-User-Id`
+  **only** when paired with the correct `X-Aura-Internal-Secret`;
+  otherwise it returns `None` and the request proceeds anonymously.
+  A browser calling the engine directly with a forged user-id header
+  therefore writes nothing — covered by an explicit test
+  (`test_forwarded_user_id_is_ignored_without_the_secret`). The account
+  endpoints (`/api/users/sync`, `/api/me/adaptations`) hard-require the
+  secret: 401 on mismatch, 503 when unconfigured.
+- **History is an enhancement, never a gate.** `_record_history()`
+  catches and logs its own failures so a history write can never break
+  an adaptation. Anonymous users get identical behavior to before
+  accounts existed. Cache hits and fuzzy-match hits also record history
+  (the row records "this user asked for this song," not "this user paid
+  for the compute"), and one row per (user, result) is deduped —
+  resubmitting the same song is a repeat view, not a second entry. The
+  `song_key`/`version` columns stay reserved for deliberate reruns after
+  engine changes, which nothing exposes yet.
+- **Degradation, stated honestly.** No `DATABASE_URL` → `accounts.py`
+  returns `None`/`[]` and records nothing, rather than pretending with
+  in-memory storage that would fake a durability the feature doesn't
+  have. No `AUTH_SECRET`/`AUTH_GOOGLE_ID` → `/sign-in` renders the
+  original "accounts aren't live yet" copy plus a deployment note,
+  instead of a button that fails at click time. No
+  `AURA_INTERNAL_API_SECRET` → sign-in still works, history silently
+  doesn't record.
+- **Frontend:** `web/auth.ts` (config + sync callback),
+  `app/api/auth/[...nextauth]/route.ts` (handlers),
+  `app/api/me/adaptations/route.ts` (history proxy), `app/sign-in/
+  page.tsx` (server component; real Google sign-in / signed-in state /
+  sign-out as server actions), `components/RecentAdaptations.tsx`
+  (dashboard list, replacing the "once accounts are live" placeholder),
+  and identity forwarding in `app/api/adapt/start/route.ts`.
+  `components/SiteHeader.tsx` deliberately does NOT branch on session —
+  it renders from both server and client trees (`InputScreen.tsx` is
+  `"use client"`), so reading the session there needs a broader refactor;
+  `/sign-in` shows the signed-in state instead.
+- **New env vars** — documented in the new `.env.example` (engine) and
+  `web/.env.example` (Next.js), with `.env`/`.env*.local` added to
+  `.gitignore` (previously absent, and now carrying real secrets):
+  `AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`,
+  `AURA_INTERNAL_API_SECRET` (must match on both services).
+- **Tier 1** — deterministic application code, no model behavior.
+  **Verification gap, disclosed:** `tests/test_accounts.py` (12 tests)
+  runs against a real sqlite-file database via `DATABASE_URL`, so the
+  actual `accounts.py` DB paths and endpoint gating are genuinely
+  exercised — but the **Google OAuth round-trip itself has never been
+  executed**, in any environment. It needs real Google credentials and a
+  browser, which this sandbox has neither of. `tsc --noEmit` and
+  `next build` pass, which proves the wiring compiles and the routes
+  register, not that a real sign-in completes.
+- **Not built:** favorites (the `is_favorite` column is read but nothing
+  toggles it), collections, billing/Stripe, and account deletion —
+  each is its own feature on top of this foundation, not part of it.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and
