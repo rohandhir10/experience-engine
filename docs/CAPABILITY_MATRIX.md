@@ -1407,6 +1407,73 @@ than restyling on top of the same structure.
   stretching it to match its taller sibling card's height (`items-start`
   added to the grid to fix it).
 
+## /comics: panel-by-panel script workspace scaffold — detail
+
+The first piece of a deliberate second product surface (`AURA Comics`,
+alongside `AURA Music`), on the strategy that both front ends can share
+one headless Reasoning Engine and one "literal / adapted / why" value
+proposition, just with a different input mechanism and review UI per
+medium. Explicitly NOT linked from primary nav or the marketing
+homepage — same convention as `/alternate-homepage` — because the
+project's non-fabrication discipline means the homepage can't pitch a
+Comics workspace with real screenshots until there's a real, working
+tool to screenshot. This entry is that tool's functional foundation
+only: file upload and a panel-review workspace, no OCR, no comics
+Reasoning Engine integration.
+
+- **`app/comics/page.tsx`** (new): page-level state holding the
+  uploaded panel list and the stage (upload vs. review) that follows
+  from whether it's empty. A banner states outright, in the UI itself,
+  that OCR and the adaptation engine aren't wired up yet — the same
+  honesty pattern `DashboardStub.tsx` uses for unbuilt dashboard
+  sections, applied to a whole new page rather than one sidebar item.
+- **`components/comics/PanelUploader.tsx`** (new): drag-and-drop plus
+  two file-picker buttons (`Choose files`, `Choose a folder` via the
+  non-standard-but-universally-supported `webkitdirectory` attribute).
+  **Known limitation, stated in the component's own comment:** a folder
+  dropped directly onto the page is not read recursively — browsers
+  expose a dropped folder's contents through an async directory-entry
+  API, not as plain `File` objects, and that's real additional work not
+  done here. Drag-and-drop accepts individual image files; a folder's
+  contents come in via the picker button instead. Both paths converge
+  on the same `onFilesSelected(File[])` callback.
+- **`components/comics/PanelWorkspace.tsx`** (new): the panel-by-panel
+  review UI — a thumbnail rail to jump between panels, the active
+  panel's real (unmodified) image on one side, and three plain text
+  fields on the other (Extracted text / Adapted text / Why). **These
+  are user-typed fields, not model output** — there is no OCR run
+  against these images and no comics-specific engine endpoint yet, so
+  labeling this any other way would be exactly the kind of fabricated
+  "processing" state the main-homepage redesign (previous entry) just
+  spent an entire pass removing. No bounding-box overlay around
+  extracted text either, for the same reason: there's no OCR result to
+  draw a box around yet.
+- **`lib/naturalSort.ts`** (new) + **`lib/comics-types.ts`** (new):
+  chapter-slice files are almost always named as a numeric sequence
+  (`panel-2.jpg`, `panel-10.jpg`), which a plain string sort orders
+  wrong (`panel-10` before `panel-2`); `naturalCompare` splits each name
+  into alternating text/number runs and compares number runs
+  numerically. `comics-types.ts` holds the `ComicPanel` shape and a
+  `panelsToCsv` helper for the export button — a real, working CSV
+  export (panel number, file name, extracted/adapted text, why) built
+  from whatever the user has actually typed in, not placeholder data.
+- **Images never leave the browser tab.** Each upload becomes a
+  `URL.createObjectURL` blob reference held only in page state — there
+  is no upload endpoint, no storage, nothing server-side yet. Reloading
+  the page loses the session; this is a scaffold, not a persisted
+  workspace.
+- **Tier 1** — pure frontend scaffolding, no engine logic. Verified:
+  `tsc --noEmit` and `next build` (both clean, confirms the route
+  registers), new unit tests for `naturalCompare` and `panelsToCsv`
+  (5 new tests, 38 total in `npx vitest run`, up from 33), the existing
+  460-test Python suite re-run to confirm this frontend-only change
+  didn't touch it, and a real `next start` + Playwright run that
+  actually uploaded three deliberately-out-of-order test images and
+  confirmed both the visual layout and the natural-sort ordering
+  (`panel-1.png` → `panel-2.png` → `panel-10.png`, read back from the
+  rendered "Panel 1 of 3 · panel-1.png" header) before calling this
+  done.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
