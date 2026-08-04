@@ -2513,6 +2513,37 @@ previous two entries said so explicitly).
   total, up from 524. `tsc --noEmit`, `next build`, and all 48 Vitest
   tests stayed green.
 
+## Backend medium filter for history — detail
+
+- **What it is:** `accounts.list_adaptations()` gains an optional
+  `medium` parameter ("music" | "webtoons"), filtering in SQL the same
+  way `favorites_only`/`collection_id` already do. `server/main.py`'s
+  `GET /api/me/adaptations` accepts the same `medium` query param and
+  passes it straight through. `medium=None` (the default, and what
+  every existing caller still gets) returns both mediums in one
+  combined, newest-first list — a deliberate choice, not a placeholder:
+  dashboard history is meant to read as one timeline, not two lists a
+  caller has to merge, per the "one product, not two products glued
+  together" framing this whole thread has been building toward.
+- **What this does NOT do:** nothing in the Next.js layer forwards this
+  param yet (`app/api/me/adaptations/route.ts` still only forwards
+  `favoritesOnly`/`collectionId`), `lib/history.ts::HistoryEntry` still
+  doesn't type `medium` on the frontend, and `RecentAdaptations.tsx`
+  still renders every row as if it were music (hardcoded `/s/` link,
+  assumes a `hook` line exists) — a real comics entry would render
+  wrong today if one ever reached this component. That per-row
+  rendering fix is the next scoped step, deliberately not bundled here
+  since this round is backend-only, mirroring how the medium column
+  itself landed separately from any UI last round.
+- **Tier 1** — deterministic SQL filtering, no model-quality claim.
+- **Benchmark coverage:** 1 new `tests/test_accounts.py` test
+  (`list_adaptations` with `medium="music"`, `medium="webtoons"`, and
+  unset all return the correct rows against the same two-row fixture) —
+  536 Python tests total, up from 535. No endpoint-level test added for
+  `GET /api/me/adaptations` itself, consistent with `favorites_only`/
+  `collection_id`'s existing coverage, which is also only exercised at
+  the `accounts.py` level, not re-tested through the FastAPI route.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

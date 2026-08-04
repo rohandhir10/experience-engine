@@ -116,6 +116,20 @@ def test_record_adaptation_accepts_webtoons_medium(sqlite_db):
     assert history[0]["medium"] == "webtoons"
 
 
+def test_list_adaptations_medium_filter_narrows_the_listing(sqlite_db):
+    user = accounts.sync_user("google-sub-medium-3", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "song-a", "Hindi")
+    accounts.record_adaptation(user["id"], "chapter-a", "Korean", medium="webtoons")
+
+    music_only = accounts.list_adaptations(user["id"], medium="music")
+    webtoons_only = accounts.list_adaptations(user["id"], medium="webtoons")
+    both = accounts.list_adaptations(user["id"])
+
+    assert [entry["resultId"] for entry in music_only] == ["song-a"]
+    assert [entry["resultId"] for entry in webtoons_only] == ["chapter-a"]
+    assert len(both) == 2
+
+
 def test_history_survives_a_vanished_cached_result(sqlite_db):
     user = accounts.sync_user("google-sub-6", "u@m.com", None)
     accounts.record_adaptation(user["id"], "result-gone", "Korean")

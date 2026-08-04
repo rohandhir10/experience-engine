@@ -471,12 +471,17 @@ def me_adaptations(
     http_request: Request,
     favorites_only: bool = False,
     collection_id: str | None = None,
+    medium: str | None = None,
 ) -> dict:
+    """medium ("music" | "webtoons") narrows the list the same way
+    favorites_only/collection_id do; omitted, returns both mediums in one
+    combined, newest-first timeline - see accounts.list_adaptations's
+    docstring for why that's the default rather than music-only."""
     _require_internal_secret(http_request)
     user_id = _required_user_id(http_request)
     try:
         adaptations = accounts.list_adaptations(
-            user_id, favorites_only=favorites_only, collection_id=collection_id
+            user_id, favorites_only=favorites_only, collection_id=collection_id, medium=medium
         )
     except ValueError as exc:  # malformed collection_id UUID
         raise HTTPException(status_code=400, detail="Invalid collection id.") from exc

@@ -408,15 +408,20 @@ def list_adaptations(
     limit: int = 50,
     favorites_only: bool = False,
     collection_id: str | None = None,
+    medium: str | None = None,
 ) -> list[dict]:
     """Newest-first history for one user, joined against cached_results
     for display fields (hook line, languages). A history row whose cached
     result has vanished still appears — with nulls — rather than
     silently disappearing from the user's history.
 
-    favorites_only and collection_id both filter in SQL rather than
-    trimming the returned list, so `limit` means "50 favorites", not
-    "however many of the 50 newest adaptations happened to be favorited".
+    favorites_only, collection_id, and medium all filter in SQL rather
+    than trimming the returned list, so `limit` means "50 favorites" (or
+    "50 webtoons"), not "however many of the 50 newest adaptations
+    happened to match". `medium=None` (the default) returns both -
+    dashboard history is one combined timeline, not two lists a caller
+    has to merge itself; a caller wanting just one medium passes it
+    explicitly.
 
     collection_id is additionally scoped by user_id via the join, so
     passing someone else's collection id returns an empty list rather
@@ -439,6 +444,8 @@ def list_adaptations(
         )
         if favorites_only:
             query = query.filter(Adaptation.is_favorite.is_(True))
+        if medium is not None:
+            query = query.filter(Adaptation.medium == medium)
         if collection_id is not None:
             query = (
                 query.join(
