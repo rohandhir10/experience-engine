@@ -100,7 +100,7 @@ export function InputScreen({
           (dashboard/pricing/sign-in all use a fixed mt-*), so the gap
           before the showcase card stays consistent instead of stretching
           or shrinking with viewport height. */}
-      <SiteHeader active="home" forceDark />
+      <SiteHeader active="music" forceDark />
 
       <div
         data-screenshot="hero"

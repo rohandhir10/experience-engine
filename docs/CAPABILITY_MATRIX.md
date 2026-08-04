@@ -2367,6 +2367,42 @@ previous two entries said so explicitly).
   routing/JSX move with nothing new to unit-test; `tsc --noEmit`, all
   524 Python tests, and all 45 Vitest tests stayed green throughout.
 
+## Medium switcher (header) — detail
+
+- **What it is:** a small Music/Webtoons pill in `SiteHeader`, shown only
+  on `/music` and `/comics` (via a new `active="music" | "webtoons"`
+  value), that lets someone hop directly between the two workspaces
+  without going back through `/`. Clicking the inactive side writes
+  `localStorage["aura-last-medium"]` and navigates. Extracted into its
+  own client component (`MediumSwitcher.tsx`) rather than making
+  `SiteHeader` itself interactive, for the same reason Sign In doesn't
+  branch on session there today: `SiteHeader` renders from both server
+  and client trees, and every page that doesn't pass the new `active`
+  value (`/`, `/pricing`, `/sign-in`, all of `/dashboard`) is completely
+  unaffected — no new client-side code ships to them.
+- **Bug fix bundled in:** `InputScreen.tsx` was still passing
+  `active="home"` after last round's move to `/music`, and
+  `SiteHeader`'s "Use Cases" link still pointed at `/#features` instead
+  of `/music#features` — both are stale from that move and are fixed
+  here, not new behavior.
+- **What this does NOT do:** `/` still doesn't read
+  `aura-last-medium` yet — visiting `/` always shows the chooser
+  regardless of what this switcher has written. That read/redirect side
+  was explicitly scoped as a separate next step. No switcher appears
+  anywhere in `/dashboard` (still music-only, untouched, same open
+  question as last round).
+- **Tier 1** — deterministic routing/state, no model-quality claim.
+  **Verified live:** real Chromium/Playwright pass on the production
+  build — clicked Webtoons from `/music`, confirmed navigation to
+  `/comics` AND read `localStorage.getItem("aura-last-medium")` back as
+  `"webtoons"` (not just clicked-and-assumed); clicked Music from
+  `/comics`, confirmed the reverse. Screenshots of the header on both
+  pages confirm correct active-state highlighting and correct theming
+  (dark pill on `/music`, light pill on `/comics`) in each context.
+- **Benchmark coverage:** no new automated tests (routing + a DOM
+  interaction, no new pure logic to unit test); `tsc --noEmit`, all 524
+  Python tests, and all 45 Vitest tests stayed green.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

@@ -157,7 +157,7 @@ export default function ComicsPage() {
   return (
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
       <div className="mx-auto max-w-5xl">
-        <SiteHeader />
+        <SiteHeader active="webtoons" />
 
         <div className="mt-10">
           <p className="text-[12px] uppercase tracking-[0.15em] text-accent">

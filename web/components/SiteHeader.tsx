@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { MediumSwitcher } from "./MediumSwitcher";
 
 /** Sign In / Get Started render everywhere (consistent global chrome, like
  * ChatGPT). Sign In is now real (Auth.js + Google, see web/auth.ts) and
@@ -9,13 +10,20 @@ import { Logo } from "./Logo";
  * this component is rendered from BOTH server and client trees
  * (InputScreen.tsx is "use client"), so it can't read the session here
  * without a broader refactor. Pricing/Get Started are still cosmetic:
- * there's no Stripe. */
+ * there's no Stripe.
+ *
+ * active="music"/"webtoons" (set by /music and /comics respectively)
+ * additionally renders MediumSwitcher - a small extracted client
+ * component, for the same reason Sign In can't branch on session here:
+ * SiteHeader itself stays server-renderable everywhere else, and only
+ * the two pages that need an interactive switch pull in the client
+ * bit. "/" and every other page pass neither and get no switcher. */
 export function SiteHeader({
   active,
   right,
   forceDark,
 }: {
-  active?: "pricing" | "home";
+  active?: "pricing" | "home" | "music" | "webtoons";
   right?: ReactNode;
   forceDark?: boolean;
 }) {
@@ -34,7 +42,10 @@ export function SiteHeader({
         <Logo force={forceDark ? "light" : undefined} />
       </Link>
       <div className="flex items-center gap-4 sm:gap-6">
-        <Link href="/#features" className={`hidden sm:inline ${navLink}`}>
+        {(active === "music" || active === "webtoons") && (
+          <MediumSwitcher active={active} forceDark={forceDark} />
+        )}
+        <Link href="/music#features" className={`hidden sm:inline ${navLink}`}>
           Use Cases
         </Link>
         {active !== "pricing" && (
