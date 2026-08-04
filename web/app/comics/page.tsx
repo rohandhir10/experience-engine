@@ -12,18 +12,21 @@ import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
 
-// Not linked from primary nav or the marketing homepage - reachable only
-// by URL, same convention as /alternate-homepage. Per the project's
-// non-fabrication discipline, the homepage won't pitch a Comics
-// workspace until there's a real, working tool to show a real
-// screenshot of. This page is that tool's functional foundation: file
-// upload, a panel-by-panel review workspace, a real (if imperfect) OCR
-// pass per panel (/api/comics/ocr), and now a real adaptation call
-// (/api/comics/adapt, engine/chapter_dna.py + engine/comics_adapt.py) -
-// see that route's comments for what it does and doesn't do yet (each
-// PANEL is one adaptation unit, not each detected OCR region; no
-// voice/character attribution; synchronous, so a long chapter can time
-// out - no async job/poll pattern exists for this yet).
+// Now linked from "/" (the Webtoons tile on the medium-chooser split
+// screen) with a "Beta" badge, rather than reachable only by URL - it
+// earned that entry point once OCR + a real adapt call both existed,
+// per the project's non-fabrication discipline. Still genuinely behind
+// music on feature parity, which is exactly what the badge discloses:
+// no save/collections/share-link, and the adapt call below is still
+// synchronous, so a long chapter can time out - no async job/poll
+// pattern exists for this yet (music's /api/adapt/start + jobs/[jobId]
+// is the pattern to eventually match). This page is that tool's
+// functional foundation: file upload, a panel-by-panel review
+// workspace, a real (if imperfect) OCR pass per panel
+// (/api/comics/ocr), and a real adaptation call (/api/comics/adapt,
+// engine/chapter_dna.py + engine/comics_adapt.py) - see that route's
+// comments for what it does and doesn't do yet (each PANEL is one
+// adaptation unit, not each detected OCR region).
 export default function ComicsPage() {
   const [panels, setPanels] = useState<ComicPanel[]>([]);
   const [sourceLanguage, setSourceLanguage] = useState("English");

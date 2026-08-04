@@ -2323,6 +2323,50 @@ previous two entries said so explicitly).
   clean `tsc --noEmit` and `next build`, and the live-browser Playwright
   pass described above.
 
+## Medium-chooser split landing page — detail
+
+- **What it is:** `/` is no longer the music workflow directly — it's a
+  neutral chooser between two equal tiles, Music and Webtoons, each
+  linking out to its own workspace (`/music`, moved verbatim from the
+  old `app/page.tsx`; `/comics`, unchanged). Same tile size, same visual
+  weight, deliberately not a flagship-plus-experiment layout — Webtoons
+  carries a "Beta" badge (same visual convention as
+  `DashboardSidebar.tsx`'s "Soon" pill) rather than being presented as
+  equally mature, since it isn't: no save/collections/share-link, and
+  `/api/comics/adapt` is still a synchronous call that can time out on a
+  long chapter, unlike music's job/poll pattern
+  (`/api/adapt/start` + `/api/adapt/jobs/[jobId]`).
+- **What moved:** every `/#lyrics` anchor link across the app
+  (`SiteHeader`'s "Get Started", `ResultScreen`'s "Try any song", the
+  sign-in page's CTA, `alternate-homepage`'s two CTAs) now points at
+  `/music#lyrics`, since that textarea no longer lives at `/`.
+  `app/comics/page.tsx`'s own top comment was updated to stop claiming
+  it's reachable "only by URL" — it now has a real entry point.
+- **What this does NOT do:** no "remember last medium" mechanism yet
+  (every visit to `/` shows the chooser, even for someone who always
+  picks the same tile) and no in-workspace switcher to hop between
+  `/music` and `/comics` without going back through `/` — both were
+  scoped in conversation as the next increment, deliberately not bundled
+  into this pass. The dashboard (`/dashboard`) is still music-only and
+  untouched; whether it gets the same split treatment is an open
+  question, not decided here. Webtoons' tile proof-point is a small
+  honest mock of the panel-upload UI, not a real captured screenshot —
+  no real end-to-end chapter run (real API keys, a human reviewing real
+  output) has happened in this sandbox to crop one from.
+- **Tier 1** — this is routing and static layout, fully deterministic;
+  no model-quality claim is made or changed by this entry.
+  **Verified live:** production build (`next build`) succeeded with `/`
+  now a 2.2 kB static page (down from carrying the full input screen);
+  a real Chromium/Playwright pass loaded `/` at desktop and mobile
+  widths, confirmed both tiles render side-by-side on desktop and stack
+  on mobile, and confirmed clicking each tile actually navigates to
+  `/music` and `/comics` respectively with their existing content
+  intact — read back from the rendered screenshots, not assumed from
+  the code.
+- **Benchmark coverage:** no new automated tests — this is a pure
+  routing/JSX move with nothing new to unit-test; `tsc --noEmit`, all
+  524 Python tests, and all 45 Vitest tests stayed green throughout.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

@@ -71,7 +71,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
           One real example, showing how the engine works — not a preview
           of what genre or language your own song needs to be.{" "}
           <Link
-            href="/#lyrics"
+            href="/music#lyrics"
             className="underline decoration-ink/20 underline-offset-4 hover:text-ink/80 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/80"
           >
             Try any song →

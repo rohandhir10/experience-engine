@@ -91,7 +91,7 @@ export default async function SignInPage() {
         )}
 
         <Link
-          href="/#lyrics"
+          href="/music#lyrics"
           className="mt-6 text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
         >
           Just take me to AURA →

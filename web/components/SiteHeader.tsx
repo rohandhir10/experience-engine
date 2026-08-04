@@ -65,7 +65,7 @@ export function SiteHeader({
           Sign In
         </Link>
         <Link
-          href="/#lyrics"
+          href="/music#lyrics"
           className={
             forceDark
               ? "whitespace-nowrap rounded-full bg-white px-4 py-1.5 text-[13px] font-medium text-black transition active:scale-[0.97]"

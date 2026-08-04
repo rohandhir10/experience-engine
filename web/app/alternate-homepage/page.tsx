@@ -49,7 +49,7 @@ export default function AlternateHomepage() {
           </p>
           <div className="mt-7 flex items-center justify-center gap-3">
             <Link
-              href="/#lyrics"
+              href="/music#lyrics"
               className="rounded-full bg-white px-6 py-2.5 text-[14px] font-medium text-black transition active:scale-[0.97]"
             >
               Try AURA
@@ -210,7 +210,7 @@ export default function AlternateHomepage() {
         </h2>
         <div className="mt-6 flex items-center justify-center gap-3">
           <Link
-            href="/#lyrics"
+            href="/music#lyrics"
             className="rounded-full bg-ink px-7 py-3 text-[14px] font-medium text-paper transition active:scale-[0.97] dark:bg-ink-dark dark:text-paper-dark"
           >
             Adapt a song
