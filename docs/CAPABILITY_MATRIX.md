@@ -2060,6 +2060,78 @@ still not built.
   case — is accepted, not forced to fabricate a profile). 507 Python
   tests total, up from 497. No web changes this round.
 
+## Wiring one bubble through the Writers' Room — detail
+
+Item #4 of the chapter-level-context roadmap: the first proof that
+ChapterDNA (previous entry) can actually drive a real adaptation, not
+just sit there as an analysis nobody consumes. Still no `/api/comics/
+adapt` and no frontend wiring — that's item #5, still not built; this
+is engine-layer only, exercised so far by fake-client tests.
+
+- **The core decision, stated plainly:** rather than duplicating
+  `engine/prompts.py`'s ~500 lines of `SongDNA`-shaped prompt-building
+  (`_song_dna_context` calls `dna.section(name)` and reads per-section
+  motifs/ambiguities/symbols `ChapterDNA` has no equivalent of) to build
+  a parallel comics-specific prompt layer for a proof of concept,
+  `engine/comics_adapt.py::_bubble_song_dna` wraps one bubble + a
+  chapter's `ChapterDNA` into a single-section `SongDNA` the existing
+  Translator -> Creative Adapter -> Judge machinery already knows how
+  to consume, completely unmodified. `tone` fills `poetic_register`
+  (the same "rhetorical register, a handful of words" axis, just named
+  differently per medium); `ongoing_plot_context` fills both
+  `arc_shape` and `songwriter_intention`, since a single dramatic beat's
+  "what's happening" and "why" collapse into the same answer, unlike a
+  whole song's arc. The single `SectionProfile` is an HONESTLY NEUTRAL
+  placeholder (`narrative_function`/`density` both say plainly "not
+  analyzed yet" rather than inventing a per-bubble read Chapter DNA was
+  never asked to produce) — the one exception is
+  `emotional_arc_point.dominant_feeling`, filled with the chapter's real
+  `tone` since that costs nothing and is directly known.
+- **`adapt_bubble`** runs one bubble through `writers_room_v1.
+  run_section` unchanged. **Voice consistency works correctly, for
+  free**: `bubble.voice` threads through exactly the way
+  `SectionInput.voice` already does for a song's duet/dialogue
+  sections — no new code needed for two characters in the same chapter
+  to be judged for consistency WITHIN each one's own voice, the same
+  rule songs already have.
+- **`adapt_chapter`** loops every bubble in order, carrying `RoomMemory`
+  forward the same way `engine/pipeline.py::run_engine` does for song
+  sections — `prior_rulings` (so a later bubble's Judge call sees
+  earlier bubbles' rulings, verified directly: the second bubble's
+  prompt literally contains the first bubble's section id and final
+  line) and `compensations` (so a structural-trap decision, e.g. which
+  English register carries a Korean speech-level distinction, made on
+  bubble 1 is binding and visible in bubble 2's prompt — also verified
+  directly, not assumed).
+- **What this deliberately does NOT do, all disclosed rather than
+  glossed over:** no batching (`adapt_chapter` is N sequential full
+  Writers' Room runs — 3-7 LLM calls each, same per-unit cost a song
+  section already has, just applied to much shorter dialogue units; a
+  real chapter with dozens of bubbles means dozens of full room runs,
+  the exact cost concern flagged when this roadmap was first scoped).
+  No motif/ambiguity/symbol tracking (`ChapterDNA` has none of these
+  concepts yet — the wrapped `SongDNA`'s `motifs`/`ambiguities`/
+  `symbols` are always empty, never fabricated). No honorific-register
+  tracking through room memory (item #6, still not built) — a
+  character's `honorific_register` snapshot from Chapter DNA is never
+  even read by this module yet, let alone updated as a chapter
+  progresses; that wiring doesn't exist until #6.
+- **Tier 1** for the wrapping/looping logic itself (deterministic,
+  reuses existing, already-tested Writers' Room code unchanged); the
+  adaptation OUTPUT's quality is exactly as unverified as any other
+  fresh Writers' Room run in this document — no real chapter has been
+  run through this yet, only fake-client tests.
+- **Benchmark coverage:** 5 new `tests/test_comics_adapt.py` tests —
+  `_bubble_song_dna`'s field mapping (direct unit test, confirms no
+  fabricated per-bubble analysis leaks in), `adapt_bubble` running the
+  full 3-call room and threading voice onto the ruling, `adapt_chapter`
+  processing every bubble in order with the right voice per bubble, and
+  two tests directly confirming cross-bubble continuity by inspecting
+  the actual judge prompts sent for bubble 2 (containing bubble 1's
+  section id/final line, and its compensation entry) rather than just
+  trusting the room-memory object's internal state. 512 Python tests
+  total, up from 507.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
