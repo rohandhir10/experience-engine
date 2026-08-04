@@ -9,6 +9,7 @@ fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 sqlalchemy>=2.0
 psycopg[binary]>=3.1  # Postgres driver for server/db.py; DATABASE_URL is Railway's Postgres plugin
+alembic>=1.13  # schema migrations (server/migrations); replaces the create_all + hand-patch pattern
 deep-translator>=1.11  # benchmark only: Google Translate baseline
 # Optional: Japanese kanji readings for mora counting. Without it the
 # engine still counts pure-kana text exactly, but declines to guess at

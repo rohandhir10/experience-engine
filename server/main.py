@@ -104,8 +104,12 @@ async def _lifespan(_app: FastAPI):
         logger.warning("DATABASE_URL not set - skipping database init")
     else:
         try:
-            db.create_all()
-            logger.info("database tables ready")
+            # Alembic (server/migrations), not bare create_all - the
+            # baseline revision is checkfirst so this is safe on both a
+            # fresh database and the already-deployed one. See
+            # server/db.py::migrate_to_head.
+            db.migrate_to_head()
+            logger.info("database schema at migration head")
         except Exception:
             logger.exception("database init failed")
     yield

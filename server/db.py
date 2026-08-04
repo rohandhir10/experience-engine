@@ -21,6 +21,7 @@ raw `create_all` diff could silently fail to alter).
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -93,6 +94,27 @@ def create_all() -> None:
     _patch_known_schema_drift()
 
 
+def migrate_to_head() -> None:
+    """Runs `alembic upgrade head` programmatically — the startup schema
+    path, replacing the bare create_all()+hand-patch pattern this module's
+    docstring (and _patch_known_schema_drift's, twice) said was overdue
+    for replacement.
+
+    The baseline revision (server/migrations/versions/0001_baseline.py)
+    is checkfirst-create_all, so this is safe on both a fresh database
+    and the already-deployed one — see that file's docstring. The drift
+    patch still runs afterwards during the transition: it's idempotent,
+    and it's what guarantees the hand-added columns exist on databases
+    created before the models declared them.
+    """
+    from alembic import command
+    from alembic.config import Config
+
+    cfg = Config(str(Path(__file__).parent / "alembic.ini"))
+    command.upgrade(cfg, "head")
+    _patch_known_schema_drift()
+
+
 def _patch_known_schema_drift() -> None:
     """`create_all()` only creates TABLES that don't exist yet - it never
     ALTERs a table that's already there, which is exactly the risk this
@@ -116,7 +138,14 @@ def _patch_known_schema_drift() -> None:
     """
     from sqlalchemy import text
 
-    with get_engine().begin() as conn:
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        # ADD COLUMN IF NOT EXISTS is Postgres syntax; on sqlite (local
+        # smoke tests against a file DB) the models already carry these
+        # columns and there's no pre-existing deployed table to patch.
+        return
+
+    with engine.begin() as conn:
         conn.execute(text(
             "ALTER TABLE cached_results ADD COLUMN IF NOT EXISTS "
             "target_language VARCHAR DEFAULT 'English'"

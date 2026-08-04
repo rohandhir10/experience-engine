@@ -260,3 +260,35 @@ def test_a_full_engine_run_produces_a_real_stage_labeled_call_log(monkeypatch):
     # Same data must round-trip through the stored result.
     dumped = result.to_dict()["llm_calls"]
     assert [c["stage"] for c in dumped] == stages
+
+
+# ---------------------------------------------------------------------------
+# SDK client reuse — the scalability-audit fix for per-request pools
+# ---------------------------------------------------------------------------
+
+
+def test_two_wrapper_instances_share_one_sdk_client(monkeypatch):
+    """Before the shared-client cache, every create_default_client() call
+    built a fresh openai.OpenAI (and its own httpx connection pool) — twice
+    per adaptation request — so keep-alive connections were never reused
+    across requests. Two wrappers with identical config must now hold the
+    SAME underlying SDK client, while keeping their own call_logs."""
+    a = OpenAILLMClient()
+    b = OpenAILLMClient(model="gpt-4o-mini")  # different model, same pool
+    assert a._client is b._client
+    assert a.call_log is not b.call_log
+
+
+def test_different_config_gets_a_different_sdk_client(monkeypatch):
+    monkeypatch.setattr(config, "FORCE_IPV4", True)
+    a = OpenAILLMClient()
+    monkeypatch.setattr(config, "FORCE_IPV4", False)
+    b = OpenAILLMClient()
+    assert a._client is not b._client
+
+
+def test_different_api_key_gets_a_different_sdk_client(monkeypatch):
+    a = OpenAILLMClient()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-a-second-key")
+    b = OpenAILLMClient()
+    assert a._client is not b._client

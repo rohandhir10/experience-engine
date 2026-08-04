@@ -682,13 +682,11 @@ are fixed here, the last two are documented, not touched.
   docstring already flagged this as "worth revisiting," unchanged by
   this pass.
 - **No connection reuse across requests in `engine/llm_client.py`** — a
-  fresh `openai.OpenAI` client (and its own `httpx` connection pool) is
+  fresh `openai.OpenAI` client (and its own `httpx` connection pool) was
   constructed on every `create_default_client()` call, i.e. twice per
-  adaptation request. Under high concurrency this multiplies socket/file-
-  descriptor usage instead of reusing keep-alive connections across
-  requests. Not fixed here — would need a shared, thread-safe client
-  instance rather than the current per-request construction, and that's
-  a real behavior change to code this session didn't otherwise touch.
+  adaptation request. FIXED in a follow-up pass (see "Scalability
+  follow-through" below): provider SDK clients are now cached and shared
+  across wrapper instances.
 - **Multi-worker/multi-instance Docker deployment itself** — fixes 1-2
   above remove the state-sharing blocker, but the Dockerfile still runs a
   single `uvicorn` process with no `--workers` flag. Actually turning on
@@ -699,7 +697,54 @@ are fixed here, the last two are documented, not touched.
   reputation, bot filtering) in front of the API — the per-IP daily quota
   is a cost guard, not abuse protection; this is unrelated to throughput
   scaling and out of scope for this pass.
-- **Alembic / real migrations** — see finding 6 above.
+- **Alembic / real migrations** — see finding 6 above. FIXED in a
+  follow-up pass (see "Scalability follow-through" below).
+
+## Scalability follow-through: migrations, connection reuse, web tests — detail
+
+The follow-up pass closing three items the audit above left documented
+rather than fixed.
+
+- **Alembic migrations (`server/alembic.ini`, `server/migrations/`)**:
+  the schema is no longer managed by bare `create_all()` + hand-patched
+  `ALTER TABLE IF NOT EXISTS` (a pattern `server/db.py`'s own comments
+  had twice flagged as not scaling past one change). Startup now runs
+  `server/db.py::migrate_to_head()` — programmatic
+  `alembic upgrade head` — instead of `create_all()`. The baseline
+  revision (`0001_baseline`) deliberately delegates to
+  `Base.metadata.create_all(checkfirst=True)` so it is safe from BOTH
+  starting states with no manual `alembic stamp` step: a fresh database
+  gets every table, the already-deployed Railway database gets a no-op
+  plus the version row. The tradeoff (a baseline that reads live
+  metadata instead of freezing the schema in the file) is stated in the
+  revision's docstring, with the rule going forward: every change AFTER
+  the baseline must be a real, frozen, reviewed migration
+  (`alembic -c server/alembic.ini revision --autogenerate -m "..."`),
+  never another metadata delegation. `_patch_known_schema_drift()` still
+  runs after migration during the transition (idempotent, now guarded to
+  Postgres only). Verified end-to-end against sqlite file databases in
+  both starting states — fresh and pre-existing — plus the CLI
+  (`alembic current`); NOT yet executed against live Postgres, same
+  disclosure as the audit above.
+- **Shared provider SDK clients (`engine/llm_client.py`)**: `openai.
+  OpenAI`/`anthropic.Anthropic` instances (each owning an httpx
+  connection pool) are now cached in a module-level dict keyed by
+  everything that changes the constructed client (provider, api key,
+  timeout, retries, transport), and shared across `LLMClient` wrapper
+  instances — keep-alive connections finally get reused across requests
+  and background jobs instead of every request building two fresh pools.
+  The wrappers themselves stay per-request: `call_log` is per-instance
+  cost accounting and must not be shared. Covered by three new tests in
+  `tests/test_llm_client.py` (same config → same SDK client, different
+  transport config → different client, different api key → different
+  client).
+- **First web test harness (`web/vitest.config.mts`, `npm test`)**: the
+  web package finally has runnable behavioral tests instead of
+  tsc/next-build-only verification. Scope today: pure logic in `lib/` —
+  12 tests for `detectLanguage` (every roster script, Latin-script
+  English/Spanish disambiguation, and the decline cases including an
+  unmapped script). Component tests (jsdom + testing-library) remain
+  unbuilt — worth adding when a component regression actually bites.
 
 **Tier 1** — every fix here is deterministic infrastructure, not a
 model-behavior claim. **Verification gap, disclosed honestly**: this

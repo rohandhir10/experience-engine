@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 from typing import Any
 
@@ -28,6 +29,33 @@ from .models import LLMCallRecord
 
 class LLMError(RuntimeError):
     """Raised when the model cannot be reached or returns unparseable output."""
+
+
+# Provider SDK clients (openai.OpenAI / anthropic.Anthropic), shared
+# across LLMClient instances. Each SDK client owns an httpx connection
+# pool; before this cache, every create_default_client() call — twice
+# per adaptation request (main model + explain-why model), plus one per
+# background job — built a fresh pool, so under concurrent load nothing
+# ever reused a keep-alive connection and socket/file-descriptor usage
+# multiplied with request count instead of stabilizing (flagged in
+# docs/CAPABILITY_MATRIX.md's scalability audit). Both SDK clients are
+# documented thread-safe. Keyed by everything that changes the
+# constructed client (provider, api key, timeout, retries, transport),
+# so a test or env change that alters any of them gets its own client
+# rather than a stale cached one. The wrapper LLMClient instances stay
+# per-request — call_log is per-instance accounting and must not be
+# shared.
+_sdk_clients: dict[tuple, Any] = {}
+_sdk_clients_lock = threading.Lock()
+
+
+def _shared_sdk_client(cache_key: tuple, build) -> Any:
+    with _sdk_clients_lock:
+        client = _sdk_clients.get(cache_key)
+        if client is None:
+            client = build()
+            _sdk_clients[cache_key] = client
+        return client
 
 
 class LLMClient:
@@ -138,26 +166,41 @@ class OpenAILLMClient(LLMClient):
 
         self.model = model or config.OPENAI_MODEL
         self.call_log: list[LLMCallRecord] = []
-        http_client = None
-        if config.FORCE_IPV4:
-            # Some containerized/serverless environments (seen: a Vercel
-            # Python function) have broken or unreachable IPv6 egress —
-            # a connection attempt that tries an IPv6 address first fails
-            # almost instantly ("no route to host"), which looks exactly
-            # like the fast, repeated "Connection error." failures this
-            # was added for, rather than a slow timeout. Binding the local
-            # address forces httpx to resolve and connect over IPv4 only.
-            # A hypothesis, not a confirmed diagnosis — AURA_FORCE_IPV4=0
-            # disables this if it turns out not to be the cause.
-            http_client = httpx.Client(
-                transport=httpx.HTTPTransport(local_address="0.0.0.0")
-            )
-        self._client = openai.OpenAI(
-            api_key=api_key or config.get_api_key("openai"),
-            timeout=config.LLM_TIMEOUT_SECONDS,
-            max_retries=config.LLM_MAX_RETRIES,
-            http_client=http_client,
+        resolved_key = api_key or config.get_api_key("openai")
+        cache_key = (
+            "openai",
+            resolved_key,
+            config.LLM_TIMEOUT_SECONDS,
+            config.LLM_MAX_RETRIES,
+            config.FORCE_IPV4,
         )
+
+        def _build() -> openai.OpenAI:
+            http_client = None
+            if config.FORCE_IPV4:
+                # Some containerized/serverless environments (seen: a Vercel
+                # Python function) have broken or unreachable IPv6 egress —
+                # a connection attempt that tries an IPv6 address first fails
+                # almost instantly ("no route to host"), which looks exactly
+                # like the fast, repeated "Connection error." failures this
+                # was added for, rather than a slow timeout. Binding the local
+                # address forces httpx to resolve and connect over IPv4 only.
+                # A hypothesis, not a confirmed diagnosis — AURA_FORCE_IPV4=0
+                # disables this if it turns out not to be the cause.
+                http_client = httpx.Client(
+                    transport=httpx.HTTPTransport(local_address="0.0.0.0")
+                )
+            return openai.OpenAI(
+                api_key=resolved_key,
+                timeout=config.LLM_TIMEOUT_SECONDS,
+                max_retries=config.LLM_MAX_RETRIES,
+                http_client=http_client,
+            )
+
+        # Shared across instances — the SDK client (and its connection
+        # pool) is model-agnostic, since the model name is passed per
+        # request in _call. See _sdk_clients above.
+        self._client = _shared_sdk_client(cache_key, _build)
 
     def _call(self, system: str, user: str, max_tokens: int | None) -> tuple[str, int, int]:
         import openai
@@ -201,7 +244,12 @@ class AnthropicLLMClient(LLMClient):
 
         self.model = model or config.ANTHROPIC_MODEL
         self.call_log: list[LLMCallRecord] = []
-        self._client = anthropic.Anthropic(api_key=api_key or config.get_api_key("anthropic"))
+        resolved_key = api_key or config.get_api_key("anthropic")
+        # Same shared-SDK-client discipline as OpenAILLMClient above.
+        self._client = _shared_sdk_client(
+            ("anthropic", resolved_key),
+            lambda: anthropic.Anthropic(api_key=resolved_key),
+        )
 
     def _call(self, system: str, user: str, max_tokens: int | None) -> tuple[str, int, int]:
         import anthropic
