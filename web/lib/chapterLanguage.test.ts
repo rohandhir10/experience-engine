@@ -19,6 +19,10 @@ function panel(
     ocrMessage: null,
     detectedLanguages,
     voice: null,
+    redrawRegionTexts: null,
+    redrawResultUrl: null,
+    redrawStatus: "idle",
+    redrawMessage: null,
     ...overrides,
   };
 }

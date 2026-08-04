@@ -2797,6 +2797,66 @@ previous two entries said so explicitly).
   image rejection, a genuine redraw failure surfacing as a 400) — 588
   Python tests total, up from 566.
 
+## Comics redraw — frontend wiring — detail
+
+- **What it is:** the comics panel workspace (`components/comics/
+  PanelWorkspace.tsx`) now has a real "Redraw" section — one editable
+  text box per detected OCR region, a "Redraw panel" button, and the
+  composited result shown inline with a download link. New
+  `lib/comicsRedraw.ts` (the `/api/comics/redraw` client call plus
+  `resolveRedrawRegionText`, a pure function deciding what each box
+  shows) and a new Next.js proxy route
+  (`app/api/comics/redraw/route.ts`), same multipart-repackaging
+  pattern as the existing OCR proxy.
+- **The real design fork this round, resolved by asking rather than
+  guessing:** `ComicPanel.adaptedText` is one string for the WHOLE
+  panel (adaptation isn't per-bubble yet — a pre-existing, disclosed
+  limitation), but a panel can have several detected OCR regions.
+  There's no real mapping from one adapted paragraph to "which of 3
+  bubbles." Two honest options existed: gate the feature to
+  single-region panels only, or let a human fill in per-region text by
+  hand for multi-region panels. Chose the latter — it's the same UI
+  shape either way (a single-region panel just has one box, pre-filled
+  from the existing `adaptedText`), it doesn't hard-block the common
+  multi-bubble case, and it's the exact UI real per-bubble adaptation
+  would need anyway once that eventually gets built, rather than a gate
+  that would need tearing out later.
+- **The actual rule, real and tested:** a region's box defaults to the
+  panel's whole `adaptedText` ONLY when there's exactly one detected
+  region (the one case the mapping is unambiguous); a multi-region
+  panel's boxes start blank, never auto-split from the one adapted
+  block. Only regions with non-empty text get sent to
+  `/api/comics/redraw` — a human can redraw just the one bubble they've
+  filled in, leaving others untouched, rather than being forced to fill
+  in every region before redrawing any of it.
+- **What this does NOT do:** no persistence of the redrawn result
+  (matches the backend's own scope — a fresh redraw re-runs the whole
+  pipeline, there's no id to fetch a past result by) and no CSV export
+  of it either. No indication in the UI of which regions are
+  bubbles vs. SFX — same caveat as the backend, the human is trusted to
+  only fill in genuine bubble regions.
+- **Tier 1** — deterministic UI/data-flow logic; the underlying redraw
+  quality is whatever Scope B's own entry above already discloses
+  (Tier 0).
+  **Verified live:** a Chromium/Playwright pass against the production
+  build with `/api/comics/ocr` and `/api/comics/redraw` both mocked —
+  uploaded a panel, ran (mocked) OCR returning two regions, confirmed
+  both redraw text boxes started genuinely blank (not silently
+  pre-filled with a guess), typed text into only the second region,
+  clicked "Redraw panel," and inspected the ACTUAL multipart payload
+  sent to the endpoint — confirmed only region 2's bbox+text was
+  included, region 1 correctly omitted — then confirmed the composited
+  result image and download link both rendered. This was checked by
+  reading the real captured request body and the rendered screenshot,
+  not assumed from the code.
+- **Benchmark coverage:** 6 new Vitest tests for
+  `resolveRedrawRegionText` (single-region default-fill, multi-region
+  never-guesses, human override wins, per-region independence, an
+  explicit cleared-to-empty override sticking rather than silently
+  repopulating, and the no-OCR-yet case) — 58 Vitest tests total, up
+  from 52. `tsc --noEmit` and `next build` clean. 588 Python tests
+  unchanged (backend untouched this round).
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

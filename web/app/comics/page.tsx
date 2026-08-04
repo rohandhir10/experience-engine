@@ -12,6 +12,7 @@ import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
+import { RedrawRequestError, redrawPanel, resolveRedrawRegionText } from "@/lib/comicsRedraw";
 import { writeMediumPreference } from "@/lib/mediumPreference";
 
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
@@ -68,6 +69,10 @@ export default function ComicsPage() {
         ocrMessage: null,
         detectedLanguages: null,
         voice: null,
+        redrawRegionTexts: null,
+        redrawResultUrl: null,
+        redrawStatus: "idle" as const,
+        redrawMessage: null,
       }))
       .sort((a, b) => naturalCompare(a.fileName, b.fileName));
 
@@ -86,7 +91,18 @@ export default function ComicsPage() {
   async function runOcr(id: string) {
     const panel = panels.find((p) => p.id === id);
     if (!panel) return;
-    updatePanel(id, { ocrStatus: "running", ocrMessage: null, ocrRegions: null });
+    updatePanel(id, {
+      ocrStatus: "running",
+      ocrMessage: null,
+      ocrRegions: null,
+      // A new OCR run means new region indices - any redraw state tied
+      // to the old ones (per-region text, a composited result image)
+      // no longer corresponds to anything real.
+      redrawRegionTexts: null,
+      redrawResultUrl: null,
+      redrawStatus: "idle",
+      redrawMessage: null,
+    });
     try {
       const result = await runPanelOcr(panel.file);
       updatePanel(id, {
@@ -103,6 +119,38 @@ export default function ComicsPage() {
         ocrStatus: "error",
         ocrMessage:
           err instanceof OcrRequestError ? err.message : "OCR failed for this panel.",
+      });
+    }
+  }
+
+  async function redrawPanelAction(id: string) {
+    const panel = panels.find((p) => p.id === id);
+    if (!panel?.ocrRegions?.length || panel.redrawStatus === "running") return;
+
+    const regionsToSend = panel.ocrRegions
+      .map((region, i) => ({
+        bbox: region.bbox,
+        adaptedText: resolveRedrawRegionText(panel, i).trim(),
+      }))
+      .filter((r) => r.adaptedText);
+
+    if (!regionsToSend.length) {
+      updatePanel(id, {
+        redrawStatus: "error",
+        redrawMessage: "Fill in at least one region's adapted text first.",
+      });
+      return;
+    }
+
+    updatePanel(id, { redrawStatus: "running", redrawMessage: null });
+    try {
+      const dataUrl = await redrawPanel(panel.file, regionsToSend);
+      updatePanel(id, { redrawStatus: "idle", redrawResultUrl: dataUrl, redrawMessage: null });
+    } catch (err) {
+      updatePanel(id, {
+        redrawStatus: "error",
+        redrawMessage:
+          err instanceof RedrawRequestError ? err.message : "Redrawing this panel failed.",
       });
     }
   }
@@ -279,6 +327,7 @@ export default function ComicsPage() {
                   onUpdatePanel={updatePanel}
                   onRemovePanel={removePanel}
                   onRunOcr={runOcr}
+                  onRedrawPanel={redrawPanelAction}
                 />
               </div>
             </>

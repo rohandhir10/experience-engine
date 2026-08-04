@@ -15,6 +15,10 @@ function panel(overrides: Partial<ComicPanel> = {}): ComicPanel {
     ocrMessage: null,
     detectedLanguages: null,
     voice: null,
+    redrawRegionTexts: null,
+    redrawResultUrl: null,
+    redrawStatus: "idle",
+    redrawMessage: null,
     ...overrides,
   };
 }

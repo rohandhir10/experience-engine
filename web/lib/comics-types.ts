@@ -44,6 +44,27 @@ export type ComicPanel = {
   // set of characters isn't known until Chapter DNA runs, and even then
   // a human should be free to name someone Chapter DNA didn't profile.
   voice: string | null;
+  // Per-region override text for "Redraw panel" (lib/comicsRedraw.ts),
+  // parallel to ocrRegions - index i is the human-typed adapted text to
+  // draw into ocrRegions[i]'s bbox, or null if they haven't filled that
+  // region in yet. Deliberately NOT auto-filled by splitting
+  // adaptedText across regions (there's no real per-bubble adaptation
+  // yet - see engine/comics_adapt.py's known limitation - so any
+  // auto-split would be a fabricated mapping). The one exception:
+  // when there's exactly one region, the UI defaults an unfilled slot
+  // to the panel's whole adaptedText, since that mapping IS
+  // unambiguous. Null until OCR has run; reset (to an all-null array
+  // matching the new region count) whenever OCR reruns, same "a stale
+  // box never lingers" rule ocrRegions itself already follows.
+  redrawRegionTexts: (string | null)[] | null;
+  // The composited PNG (as a data: URI) from the most recent successful
+  // /api/comics/redraw call - null until one has run. Not persisted
+  // server-side (server/main.py's endpoint returns it, doesn't cache
+  // it), not included in CSV export - purely this tab's in-memory
+  // result, same as everything else about this workspace.
+  redrawResultUrl: string | null;
+  redrawStatus: "idle" | "running" | "error";
+  redrawMessage: string | null;
 };
 
 export type OcrRegion = {

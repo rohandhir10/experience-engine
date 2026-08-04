@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ComicPanel } from "@/lib/comics-types";
+import { resolveRedrawRegionText } from "@/lib/comicsRedraw";
 
 /** Panel-by-panel review: a thumbnail rail to jump between panels, the
  * active panel's real image (with a real OCR pass's bounding boxes
@@ -34,11 +35,13 @@ export function PanelWorkspace({
   onUpdatePanel,
   onRemovePanel,
   onRunOcr,
+  onRedrawPanel,
 }: {
   panels: ComicPanel[];
   onUpdatePanel: (id: string, patch: Partial<ComicPanel>) => void;
   onRemovePanel: (id: string) => void;
   onRunOcr: (id: string) => void;
+  onRedrawPanel: (id: string) => void;
 }) {
   const [activeId, setActiveId] = useState(panels[0]?.id);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
@@ -69,6 +72,14 @@ export function PanelWorkspace({
     onUpdatePanel(active.id, {
       extractedText: active.ocrRegions.map((r) => r.text).join("\n\n"),
     });
+  }
+
+  function setRedrawRegionText(index: number, value: string) {
+    const regions = active.ocrRegions;
+    if (!regions) return;
+    const next = [...(active.redrawRegionTexts ?? new Array(regions.length).fill(null))];
+    next[index] = value;
+    onUpdatePanel(active.id, { redrawRegionTexts: next });
   }
 
   const knownVoices = Array.from(
@@ -247,6 +258,72 @@ export function PanelWorkspace({
                 >
                   Apply this order to Extracted text
                 </button>
+              </div>
+            )}
+
+            {active.ocrRegions && active.ocrRegions.length > 0 && (
+              <div className="mt-4">
+                <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Redraw</p>
+                <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                  Erases the original text out of a bubble and draws the line below back in
+                  its place — speech bubbles only, one fixed font (won't match the original
+                  lettering), a best-guess text color. Only regions with text below get
+                  redrawn; leave one blank to skip it.
+                </p>
+                <ol className="mt-2 flex flex-col gap-2">
+                  {active.ocrRegions.map((region, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
+                        {i + 1}
+                      </span>
+                      <textarea
+                        value={resolveRedrawRegionText(active, i)}
+                        onChange={(e) => setRedrawRegionText(i, e.target.value)}
+                        rows={2}
+                        placeholder={`Adapted text for region ${i + 1}…`}
+                        className="min-w-0 flex-1 resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                      />
+                    </li>
+                  ))}
+                </ol>
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onRedrawPanel(active.id)}
+                    disabled={active.redrawStatus === "running"}
+                    className="rounded-full border border-black/[0.1] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+                  >
+                    {active.redrawStatus === "running" ? "Redrawing…" : "Redraw panel"}
+                  </button>
+                  {active.redrawResultUrl && (
+                    <a
+                      href={active.redrawResultUrl}
+                      download={`redrawn-${active.fileName}`}
+                      className="text-[12px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+                    >
+                      Download result
+                    </a>
+                  )}
+                </div>
+                {active.redrawMessage && (
+                  <p
+                    className={`mt-2 text-[12px] leading-relaxed ${
+                      active.redrawStatus === "error" ? "text-red-500/80" : "text-ink/40 dark:text-ink-dark/40"
+                    }`}
+                  >
+                    {active.redrawMessage}
+                  </p>
+                )}
+                {active.redrawResultUrl && (
+                  <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08] dark:border-white/[0.08]">
+                    <img
+                      key={active.redrawResultUrl}
+                      src={active.redrawResultUrl}
+                      alt={`Redrawn version of ${active.fileName}`}
+                      className="w-full"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
