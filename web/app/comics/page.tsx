@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
 import { PanelUploader } from "@/components/comics/PanelUploader";
 import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
@@ -35,6 +36,14 @@ export default function ComicsPage() {
   const [targetLanguage, setTargetLanguage] = useState("English");
   const [adaptStatus, setAdaptStatus] = useState<"idle" | "running" | "error">("idle");
   const [adaptError, setAdaptError] = useState<string | null>(null);
+  // Set once a "Adapt chapter" call succeeds - server/main.py now persists
+  // the result under this id (cache.comics_content_id), so it's real and
+  // shareable, not a local-only id. Cleared on the next edit that would
+  // make the persisted result stale (a panel added/removed, or another
+  // adapt run), same "don't imply a link still matches what's on screen"
+  // reasoning /s/[id] never has to think about since songs are read-only
+  // once shared.
+  const [lastAdaptedId, setLastAdaptedId] = useState<string | null>(null);
 
   // Written on every real arrival here - see app/music/page.tsx's
   // matching effect for why (tile click, switcher, or a direct URL all
@@ -67,6 +76,7 @@ export default function ComicsPage() {
       const merged = [...prev, ...newPanels.filter((p) => !existingIds.has(p.id))];
       return merged.sort((a, b) => naturalCompare(a.fileName, b.fileName));
     });
+    setLastAdaptedId(null);
   }
 
   function updatePanel(id: string, patch: Partial<ComicPanel>) {
@@ -103,6 +113,7 @@ export default function ComicsPage() {
       if (target) URL.revokeObjectURL(target.previewUrl);
       return prev.filter((p) => p.id !== id);
     });
+    setLastAdaptedId(null);
   }
 
   const chapterLanguage = guessChapterLanguage(panels);
@@ -145,6 +156,7 @@ export default function ComicsPage() {
         });
       }
       setAdaptStatus("idle");
+      setLastAdaptedId(result.id || null);
     } catch (err) {
       setAdaptStatus("error");
       setAdaptError(
@@ -255,6 +267,7 @@ export default function ComicsPage() {
                 >
                   {adaptStatus === "running" ? "Adapting chapter…" : "Adapt chapter"}
                 </button>
+                {lastAdaptedId && <CopyLinkButton resultId={lastAdaptedId} basePath="/comics/s" />}
                 {adaptError && (
                   <span className="text-[12px] text-red-500/80">{adaptError}</span>
                 )}

@@ -339,7 +339,7 @@ class ComicsAdaptRequest(BaseModel):
 
 
 @app.post("/api/comics/adapt")
-def comics_adapt_endpoint(request: ComicsAdaptRequest) -> dict:
+def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) -> dict:
     """Runs a whole chapter's worth of panels through Chapter DNA
     (engine/chapter_dna.py) and the Writers' Room (engine/comics_adapt.py)
     — the first endpoint that actually adapts comic dialogue rather
@@ -363,12 +363,30 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest) -> dict:
     the handful of panels this workspace is realistically used with
     today; a longer chapter would need the same async job-polling
     pattern /api/adapt/start already established, not built here.
+
+    Now persisted: the result is stored under a real, content-addressed
+    id (cache.comics_content_id — same get()/set() storage /api/adapt
+    uses, so a repeat submission of the identical chapter is a cache hit,
+    not a re-run) and, for a signed-in user, recorded in their history
+    with medium="webtoons" (accounts.record_adaptation) — the first real
+    persistence comics has had; see GET /api/comics/adapt/{result_id}
+    below for the share-link read side this unlocks.
     """
     non_empty_panels = [p for p in request.panels if p.text.strip()]
     if not non_empty_panels:
         raise HTTPException(
             status_code=400, detail="At least one panel with extracted text is required."
         )
+
+    result_id = cache.comics_content_id(
+        [p.text for p in non_empty_panels],
+        target_language=request.target_language,
+        source_language=request.source_language,
+    )
+    cached = cache.get(result_id)
+    if cached is not None:
+        _record_history(_authed_user_id(http_request), result_id, request.source_language, medium="webtoons")
+        return {"id": result_id, **cached}
 
     try:
         chapter = ChapterInput(
@@ -408,7 +426,25 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest) -> dict:
             {"id": bubble.id, "literal": literal, "adapted_text": adapted, "why": why}
         )
 
-    return {"chapter_dna": dna.model_dump(), "panels": panels_out}
+    payload = {"chapter_dna": dna.model_dump(), "panels": panels_out}
+    cache.set(
+        result_id,
+        payload,
+        target_language=request.target_language,
+        source_language=request.source_language,
+    )
+    _record_history(_authed_user_id(http_request), result_id, request.source_language, medium="webtoons")
+    return {"id": result_id, **payload}
+
+
+@app.get("/api/comics/adapt/{result_id}")
+def get_comics_adapt(result_id: str) -> dict:
+    """Read side of the persistence above — mirrors GET /api/adapt/{id}
+    for the future /comics/s/{id} share page."""
+    cached = cache.get(result_id)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="No result found for this link.")
+    return {"id": result_id, **cached}
 
 
 @app.post("/api/users/sync")
@@ -664,14 +700,16 @@ def _build_song(
     return sections, song
 
 
-def _record_history(user_id: str | None, result_id: str, source_language: str) -> None:
+def _record_history(
+    user_id: str | None, result_id: str, source_language: str, medium: str = "music"
+) -> None:
     """History is an enhancement to an adapt request, never a gate on it —
     a failure here is logged and swallowed so the user still gets their
     result."""
     if not user_id:
         return
     try:
-        accounts.record_adaptation(user_id, result_id, source_language)
+        accounts.record_adaptation(user_id, result_id, source_language, medium=medium)
     except Exception:
         logger.exception("failed to record history user=%s result=%s", user_id, result_id)
 

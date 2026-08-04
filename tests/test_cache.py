@@ -151,3 +151,50 @@ def test_db_backend_find_similar_respects_source_language(sqlite_db):
         "hello world", target_language="Korean", source_language="Japanese"
     )
     assert match is None
+
+
+def test_comics_content_id_differs_by_panel_order():
+    """A chapter's panels adapted in one order vs. another are, correctly,
+    different results - reading order matters for context, not just
+    which text strings appear."""
+    forward = cache.comics_content_id(
+        ["first panel", "second panel"], target_language="English", source_language="Korean"
+    )
+    reversed_ = cache.comics_content_id(
+        ["second panel", "first panel"], target_language="English", source_language="Korean"
+    )
+    assert forward != reversed_
+
+
+def test_comics_content_id_differs_by_language_pair():
+    korean_source = cache.comics_content_id(
+        ["hello"], target_language="English", source_language="Korean"
+    )
+    japanese_source = cache.comics_content_id(
+        ["hello"], target_language="English", source_language="Japanese"
+    )
+    assert korean_source != japanese_source
+
+
+def test_comics_content_id_is_deterministic():
+    first = cache.comics_content_id(
+        ["panel one", "panel two"], target_language="English", source_language="Korean"
+    )
+    second = cache.comics_content_id(
+        ["panel one", "panel two"], target_language="English", source_language="Korean"
+    )
+    assert first == second
+
+
+def test_comics_content_id_never_collides_with_a_song_content_id():
+    """Both ids ultimately live in the same flat cache.get()/set() id
+    space (server/cache.py has no separate table per medium) - the
+    literal "comics" tag folded into comics_content_id's hash is what
+    guarantees a chapter and a song can never collide even if their
+    normalized text happened to be identical."""
+    same_text = "hello world"
+    song_id = cache.content_id(same_text, target_language="English", source_language="Korean")
+    comics_id = cache.comics_content_id(
+        [same_text], target_language="English", source_language="Korean"
+    )
+    assert song_id != comics_id

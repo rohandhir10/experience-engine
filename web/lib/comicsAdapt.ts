@@ -6,6 +6,10 @@ export type AdaptedPanel = {
 };
 
 export type ChapterAdaptResult = {
+  // server/cache.py::comics_content_id - a real, content-addressed,
+  // persistent id, the same storage /api/adapt's result_id uses. Powers
+  // /comics/s/[id] the same way a song's id powers /s/[id].
+  id: string;
   panels: AdaptedPanel[];
 };
 
@@ -42,6 +46,7 @@ export async function adaptChapter(
   }
 
   return {
+    id: body.id,
     panels: (body.panels ?? []).map(
       (panel: { id: string; literal: string; adapted_text: string; why: string }) => ({
         id: panel.id,

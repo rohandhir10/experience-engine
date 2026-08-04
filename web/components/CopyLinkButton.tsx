@@ -2,11 +2,20 @@
 
 import { useState } from "react";
 
-export function CopyLinkButton({ resultId }: { resultId: string }) {
+// basePath defaults to "/s" (the song share page); comics passes
+// "/comics/s" for its own read-only chapter viewer - same component,
+// same clipboard/label behavior, just a different destination.
+export function CopyLinkButton({
+  resultId,
+  basePath = "/s",
+}: {
+  resultId: string;
+  basePath?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
-    const url = `${window.location.origin}/s/${resultId}`;
+    const url = `${window.location.origin}${basePath}/${resultId}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);

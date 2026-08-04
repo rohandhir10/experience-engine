@@ -93,6 +93,30 @@ def content_id(
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
+def comics_content_id(
+    panel_texts: list[str], target_language: str, source_language: str
+) -> str:
+    """Same storage (get()/set() below) and same content-addressing idea
+    as content_id(), for a whole chapter's worth of panels rather than one
+    song's text - this is what gives a comics chapter a real, persistent,
+    shareable id for the first time (see server/main.py's
+    comics_adapt_endpoint and the future /comics/s/<id> share page).
+
+    Always folds a literal "comics" tag into the hash (unlike
+    content_id()'s conditional folding for back-compat with pre-existing
+    ids) - there's no prior comics id space to stay compatible with, and
+    this guarantees a comics chapter's id can never collide with a song's
+    even in the freak case both happened to normalize to the same text,
+    since they're stored in the same flat get()/set() id space below.
+    Order matters (panel_texts must already be in reading order) - two
+    chapters with the same panels in a different order are, correctly,
+    different results.
+    """
+    normalized = "\n\n".join(normalize_text(t) for t in panel_texts)
+    key = f"comics::{source_language}::{target_language}::{CACHE_VERSION}::{normalized}"
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
 def fuzzy_key(text: str) -> str:
     """Case-folded, punctuation-stripped, whitespace-collapsed — deliberately
     more aggressive than normalize_text, since this is for *comparing*

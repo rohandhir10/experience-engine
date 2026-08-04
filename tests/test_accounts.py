@@ -100,6 +100,22 @@ def test_list_adaptations_joins_display_fields_from_the_cached_result(sqlite_db)
     assert entry["isFavorite"] is False
 
 
+def test_record_adaptation_defaults_medium_to_music(sqlite_db):
+    user = accounts.sync_user("google-sub-medium-1", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "result-music", "Hindi")
+
+    history = accounts.list_adaptations(user["id"])
+    assert history[0]["medium"] == "music"
+
+
+def test_record_adaptation_accepts_webtoons_medium(sqlite_db):
+    user = accounts.sync_user("google-sub-medium-2", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "result-comics", "Korean", medium="webtoons")
+
+    history = accounts.list_adaptations(user["id"])
+    assert history[0]["medium"] == "webtoons"
+
+
 def test_history_survives_a_vanished_cached_result(sqlite_db):
     user = accounts.sync_user("google-sub-6", "u@m.com", None)
     accounts.record_adaptation(user["id"], "result-gone", "Korean")

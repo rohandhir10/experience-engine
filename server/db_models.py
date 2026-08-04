@@ -67,6 +67,12 @@ class Adaptation(Base):
     # No title field: the engine doesn't extract a song title today, and
     # guessing one from the lyrics would be fabricated metadata.
     source_language: Mapped[str | None] = mapped_column(String, nullable=True)
+    # "music" | "webtoons" - added once comics results started being
+    # recorded too (server/main.py::comics_adapt_endpoint). Every row
+    # before this column existed is unambiguously music, hence the
+    # default rather than a nullable/backfill dance - see
+    # migrations/versions/0002_add_adaptation_medium.py.
+    medium: Mapped[str] = mapped_column(String, default="music", server_default="music")
     # Groups reruns of "the same song" together; defaults to its own
     # result_id so a first-time adaptation is version 1 of itself.
     song_key: Mapped[str] = mapped_column(String, nullable=False)

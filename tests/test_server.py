@@ -533,7 +533,7 @@ def test_comics_adapt_endpoint_returns_chapter_dna_and_per_panel_results(monkeyp
             main.ComicsPanelText(id="panel-2", text="goodbye"),
         ],
     )
-    result = main.comics_adapt_endpoint(request)
+    result = main.comics_adapt_endpoint(request, _FakeRequest())
 
     assert result["chapter_dna"]["genre_feel"] == "royal-court drama"
     assert result["panels"] == [
@@ -559,7 +559,7 @@ def test_comics_adapt_endpoint_threads_voice_into_bubble_input(monkeypatch):
             main.ComicsPanelText(id="panel-2", text="goodbye"),
         ],
     )
-    main.comics_adapt_endpoint(request)
+    main.comics_adapt_endpoint(request, _FakeRequest())
 
     bubbles = {b.id: b for b in captured_chapters[0].bubbles}
     assert bubbles["panel-1"].voice == "Guard Captain"
@@ -576,7 +576,7 @@ def test_comics_adapt_endpoint_skips_panels_with_only_whitespace_text(monkeypatc
             main.ComicsPanelText(id="panel-2", text="   "),
         ],
     )
-    result = main.comics_adapt_endpoint(request)
+    result = main.comics_adapt_endpoint(request, _FakeRequest())
 
     assert [p["id"] for p in result["panels"]] == ["panel-1"]
 
@@ -587,9 +587,97 @@ def test_comics_adapt_endpoint_rejects_all_empty_panels():
         panels=[main.ComicsPanelText(id="panel-1", text="   ")],
     )
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_adapt_endpoint(request)
+        main.comics_adapt_endpoint(request, _FakeRequest())
 
     assert exc_info.value.status_code == 400
+
+
+def test_comics_adapt_endpoint_returns_a_persisted_id(monkeypatch):
+    """The first real persistence comics has had: a real, content-addressed
+    id (server/cache.py::comics_content_id), the same get()/set() storage
+    /api/adapt uses - not just a per-request response with nothing to
+    point a share link at afterward."""
+    _patch_comics_adapt(monkeypatch)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    result = main.comics_adapt_endpoint(request, _FakeRequest())
+
+    expected_id = main.cache.comics_content_id(
+        ["hello"], target_language="English", source_language="Korean"
+    )
+    assert result["id"] == expected_id
+
+
+def test_comics_adapt_endpoint_is_a_cache_hit_on_a_repeat_submission(monkeypatch):
+    """A second submission of the identical chapter must not re-run the
+    engine at all - mirrors /api/adapt's cache-hit path."""
+    _patch_comics_adapt(monkeypatch)
+    call_count = {"n": 0}
+
+    def counting_generate_chapter_dna(chapter, client):
+        call_count["n"] += 1
+        return _fake_chapter_dna()
+
+    monkeypatch.setattr(main, "generate_chapter_dna", counting_generate_chapter_dna)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    first = main.comics_adapt_endpoint(request, _FakeRequest())
+    second = main.comics_adapt_endpoint(request, _FakeRequest())
+
+    assert call_count["n"] == 1
+    assert first["id"] == second["id"]
+    assert first["panels"] == second["panels"]
+
+
+def test_comics_adapt_endpoint_records_history_for_a_signed_in_user(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+    captured = {}
+
+    def fake_record_adaptation(user_id, result_id, source_language, medium="music"):
+        captured["user_id"] = user_id
+        captured["medium"] = medium
+
+    monkeypatch.setattr(main.accounts, "record_adaptation", fake_record_adaptation)
+
+    authed_request = _FakeRequest()
+    authed_request.headers = {
+        "x-aura-user-id": "user-42",
+        "x-aura-internal-secret": "test-secret",
+    }
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    main.comics_adapt_endpoint(request, authed_request)
+
+    assert captured == {"user_id": "user-42", "medium": "webtoons"}
+
+
+def test_get_comics_adapt_returns_a_previously_persisted_result(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    posted = main.comics_adapt_endpoint(request, _FakeRequest())
+
+    fetched = main.get_comics_adapt(posted["id"])
+    assert fetched == posted
+
+
+def test_get_comics_adapt_404s_for_an_unknown_id():
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.get_comics_adapt("no-such-id")
+    assert exc_info.value.status_code == 404
 
 
 def test_comics_adapt_endpoint_reports_engine_failure_as_a_502(monkeypatch):
@@ -605,6 +693,6 @@ def test_comics_adapt_endpoint_reports_engine_failure_as_a_502(monkeypatch):
         panels=[main.ComicsPanelText(id="panel-1", text="hello")],
     )
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_adapt_endpoint(request)
+        main.comics_adapt_endpoint(request, _FakeRequest())
 
     assert exc_info.value.status_code == 502

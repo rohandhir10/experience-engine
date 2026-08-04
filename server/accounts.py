@@ -64,11 +64,23 @@ def sync_user(google_sub: str, email: str | None, display_name: str | None) -> d
         return {"id": str(user.id), "plan": user.plan}
 
 
-def record_adaptation(user_id: str, result_id: str, source_language: str | None) -> None:
+def record_adaptation(
+    user_id: str,
+    result_id: str,
+    source_language: str | None,
+    medium: str = "music",
+) -> None:
     """One history row per (user, result). A resubmission of the same song
     by the same user is a repeat view, not a new history entry — the
     version-history concept (db_models.Adaptation.song_key/version) is for
     deliberate reruns after engine changes, which nothing exposes yet.
+
+    `medium` defaults to "music" (the only caller before comics existed);
+    server/main.py's comics endpoint passes "webtoons" explicitly. Not
+    part of the dedup key below — a result_id is already namespaced by
+    its own content-id function per medium (server/cache.py's
+    content_id vs. comics_content_id), so a collision across mediums
+    isn't a real scenario this needs to defend against.
 
     Deliberately swallows nothing: an invalid user_id raises (the caller
     gated it behind the internal secret, so a bad id is a bug, not user
@@ -97,6 +109,7 @@ def record_adaptation(user_id: str, result_id: str, source_language: str | None)
                 result_id=result_id,
                 source_language=source_language,
                 song_key=result_id,
+                medium=medium,
             )
         )
         session.commit()
@@ -171,6 +184,7 @@ def _entry_dict(adaptation, cached, collection_ids: list[str]) -> dict:
         "resultId": adaptation.result_id,
         "createdAt": adaptation.created_at.isoformat(),
         "isFavorite": adaptation.is_favorite,
+        "medium": adaptation.medium,
         "hook": (result_json or {}).get("hook"),
         "sourceLanguage": (result_json or {}).get("sourceLanguage")
         or adaptation.source_language,

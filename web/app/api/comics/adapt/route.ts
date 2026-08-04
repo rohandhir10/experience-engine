@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { ENGINE_API_URL } from "@/lib/api";
 
 // Same ceiling reasoning as app/api/adapt/route.ts: Chapter DNA plus one
@@ -10,6 +11,21 @@ import { ENGINE_API_URL } from "@/lib/api";
 // endpoint yet, unlike /api/adapt/start), not something this route
 // papers over.
 export const maxDuration = 60;
+
+// Same pattern as app/api/adapt/start/route.ts's identityHeaders(): forward
+// the signed-in user's id, if any, so server/main.py records this chapter
+// in their history (medium="webtoons"). Degrades to anonymous, exactly
+// like the music side, if signed out or the internal secret isn't set.
+async function identityHeaders(): Promise<Record<string, string>> {
+  const secret = process.env.AURA_INTERNAL_API_SECRET;
+  if (!secret) return {};
+  const session = await auth().catch(() => null);
+  if (!session?.auraUserId) return {};
+  return {
+    "X-Aura-Internal-Secret": secret,
+    "X-Aura-User-Id": session.auraUserId,
+  };
+}
 
 // Proxies to server/main.py's /api/comics/adapt (engine/chapter_dna.py +
 // engine/comics_adapt.py). Same shape as app/api/adapt/route.ts's proxy.
@@ -23,7 +39,7 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/comics/adapt`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await identityHeaders()) },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

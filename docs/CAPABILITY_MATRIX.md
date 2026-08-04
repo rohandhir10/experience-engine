@@ -2445,6 +2445,74 @@ previous two entries said so explicitly).
   `tsc --noEmit`, `next build`, and all 524 Python tests stayed green
   and are unaffected (this round is web-only).
 
+## Comics persistence — detail
+
+- **What it is:** the real blocker flagged when the dashboard-split scope
+  was written — comics had zero server-side persistence, so "split the
+  dashboard by medium" would have had nothing on the Webtoons side to
+  show. This closes that gap, mirroring the music side's existing
+  mechanisms rather than inventing new ones:
+  - **A real, content-addressed, shareable id** — `cache.comics_content_id()`
+    (server/cache.py), hashing a chapter's ordered panel texts + language
+    pair, always folding in a literal `"comics"` tag so a chapter and a
+    song can never collide even sharing the same flat `get()`/`set()`
+    id space. `/api/comics/adapt` now checks this id before running the
+    engine (a byte-identical resubmission is a cache hit, not a re-run,
+    same as `/api/adapt`) and returns it as `id` in the response.
+  - **A read side**: `GET /api/comics/adapt/{result_id}` (server/main.py),
+    mirroring `GET /api/adapt/{result_id}` exactly.
+  - **A share page**: `/comics/s/[id]` (app/comics/s/[id]/page.tsx) —
+    the comics equivalent of `/s/[id]`, deliberately simpler (no
+    sessionStorage fast path, no original-image toggle, no YouTube sync —
+    just literal/adapted/why per panel, since that's all the persisted
+    payload carries) with the same honest dead-link state for an unknown
+    id. The comics workspace (`app/comics/page.tsx`) shows a `CopyLinkButton`
+    (now generalized with a `basePath` prop rather than duplicated) once
+    an adapt call succeeds, cleared again on any edit that would make the
+    persisted link stale (a panel added/removed, or a fresh adapt run).
+  - **History**: `Adaptation.medium` (server/db_models.py, migration
+    `0002_add_adaptation_medium.py` — the first real frozen migration
+    after the baseline, adding a Postgres column with a `"music"` server
+    default so every pre-existing row backfills correctly, since nothing
+    before this column could have meant anything else). `accounts.record_adaptation()`
+    takes a `medium` parameter (default `"music"`); `comics_adapt_endpoint`
+    passes `"webtoons"` for a signed-in user, via the same `_authed_user_id`/
+    internal-secret trust model `/api/adapt` already uses.
+    `app/api/comics/adapt/route.ts` gained the same `identityHeaders()`
+    forwarding `/api/adapt/start/route.ts` already had.
+- **What this does NOT do:** no dashboard UI change at all — Recent
+  Adaptations, Favorites, and Collections still only ever show music
+  history; `medium` is now a real, queryable field on every row, but
+  nothing reads it yet on the dashboard side (that's the next scoped
+  step). The comics adapt call is still synchronous (no job/poll
+  pattern), so persistence doesn't fix the long-chapter timeout risk,
+  it just means whatever DID complete is now durable and linkable. The
+  share page doesn't show panel images (never stored) or chapter-DNA
+  character list — just the artistic thesis/genre/tone line plus each
+  panel's literal/adapted/why.
+- **Tier 1** — deterministic storage/routing, no model-quality claim.
+  **Verified live:** a full Chromium/Playwright pass against the
+  production build with `/api/comics/adapt` mocked (no real LLM calls in
+  this sandbox) confirmed the Share button appears after a successful
+  adapt call using the response's real `id`; navigating directly to
+  `/comics/s/test-chapter-id-123` (mocked GET) rendered the persisted
+  chapter DNA line and panel card correctly; navigating to an unknown id
+  showed the honest dead-link state — all three read back from rendered
+  screenshots, not assumed from the code.
+- **Benchmark coverage:** 4 new `tests/test_cache.py` tests
+  (`comics_content_id` differs by panel order, differs by language pair,
+  is deterministic, never collides with a song's `content_id` on
+  identical text); 2 new `tests/test_accounts.py` tests (`medium`
+  defaults to `"music"`, accepts `"webtoons"` explicitly); 5 new
+  `tests/test_server.py` tests (`comics_adapt_endpoint` returns a real
+  persisted `id`; a repeat submission is a genuine cache hit, verified by
+  counting `generate_chapter_dna` calls across two identical requests,
+  not just comparing output; history is recorded with `medium="webtoons"`
+  for a signed-in user; `GET /api/comics/adapt/{id}` round-trips a
+  persisted result and 404s for an unknown one) — 535 Python tests
+  total, up from 524. `tsc --noEmit`, `next build`, and all 48 Vitest
+  tests stayed green.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
