@@ -25,14 +25,26 @@ const config: Config = {
       colors: {
         paper: {
           DEFAULT: "#fbfaf8",
-          dark: "#0b0b0c",
+          // Warm near-black, not the cold blue-black every AI-tool dark
+          // mode defaults to (OpenAI/Anthropic/Midjourney/every Vercel
+          // template) - real feedback: the pitch-black + neon-purple
+          // combination reads as "ML infra tool," not "creative space."
+          // A warm brown-black plus the terracotta accent below is a
+          // small, systemic change (every dark-mode surface site-wide
+          // picks it up, not a homepage-only patch) toward something
+          // that feels analog rather than synthetic.
+          dark: "#181310",
         },
         ink: {
           DEFAULT: "#1a1a1a",
           dark: "#ededec",
         },
         accent: {
-          DEFAULT: "#5b5bd6",
+          // Was #5b5bd6 (indigo/purple) - the single most recognizable
+          // "AI startup" tell named in the feedback. Warm terracotta/
+          // copper instead: still a confident, saturated accent, but one
+          // that reads as vinyl-sleeve/analog rather than neon-glow.
+          DEFAULT: "#b8562e",
         },
       },
       maxWidth: {

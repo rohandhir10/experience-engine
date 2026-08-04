@@ -39,7 +39,7 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-5xl">
         <SiteHeader />
 
-        <div className="mt-10 flex flex-col gap-10 sm:flex-row">
+        <div data-screenshot="dashboard-workspace" className="mt-10 flex flex-col gap-10 sm:flex-row">
           <DashboardSidebar active="home" />
 
           <div className="min-w-0 flex-1">
@@ -126,7 +126,10 @@ export default function DashboardPage() {
               </div>
             </form>
 
-            <div className="mt-16 border-t border-black/[0.05] pt-8 dark:border-white/[0.05]">
+            <div
+              data-screenshot="dashboard-recent-boundary"
+              className="mt-16 border-t border-black/[0.05] pt-8 dark:border-white/[0.05]"
+            >
               <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
                 Recent Adaptations
               </h2>

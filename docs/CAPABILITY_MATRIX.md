@@ -1322,6 +1322,91 @@ section documents what exists for it instead.
   Not corpus-benchmarked, and the profile's authored content has no
   native-speaker review yet.
 
+## Main homepage: dropping the "AI wrapper" look — detail
+
+Direct feedback on the real production homepage (`components/InputScreen.tsx`,
+not `/alternate-homepage`): the page read as a generic "Silicon Valley AI
+Startup" template rather than a tool built for musicians and songwriters,
+for four concrete reasons — the color palette, the vocabulary, the card
+chrome, and the YouTube-import framing. Addressed each directly rather
+than restyling on top of the same structure.
+
+- **Color palette — the highest-leverage change, made systemic rather
+  than homepage-local.** `tailwind.config.ts`'s `paper.dark` moved from
+  `#0b0b0c` (the same near-black every dark-mode AI tool defaults to) to
+  a warm brown-black (`#181310`), and `accent.DEFAULT` moved from
+  `#5b5bd6` (indigo/purple — the single most recognizable "AI startup"
+  tell named in the feedback) to a terracotta/copper (`#b8562e`). Both
+  are Tailwind theme tokens, so every `bg-accent`/`text-accent` and
+  `dark:bg-paper-dark` usage site-wide picked up the new colors
+  automatically — this was not a one-page patch. Two hardcoded (non-token)
+  instances of the old purple would NOT have been caught by that alone
+  and were fixed by hand: `ComparisonCard.tsx`'s "AURA" pill (dropped a
+  `boxShadow` neon-glow effect entirely, not just recolored it — a
+  blurred halo is itself part of the visual language being removed), and
+  `/alternate-homepage`'s hero gradient (updated for consistency, though
+  that page was outside this request's stated scope).
+- **Vocabulary — removed the specific machine-centric phrases named in
+  the feedback**, all in `InputScreen.tsx`: "Six languages, one engine"
+  → "Six languages, any direction" (also let the now-removed redundant
+  feature card below be dropped without losing the concept); "Nothing
+  shifts without a specific, checkable reason" / "logged with a reason"
+  → "with a plain-language note for every place it departs from it — not
+  a black-box rewrite you have to take on faith"; "Reviewed before
+  anything runs — never piped straight into the engine" → "Paste a link
+  and the captions come back as reviewable sections — read them over,
+  fix anything, then adapt. Nothing goes out the door unread." Same
+  underlying claims (a reason is attached to every real change; YouTube
+  captions are reviewed, not auto-run), reworded away from data-pipeline/
+  audit-log framing.
+- **Card chrome and abstraction, removed rather than restyled.** The
+  `MockWindow` macOS-traffic-light frame and the abstract grey/accent bar
+  placeholders (the exact two things called out as "AI landing page"
+  tropes) are gone from this page's feature cards. `MockWindow.tsx`
+  itself is untouched and still used by `/alternate-homepage` (out of
+  this request's scope), so it wasn't deleted, just stopped being used
+  here. In its place: the "Every real change, with a reason" card now
+  shows the real `comparison-card.png` screenshot (already captured for
+  `/alternate-homepage`, so no new fabrication), and the redundant "Any
+  language, either direction" card was dropped outright — it duplicated
+  the language-chip strip already above it, and cutting it also reduces
+  the card-count/density that read as a trendy bento grid.
+- **Real Dashboard screenshots, per the explicit ask** ("the screenshots
+  i wanted on the main homepage were of the dashboard"). Read
+  `app/dashboard/page.tsx` in full first to check whether an honest,
+  unauthenticated screenshot was even possible: the sidebar, header,
+  language pickers, textarea, and submit button all render fully
+  regardless of auth state — only the nested `<RecentAdaptations />`
+  shows a sign-in prompt, and only for its own section. Two inert
+  `data-screenshot` markers were added (`dashboard-workspace` on the
+  sidebar+workspace wrapper, `dashboard-recent-boundary` on the Recent
+  Adaptations wrapper) so `scripts/capture-screenshots.mjs` can compute a
+  `clip` region via `boundingBox()` math that crops out everything from
+  Recent Adaptations downward — no fabricated signed-in state, no
+  invented UI. The "Keep what you find" feature card now shows this real
+  `dashboard-workspace.png` in place of its old illustrative star/pill
+  mockup.
+- **What this does NOT do:** it does not add real album art or artist
+  references, which the feedback also suggested ("real album art or
+  artist references"). There is no real album art this project has
+  rights to use and no real artist endorsements — inventing either would
+  violate the same non-fabrication discipline this whole document is
+  built on. The "lean into the music, not the machine" goal from that
+  feedback is pursued instead through the warm/organic color change, the
+  vocabulary change, and real product screenshots in place of abstract
+  UI diagrams.
+- **Tier 1** — presentation and copy only, no logic changed. Verified:
+  `tsc --noEmit` and `rm -rf .next && next build` (both clean), the full
+  suite (`npx vitest run`, 33 tests; `python -m pytest -q`, 460 tests,
+  neither touched by this change but re-run to confirm nothing broke),
+  and — because color/layout/copy changes are exactly what static checks
+  can't judge — a real `next start` + Playwright screenshot of the
+  finished homepage, reviewed by looking at it, including one visual bug
+  caught and fixed this way: the "Imports straight from YouTube" card
+  initially rendered with a large blank area because CSS grid was
+  stretching it to match its taller sibling card's height (`items-start`
+  added to the grid to fix it).
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

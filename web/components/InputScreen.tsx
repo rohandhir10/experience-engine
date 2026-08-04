@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { MockWindow } from "./MockWindow";
 import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
@@ -90,7 +90,7 @@ export function InputScreen({
   }
 
   return (
-    <main className="min-h-screen bg-[#0b0b0c] px-6 pb-28 pt-8 sm:px-10">
+    <main className="min-h-screen bg-paper-dark px-6 pb-28 pt-8 sm:px-10">
       {/* A dark, always-on-brand shell (not theme-reactive) so the product
           reads the same regardless of system light/dark mode — matching
           the reference design. Sign In / Get Started live in the nav, same
@@ -283,7 +283,7 @@ export function InputScreen({
         style={{ animationDelay: "260ms" }}
       >
         <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
-          Six languages, one engine
+          Six languages, any direction
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {LANGUAGES.map((lang) => (
@@ -303,17 +303,14 @@ export function InputScreen({
           site's one piece of "proof," and pairing a features section with
           it would have re-created the exact single-example problem this
           whole pass exists to fix (one language standing in for the whole
-          product). Each card below is a stylized diagram of one real
-          mechanism (MockWindow.tsx) — never a screenshot, never invented
-          lyrics — which makes a narrower, easier-to-stand-behind claim
-          than a demo does: "here is how this specific thing works,"
-          true regardless of which language or genre someone actually
-          brings to it. The real benchmark tooling (benchmark/cli.py)
-          still exists for internal quality checks; it just isn't a
-          public page anymore. Asymmetric grid (not a uniform card grid)
-          deliberately, on a direct visual note from a Framer-style
-          reference layout - varied card widths read as designed, a
-          repeated identical box reads as a generated template. */}
+          product). Each card below shows either a real screenshot of the
+          actual product (comparison-card.png, dashboard-workspace.png —
+          see scripts/capture-screenshots.mjs) or, for the YouTube import
+          step, real words describing a real review step — no macOS-style
+          window chrome, no abstract grey placeholder bars standing in for
+          "processing." The real benchmark tooling (benchmark/cli.py) still
+          exists for internal quality checks; it just isn't a public page
+          anymore. */}
       <div
         id="features"
         className="animate-fade-up mx-auto mt-24 w-full max-w-4xl scroll-mt-20"
@@ -325,99 +322,50 @@ export function InputScreen({
           <br />A rewrite that still means it.
         </h2>
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-6">
+        <div className="mt-8 grid grid-cols-1 items-start gap-5 sm:grid-cols-2">
           <FeatureCard
-            span="sm:col-span-4"
-            title="Every real change, logged with a reason"
-            description="A literal reading sits next to the adapted line. Nothing shifts without a specific, checkable reason attached to it."
+            title="Every real change, with a reason"
+            description="A literal reading sits beside the adapted line, with a plain-language note for every place it departs from it — not a black-box rewrite you have to take on faith."
           >
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <span className="text-[9px] uppercase tracking-wide text-white/25">Literal</span>
-                <div className="mt-2 space-y-1.5">
-                  <div className="h-1.5 w-full rounded-full bg-white/10" />
-                  <div className="h-1.5 w-4/5 rounded-full bg-white/10" />
-                  <div className="h-1.5 w-3/5 rounded-full bg-white/10" />
-                </div>
+            <Image
+              src="/screenshots/comparison-card.png"
+              alt="A real AURA result: the literal reading next to the adapted line, with a plain-language reason for the change"
+              width={672}
+              height={637}
+              className="w-full rounded-lg border border-white/10"
+            />
+          </FeatureCard>
+
+          <FeatureCard
+            title="Imports straight from YouTube"
+            description="Paste a link and the captions come back as reviewable sections — read them over, fix anything, then adapt. Nothing goes out the door unread."
+          >
+            <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-5">
+              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
+                  <path d="M8 5.5v13l11-6.5z" />
+                </svg>
+                <span className="truncate text-[11px] text-white/35">youtube.com/watch?v=…</span>
               </div>
-              <div>
-                <span className="text-[9px] uppercase tracking-wide text-accent">Aura</span>
-                <div className="mt-2 space-y-1.5">
-                  <div className="h-1.5 w-5/6 rounded-full bg-accent/50" />
-                  <div className="h-1.5 w-2/3 rounded-full bg-accent/50" />
-                  <div className="h-1.5 w-1/2 rounded-full bg-accent/50" />
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-white/40">
-              <span className="text-white/60">Why:</span> the line repeats three times in
-              the source — it repeats three times here too.
+              <p className="text-[12px] leading-relaxed text-white/40">
+                Captions land as a draft you read and edit first — a starting point, not a
+                finished adaptation.
+              </p>
             </div>
           </FeatureCard>
 
           <FeatureCard
             span="sm:col-span-2"
-            title="Any language, either direction"
-            description="Six languages, any pairing — not a fixed source and a fixed target."
-          >
-            <div className="flex flex-col gap-2">
-              {[
-                ["Hindi", "Spanish"],
-                ["Korean", "English"],
-                ["Japanese", "Urdu"],
-              ].map(([from, to]) => (
-                <div
-                  key={`${from}-${to}`}
-                  className="flex items-center gap-1.5 text-[11px] text-white/50"
-                >
-                  <span className="rounded-full border border-white/10 px-2 py-0.5">{from}</span>
-                  <span className="text-white/20">→</span>
-                  <span className="rounded-full border border-accent/40 px-2 py-0.5 text-accent">
-                    {to}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </FeatureCard>
-
-          <FeatureCard
-            span="sm:col-span-3"
-            title="Imports straight from YouTube"
-            description="Paste a link — captions become reviewable sections, no manual retyping."
-          >
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
-                <path d="M8 5.5v13l11-6.5z" />
-              </svg>
-              <span className="truncate text-[11px] text-white/35">youtube.com/watch?v=…</span>
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-white/30">
-              Reviewed before anything runs — never piped straight into the engine.
-            </p>
-          </FeatureCard>
-
-          <FeatureCard
-            span="sm:col-span-3"
             title="Keep what you find"
-            description="Star a result or file it into a collection — it's there next time, not lost in a chat history."
+            description="Star a result or file it into a collection from the dashboard — it's there next time, tied to your account, not lost in a chat history."
           >
-            <div className="flex items-center gap-3">
-              <svg
-                viewBox="0 0 24 24"
-                className="h-4 w-4 shrink-0 fill-accent"
-                aria-hidden="true"
-              >
-                <path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z" />
-              </svg>
-              <div className="flex flex-wrap gap-1.5">
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/40">
-                  Hindi Rock
-                </span>
-                <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/40">
-                  Covers
-                </span>
-              </div>
-            </div>
+            <Image
+              src="/screenshots/dashboard-workspace.png"
+              alt="The AURA dashboard: language pickers and lyric box alongside the sidebar for saved collections"
+              width={900}
+              height={420}
+              className="w-full rounded-lg border border-white/10"
+            />
           </FeatureCard>
         </div>
       </div>
@@ -431,14 +379,16 @@ function FeatureCard({
   description,
   children,
 }: {
-  span: string;
+  span?: string;
   title: string;
   description: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className={`${span} flex flex-col`}>
-      <MockWindow label={title}>{children}</MockWindow>
+    <div className={`${span ?? ""} flex flex-col`}>
+      <div className="flex-1 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] p-3">
+        {children}
+      </div>
       <h3 className="mt-4 text-[14px] font-medium text-white/85">{title}</h3>
       <p className="mt-1.5 text-[13px] leading-relaxed text-white/40">{description}</p>
     </div>

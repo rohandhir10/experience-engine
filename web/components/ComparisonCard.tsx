@@ -90,11 +90,7 @@ export const ComparisonCard = forwardRef<
 
         <div className="space-y-2 md:pl-8">
           <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-accent"
-            style={{
-              background: "rgba(91, 91, 214, 0.1)",
-              boxShadow: "0 0 12px rgba(91, 91, 214, 0.18)",
-            }}
+            className="inline-flex items-center rounded-full bg-accent/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-accent"
           >
             Aura
           </span>

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// Captures real screenshots of the actual running app for use in
-// app/alternate-homepage/page.tsx — the deliberate alternative to
-// fabricated/AI-generated "product screenshots." Every image this
-// produces is a real render of real UI, targeted via a handful of inert
-// `data-screenshot="..."` attributes added to the real components
-// (InputScreen.tsx, ComparisonCard.tsx) specifically so this script has
-// something stable to select, instead of guessing at CSS classes that
-// change with every redesign.
+// Captures real screenshots of the actual running app, used on the main
+// homepage (components/InputScreen.tsx) and app/alternate-homepage/page.tsx
+// — the deliberate alternative to fabricated/AI-generated "product
+// screenshots." Every image this produces is a real render of real UI,
+// targeted via a handful of inert `data-screenshot="..."` attributes added
+// to the real components (InputScreen.tsx, ComparisonCard.tsx,
+// app/dashboard/page.tsx) specifically so this script has something
+// stable to select, instead of guessing at CSS classes that change with
+// every redesign.
 //
 // Usage: npm run build && node scripts/capture-screenshots.mjs
 // (build first - this starts `next start`, which needs a build to exist)
@@ -15,8 +16,8 @@
 // re-runs this automatically when the UI changes, so the images in
 // public/screenshots/ can silently drift out of date the same way any
 // hand-maintained screenshot library can. Re-run this script after any
-// visual change to InputScreen.tsx or ComparisonCard.tsx and commit the
-// new PNGs alongside that change.
+// visual change to InputScreen.tsx, ComparisonCard.tsx, or
+// app/dashboard/page.tsx and commit the new PNGs alongside that change.
 import { chromium } from "playwright";
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
@@ -86,6 +87,32 @@ async function main() {
     await page.locator('[data-screenshot="comparison-card"]').screenshot({
       path: path.join(OUT_DIR, "comparison-card.png"),
     });
+
+    // The dashboard's sidebar + workspace, cropped to exclude "Recent
+    // Adaptations" — that section shows a sign-in prompt when
+    // unauthenticated (this script never signs in), which would be an
+    // honest but unflattering/uninformative thing to include. The
+    // sidebar, header, language pickers, and lyric box all render fully
+    // regardless of auth state, so this crop needs no fabricated
+    // signed-in data to be a real, representative screenshot.
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(400);
+    const workspaceBox = await page.locator('[data-screenshot="dashboard-workspace"]').boundingBox();
+    const recentBox = await page.locator('[data-screenshot="dashboard-recent-boundary"]').boundingBox();
+    if (workspaceBox && recentBox) {
+      const padding = 16;
+      await page.screenshot({
+        path: path.join(OUT_DIR, "dashboard-workspace.png"),
+        clip: {
+          x: Math.max(workspaceBox.x - padding, 0),
+          y: Math.max(workspaceBox.y - padding, 0),
+          width: workspaceBox.width + padding * 2,
+          height: recentBox.y - workspaceBox.y + padding,
+        },
+      });
+    } else {
+      throw new Error("Could not locate dashboard-workspace/dashboard-recent-boundary markers");
+    }
 
     await browser.close();
     console.log(`Wrote screenshots to ${OUT_DIR}`);

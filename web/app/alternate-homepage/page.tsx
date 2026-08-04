@@ -21,8 +21,8 @@ export const metadata = {
 // bottom, which is a small illustrative diagram (star + pills), not a
 // screenshot — a real screenshot of that feature would show a
 // signed-out prompt (this page can't authenticate), which would be
-// accurate but not informative, so it's diagrammed the same honest way
-// components/MockWindow.tsx is on the primary homepage.
+// accurate but not informative, so it's diagrammed instead, labeled
+// honestly rather than passed off as a captured UI state.
 export default function AlternateHomepage() {
   return (
     <main className="min-h-screen bg-paper px-6 pb-28 pt-8 dark:bg-paper-dark sm:px-10">
@@ -36,7 +36,7 @@ export default function AlternateHomepage() {
       <div className="mx-auto mt-10 max-w-5xl">
         <div
           className="overflow-hidden rounded-3xl px-8 pb-0 pt-12 text-center sm:px-16 sm:pt-16"
-          style={{ background: "linear-gradient(160deg, #5b5bd6 0%, #34327a 100%)" }}
+          style={{ background: "linear-gradient(160deg, #b8562e 0%, #6b2f16 100%)" }}
         >
           <h1 className="font-serif text-[2rem] leading-[1.2] text-white sm:text-[2.6rem]">
             Adapt the feeling.
