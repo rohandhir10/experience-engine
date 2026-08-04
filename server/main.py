@@ -239,6 +239,14 @@ class FavoriteRequest(BaseModel):
     is_favorite: bool
 
 
+class CollectionRequest(BaseModel):
+    name: str
+
+
+class MembershipRequest(BaseModel):
+    member: bool
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
@@ -277,12 +285,111 @@ def users_sync(request: UserSyncRequest, http_request: Request) -> dict:
 
 
 @app.get("/api/me/adaptations")
-def me_adaptations(http_request: Request, favorites_only: bool = False) -> dict:
+def me_adaptations(
+    http_request: Request,
+    favorites_only: bool = False,
+    collection_id: str | None = None,
+) -> dict:
     _require_internal_secret(http_request)
     user_id = _required_user_id(http_request)
-    return {
-        "adaptations": accounts.list_adaptations(user_id, favorites_only=favorites_only)
-    }
+    try:
+        adaptations = accounts.list_adaptations(
+            user_id, favorites_only=favorites_only, collection_id=collection_id
+        )
+    except ValueError as exc:  # malformed collection_id UUID
+        raise HTTPException(status_code=400, detail="Invalid collection id.") from exc
+    return {"adaptations": adaptations}
+
+
+# --- Collections -----------------------------------------------------------
+# Every handler here delegates its authorization to accounts.py, whose
+# queries are scoped by user_id; a False return is always rendered as 404
+# so "not yours" and "doesn't exist" stay indistinguishable to a caller.
+
+
+def _collection_name(raw: str) -> str:
+    name = raw.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Give the collection a name.")
+    if len(name) > 100:
+        raise HTTPException(
+            status_code=400, detail="Collection names are limited to 100 characters."
+        )
+    return name
+
+
+@app.get("/api/me/collections")
+def me_collections(http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    return {"collections": accounts.list_collections(user_id)}
+
+
+@app.post("/api/me/collections")
+def me_create_collection(request: CollectionRequest, http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    created = accounts.create_collection(user_id, _collection_name(request.name))
+    if created is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Collections need a database (DATABASE_URL is unset on this deployment).",
+        )
+    return created
+
+
+@app.patch("/api/me/collections/{collection_id}")
+def me_rename_collection(
+    collection_id: str, request: CollectionRequest, http_request: Request
+) -> dict:
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    name = _collection_name(request.name)
+    if not _collection_write(accounts.rename_collection, user_id, collection_id, name):
+        raise HTTPException(status_code=404, detail="No such collection.")
+    return {"id": collection_id, "name": name}
+
+
+@app.delete("/api/me/collections/{collection_id}")
+def me_delete_collection(collection_id: str, http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    if not _collection_write(accounts.delete_collection, user_id, collection_id):
+        raise HTTPException(status_code=404, detail="No such collection.")
+    return {"id": collection_id, "deleted": True}
+
+
+@app.post("/api/me/collections/{collection_id}/adaptations/{result_id}")
+def me_set_collection_membership(
+    collection_id: str,
+    result_id: str,
+    request: MembershipRequest,
+    http_request: Request,
+) -> dict:
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    if not _collection_write(
+        accounts.set_collection_membership,
+        user_id,
+        collection_id,
+        result_id,
+        request.member,
+    ):
+        raise HTTPException(
+            status_code=404, detail="No such collection or adaptation in your account."
+        )
+    return {"collectionId": collection_id, "resultId": result_id, "member": request.member}
+
+
+def _collection_write(fn, user_id: str, collection_id: str, *args) -> bool:
+    """Runs one accounts.py collection write, turning a malformed
+    collection id into the same 404 a nonexistent one gets — a caller
+    probing with garbage learns nothing a caller probing with a
+    well-formed guess wouldn't."""
+    try:
+        return fn(user_id, collection_id, *args)
+    except ValueError:
+        return False
 
 
 @app.post("/api/me/adaptations/{result_id}/favorite")

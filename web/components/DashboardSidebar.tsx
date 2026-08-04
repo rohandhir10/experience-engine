@@ -28,6 +28,7 @@ const BOTTOM_ITEMS: { key: DashboardSection; label: string; href: string }[] = [
 const LIVE_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>([
   "home",
   "favorites",
+  "collections",
 ]);
 
 function NavRow({
@@ -60,11 +61,11 @@ function NavRow({
   );
 }
 
-/** Home and Favorites are real (adaptation history + starring, backed by
- * accounts — see web/auth.ts and server/accounts.py). The remaining
- * sections still lead to honest stubs (components/DashboardStub): there's
- * no collections storage, no usage metering, and no settings to change
- * yet. Those keep a "Soon" tag rather than being hidden or inert, so the
+/** Home, Favorites and Collections are real (adaptation history,
+ * starring, and grouping — backed by accounts; see web/auth.ts and
+ * server/accounts.py). The remaining sections still lead to honest stubs
+ * (components/DashboardStub): there's no usage metering and no settings
+ * to change yet. Those keep a "Soon" tag rather than being hidden or inert, so the
  * eventual shape of the product is real to click through without
  * pretending it works — see LIVE_SECTIONS above. */
 export function DashboardSidebar({ active = "home" }: { active?: DashboardSection }) {

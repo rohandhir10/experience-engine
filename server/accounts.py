@@ -132,17 +132,204 @@ def set_favorite(user_id: str, result_id: str, is_favorite: bool) -> bool:
         return True
 
 
+# ---------------------------------------------------------------------------
+# Collections
+#
+# The authorization rule for everything below: a collection is only ever
+# reachable through a query scoped by user_id, exactly like set_favorite.
+# Membership writes are the one place that needs TWO such lookups - the
+# collection AND the adaptation must each independently belong to the
+# caller. Checking only the collection would let someone file another
+# user's adaptation into their own collection; checking only the
+# adaptation would let them file their own into someone else's.
+# ---------------------------------------------------------------------------
+
+
+def create_collection(user_id: str, name: str) -> dict | None:
+    """Names are not required to be unique - two collections called
+    "Ghazals" are the user's business, and a uniqueness constraint here
+    would fail a rename in a way that's annoying rather than protective.
+    """
+    if not _use_db():
+        return None
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import Collection
+
+    with db.session_scope() as session:
+        collection = Collection(user_id=_uuid.UUID(user_id), name=name)
+        session.add(collection)
+        session.commit()
+        return {"id": str(collection.id), "name": collection.name, "count": 0}
+
+
+def list_collections(user_id: str) -> list[dict]:
+    """Newest-first, each with its adaptation count. The count comes from
+    a grouped join rather than len(collection.adaptations) so this stays
+    one query instead of one-per-collection.
+    """
+    if not _use_db():
+        return []
+
+    import uuid as _uuid
+
+    from sqlalchemy import func
+
+    from . import db
+    from .db_models import Collection, CollectionAdaptation
+
+    with db.session_scope() as session:
+        rows = (
+            session.query(
+                Collection, func.count(CollectionAdaptation.adaptation_id)
+            )
+            .outerjoin(
+                CollectionAdaptation,
+                Collection.id == CollectionAdaptation.collection_id,
+            )
+            .filter(Collection.user_id == _uuid.UUID(user_id))
+            .group_by(Collection.id)
+            .order_by(Collection.created_at.desc())
+            .all()
+        )
+        return [
+            {
+                "id": str(collection.id),
+                "name": collection.name,
+                "count": count,
+                "createdAt": collection.created_at.isoformat(),
+            }
+            for collection, count in rows
+        ]
+
+
+def rename_collection(user_id: str, collection_id: str, name: str) -> bool:
+    if not _use_db():
+        return False
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import Collection
+
+    with db.session_scope() as session:
+        collection = (
+            session.query(Collection)
+            .filter_by(id=_uuid.UUID(collection_id), user_id=_uuid.UUID(user_id))
+            .one_or_none()
+        )
+        if collection is None:
+            return False
+        collection.name = name
+        session.commit()
+        return True
+
+
+def delete_collection(user_id: str, collection_id: str) -> bool:
+    """Deletes the collection and its membership rows. The adaptations
+    themselves are untouched — a collection is a grouping, not ownership,
+    so emptying a shelf never destroys the books on it.
+    """
+    if not _use_db():
+        return False
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import Collection, CollectionAdaptation
+
+    with db.session_scope() as session:
+        collection = (
+            session.query(Collection)
+            .filter_by(id=_uuid.UUID(collection_id), user_id=_uuid.UUID(user_id))
+            .one_or_none()
+        )
+        if collection is None:
+            return False
+        # Explicit rather than relying on the relationship's cascade —
+        # the join rows are the thing that would silently orphan, and
+        # being explicit here means this stays correct even if the
+        # relationship config changes.
+        session.query(CollectionAdaptation).filter_by(
+            collection_id=collection.id
+        ).delete()
+        session.delete(collection)
+        session.commit()
+        return True
+
+
+def set_collection_membership(
+    user_id: str, collection_id: str, result_id: str, member: bool
+) -> bool:
+    """Adds/removes one adaptation to/from one collection. Returns False
+    unless BOTH the collection and the adaptation belong to this user —
+    see the module-section comment above for why one check isn't enough.
+    Adding something already in the collection (or removing something
+    that isn't) succeeds: the caller asked for a state, and that state
+    now holds.
+    """
+    if not _use_db():
+        return False
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import Adaptation, Collection, CollectionAdaptation
+
+    uid = _uuid.UUID(user_id)
+    with db.session_scope() as session:
+        collection = (
+            session.query(Collection)
+            .filter_by(id=_uuid.UUID(collection_id), user_id=uid)
+            .one_or_none()
+        )
+        if collection is None:
+            return False
+        adaptation = (
+            session.query(Adaptation)
+            .filter_by(user_id=uid, result_id=result_id)
+            .one_or_none()
+        )
+        if adaptation is None:
+            return False
+
+        existing = (
+            session.query(CollectionAdaptation)
+            .filter_by(collection_id=collection.id, adaptation_id=adaptation.id)
+            .one_or_none()
+        )
+        if member and existing is None:
+            session.add(
+                CollectionAdaptation(
+                    collection_id=collection.id, adaptation_id=adaptation.id
+                )
+            )
+        elif not member and existing is not None:
+            session.delete(existing)
+        session.commit()
+        return True
+
+
 def list_adaptations(
-    user_id: str, limit: int = 50, favorites_only: bool = False
+    user_id: str,
+    limit: int = 50,
+    favorites_only: bool = False,
+    collection_id: str | None = None,
 ) -> list[dict]:
     """Newest-first history for one user, joined against cached_results
     for display fields (hook line, languages). A history row whose cached
     result has vanished still appears — with nulls — rather than
     silently disappearing from the user's history.
 
-    favorites_only filters in SQL rather than trimming the returned list,
-    so `limit` means "50 favorites", not "however many of the 50 newest
-    adaptations happened to be favorited".
+    favorites_only and collection_id both filter in SQL rather than
+    trimming the returned list, so `limit` means "50 favorites", not
+    "however many of the 50 newest adaptations happened to be favorited".
+
+    collection_id is additionally scoped by user_id via the join, so
+    passing someone else's collection id returns an empty list rather
+    than their contents.
     """
     if not _use_db():
         return []
@@ -150,16 +337,33 @@ def list_adaptations(
     import uuid as _uuid
 
     from . import db
-    from .db_models import Adaptation, CachedResult
+    from .db_models import Adaptation, CachedResult, Collection, CollectionAdaptation
 
+    uid = _uuid.UUID(user_id)
     with db.session_scope() as session:
         query = (
             session.query(Adaptation, CachedResult)
             .outerjoin(CachedResult, Adaptation.result_id == CachedResult.id)
-            .filter(Adaptation.user_id == _uuid.UUID(user_id))
+            .filter(Adaptation.user_id == uid)
         )
         if favorites_only:
             query = query.filter(Adaptation.is_favorite.is_(True))
+        if collection_id is not None:
+            query = (
+                query.join(
+                    CollectionAdaptation,
+                    CollectionAdaptation.adaptation_id == Adaptation.id,
+                )
+                .join(Collection, Collection.id == CollectionAdaptation.collection_id)
+                .filter(
+                    Collection.id == _uuid.UUID(collection_id),
+                    # Redundant with the Adaptation.user_id filter above
+                    # for well-formed data, but this is what makes
+                    # "someone else's collection id" return empty rather
+                    # than leaking, independent of that.
+                    Collection.user_id == uid,
+                )
+            )
         rows = query.order_by(Adaptation.created_at.desc()).limit(limit).all()
         history: list[dict] = []
         for adaptation, cached in rows:

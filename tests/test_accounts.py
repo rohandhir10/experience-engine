@@ -186,6 +186,202 @@ def test_favorite_endpoint_requires_the_internal_secret(client, monkeypatch, sql
     assert accounts.list_adaptations(user["id"])[0]["isFavorite"] is False
 
 
+def test_collections_crud_round_trip(sqlite_db):
+    user = accounts.sync_user("col-1", "u@m.com", None)
+    created = accounts.create_collection(user["id"], "Ghazals")
+    assert created["name"] == "Ghazals"
+    assert created["count"] == 0
+
+    assert accounts.rename_collection(user["id"], created["id"], "Qawwali") is True
+    listed = accounts.list_collections(user["id"])
+    assert [c["name"] for c in listed] == ["Qawwali"]
+
+    assert accounts.delete_collection(user["id"], created["id"]) is True
+    assert accounts.list_collections(user["id"]) == []
+
+
+def test_collection_membership_and_counts(sqlite_db):
+    user = accounts.sync_user("col-2", "u@m.com", None)
+    collection = accounts.create_collection(user["id"], "Hindi Rock")
+    accounts.record_adaptation(user["id"], "song-1", "Hindi")
+    accounts.record_adaptation(user["id"], "song-2", "Hindi")
+
+    assert accounts.set_collection_membership(
+        user["id"], collection["id"], "song-1", True
+    ) is True
+    assert accounts.list_collections(user["id"])[0]["count"] == 1
+
+    in_collection = accounts.list_adaptations(user["id"], collection_id=collection["id"])
+    assert [e["resultId"] for e in in_collection] == ["song-1"]
+    # The full history is unaffected by collection membership.
+    assert len(accounts.list_adaptations(user["id"])) == 2
+
+
+def test_membership_writes_are_idempotent(sqlite_db):
+    """Adding twice (or removing something that was never in) is a
+    success — the caller asked for a state and that state now holds."""
+    user = accounts.sync_user("col-3", "u@m.com", None)
+    collection = accounts.create_collection(user["id"], "C")
+    accounts.record_adaptation(user["id"], "song-1", "Hindi")
+
+    assert accounts.set_collection_membership(user["id"], collection["id"], "song-1", True)
+    assert accounts.set_collection_membership(user["id"], collection["id"], "song-1", True)
+    assert accounts.list_collections(user["id"])[0]["count"] == 1
+
+    assert accounts.set_collection_membership(user["id"], collection["id"], "song-1", False)
+    assert accounts.set_collection_membership(user["id"], collection["id"], "song-1", False)
+    assert accounts.list_collections(user["id"])[0]["count"] == 0
+
+
+def test_cannot_file_another_users_adaptation_into_your_collection(sqlite_db):
+    """The two-sided ownership check. A owns the song, B owns the
+    collection — B must not be able to file A's song into it. Checking
+    only the collection's owner would allow exactly this."""
+    a = accounts.sync_user("col-a", "a@m.com", None)
+    b = accounts.sync_user("col-b", "b@m.com", None)
+    accounts.record_adaptation(a["id"], "a-song", "Hindi")
+    b_collection = accounts.create_collection(b["id"], "B's shelf")
+
+    assert accounts.set_collection_membership(
+        b["id"], b_collection["id"], "a-song", True
+    ) is False
+    assert accounts.list_collections(b["id"])[0]["count"] == 0
+
+
+def test_cannot_file_your_adaptation_into_another_users_collection(sqlite_db):
+    """The other half. B owns the song, A owns the collection — B must
+    not be able to add to A's collection. Checking only the adaptation's
+    owner would allow this one."""
+    a = accounts.sync_user("col-c", "a@m.com", None)
+    b = accounts.sync_user("col-d", "b@m.com", None)
+    a_collection = accounts.create_collection(a["id"], "A's shelf")
+    accounts.record_adaptation(b["id"], "b-song", "Korean")
+
+    assert accounts.set_collection_membership(
+        b["id"], a_collection["id"], "b-song", True
+    ) is False
+    assert accounts.list_collections(a["id"])[0]["count"] == 0
+
+
+def test_cannot_rename_or_delete_another_users_collection(sqlite_db):
+    a = accounts.sync_user("col-e", "a@m.com", None)
+    b = accounts.sync_user("col-f", "b@m.com", None)
+    a_collection = accounts.create_collection(a["id"], "Original")
+
+    assert accounts.rename_collection(b["id"], a_collection["id"], "Hacked") is False
+    assert accounts.delete_collection(b["id"], a_collection["id"]) is False
+    assert accounts.list_collections(a["id"])[0]["name"] == "Original"
+
+
+def test_listing_another_users_collection_returns_empty(sqlite_db):
+    a = accounts.sync_user("col-g", "a@m.com", None)
+    b = accounts.sync_user("col-h", "b@m.com", None)
+    a_collection = accounts.create_collection(a["id"], "A's shelf")
+    accounts.record_adaptation(a["id"], "a-song", "Hindi")
+    accounts.set_collection_membership(a["id"], a_collection["id"], "a-song", True)
+
+    assert accounts.list_adaptations(b["id"], collection_id=a_collection["id"]) == []
+
+
+def test_deleting_a_collection_keeps_the_adaptations(sqlite_db):
+    """A collection is a grouping, not ownership — emptying the shelf
+    must not destroy the books."""
+    user = accounts.sync_user("col-i", "u@m.com", None)
+    collection = accounts.create_collection(user["id"], "Temp")
+    accounts.record_adaptation(user["id"], "kept-song", "Hindi")
+    accounts.set_collection_membership(user["id"], collection["id"], "kept-song", True)
+
+    assert accounts.delete_collection(user["id"], collection["id"]) is True
+    assert [e["resultId"] for e in accounts.list_adaptations(user["id"])] == ["kept-song"]
+    # And the join row is gone, not orphaned.
+    from server.db_models import CollectionAdaptation
+
+    with db.session_scope() as session:
+        assert session.query(CollectionAdaptation).count() == 0
+
+
+def test_no_database_means_collections_decline(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert accounts.create_collection("u", "C") is None
+    assert accounts.list_collections("u") == []
+    assert accounts.rename_collection("u", "c", "N") is False
+    assert accounts.delete_collection("u", "c") is False
+    assert accounts.set_collection_membership("u", "c", "r", True) is False
+
+
+def test_collection_endpoints_round_trip(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("col-j", "u@m.com", None)
+    accounts.record_adaptation(user["id"], "song-e", "Spanish")
+    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+
+    created = client.post("/api/me/collections", json={"name": "Reggaeton"}, headers=headers)
+    assert created.status_code == 200
+    collection_id = created.json()["id"]
+
+    added = client.post(
+        f"/api/me/collections/{collection_id}/adaptations/song-e",
+        json={"member": True},
+        headers=headers,
+    )
+    assert added.status_code == 200
+
+    listed = client.get(
+        f"/api/me/adaptations?collection_id={collection_id}", headers=headers
+    )
+    assert [e["resultId"] for e in listed.json()["adaptations"]] == ["song-e"]
+
+    renamed = client.patch(
+        f"/api/me/collections/{collection_id}", json={"name": "Latin"}, headers=headers
+    )
+    assert renamed.status_code == 200
+    assert client.get("/api/me/collections", headers=headers).json()["collections"][0][
+        "name"
+    ] == "Latin"
+
+    deleted = client.delete(f"/api/me/collections/{collection_id}", headers=headers)
+    assert deleted.status_code == 200
+    assert client.get("/api/me/collections", headers=headers).json()["collections"] == []
+
+
+def test_collection_endpoints_reject_blank_names(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("col-k", "u@m.com", None)
+    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+    response = client.post("/api/me/collections", json={"name": "   "}, headers=headers)
+    assert response.status_code == 400
+
+
+def test_malformed_collection_id_is_a_404_not_a_500(client, monkeypatch, sqlite_db):
+    """A garbage id must not crash on UUID parsing, and must be
+    indistinguishable from a well-formed id that isn't yours."""
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("col-l", "u@m.com", None)
+    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+
+    assert client.delete("/api/me/collections/not-a-uuid", headers=headers).status_code == 404
+    assert (
+        client.patch(
+            "/api/me/collections/not-a-uuid", json={"name": "x"}, headers=headers
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get("/api/me/adaptations?collection_id=not-a-uuid", headers=headers).status_code
+        == 400
+    )
+
+
+def test_collection_endpoints_require_the_internal_secret(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("col-m", "u@m.com", None)
+    response = client.post(
+        "/api/me/collections", json={"name": "X"}, headers={"X-Aura-User-Id": user["id"]}
+    )
+    assert response.status_code == 401
+    assert accounts.list_collections(user["id"]) == []
+
+
 def test_favorite_endpoint_round_trip(client, monkeypatch, sqlite_db):
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
     user = accounts.sync_user("fav-6", "u@m.com", None)

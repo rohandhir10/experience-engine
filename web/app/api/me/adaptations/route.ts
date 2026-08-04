@@ -1,43 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { ENGINE_API_URL } from "@/lib/api";
+import { engineFetchAsUser } from "@/lib/engineFetch";
 
 // The signed-in user's adaptation history, proxied from the engine
-// (server/main.py::me_adaptations). Session comes from the Auth.js JWT
-// cookie; the internal secret is what lets the engine trust the user id
-// this route forwards. ?favoritesOnly=true narrows it to favorites -
-// filtered in SQL upstream, not trimmed here.
+// (server/main.py::me_adaptations). Unlike the other /api/me/* routes
+// this answers 200-with-signedIn:false for anonymous visitors instead of
+// 401 - the dashboard renders a "sign in to keep history" prompt from
+// it, so a signed-out visit is an expected state here, not an error.
+// ?favoritesOnly / ?collectionId narrow the list; both filter in SQL
+// upstream rather than being trimmed here.
 export async function GET(request: NextRequest) {
   const session = await auth().catch(() => null);
   if (!session?.auraUserId) {
     return NextResponse.json({ adaptations: [], signedIn: false });
   }
-  const secret = process.env.AURA_INTERNAL_API_SECRET;
-  if (!secret) {
-    return NextResponse.json({ adaptations: [], signedIn: true });
-  }
 
-  const favoritesOnly = request.nextUrl.searchParams.get("favoritesOnly") === "true";
+  const params = request.nextUrl.searchParams;
+  const query = new URLSearchParams({
+    favorites_only: String(params.get("favoritesOnly") === "true"),
+  });
+  const collectionId = params.get("collectionId");
+  if (collectionId) query.set("collection_id", collectionId);
 
-  let upstream: Response;
-  try {
-    upstream = await fetch(`${ENGINE_API_URL}/api/me/adaptations?favorites_only=${favoritesOnly}`, {
-      headers: {
-        "X-Aura-Internal-Secret": secret,
-        "X-Aura-User-Id": session.auraUserId,
-      },
-      cache: "no-store",
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "AURA is temporarily unreachable. Please try again in a few minutes." },
-      { status: 502 }
-    );
-  }
-
-  const data = await upstream.json().catch(() => ({}));
-  if (!upstream.ok) {
-    return NextResponse.json(data, { status: upstream.status });
-  }
+  const response = await engineFetchAsUser(`/api/me/adaptations?${query}`);
+  if (!response.ok) return response;
+  const data = await response.json();
   return NextResponse.json({ ...data, signedIn: true });
 }

@@ -843,9 +843,9 @@ shipped no sessions/tokens table. Resolved in favor of **Auth.js
   browser, which this sandbox has neither of. `tsc --noEmit` and
   `next build` pass, which proves the wiring compiles and the routes
   register, not that a real sign-in completes.
-- **Not built:** collections, billing/Stripe, and account deletion —
-  each is its own feature on top of this foundation, not part of it.
-  (Favorites shipped separately — see below.)
+- **Not built:** billing/Stripe and account deletion — each is its own
+  feature on top of this foundation, not part of it. (Favorites and
+  collections shipped separately — see below.)
 
 ## Favorites — detail
 
@@ -888,6 +888,74 @@ existed since the schema was written but nothing ever wrote to it.
   cover the list transform, but **no favorite has ever been toggled
   through a browser** — that needs the Google OAuth round-trip, which
   still has never been executed anywhere.
+
+## Collections — detail
+
+Grouping adaptations by artist/language/mood. The `Collection` and
+`CollectionAdaptation` models had existed since the schema was written
+with nothing reading or writing them.
+
+- **The two-sided ownership check is the real difference from
+  favorites.** Favorites had one object to authorize; a membership write
+  joins *two*, and each must independently belong to the caller.
+  `set_collection_membership` does two `user_id`-scoped lookups (the
+  collection, then the adaptation) and returns `False` unless both hit.
+  Checking only the collection would let someone file **another user's
+  adaptation** into their own collection; checking only the adaptation
+  would let them file **their own adaptation into someone else's**
+  collection. Both directions are tested by name
+  (`test_cannot_file_another_users_adaptation_into_your_collection`,
+  `test_cannot_file_your_adaptation_into_another_users_collection`) —
+  a single-sided check would pass one and fail the other, which is
+  exactly why both exist.
+- **`list_adaptations(collection_id=...)`** joins through `Collection`
+  with a redundant `Collection.user_id == uid` filter. Redundant for
+  well-formed data (the `Adaptation.user_id` filter already constrains
+  it), deliberate anyway: it's what makes "someone else's collection id"
+  return empty *independent of* that other filter, rather than relying
+  on two constraints happening to agree.
+- **Deletion keeps the adaptations.** A collection is a grouping, not
+  ownership — `delete_collection` removes the join rows explicitly
+  (rather than trusting the relationship cascade, since orphaned join
+  rows are the silent failure) and never touches `adaptations`. Tested
+  both ways: the song survives, the join row doesn't.
+- **Membership writes are idempotent.** Adding something already in, or
+  removing something that never was, both succeed — the caller asked for
+  a state and that state holds. This keeps an optimistic UI that
+  double-fires from surfacing a spurious error.
+- **Endpoints:** `GET/POST /api/me/collections`,
+  `PATCH/DELETE /api/me/collections/{id}`,
+  `POST /api/me/collections/{id}/adaptations/{result_id}`, plus
+  `?collection_id=` on the adaptations listing. A malformed
+  (non-UUID) collection id renders as the same 404 a valid-but-not-yours
+  id gets, so probing with garbage reveals nothing that probing with a
+  well-formed guess wouldn't.
+- **`web/lib/engineFetch.ts`** (new): the `/api/me/*` proxy routes had
+  the same seven lines of session/secret/forward/handle-error three
+  times over; extracted once collections would have made it six.
+  `/api/me/adaptations` deliberately stays the exception — it answers
+  `200` with `signedIn:false` for anonymous visitors instead of `401`,
+  because the dashboard renders a sign-in prompt from that response.
+- **`web/lib/collections.ts`** — pure list transforms (rename, remove,
+  prepend, `adjustCount`), tested without a DOM like `lib/favorites.ts`.
+  `adjustCount` clamps at zero: an optimistic membership toggle that
+  drove a count negative would be rendering a confident lie about state
+  we only think we know.
+- **`components/CollectionsManager.tsx`** — list/create/rename/delete
+  plus a detail view with an "add from your history" picker. Creation is
+  deliberately **not** optimistic (the id comes from the server, and a
+  placeholder id would make that row's own rename/delete buttons target
+  something nonexistent); everything else is, with rollback.
+- **Tier 1**, same verification gap as accounts and favorites: 13 new
+  backend tests against a real sqlite-file `DATABASE_URL`, 12 new
+  frontend tests for the transforms — but **no collection has ever been
+  created through a browser**, since the whole surface sits behind a
+  Google sign-in that has still never been executed anywhere.
+- **Known gap:** there's no way to file a song into a collection from
+  the history list or the result page itself — only from inside the
+  collection's detail view. That's the natural next iteration, not a
+  bug, but it does mean the flow is "go to the collection, then add"
+  rather than "see a song, file it."
 
 ## Urdu source grounding — detail
 
