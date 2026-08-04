@@ -102,6 +102,83 @@ def record_adaptation(user_id: str, result_id: str, source_language: str | None)
         session.commit()
 
 
+def save_adaptation(user_id: str, result_id: str) -> bool:
+    """Ensures a history row exists for a result the user is looking at
+    but may never have adapted themselves — someone else's shared /s/<id>
+    link. Idempotent, and returns False for a result that isn't in the
+    cache at all, so this can't be used to fill the history table with
+    rows pointing at ids that were never computed.
+
+    Called on the result page when the user takes a save-type action
+    (starring it, filing it into a collection), never on mere page view:
+    opening a link someone sent you is not a decision to keep it.
+    """
+    if not _use_db():
+        return False
+
+    from . import db
+    from .db_models import CachedResult
+
+    with db.session_scope() as session:
+        cached = session.get(CachedResult, result_id)
+        if cached is None:
+            return False
+        source_language = (cached.result_json or {}).get("sourceLanguage")
+    record_adaptation(user_id, result_id, source_language)
+    return True
+
+
+def get_adaptation(user_id: str, result_id: str) -> dict | None:
+    """One history entry (favorite state + collection membership) for the
+    result page's save controls, or None if this user has no history row
+    for it. Same shape as one element of list_adaptations."""
+    if not _use_db():
+        return None
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import Adaptation, CachedResult, CollectionAdaptation
+
+    with db.session_scope() as session:
+        row = (
+            session.query(Adaptation, CachedResult)
+            .outerjoin(CachedResult, Adaptation.result_id == CachedResult.id)
+            .filter(
+                Adaptation.user_id == _uuid.UUID(user_id),
+                Adaptation.result_id == result_id,
+            )
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        adaptation, cached = row
+        collection_ids = [
+            str(coll_id)
+            for (coll_id,) in session.query(CollectionAdaptation.collection_id)
+            .filter(CollectionAdaptation.adaptation_id == adaptation.id)
+            .all()
+        ]
+        return _entry_dict(adaptation, cached, collection_ids)
+
+
+def _entry_dict(adaptation, cached, collection_ids: list[str]) -> dict:
+    """The wire shape for one history entry, shared by list_adaptations
+    and get_adaptation so the two can't drift into disagreeing about what
+    a history entry looks like."""
+    result_json = cached.result_json if cached is not None else None
+    return {
+        "resultId": adaptation.result_id,
+        "createdAt": adaptation.created_at.isoformat(),
+        "isFavorite": adaptation.is_favorite,
+        "hook": (result_json or {}).get("hook"),
+        "sourceLanguage": (result_json or {}).get("sourceLanguage")
+        or adaptation.source_language,
+        "targetLanguage": (result_json or {}).get("targetLanguage"),
+        "collectionIds": collection_ids,
+    }
+
+
 def set_favorite(user_id: str, result_id: str, is_favorite: bool) -> bool:
     """Toggles the favorite flag on one history row. Returns False when
     the user has no history row for that result — which is also the
@@ -388,19 +465,7 @@ def list_adaptations(
             for adaptation_id, coll_id in join_rows:
                 membership[adaptation_id].append(str(coll_id))
 
-        history: list[dict] = []
-        for adaptation, cached in rows:
-            result_json = cached.result_json if cached is not None else None
-            history.append(
-                {
-                    "resultId": adaptation.result_id,
-                    "createdAt": adaptation.created_at.isoformat(),
-                    "isFavorite": adaptation.is_favorite,
-                    "hook": (result_json or {}).get("hook"),
-                    "sourceLanguage": (result_json or {}).get("sourceLanguage")
-                    or adaptation.source_language,
-                    "targetLanguage": (result_json or {}).get("targetLanguage"),
-                    "collectionIds": membership.get(adaptation.id, []),
-                }
-            )
-        return history
+        return [
+            _entry_dict(adaptation, cached, membership.get(adaptation.id, []))
+            for adaptation, cached in rows
+        ]

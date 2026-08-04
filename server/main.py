@@ -392,6 +392,28 @@ def _collection_write(fn, user_id: str, collection_id: str, *args) -> bool:
         return False
 
 
+@app.get("/api/me/adaptations/{result_id}")
+def me_adaptation(result_id: str, http_request: Request) -> dict:
+    """One history entry, for the result page's save controls. `saved`
+    false means this user has no history row for it — they're looking at
+    someone else's shared link, or their own from before accounts."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    entry = accounts.get_adaptation(user_id, result_id)
+    return {"saved": entry is not None, "adaptation": entry}
+
+
+@app.post("/api/me/adaptations/{result_id}/save")
+def me_save_adaptation(result_id: str, http_request: Request) -> dict:
+    """Adds a result to the caller's history so it can be favorited or
+    filed. Idempotent; 404s for a result that was never computed."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    if not accounts.save_adaptation(user_id, result_id):
+        raise HTTPException(status_code=404, detail="No such adaptation.")
+    return {"resultId": result_id, "saved": True}
+
+
 @app.post("/api/me/adaptations/{result_id}/favorite")
 def me_set_favorite(
     result_id: str, request: FavoriteRequest, http_request: Request

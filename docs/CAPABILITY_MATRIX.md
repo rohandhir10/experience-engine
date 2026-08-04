@@ -973,9 +973,34 @@ with nothing reading or writing them.
   - `HistoryEntry` moved to its own `lib/history.ts` — it had outgrown
     living inside `lib/favorites.ts` once collections and the component
     all needed it.
-- **Still not built:** filing from the result page (`/s/[id]`) itself,
-  which is where someone is most likely to decide a song is worth
-  keeping. Same shape as this, one more surface.
+- **Filing (and starring) from the result page** (`components/
+  SaveControls.tsx`, in `ResultScreen`'s header) — the surface where
+  someone actually decides a song is worth keeping. This one is not
+  simply the history list's menu moved: the result page can show a song
+  the viewer **has no history row for at all** (someone else's shared
+  `/s/<id>` link, or their own from before they signed in), and both
+  favorites and collections hang off that row.
+  - **`accounts.save_adaptation`** creates the missing row on demand.
+    It requires the result to exist in `cached_results`, so it can't be
+    used to fill the history table with rows pointing at ids that were
+    never computed (`test_cannot_save_a_result_that_was_never_computed`).
+    Idempotent.
+  - **The save fires on ACTION, never on page view.** Opening a link
+    someone sent you is not a decision to keep it — auto-saving every
+    viewed share link would quietly turn "history" into "browsing
+    history" and make the dashboard useless. Starring or filing is the
+    intent signal.
+  - **`accounts.get_adaptation`** returns one entry's save state so the
+    controls render correctly on load. It and `list_adaptations` now
+    share `_entry_dict`, so the two can't drift into disagreeing about
+    what a history entry looks like.
+  - **Renders nothing when signed out or unconfigured.** An inert star
+    on a public share page is worse than no star. Same reasoning excludes
+    `/s/demo`, whose result isn't a real cached adaptation — a star that
+    always fails and flips back would be worse than its absence.
+- **Still not built:** creating a collection from either menu (you have
+  to visit /dashboard/collections first), and any notion of sharing a
+  collection.
 
 ## Urdu source grounding — detail
 

@@ -489,3 +489,104 @@ def test_membership_ids_do_not_leak_across_users(sqlite_db):
 
     assert accounts.list_adaptations(a["id"])[0]["collectionIds"] == [a_shelf["id"]]
     assert accounts.list_adaptations(b["id"])[0]["collectionIds"] == []
+
+
+# ---------------------------------------------------------------------------
+# Saving a result you didn't adapt (the shared-link case on /s/<id>)
+# ---------------------------------------------------------------------------
+
+
+def test_save_adaptation_creates_history_for_someone_elses_link(sqlite_db):
+    """B opens A's shared link and stars it. B had no history row for
+    that song; saving creates one so favorites/collections have something
+    to attach to."""
+    a = accounts.sync_user("save-a", "a@m.com", None)
+    b = accounts.sync_user("save-b", "b@m.com", None)
+    cache.set(
+        "shared-result",
+        {"hook": "A hook.", "sourceLanguage": "Hindi", "targetLanguage": "English"},
+        source_text="lyrics",
+    )
+    accounts.record_adaptation(a["id"], "shared-result", "Hindi")
+
+    assert accounts.get_adaptation(b["id"], "shared-result") is None
+    assert accounts.save_adaptation(b["id"], "shared-result") is True
+
+    entry = accounts.get_adaptation(b["id"], "shared-result")
+    assert entry is not None
+    assert entry["hook"] == "A hook."
+    assert entry["isFavorite"] is False
+    # A's row is a separate row, untouched.
+    assert len(accounts.list_adaptations(a["id"])) == 1
+
+
+def test_save_adaptation_is_idempotent(sqlite_db):
+    user = accounts.sync_user("save-c", "u@m.com", None)
+    cache.set("some-result", {"hook": "H"}, source_text="lyrics")
+    assert accounts.save_adaptation(user["id"], "some-result") is True
+    assert accounts.save_adaptation(user["id"], "some-result") is True
+    assert len(accounts.list_adaptations(user["id"])) == 1
+
+
+def test_cannot_save_a_result_that_was_never_computed(sqlite_db):
+    """Otherwise this would be a way to fill the history table with rows
+    pointing at ids that don't exist."""
+    user = accounts.sync_user("save-d", "u@m.com", None)
+    assert accounts.save_adaptation(user["id"], "never-existed") is False
+    assert accounts.list_adaptations(user["id"]) == []
+
+
+def test_get_adaptation_reports_favorite_and_collection_state(sqlite_db):
+    user = accounts.sync_user("save-e", "u@m.com", None)
+    cache.set("r1", {"hook": "H"}, source_text="lyrics")
+    accounts.record_adaptation(user["id"], "r1", "Hindi")
+    shelf = accounts.create_collection(user["id"], "Shelf")
+    accounts.set_favorite(user["id"], "r1", True)
+    accounts.set_collection_membership(user["id"], shelf["id"], "r1", True)
+
+    entry = accounts.get_adaptation(user["id"], "r1")
+    assert entry["isFavorite"] is True
+    assert entry["collectionIds"] == [shelf["id"]]
+
+
+def test_get_adaptation_does_not_leak_another_users_row(sqlite_db):
+    a = accounts.sync_user("save-f", "a@m.com", None)
+    b = accounts.sync_user("save-g", "b@m.com", None)
+    cache.set("r2", {"hook": "H"}, source_text="lyrics")
+    accounts.record_adaptation(a["id"], "r2", "Hindi")
+    assert accounts.get_adaptation(b["id"], "r2") is None
+
+
+def test_save_endpoint_404s_for_an_unknown_result(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("save-h", "u@m.com", None)
+    response = client.post(
+        "/api/me/adaptations/nope/save",
+        headers={"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"},
+    )
+    assert response.status_code == 404
+
+
+def test_save_then_favorite_round_trip_via_endpoints(client, monkeypatch, sqlite_db):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("save-i", "u@m.com", None)
+    cache.set("r3", {"hook": "H"}, source_text="lyrics")
+    headers = {"X-Aura-User-Id": user["id"], "X-Aura-Internal-Secret": "right"}
+
+    assert client.get("/api/me/adaptations/r3", headers=headers).json()["saved"] is False
+    assert client.post("/api/me/adaptations/r3/save", headers=headers).status_code == 200
+    assert (
+        client.post(
+            "/api/me/adaptations/r3/favorite", json={"is_favorite": True}, headers=headers
+        ).status_code
+        == 200
+    )
+    body = client.get("/api/me/adaptations/r3", headers=headers).json()
+    assert body["saved"] is True
+    assert body["adaptation"]["isFavorite"] is True
+
+
+def test_no_database_means_save_declines(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    assert accounts.save_adaptation("u", "r") is False
+    assert accounts.get_adaptation("u", "r") is None

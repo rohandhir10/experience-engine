@@ -6,6 +6,7 @@ import type { ExperienceResult } from "@/lib/types";
 import { SiteHeader } from "./SiteHeader";
 import { ComparisonCard } from "./ComparisonCard";
 import { CopyLinkButton } from "./CopyLinkButton";
+import { SaveControls } from "./SaveControls";
 import { YoutubeSyncPlayer } from "./YoutubeSyncPlayer";
 
 export function ResultScreen({ result }: { result: ExperienceResult }) {
@@ -83,6 +84,12 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
               </span>
               <span>Original</span>
             </button>
+
+            {/* Renders nothing when signed out — see SaveControls. The
+                demo result isn't a real cached adaptation (lib/demo-data.ts),
+                so it can't be saved: showing a star that always fails and
+                flips back would be worse than showing none. */}
+            {result.id !== "demo" && <SaveControls resultId={result.id} />}
 
             <CopyLinkButton resultId={result.id} />
 
