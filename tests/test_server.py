@@ -5,6 +5,8 @@ coverage before this; these are the first.
 """
 from __future__ import annotations
 
+import json
+
 import pytest
 
 import server.main as main
@@ -478,6 +480,67 @@ def test_comics_ocr_endpoint_rejects_an_oversized_image():
     with pytest.raises(main.HTTPException) as exc_info:
         main.comics_ocr_endpoint(image=_FakeUploadFile(oversized), language="English")
 
+    assert exc_info.value.status_code == 413
+
+
+def _real_png_bytes(width=200, height=100) -> bytes:
+    import io as _io
+
+    from PIL import Image as _Image
+
+    buffer = _io.BytesIO()
+    _Image.new("RGB", (width, height), (255, 255, 255)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_comics_redraw_endpoint_returns_a_base64_image():
+    image_bytes = _real_png_bytes()
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+
+    result = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+
+    import base64 as _base64
+
+    decoded = _base64.b64decode(result["image_base64"])
+    assert decoded[:8] == b"\x89PNG\r\n\x1a\n"  # real PNG magic bytes
+
+
+def test_comics_redraw_endpoint_rejects_malformed_regions_json():
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(
+            image=_FakeUploadFile(_real_png_bytes()), regions="not valid json"
+        )
+    assert exc_info.value.status_code == 400
+
+
+def test_comics_redraw_endpoint_rejects_a_region_missing_required_fields():
+    regions = json.dumps([{"bbox": {"x": 10, "y": 10}, "adapted_text": "hello"}])  # no width/height
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions=regions)
+    assert exc_info.value.status_code == 400
+
+
+def test_comics_redraw_endpoint_rejects_an_empty_region_list():
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions="[]")
+    assert exc_info.value.status_code == 400
+
+
+def test_comics_redraw_endpoint_reports_a_redraw_failure_as_a_400():
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 20, "height": 20}, "adapted_text": "x"}]
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(image=_FakeUploadFile(b"not a real image"), regions=regions)
+    assert exc_info.value.status_code == 400
+
+
+def test_comics_redraw_endpoint_rejects_an_oversized_image():
+    oversized = b"x" * (main.MAX_IMAGE_BYTES + 1)
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(image=_FakeUploadFile(oversized), regions="[]")
     assert exc_info.value.status_code == 413
 
 

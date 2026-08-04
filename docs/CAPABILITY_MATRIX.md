@@ -2713,6 +2713,90 @@ previous two entries said so explicitly).
   settings page is a real component, verified live instead). `tsc
   --noEmit` and `next build` clean.
 
+## Comics image redraw/typesetting (Scope B) — detail
+
+- **What it is:** the first real image-editing capability this project
+  has ever had — `engine/comics_redraw.py::redraw_panel` erases the
+  original text out of a speech-bubble region and draws the adapted
+  line back in its place, via a new `POST /api/comics/redraw` endpoint.
+  Pipeline: estimate each region's text color from the original pixels
+  (a heuristic — darkest-cluster sampling, assumes dark text on a
+  lighter bubble), inpaint every region at once with OpenCV's classical
+  Telea algorithm (`cv2.inpaint`), then word-wrap and font-size-fit the
+  adapted line into each region and draw it in the estimated color,
+  using one bundled font (Liberation Sans, SIL-OFL licensed, shipped in
+  `engine/assets/fonts/` — verified the plain `python:3.11-slim` base
+  image ships no fonts at all, so relying on a system font would have
+  broken at deploy time, not just looked wrong). `regions` is
+  JSON-encoded (multipart can't carry nested JSON) — the same
+  `{x,y,width,height}` bbox shape `/api/comics/ocr` already produces,
+  paired with whatever adapted text the caller supplies.
+- **Honest scope, disclosed in the module's own docstring:** SPEECH
+  BUBBLES ONLY — SFX text integrated into busy artwork is explicitly
+  not attempted (inpainting a jagged, textured background is a much
+  harder problem than a bubble's usually-plain interior, and attempting
+  it silently would produce a visibly broken smudge). The font never
+  matches the original comic's lettering — that was flagged as
+  aspirational marketing copy when this was scoped, and still isn't a
+  real capability. No persistence/caching/share-link — unlike
+  `/api/comics/adapt`, this is a pure synchronous transform; redrawing
+  the same panel twice re-runs the whole pipeline both times.
+- **Real visual verification, not just unit tests:** built two synthetic
+  test panels (no real webtoon panel images exist in this repo to test
+  against — itself a disclosed coverage gap) and actually looked at the
+  rendered output. A plain-white bubble case came out genuinely clean —
+  original text fully gone, no visible artifact, adapted text
+  word-wrapped and centered correctly. A harder synthetic case (a
+  gradient-shaded bubble, the disclosed hard case) held up better than
+  expected — a faint discontinuity is visible on close inspection where
+  the original text was, but nothing close to the "visibly broken
+  smudge" the scope predicted for non-uniform backgrounds. Both
+  screenshots were reviewed by eye before writing this entry, not
+  assumed correct from the code.
+- **Dependency verification:** added `opencv-python-headless` and
+  `numpy` to `requirements.txt`. Could NOT do a real end-to-end Docker
+  build to confirm the deployed image imports `cv2` cleanly — this
+  sandbox's network policy blocks Docker Hub's CDN outright (confirmed
+  via the proxy's own status endpoint, not a guess), so `docker build`
+  against the real `Dockerfile` failed at the base-image pull step, not
+  something to route around. Fell back to the strongest verification
+  available: `ldd` on the installed wheel's compiled extension shows
+  every dependency is either bundled directly inside the package
+  (`opencv_python_headless.libs/`) or a base-glibc/libstdc++ library
+  present on any minimal Debian image (`libc`, `libstdc++`, `libz`,
+  `libm`, `libpthread`, `libdl`, `libgcc_s`) — no `libGL`/`libglib`/
+  `libSM`/X11 reference anywhere. Strong static evidence the Dockerfile
+  needs no changes, genuinely checked rather than assumed, but not the
+  same as a live build+run — the next real Railway deploy is the actual
+  confirmation.
+- **A real design fork, asked rather than silently picked:** whether to
+  inpaint with a simple border-color heuristic fill (no new dependency)
+  or real OpenCV inpainting (this dependency addition). Chose real
+  inpainting, per direction.
+- **What this does NOT do:** no frontend UI wiring at all yet — the
+  comics workspace (`app/comics/page.tsx`) has no button or flow that
+  calls this endpoint; it's backend-only this round, same as how the
+  public API's backend landed before its dashboard UI did. No
+  validation that a bbox region is actually a bubble versus SFX/other
+  art — the caller is trusted to only send genuine bubble regions. No
+  testing against a single real manga/webtoon panel — every visual
+  check used a synthetic stand-in image.
+- **Tier 0 for redraw quality** (a heuristic pipeline whose real-world
+  performance on actual stylized comic art is genuinely unverified — the
+  synthetic tests prove the mechanism works, not that it looks good on
+  real lettering); **Tier 1** for the plumbing (deterministic
+  clamping/wrapping/fitting logic, endpoint validation).
+- **Benchmark coverage:** 16 new `tests/test_comics_redraw.py` tests
+  (bbox clamping, text wrapping/font-fitting including the
+  never-crashes-on-an-impossible-fit case, text-color estimation
+  including the no-dark-pixels fallback, and full-pipeline tests
+  proving the target region's pixels actually change while everything
+  outside every region stays byte-identical) plus 6 new
+  `tests/test_server.py` endpoint tests (base64 PNG response,
+  malformed-JSON/missing-field/empty-region-list rejection, oversized
+  image rejection, a genuine redraw failure surfacing as a 400) — 588
+  Python tests total, up from 566.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

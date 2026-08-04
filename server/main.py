@@ -70,6 +70,8 @@ Operational behavior:
 """
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import os
 import threading
@@ -86,6 +88,7 @@ from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import adapt_chapter
 from engine.comics_ocr import OcrError
+from engine.comics_redraw import RedrawError, redraw_panel
 from engine.llm_client import LLMError, create_default_client
 from engine.models import SUPPORTED_LANGUAGES, BubbleInput, ChapterInput, SectionInput, SongInput
 from engine.pipeline import run_engine
@@ -359,6 +362,65 @@ def comics_ocr_endpoint(
         return comics_ocr.extract_text_regions(image_bytes, language=language)
     except OcrError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class RedrawBbox(BaseModel):
+    x: int
+    y: int
+    width: int
+    height: int
+
+
+class RedrawRegion(BaseModel):
+    bbox: RedrawBbox
+    adapted_text: str
+
+
+@app.post("/api/comics/redraw")
+def comics_redraw_endpoint(
+    image: UploadFile = File(...),
+    regions: str = Form(...),
+) -> dict:
+    """Erases the original text out of each given bubble region and
+    draws the adapted line back in its place (engine/comics_redraw.py) -
+    see that module's docstring for the honest, disclosed scope: speech
+    bubbles only (not SFX), one fixed bundled font (never a match for
+    the original lettering), a heuristic text-color guess, and no
+    persistence/caching/share-link, unlike /api/comics/adapt's results.
+
+    `regions` is a JSON-encoded string (multipart can't carry nested
+    JSON directly) - `[{"bbox": {"x","y","width","height"}, "adapted_text"}, ...]`,
+    the same bbox shape /api/comics/ocr already returns per detected
+    region, paired with whatever adapted text the caller wants drawn
+    there. Returns the composited PNG as base64 - there is no stored id
+    to fetch it by later, unlike an adapt result.
+    """
+    image_bytes = image.file.read()
+    if len(image_bytes) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
+        )
+    try:
+        parsed = json.loads(regions)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"'regions' must be valid JSON: {exc}") from exc
+    try:
+        validated = [RedrawRegion(**r) for r in parsed]
+    except (TypeError, ValidationError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not validated:
+        raise HTTPException(status_code=400, detail="At least one region is required.")
+
+    region_dicts = [
+        {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text} for r in validated
+    ]
+    try:
+        result_bytes = redraw_panel(image_bytes, region_dicts)
+    except RedrawError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {"image_base64": base64.b64encode(result_bytes).decode("ascii")}
 
 
 class ComicsPanelText(BaseModel):
