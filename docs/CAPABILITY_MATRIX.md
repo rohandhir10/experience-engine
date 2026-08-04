@@ -2132,6 +2132,72 @@ is engine-layer only, exercised so far by fake-client tests.
   trusting the room-memory object's internal state. 512 Python tests
   total, up from 507.
 
+## /api/comics/adapt: the endpoint + frontend wiring — detail
+
+Item #5 of the chapter-level-context roadmap — the point where this
+stops being engine-layer-only code and becomes something clickable.
+Wires `engine/chapter_dna.py` + `engine/comics_adapt.py` (previous two
+entries) into a real HTTP endpoint and a real "Adapt chapter" button in
+`/comics`.
+
+- **`server/main.py::comics_adapt_endpoint`** (new `POST /api/comics/
+  adapt`): takes `{source_language, target_language, panels: [{id,
+  text}]}`, builds a `ChapterInput`, runs `generate_chapter_dna` then
+  `adapt_chapter`, and returns `{chapter_dna, panels: [{id, literal,
+  adapted_text, why}]}`. Reuses `server/mapping.py::_explain_why`/
+  `_translator_text` directly rather than reimplementing the
+  literal-line lookup or the plain-English "why" explanation — both
+  were already generic across `SectionResultV1`, not song-specific.
+  **A real scoping decision, stated plainly:** each PANEL is treated as
+  one adaptation unit, not each individually-detected OCR region — a
+  panel with several speech bubbles is adapted as one combined block of
+  dialogue. Splitting to true per-bubble granularity is a further
+  refinement, not done here (it would need per-panel bubble-to-bubble
+  UI the current workspace doesn't have). No voice/character
+  attribution either — nothing in the current UI tags a panel with a
+  speaking character, so every bubble goes in with `voice=None`. This
+  means Chapter DNA's per-character voice profiles get generated but
+  the per-bubble voice-consistency machinery they'd otherwise drive
+  (item #4's actual payoff) isn't exercised by real usage yet — only by
+  the fake-client tests that explicitly set `voice`.
+- **Deliberately synchronous**, same known limitation `/api/adapt`
+  itself had before `/api/adapt/start` existed: a chapter with many
+  panels means many sequential full Writers' Room runs, which can
+  exceed a serverless function's timeout. Fine for the handful of
+  panels this workspace is realistically used with today; a longer
+  chapter needs the same async job-polling pattern already established
+  for music, not built here. `web/app/api/comics/adapt/route.ts` mirrors
+  `app/api/adapt/route.ts`'s 60s ceiling and abort-before-timeout
+  handling exactly.
+- **`lib/comicsAdapt.ts::adaptChapter`** + **`app/comics/page.tsx`**:
+  new From/Into language selectors (reusing `TargetLanguageSelect`,
+  same component `InputScreen.tsx` uses) and an "Adapt chapter" button.
+  The "From" selector auto-fills from `guessChapterLanguage`'s detected-
+  language guess the first time it resolves to one of AURA's 6
+  supported languages, using the exact same "auto-detect until the
+  human touches it" `sourceLanguageTouched` pattern `InputScreen.tsx`
+  already established for a pasted song. On a successful adapt call,
+  each panel's `adaptedText`/`why` fields are filled ONLY if still
+  empty — never overwrites text a human already reviewed or typed by
+  hand, the same discipline "Run OCR" already follows for
+  `extractedText`.
+- **Tier 1** for the wiring/request-shape logic (deterministic); the
+  adaptation output itself carries the same Tier 0/unverified status
+  every fresh Writers' Room run has in this document.
+- **Benchmark coverage:** 4 new `tests/test_server.py` tests for the
+  endpoint (returns chapter DNA + per-panel results; skips
+  whitespace-only panels; rejects an all-empty-panel request with a
+  400; reports an engine `LLMError` as a 502) — 516 Python tests total,
+  up from 512. Verified end-to-end with a real three-process Playwright
+  run (Next.js + mocked `/api/comics/ocr` and `/api/comics/adapt`
+  network responses, since no real Vision/LLM credentials exist in
+  this sandbox): uploaded a real panel, ran OCR, confirmed the "From"
+  selector auto-filled to the detected language ("Korean"), clicked
+  "Adapt chapter," confirmed the actual outgoing request carried the
+  correct source/target languages and panel text, and confirmed the
+  response correctly filled the "Adapted text" and "Why" fields in the
+  UI — not just that the fetch call resolved.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

@@ -26,6 +26,13 @@ Endpoints:
                             text regions with bounding boxes (engine/
                             comics_ocr.py) for /comics's panel review
                             workspace. Never adapts anything itself.
+  POST /api/comics/adapt   body: {"source_language", "target_language",
+                            "panels": [{"id", "text"}]} -> {"chapter_dna",
+                            "panels": [{"id", "literal", "adapted_text",
+                            "why"}]}. Runs Chapter DNA + the Writers'
+                            Room per panel (engine/chapter_dna.py,
+                            engine/comics_adapt.py) - blocking, no job
+                            endpoint yet (see that function's docstring).
 
 Why /api/adapt/start exists: a real multi-section song run is several
 sections deep, each running 3-7 sequential LLM calls of its own (Song DNA
@@ -72,20 +79,22 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from engine import comics_ocr, config
 from engine import youtube_ingest
+from engine.chapter_dna import generate_chapter_dna
+from engine.comics_adapt import adapt_chapter
 from engine.comics_ocr import OcrError
 from engine.llm_client import LLMError, create_default_client
-from engine.models import SUPPORTED_LANGUAGES, SectionInput, SongInput
+from engine.models import SUPPORTED_LANGUAGES, BubbleInput, ChapterInput, SectionInput, SongInput
 from engine.pipeline import run_engine
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
 from . import accounts, cache, db, jobs, quota
-from .mapping import to_experience_result
+from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
     level=logging.INFO,
@@ -310,6 +319,88 @@ def comics_ocr_endpoint(
         return comics_ocr.extract_text_regions(image_bytes, language=language)
     except OcrError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class ComicsPanelText(BaseModel):
+    id: str
+    text: str
+
+
+class ComicsAdaptRequest(BaseModel):
+    source_language: str
+    target_language: str = "English"
+    context_note: str | None = None
+    panels: list[ComicsPanelText]
+
+
+@app.post("/api/comics/adapt")
+def comics_adapt_endpoint(request: ComicsAdaptRequest) -> dict:
+    """Runs a whole chapter's worth of panels through Chapter DNA
+    (engine/chapter_dna.py) and the Writers' Room (engine/comics_adapt.py)
+    — the first endpoint that actually adapts comic dialogue rather
+    than just extracting or displaying it (see docs/CAPABILITY_MATRIX.md's
+    chapter-level-context roadmap).
+
+    Each PANEL is treated as one adaptation unit ("bubble" in engine
+    terms), not each individually-detected OCR region — a panel with
+    several speech bubbles is adapted as one combined block of dialogue
+    for now. No voice/character attribution either: nothing in the
+    current UI tags a panel with a speaking character, so every bubble
+    goes in unattributed (BubbleInput.voice=None) — Chapter DNA's
+    per-character voice profiles get generated but the per-bubble voice
+    consistency machinery they'd otherwise drive isn't actually
+    exercised by this endpoint yet.
+
+    Deliberately synchronous — the same known limitation /api/adapt
+    itself had before /api/adapt/start existed: a chapter with many
+    panels means many sequential full Writers' Room runs (3-7 LLM calls
+    each), which can exceed a serverless function's timeout. Fine for
+    the handful of panels this workspace is realistically used with
+    today; a longer chapter would need the same async job-polling
+    pattern /api/adapt/start already established, not built here.
+    """
+    non_empty_panels = [p for p in request.panels if p.text.strip()]
+    if not non_empty_panels:
+        raise HTTPException(
+            status_code=400, detail="At least one panel with extracted text is required."
+        )
+
+    try:
+        chapter = ChapterInput(
+            source_language=request.source_language,
+            target_language=request.target_language,
+            context_note=request.context_note,
+            bubbles=[BubbleInput(id=p.id, source_text=p.text) for p in non_empty_panels],
+        )
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    client = create_default_client()
+    try:
+        dna = generate_chapter_dna(chapter, client)
+        results = adapt_chapter(chapter, dna, client)
+    except LLMError as exc:
+        logger.error("comics adapt engine failure: %s", exc)
+        raise HTTPException(
+            status_code=502,
+            detail="The engine hit a problem processing this chapter. Try again in a moment.",
+        ) from exc
+    except RuntimeError as exc:
+        logger.error("comics adapt configuration failure: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    panels_out = []
+    for bubble, result in zip(chapter.bubbles, results):
+        literal = _translator_text(result)
+        adapted = result.ruling.final_line
+        why = _explain_why(
+            client, dna.artistic_thesis, literal, adapted, result.ruling.priority_tradeoffs_made
+        )
+        panels_out.append(
+            {"id": bubble.id, "literal": literal, "adapted_text": adapted, "why": why}
+        )
+
+    return {"chapter_dna": dna.model_dump(), "panels": panels_out}
 
 
 @app.post("/api/users/sync")

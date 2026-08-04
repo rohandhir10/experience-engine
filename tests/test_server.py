@@ -479,3 +479,108 @@ def test_comics_ocr_endpoint_rejects_an_oversized_image():
         main.comics_ocr_endpoint(image=_FakeUploadFile(oversized), language="English")
 
     assert exc_info.value.status_code == 413
+
+
+class _FakeRuling:
+    def __init__(self, final_line, priority_tradeoffs_made="test tradeoff"):
+        self.final_line = final_line
+        self.priority_tradeoffs_made = priority_tradeoffs_made
+
+
+class _FakeSectionResult:
+    def __init__(self, section, final_line):
+        self.section = section
+        self.ruling = _FakeRuling(final_line)
+
+
+def _fake_chapter_dna(**overrides):
+    from engine.models import ChapterDNA
+
+    defaults = dict(
+        artistic_thesis="test thesis",
+        genre_feel="drama",
+        tone="tense",
+        ongoing_plot_context="test context",
+        characters=[],
+    )
+    defaults.update(overrides)
+    return ChapterDNA(**defaults)
+
+
+def _patch_comics_adapt(monkeypatch, dna=None):
+    monkeypatch.setattr(main, "generate_chapter_dna", lambda chapter, client: dna or _fake_chapter_dna())
+    monkeypatch.setattr(
+        main,
+        "adapt_chapter",
+        lambda chapter, dna, client: [
+            _FakeSectionResult(b.id, f"adapted {b.id}") for b in chapter.bubbles
+        ],
+    )
+    monkeypatch.setattr(main, "_translator_text", lambda result: f"literal {result.section}")
+    monkeypatch.setattr(
+        main, "_explain_why", lambda client, thesis, literal, adapted, tradeoffs: "why text"
+    )
+    monkeypatch.setattr(main, "create_default_client", lambda: object())
+
+
+def test_comics_adapt_endpoint_returns_chapter_dna_and_per_panel_results(monkeypatch):
+    _patch_comics_adapt(monkeypatch, dna=_fake_chapter_dna(genre_feel="royal-court drama"))
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="hello"),
+            main.ComicsPanelText(id="panel-2", text="goodbye"),
+        ],
+    )
+    result = main.comics_adapt_endpoint(request)
+
+    assert result["chapter_dna"]["genre_feel"] == "royal-court drama"
+    assert result["panels"] == [
+        {"id": "panel-1", "literal": "literal panel-1", "adapted_text": "adapted panel-1", "why": "why text"},
+        {"id": "panel-2", "literal": "literal panel-2", "adapted_text": "adapted panel-2", "why": "why text"},
+    ]
+
+
+def test_comics_adapt_endpoint_skips_panels_with_only_whitespace_text(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="hello"),
+            main.ComicsPanelText(id="panel-2", text="   "),
+        ],
+    )
+    result = main.comics_adapt_endpoint(request)
+
+    assert [p["id"] for p in result["panels"]] == ["panel-1"]
+
+
+def test_comics_adapt_endpoint_rejects_all_empty_panels():
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[main.ComicsPanelText(id="panel-1", text="   ")],
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_adapt_endpoint(request)
+
+    assert exc_info.value.status_code == 400
+
+
+def test_comics_adapt_endpoint_reports_engine_failure_as_a_502(monkeypatch):
+    monkeypatch.setattr(main, "create_default_client", lambda: object())
+
+    def raise_llm_error(chapter, client):
+        raise main.LLMError("provider is down")
+
+    monkeypatch.setattr(main, "generate_chapter_dna", raise_llm_error)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_adapt_endpoint(request)
+
+    assert exc_info.value.status_code == 502
