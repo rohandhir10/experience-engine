@@ -247,12 +247,20 @@ export function InputScreen({
           </div>
         </form>
 
+        {/* "See how it works," not "see an example" - the one real demo
+            available (lib/demo-data.ts) is a specific romantic Bollywood
+            ballad, since it's the only fully-captured production run in
+            the project. Framing it as THE example implies that's the
+            kind of song this is for; framing it as a mechanism demo
+            (literal vs. adapted vs. why, for one song, in one language)
+            is honest regardless of which song happens to illustrate it -
+            see the banner on the demo page itself for the same reasoning. */}
         <Link
           href="/s/demo"
           className="animate-fade-up mt-8 text-[13px] text-white/35 underline decoration-white/15 underline-offset-4 transition hover:text-white/60 hover:decoration-white/30"
           style={{ animationDelay: "220ms" }}
         >
-          See an example first
+          See how it works
         </Link>
       </div>
 

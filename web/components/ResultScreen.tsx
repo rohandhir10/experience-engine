@@ -57,6 +57,27 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
 
   return (
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+      {/* result.id === "demo" is the one fully-captured production run in
+          the whole project (lib/demo-data.ts) - a real Hindi romantic
+          ballad, not a fabricated one, but also not representative of
+          any particular genre, mood, or language this tool is "for."
+          Shown without this note, a visitor who isn't into that kind of
+          song reasonably reads it as a taste/culture statement rather
+          than what it actually is: one illustration of the mechanism
+          (literal reading -> adapted line -> why it changed), which
+          applies the same way regardless of which song demonstrates it. */}
+      {result.id === "demo" && (
+        <div className="mx-auto mb-8 max-w-2xl rounded-xl border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-center text-[13px] leading-relaxed text-ink/50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-ink-dark/50">
+          One real example, showing how the engine works — not a preview
+          of what genre or language your own song needs to be.{" "}
+          <Link
+            href="/#lyrics"
+            className="underline decoration-ink/20 underline-offset-4 hover:text-ink/80 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/80"
+          >
+            Try any song →
+          </Link>
+        </div>
+      )}
       <SiteHeader
         right={
           <>

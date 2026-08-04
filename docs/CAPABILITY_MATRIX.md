@@ -1074,6 +1074,41 @@ communicate.
   against real songs in those languages, which is real future work, not
   something this pass could responsibly simulate.
 
+## Demo page framing: mechanism, not a taste statement — detail
+
+Follow-up to the homepage fix above, on a related but distinct problem:
+even after removing the unprompted homepage showcase, the one link that
+DOES lead to a real example (`/s/demo`) still shows a specific romantic
+Bollywood ballad with no framing at all — a visitor who isn't drawn to
+that kind of song reasonably reads it as "this is the kind of song this
+tool is for," when what it actually is is the only fully-captured
+production run in the project (`lib/demo-data.ts`), shown because it's
+real, not because it's representative of any genre, mood, or language.
+
+Same constraint as before: replacing the song isn't available without
+fabricating one (a different genre/language demo would need a full
+literal/adapted/why/deviations capture this sandbox has no API access to
+generate), so the fix is framing, not content.
+
+- **`components/InputScreen.tsx`:** the homepage link renamed "See an
+  example first" → "See how it works" — sets the expectation that
+  what's behind it is a mechanism demonstration, not a taste preview.
+- **`components/ResultScreen.tsx`:** a one-line banner shown only when
+  `result.id === "demo"` (`demoResult.id` is exactly `"demo"`, confirmed
+  against `lib/demo-data.ts`), stating plainly that this is one real
+  example illustrating how the engine works, with a link back to `/#
+  lyrics` to try any song. Never shown for a real user's own result —
+  only for this specific hardcoded id.
+- **Tier 1** — presentation only, no logic changed. Verified via `tsc`/
+  `next build` (clean) and confirming the id match by reading
+  `lib/demo-data.ts` directly rather than assuming it.
+- **Still open:** the actual content gap is unchanged — there is still
+  no real example in any genre other than a Hindi romantic ballad, or in
+  any language other than Hindi. This framing keeps that gap from being
+  silently read as a design choice; it doesn't close it. Closing it for
+  real means running the benchmark CLI against real songs spanning more
+  genres and languages, which needs API access this sandbox doesn't have.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and
