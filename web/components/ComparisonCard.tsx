@@ -52,6 +52,7 @@ export const ComparisonCard = forwardRef<
   return (
     <div
       ref={ref}
+      data-screenshot={index === 0 ? "comparison-card" : undefined}
       className={`animate-fade-up relative rounded-2xl border px-7 py-8 transition-colors sm:px-10 sm:py-10 ${
         active
           ? "border-accent/40 bg-accent/[0.03]"

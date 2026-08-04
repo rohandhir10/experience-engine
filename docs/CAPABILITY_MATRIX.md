@@ -1208,6 +1208,78 @@ minimal text).
   shipping. This is the first UI-only change in this document verified
   by actually looking at it rather than by build/test output alone.
 
+## /alternate-homepage: a real screenshot pipeline — detail
+
+A second homepage layout (not linked from primary nav — reachable only
+by URL), built against a Cartesia-style visual reference: a colored
+hero banner with a floating product screenshot, a tabbed feature
+showcase, a "trusted by" strip, a flow diagram, and a closing CTA. The
+explicit ask this time was to use real screenshots rather than another
+round of abstract diagrams — a genuinely different, larger undertaking
+than the `MockWindow` approach two entries up, since it means the
+images have to come from somewhere real and stay honest as the UI
+changes.
+
+- **`web/scripts/capture-screenshots.mjs`** (new): boots a real
+  `next start` server on a scratch port, drives it with Playwright
+  (Chromium pre-installed in this sandbox), and captures three PNGs into
+  `public/screenshots/`: the homepage hero (headline through the paste
+  box), the language-chip strip, and one full literal/adapted/why
+  comparison card from `/s/demo` — the same real captured example used
+  elsewhere in this document, not a new fabrication. Targeted via a
+  handful of inert `data-screenshot="..."` attributes added to
+  `InputScreen.tsx` and `ComparisonCard.tsx` specifically for this
+  script to select reliably, instead of depending on CSS classes that
+  change with every redesign.
+- **Real maintenance cost, stated plainly, not glossed over:** these
+  PNGs are a snapshot. Nothing re-generates them automatically when
+  `InputScreen.tsx` or `ComparisonCard.tsx` changes visually — the script
+  has to be re-run by hand and the new PNGs committed. This is the same
+  kind of drift risk any hand-maintained screenshot library has, and
+  it's a real one: it's easy to ship a redesign and forget the
+  screenshots on this page now show a stale version of the product.
+  Worth wiring into CI (fail if a screenshot's source component changed
+  more recently than the image) if this page is kept around, not done
+  here.
+- **One deliberate exception to "real screenshots only":** the "Keep
+  what you find" section (favorites/collections) is a small illustrative
+  diagram — star + pills — not a screenshot, for the same reason
+  `MockWindow` exists: this script has no way to authenticate, so a real
+  screenshot of that feature would show a signed-out prompt, which is
+  accurate but communicates nothing about the feature. Diagrammed
+  instead of faked.
+- **Also honest by omission:** no "trusted by" customer-logo strip (no
+  real customers to name) — replaced with a row of verifiable facts
+  about the product itself (language count, the logged-change
+  discipline, the literal-reading floor). No fabricated research
+  citations or hiring banner from the reference, since neither is true
+  of this project.
+- **`web/components/PipelineDiagram.tsx`** (new): a plain HTML/CSS
+  diagram of the real Writers' Room stages (`docs/WRITERS_ROOM_V1.md`) —
+  Source → Translator → Creative Adapter → Judge → Verified output.
+  There's no UI surface that shows this pipeline directly (it's entirely
+  server-side), so a diagram is the accurate way to show it, not a
+  screenshot standing in for one.
+- **`web/components/UseCaseTabs.tsx`** (new): the one interactive,
+  non-static piece — three tabs (Fans / Singers & covers / Language
+  learners) that switch a caption under the SAME shared screenshot,
+  deliberately not a different image per tab. There is exactly one real
+  captured comparison example; pretending each audience gets its own
+  visual would recreate the single-example problem the rest of this
+  homepage work exists to avoid. What's honest to switch is who a real
+  feature is useful for, not which picture illustrates it.
+- **Tier 1** — presentation, no logic. Verified the same three ways as
+  the previous visual entry: `tsc --noEmit` and `next build` (both
+  clean, confirms the route registers), and an actual rendered
+  screenshot of the finished page via local `next start` + Playwright —
+  not just trusting that the JSX compiles into something that looks
+  right.
+- **`playwright` added as a devDependency** (`^1.56.1`, browser download
+  skipped via `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD` since Chromium is
+  already provided) so `scripts/capture-screenshots.mjs` is runnable via
+  plain `npm`/`node` rather than depending on a global install outside
+  the project.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

@@ -102,7 +102,10 @@ export function InputScreen({
           or shrinking with viewport height. */}
       <SiteHeader active="home" forceDark />
 
-      <div className="mx-auto flex w-full max-w-2xl flex-col items-center pt-16 text-center sm:pt-20">
+      <div
+        data-screenshot="hero"
+        className="mx-auto flex w-full max-w-2xl flex-col items-center pt-16 text-center sm:pt-20"
+      >
         <h1 className="animate-fade-up text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-white sm:text-[2.9rem]">
           Adapt the feeling.
           <br />
@@ -275,6 +278,7 @@ export function InputScreen({
           a single sample - no /compare page to link to anymore (see
           the Use Cases section below for why). */}
       <div
+        data-screenshot="language-chips"
         className="animate-fade-up mx-auto mt-16 w-full max-w-2xl text-center"
         style={{ animationDelay: "260ms" }}
       >
