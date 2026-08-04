@@ -365,6 +365,29 @@ def list_adaptations(
                 )
             )
         rows = query.order_by(Adaptation.created_at.desc()).limit(limit).all()
+
+        # Which collections each returned adaptation belongs to, so the
+        # UI's "add to collection" menu opens already knowing its own
+        # state. One grouped query for the whole page rather than one per
+        # row. No user_id filter needed here: these adaptation ids came
+        # out of a query already scoped to this user, so a join row
+        # pointing at one of them is necessarily theirs.
+        from collections import defaultdict
+
+        membership: dict = defaultdict(list)
+        adaptation_ids = [adaptation.id for adaptation, _ in rows]
+        if adaptation_ids:
+            join_rows = (
+                session.query(
+                    CollectionAdaptation.adaptation_id,
+                    CollectionAdaptation.collection_id,
+                )
+                .filter(CollectionAdaptation.adaptation_id.in_(adaptation_ids))
+                .all()
+            )
+            for adaptation_id, coll_id in join_rows:
+                membership[adaptation_id].append(str(coll_id))
+
         history: list[dict] = []
         for adaptation, cached in rows:
             result_json = cached.result_json if cached is not None else None
@@ -377,6 +400,7 @@ def list_adaptations(
                     "sourceLanguage": (result_json or {}).get("sourceLanguage")
                     or adaptation.source_language,
                     "targetLanguage": (result_json or {}).get("targetLanguage"),
+                    "collectionIds": membership.get(adaptation.id, []),
                 }
             )
         return history

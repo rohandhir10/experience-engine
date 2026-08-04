@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { adjustCount, prepend, removeFrom, renameIn, type Collection } from "./collections";
+import {
+  adjustCount,
+  applyMembership,
+  prepend,
+  removeFrom,
+  renameIn,
+  type Collection,
+} from "./collections";
+import type { HistoryEntry } from "./history";
 
 function collection(id: string, name = `name-${id}`, count = 0): Collection {
   return { id, name, count };
@@ -57,5 +65,47 @@ describe("adjustCount", () => {
   it("leaves other collections untouched", () => {
     const result = adjustCount([collection("a", "A", 5), collection("b", "B", 5)], "a", 1);
     expect(result[1].count).toBe(5);
+  });
+});
+
+describe("applyMembership", () => {
+  function entry(resultId: string, collectionIds: string[] = []): HistoryEntry {
+    return {
+      resultId,
+      createdAt: "2026-08-04T00:00:00+00:00",
+      isFavorite: false,
+      hook: null,
+      sourceLanguage: null,
+      targetLanguage: null,
+      collectionIds,
+    };
+  }
+
+  it("adds a collection id to the targeted entry only", () => {
+    const result = applyMembership([entry("a"), entry("b")], "a", "c1", true);
+    expect(result[0].collectionIds).toEqual(["c1"]);
+    expect(result[1].collectionIds).toEqual([]);
+  });
+
+  it("removes a collection id", () => {
+    const result = applyMembership([entry("a", ["c1", "c2"])], "a", "c1", false);
+    expect(result[0].collectionIds).toEqual(["c2"]);
+  });
+
+  it("does not duplicate on a repeated add", () => {
+    const once = applyMembership([entry("a")], "a", "c1", true);
+    const twice = applyMembership(once, "a", "c1", true);
+    expect(twice[0].collectionIds).toEqual(["c1"]);
+  });
+
+  it("removing something that was never there is a no-op", () => {
+    const result = applyMembership([entry("a", ["c2"])], "a", "c1", false);
+    expect(result[0].collectionIds).toEqual(["c2"]);
+  });
+
+  it("does not mutate the input entry", () => {
+    const original = [entry("a", [])];
+    applyMembership(original, "a", "c1", true);
+    expect(original[0].collectionIds).toEqual([]);
   });
 });

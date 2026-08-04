@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { applyFavorite, type HistoryEntry } from "@/lib/favorites";
+import { applyFavorite } from "@/lib/favorites";
+import { applyMembership, type Collection } from "@/lib/collections";
+import type { HistoryEntry } from "@/lib/history";
 
 type HistoryState =
   | { status: "loading" }
@@ -42,6 +44,8 @@ export function RecentAdaptations({
 }) {
   const [state, setState] = useState<HistoryState>({ status: "loading" });
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [openMenuFor, setOpenMenuFor] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,6 +64,63 @@ export function RecentAdaptations({
       cancelled = true;
     };
   }, [favoritesOnly]);
+
+  // Collections for the per-row "file into…" menu. Failing to load them
+  // only costs the menu — the list itself and favoriting still work, so
+  // this deliberately has no error state of its own.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me/collections")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => {
+        if (!cancelled && body?.collections) setCollections(body.collections);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const toggleMembership = useCallback(
+    async (entry: HistoryEntry, collectionId: string, member: boolean) => {
+      const update = (value: boolean) =>
+        setState((prev) =>
+          prev.status === "ready"
+            ? {
+                status: "ready",
+                entries: applyMembership(
+                  prev.entries,
+                  entry.resultId,
+                  collectionId,
+                  value
+                ),
+              }
+            : prev
+        );
+      update(member);
+      try {
+        const res = await fetch(
+          `/api/me/collections/${collectionId}/adaptations/${entry.resultId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ member }),
+          }
+        );
+        if (!res.ok) throw new Error(String(res.status));
+        setCollections((prev) =>
+          prev.map((c) =>
+            c.id === collectionId
+              ? { ...c, count: Math.max(0, c.count + (member ? 1 : -1)) }
+              : c
+          )
+        );
+      } catch {
+        update(!member);
+      }
+    },
+    []
+  );
 
   const toggleFavorite = useCallback(
     async (entry: HistoryEntry) => {
@@ -175,6 +236,63 @@ export function RecentAdaptations({
               {new Date(entry.createdAt).toLocaleDateString()}
             </span>
           </Link>
+
+          {collections.length > 0 && (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() =>
+                  setOpenMenuFor((prev) => (prev === entry.resultId ? null : entry.resultId))
+                }
+                aria-expanded={openMenuFor === entry.resultId}
+                aria-label={`Add ${entry.hook || "this adaptation"} to a collection`}
+                className={`rounded-full px-2 py-1 text-[12px] transition ${
+                  entry.collectionIds.length > 0
+                    ? "text-ink/55 dark:text-ink-dark/55"
+                    : "text-ink/30 hover:text-ink/60 dark:text-ink-dark/30 dark:hover:text-ink-dark/60"
+                }`}
+              >
+                {entry.collectionIds.length > 0
+                  ? `In ${entry.collectionIds.length}`
+                  : "Add to…"}
+              </button>
+
+              {openMenuFor === entry.resultId && (
+                <>
+                  {/* Click-away layer: a menu you can only close by
+                      re-clicking the same button reads as stuck. */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setOpenMenuFor(null)}
+                    aria-hidden="true"
+                  />
+                  <div className="absolute right-0 top-full z-20 mt-1 max-h-64 w-56 overflow-y-auto rounded-xl border border-black/[0.08] bg-paper p-1 shadow-lg dark:border-white/[0.08] dark:bg-[#1b1b1d]">
+                    {collections.map((collection) => {
+                      const member = entry.collectionIds.includes(collection.id);
+                      return (
+                        <button
+                          key={collection.id}
+                          type="button"
+                          onClick={() => toggleMembership(entry, collection.id, !member)}
+                          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink/70 transition hover:bg-black/[0.04] dark:text-ink-dark/70 dark:hover:bg-white/[0.06]"
+                        >
+                          <span
+                            className={`w-3 shrink-0 text-[11px] ${
+                              member ? "text-accent" : "text-transparent"
+                            }`}
+                            aria-hidden="true"
+                          >
+                            ✓
+                          </span>
+                          <span className="min-w-0 truncate">{collection.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </li>
       ))}
     </ul>

@@ -951,11 +951,31 @@ with nothing reading or writing them.
   frontend tests for the transforms — but **no collection has ever been
   created through a browser**, since the whole surface sits behind a
   Google sign-in that has still never been executed anywhere.
-- **Known gap:** there's no way to file a song into a collection from
-  the history list or the result page itself — only from inside the
-  collection's detail view. That's the natural next iteration, not a
-  bug, but it does mean the flow is "go to the collection, then add"
-  rather than "see a song, file it."
+- **Filing from the history list** (closing the gap this section
+  originally shipped with — previously a song could only be filed from
+  inside a collection's detail view, so the flow was "go to the
+  collection, then add" rather than the natural "see a song, file it"):
+  every row in `RecentAdaptations` now has an "Add to…" menu listing the
+  user's collections with checkmarks.
+  - `list_adaptations` carries `collectionIds` per entry, so the menu
+    opens already knowing its own state. That's **one extra grouped
+    query for the whole page**, not one per row — the N+1 this would
+    otherwise obviously be. No `user_id` filter is needed on that query
+    (and none is applied): the adaptation ids feeding it came out of a
+    query already scoped to the user, so any join row pointing at one is
+    necessarily theirs. `test_membership_ids_do_not_leak_across_users`
+    pins that reasoning with two users who adapted the same song.
+  - `lib/collections.ts::applyMembership` is the pure transform, deduped
+    on add so a double-click can't produce a duplicate id that would
+    then need two removes to clear.
+  - The menu is hidden entirely when the user has no collections, rather
+    than opening onto an empty list with nothing to do.
+  - `HistoryEntry` moved to its own `lib/history.ts` — it had outgrown
+    living inside `lib/favorites.ts` once collections and the component
+    all needed it.
+- **Still not built:** filing from the result page (`/s/[id]`) itself,
+  which is where someone is most likely to decide a song is worth
+  keeping. Same shape as this, one more surface.
 
 ## Urdu source grounding — detail
 

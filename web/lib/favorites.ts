@@ -1,11 +1,4 @@
-export type HistoryEntry = {
-  resultId: string;
-  createdAt: string;
-  isFavorite: boolean;
-  hook: string | null;
-  sourceLanguage: string | null;
-  targetLanguage: string | null;
-};
+import type { HistoryEntry } from "./history";
 
 /** Pure list transform behind the favorite star (components/
  * RecentAdaptations.tsx). Extracted from the component so the three

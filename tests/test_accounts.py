@@ -456,3 +456,36 @@ def test_cache_hit_with_valid_secret_records_history(client, monkeypatch, sqlite
     assert response.status_code == 200
     history = accounts.list_adaptations(user["id"])
     assert len(history) == 1
+
+
+def test_history_entries_report_their_collection_memberships(sqlite_db):
+    """The "add to collection" menu opens already knowing its own state,
+    so the listing carries membership rather than the UI firing a request
+    per row."""
+    user = accounts.sync_user("mem-1", "u@m.com", None)
+    shelf_a = accounts.create_collection(user["id"], "A")
+    shelf_b = accounts.create_collection(user["id"], "B")
+    accounts.record_adaptation(user["id"], "song-1", "Hindi")
+    accounts.record_adaptation(user["id"], "song-2", "Korean")
+    accounts.set_collection_membership(user["id"], shelf_a["id"], "song-1", True)
+    accounts.set_collection_membership(user["id"], shelf_b["id"], "song-1", True)
+
+    by_id = {e["resultId"]: e for e in accounts.list_adaptations(user["id"])}
+    assert sorted(by_id["song-1"]["collectionIds"]) == sorted(
+        [shelf_a["id"], shelf_b["id"]]
+    )
+    assert by_id["song-2"]["collectionIds"] == []
+
+
+def test_membership_ids_do_not_leak_across_users(sqlite_db):
+    """Two users, same song text adapted separately: each sees only their
+    own collection ids on their own history row."""
+    a = accounts.sync_user("mem-a", "a@m.com", None)
+    b = accounts.sync_user("mem-b", "b@m.com", None)
+    a_shelf = accounts.create_collection(a["id"], "A's shelf")
+    accounts.record_adaptation(a["id"], "shared-song", "Hindi")
+    accounts.record_adaptation(b["id"], "shared-song", "Hindi")
+    accounts.set_collection_membership(a["id"], a_shelf["id"], "shared-song", True)
+
+    assert accounts.list_adaptations(a["id"])[0]["collectionIds"] == [a_shelf["id"]]
+    assert accounts.list_adaptations(b["id"])[0]["collectionIds"] == []

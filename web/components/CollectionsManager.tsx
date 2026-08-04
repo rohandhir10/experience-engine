@@ -9,7 +9,7 @@ import {
   renameIn,
   type Collection,
 } from "@/lib/collections";
-import type { HistoryEntry } from "@/lib/favorites";
+import type { HistoryEntry } from "@/lib/history";
 
 type LoadState =
   | { status: "loading" }

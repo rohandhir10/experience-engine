@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyFavorite, type HistoryEntry } from "./favorites";
+import { applyFavorite } from "./favorites";
+import type { HistoryEntry } from "./history";
 
 function entry(resultId: string, isFavorite = false): HistoryEntry {
   return {
@@ -9,6 +10,7 @@ function entry(resultId: string, isFavorite = false): HistoryEntry {
     hook: `hook for ${resultId}`,
     sourceLanguage: "Hindi",
     targetLanguage: "English",
+    collectionIds: [],
   };
 }
 
