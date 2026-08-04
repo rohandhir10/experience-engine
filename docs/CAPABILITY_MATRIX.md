@@ -2403,6 +2403,48 @@ previous two entries said so explicitly).
   interaction, no new pure logic to unit test); `tsc --noEmit`, all 524
   Python tests, and all 45 Vitest tests stayed green.
 
+## "/" remembers your last medium — detail
+
+- **What it is:** `/` now checks `lib/mediumPreference.ts`'s stored
+  value on mount and, if set, redirects straight to `/music` or
+  `/comics` instead of rendering the chooser — closing the gap flagged
+  at the end of the last two rounds. The preference is written on every
+  real arrival at either workspace: a mount-effect in `/music` and
+  `/comics` themselves (covers a tile click, a direct URL/bookmark, or
+  the header switcher's own navigation), not just the switcher's click
+  handler (which also writes it, redundantly but harmlessly, right
+  before it navigates).
+- **The flash tradeoff, decided:** the last scope flagged this as an
+  open call - accept a one-frame chooser flash, or add a pre-hydration
+  script to avoid it entirely. Landed on a third, simpler option: `/`
+  renders nothing until its one-time localStorage check resolves. A
+  *returning* visitor never sees the chooser at all (blank frame →
+  redirect); a *brand-new* visitor sees a blank frame → chooser, which
+  only ever happens once per browser. No inline pre-hydration script
+  needed.
+- **What this does NOT do:** doesn't touch account/server state at all
+  — confirmed dead ends the same way `web/auth.ts`'s no-DB-adapter
+  design already does for this class of low-stakes preference. A
+  cleared localStorage (private browsing, a different browser) always
+  falls back to showing the chooser again, by design, not as a bug.
+- **Tier 1** — deterministic, no model-quality claim. **Verified live:**
+  a full Chromium/Playwright pass exercised all five real states, not
+  assumed from the code: (1) a fresh browser context shows the chooser
+  at `/`; (2) visiting `/comics` stores `"webtoons"`; (3) revisiting `/`
+  afterward redirects straight to `/comics` with no chooser shown; (4)
+  switching to Music via the header then revisiting `/` redirects to
+  `/music`; (5) clearing localStorage makes the chooser reappear at
+  `/`. Screenshots confirm the chooser's own rendering is unchanged when
+  it does show.
+- **Benchmark coverage:** 3 new Vitest unit tests for
+  `lib/mediumPreference.ts` (round-trips a written value, returns
+  `null` before anything's written, ignores a garbage stored value) —
+  48 Vitest tests total, up from 45, using a minimal in-memory
+  `localStorage` stub rather than pulling in jsdom (this harness is
+  deliberately jsdom-free today per `vitest.config.mts`'s own comment).
+  `tsc --noEmit`, `next build`, and all 524 Python tests stayed green
+  and are unaffected (this round is web-only).
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

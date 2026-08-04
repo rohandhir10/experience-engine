@@ -1,34 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { writeMediumPreference, type Medium } from "@/lib/mediumPreference";
 
 // Extracted out of SiteHeader (which is rendered from both server and
 // client trees and can't itself hold interactive state without a wider
 // refactor - see SiteHeader.tsx's doc comment) so that constraint holds
 // everywhere except the two medium-specific workspaces that actually
-// need this control. Writes the visited medium to localStorage so a
-// future visit to "/" can skip the chooser and go straight there - see
-// app/page.tsx once that read/redirect side lands; this component only
-// owns the write + the switch itself, not the read.
-const STORAGE_KEY = "aura-last-medium";
-
+// need this control. Writes the visited medium to localStorage
+// (lib/mediumPreference.ts) so a future visit to "/" skips the chooser
+// and goes straight there - see app/page.tsx's read/redirect side.
 export function MediumSwitcher({
   active,
   forceDark,
 }: {
-  active: "music" | "webtoons";
+  active: Medium;
   forceDark?: boolean;
 }) {
   const router = useRouter();
 
-  function go(next: "music" | "webtoons") {
+  function go(next: Medium) {
     if (next === active) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Storage unavailable (private browsing, quota) - the switch itself
-      // still works, it just won't be remembered next visit.
-    }
+    writeMediumPreference(next);
     router.push(next === "music" ? "/music" : "/comics");
   }
 

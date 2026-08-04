@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
+import { readMediumPreference } from "@/lib/mediumPreference";
 
 // "/" is now a neutral medium chooser, not the music workflow directly.
 // Music and Webtoons are framed as equals here (same tile size, same
@@ -23,7 +26,32 @@ import { SiteHeader } from "@/components/SiteHeader";
 // save/collections/share-link, and the adapt call is still synchronous).
 // Remove the pill only once that parity gap actually closes - see
 // docs/CAPABILITY_MATRIX.md for what's tracked as done.
+//
+// Skips the chooser entirely for a returning visitor: if
+// lib/mediumPreference.ts has a remembered medium (written by /music,
+// /comics, or the header's MediumSwitcher on every real arrival there),
+// this redirects straight there instead of rendering the tiles. Nothing
+// renders until that one-time check resolves, so a returning visitor
+// never sees the chooser flash before being sent onward - the tradeoff
+// is a blank first frame for a brand-new visitor instead, which is the
+// cheaper flash of the two since it only ever happens once per browser.
 export default function Home() {
+  const router = useRouter();
+  const [showChooser, setShowChooser] = useState(false);
+
+  useEffect(() => {
+    const preference = readMediumPreference();
+    if (preference) {
+      router.replace(preference === "music" ? "/music" : "/comics");
+      return;
+    }
+    setShowChooser(true);
+  }, [router]);
+
+  if (!showChooser) {
+    return null;
+  }
+
   return (
     <main className="min-h-screen bg-paper-dark px-6 pb-28 pt-8 sm:px-10">
       <SiteHeader active="home" forceDark />

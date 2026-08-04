@@ -11,6 +11,7 @@ import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
+import { writeMediumPreference } from "@/lib/mediumPreference";
 
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
 // screen) with a "Beta" badge, rather than reachable only by URL - it
@@ -34,6 +35,14 @@ export default function ComicsPage() {
   const [targetLanguage, setTargetLanguage] = useState("English");
   const [adaptStatus, setAdaptStatus] = useState<"idle" | "running" | "error">("idle");
   const [adaptError, setAdaptError] = useState<string | null>(null);
+
+  // Written on every real arrival here - see app/music/page.tsx's
+  // matching effect for why (tile click, switcher, or a direct URL all
+  // count, so "/"'s read/redirect reflects reality, not just clicks
+  // that went through the chooser).
+  useEffect(() => {
+    writeMediumPreference("webtoons");
+  }, []);
 
   function addFiles(files: File[]) {
     const newPanels: ComicPanel[] = files
