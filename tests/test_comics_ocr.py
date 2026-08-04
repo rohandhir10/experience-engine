@@ -1,17 +1,23 @@
-"""Tests for engine/comics_ocr.py (Google Cloud Vision-backed OCR).
+"""Tests for engine/comics_ocr.py (Google Cloud Vision-backed OCR, via a
+service-account credential).
 
 No real network call is made — httpx.post is monkeypatched with a fake
-response shaped like Cloud Vision's actual DOCUMENT_TEXT_DETECTION JSON,
-built from a real sample of that response shape. _block_text/
-_bounding_box are also tested directly against synthetic Vision-shaped
-block dicts.
+response shaped like Cloud Vision's actual DOCUMENT_TEXT_DETECTION JSON.
+Most tests monkeypatch _access_token directly (a fake token string) so
+they exercise the request/response parsing without needing a real
+service-account key; a separate block of tests exercises _access_token
+itself, mocking google.oauth2.service_account.Credentials rather than
+performing a real OAuth token exchange.
 """
 from __future__ import annotations
+
+import base64
+import json
 
 import pytest
 
 from engine import comics_ocr
-from engine.comics_ocr import OcrError, _bounding_box, _block_text, extract_text_regions
+from engine.comics_ocr import OcrError, _access_token, _bounding_box, _block_text, extract_text_regions
 
 
 class _FakeResponse:
@@ -51,8 +57,12 @@ def _block(text_words: list[str], vertices: list[dict], confidence: float) -> di
 
 
 @pytest.fixture(autouse=True)
-def _api_key(monkeypatch):
-    monkeypatch.setenv("GOOGLE_CLOUD_VISION_API_KEY", "test-key")
+def _fake_token(monkeypatch):
+    """Every test below _access_token's own block cares about request/
+    response handling, not authentication - stub it out with a fake
+    token so those tests don't need a real service-account key.
+    """
+    monkeypatch.setattr(comics_ocr, "_access_token", lambda: "fake-token")
 
 
 def test_block_text_joins_words_with_spaces_and_paragraphs_with_newlines():
@@ -78,12 +88,6 @@ def test_bounding_box_collapses_quadrilateral_to_axis_aligned_rect():
 
 def test_bounding_box_handles_missing_vertices():
     assert _bounding_box([]) == {"x": 0, "y": 0, "width": 0, "height": 0}
-
-
-def test_missing_api_key_raises_before_any_request(monkeypatch):
-    monkeypatch.delenv("GOOGLE_CLOUD_VISION_API_KEY", raising=False)
-    with pytest.raises(OcrError, match="GOOGLE_CLOUD_VISION_API_KEY"):
-        extract_text_regions(b"fake-image-bytes")
 
 
 def test_extracts_real_looking_blocks_with_scaled_confidence(monkeypatch):
@@ -113,6 +117,18 @@ def test_extracts_real_looking_blocks_with_scaled_confidence(monkeypatch):
     assert result["regions"][0]["bbox"] == {"x": 10, "y": 10, "width": 100, "height": 20}
     assert "HELLO THERE" in result["full_text"]
     assert result["warning"] is None
+
+
+def test_request_is_authenticated_with_a_bearer_token(monkeypatch):
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["headers"] = headers
+        return _FakeResponse(200, {"responses": [{}]})
+
+    monkeypatch.setattr(comics_ocr.httpx, "post", fake_post)
+    extract_text_regions(b"fake-image-bytes")
+    assert captured["headers"] == {"Authorization": "Bearer fake-token"}
 
 
 def test_majority_low_confidence_blocks_produce_a_warning(monkeypatch):
@@ -166,7 +182,7 @@ def test_vision_error_in_response_raises_ocr_error(monkeypatch):
 def test_known_language_is_sent_as_a_hint(monkeypatch):
     captured = {}
 
-    def fake_post(url, params=None, json=None, timeout=None):
+    def fake_post(url, headers=None, json=None, timeout=None):
         captured["payload"] = json
         return _FakeResponse(200, {"responses": [{}]})
 
@@ -178,7 +194,7 @@ def test_known_language_is_sent_as_a_hint(monkeypatch):
 def test_unknown_or_missing_language_sends_no_hint(monkeypatch):
     captured = {}
 
-    def fake_post(url, params=None, json=None, timeout=None):
+    def fake_post(url, headers=None, json=None, timeout=None):
         captured["payload"] = json
         return _FakeResponse(200, {"responses": [{}]})
 
@@ -188,3 +204,64 @@ def test_unknown_or_missing_language_sends_no_hint(monkeypatch):
 
     extract_text_regions(b"fake-image-bytes")
     assert "imageContext" not in captured["payload"]["requests"][0]
+
+
+# ---------------------------------------------------------------------------
+# _access_token itself — the fixture above stubs this out for every test
+# above this point, so these are the only tests that exercise the real
+# credential-loading/decoding logic (mocking google-auth's Credentials
+# class rather than performing a real OAuth exchange, which needs an
+# actual private key to sign a JWT).
+# ---------------------------------------------------------------------------
+
+
+def _encoded(payload: dict) -> str:
+    return base64.b64encode(json.dumps(payload).encode()).decode()
+
+
+def test_missing_credentials_env_var_raises(monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", raising=False)
+    with pytest.raises(OcrError, match="GOOGLE_CLOUD_VISION_CREDENTIALS_JSON"):
+        _access_token()
+
+
+def test_non_base64_value_raises_a_clear_error(monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", "not-valid-base64!!!")
+    with pytest.raises(OcrError, match="not valid base64-encoded JSON"):
+        _access_token()
+
+
+def test_base64_of_non_json_raises_a_clear_error(monkeypatch):
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON",
+        base64.b64encode(b"this is not json").decode(),
+    )
+    with pytest.raises(OcrError, match="not valid base64-encoded JSON"):
+        _access_token()
+
+
+def test_invalid_service_account_structure_raises_a_clear_error(monkeypatch):
+    # Valid base64 + valid JSON, but missing the fields a real
+    # service-account key needs (private_key, client_email, token_uri).
+    monkeypatch.setenv("GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "service_account"}))
+    with pytest.raises(OcrError, match="Could not authenticate"):
+        _access_token()
+
+
+def test_valid_credentials_return_the_refreshed_token(monkeypatch):
+    class _FakeCredentials:
+        def __init__(self, *a, **k):
+            self.token = None
+
+        def refresh(self, request):
+            self.token = "real-token"
+
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "service_account"})
+    )
+    monkeypatch.setattr(
+        comics_ocr.service_account.Credentials,
+        "from_service_account_info",
+        lambda info, scopes=None: _FakeCredentials(),
+    )
+    assert _access_token() == "real-token"

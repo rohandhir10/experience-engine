@@ -17,7 +17,9 @@ deep-translator>=1.11  # benchmark only: Google Translate baseline
 sudachipy>=0.6.8
 sudachidict-core>=20230927
 python-multipart>=0.0.9  # FastAPI needs this to parse the /api/comics/ocr image upload
-# Google Cloud Vision is called directly over HTTPS via httpx (already a
-# dependency above) with a plain API key - see engine/comics_ocr.py's
-# docstring. No google-cloud-vision SDK/service-account dependency
-# needed for that simpler auth path.
+# Google Cloud Vision itself is called directly over HTTPS via httpx
+# (already a dependency above), not the google-cloud-vision SDK - only
+# google-auth is needed, to turn a service-account JSON key
+# (GOOGLE_CLOUD_VISION_CREDENTIALS_JSON) into a Bearer token. See
+# engine/comics_ocr.py's docstring.
+google-auth>=2.28

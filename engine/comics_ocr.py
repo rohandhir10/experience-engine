@@ -15,9 +15,13 @@ Vision auto-detects script/language per block of text and needs no
 per-language setup on this server at all.
 
 The tradeoff, stated plainly: this is now a paid, metered, external API
-call instead of a free local binary, and it requires a real GCP API key
-configured in this deployment's environment
-(GOOGLE_CLOUD_VISION_API_KEY). Unset, this raises OcrError rather than
+call instead of a free local binary, and it requires a real GCP service
+account credential configured in this deployment's environment
+(GOOGLE_CLOUD_VISION_CREDENTIALS_JSON — base64-encoded service-account
+JSON, not a plain API key; see docs/CAPABILITY_MATRIX.md's Cloud Vision
+entry for why a service account was chosen over the simpler API-key
+auth this module originally shipped with, and for the exact GCP console
+setup steps). Unset or invalid, this raises OcrError rather than
 silently failing, falling back to a worse method, or returning a
 fabricated result.
 
@@ -44,15 +48,21 @@ ingestion module in this project:
 from __future__ import annotations
 
 import base64
+import binascii
+import json
 import logging
 import os
 
 import httpx
+from google.auth.exceptions import GoogleAuthError
+from google.auth.transport.requests import Request as GoogleAuthRequest
+from google.oauth2 import service_account
 
 logger = logging.getLogger(__name__)
 
 _VISION_ENDPOINT = "https://vision.googleapis.com/v1/images:annotate"
-_API_KEY_ENV_VAR = "GOOGLE_CLOUD_VISION_API_KEY"
+_CREDENTIALS_ENV_VAR = "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON"
+_SCOPES = ["https://www.googleapis.com/auth/cloud-vision"]
 _REQUEST_TIMEOUT_SECONDS = 30.0
 
 # Below this per-block confidence (Vision's own 0-1 scale, reported here
@@ -79,6 +89,45 @@ _LANGUAGE_HINTS = {
 
 class OcrError(Exception):
     """Raised for any OCR failure a human needs to see plainly, not a stack trace."""
+
+
+def _access_token() -> str:
+    """Builds a fresh OAuth access token from the service-account JSON in
+    GOOGLE_CLOUD_VISION_CREDENTIALS_JSON (base64-encoded, since Railway
+    env vars are single-line strings, not files) and refreshes it
+    immediately so the returned token is valid to use right away.
+
+    Deliberately NOT cached across calls: a cached token needs a
+    thread-safe refresh-before-expiry mechanism to be correct under
+    concurrent requests, which is real complexity not worth taking on
+    for this scaffold's request volume. The known cost, stated plainly:
+    every OCR call does a real token-exchange round-trip to Google's
+    OAuth endpoint in addition to the Vision API call itself - a real,
+    deferred optimization, not an oversight.
+    """
+    encoded = os.environ.get(_CREDENTIALS_ENV_VAR, "")
+    if not encoded:
+        raise OcrError(
+            f"{_CREDENTIALS_ENV_VAR} is not set on this server. Panel OCR needs "
+            "a base64-encoded Google Cloud service-account JSON key - see "
+            "docs/CAPABILITY_MATRIX.md's Cloud Vision entry for setup."
+        )
+    try:
+        info = json.loads(base64.b64decode(encoded))
+    except (binascii.Error, ValueError, json.JSONDecodeError) as exc:
+        raise OcrError(
+            f"{_CREDENTIALS_ENV_VAR} is not valid base64-encoded JSON: {exc}"
+        ) from exc
+
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            info, scopes=_SCOPES
+        )
+        credentials.refresh(GoogleAuthRequest())
+    except (ValueError, KeyError, GoogleAuthError) as exc:
+        raise OcrError(f"Could not authenticate with Google Cloud: {exc}") from exc
+
+    return credentials.token
 
 
 def _block_text(block: dict) -> str:
@@ -131,17 +180,12 @@ def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dic
     anything - see _LANGUAGE_HINTS above. Pass None (the default) to let
     Vision auto-detect entirely on its own, which is the normal case.
 
-    Raises OcrError if GOOGLE_CLOUD_VISION_API_KEY isn't configured, the
-    request fails, or Vision itself reports an error - never returns a
+    Raises OcrError if GOOGLE_CLOUD_VISION_CREDENTIALS_JSON isn't
+    configured or isn't a valid service-account key, if the request
+    fails, or if Vision itself reports an error - never returns a
     fabricated/placeholder result on failure.
     """
-    api_key = os.environ.get(_API_KEY_ENV_VAR, "")
-    if not api_key:
-        raise OcrError(
-            f"{_API_KEY_ENV_VAR} is not set on this server. Panel OCR needs a "
-            "Google Cloud Vision API key - see docs/CAPABILITY_MATRIX.md's "
-            "Cloud Vision entry for setup."
-        )
+    token = _access_token()
 
     request_payload: dict = {
         "requests": [
@@ -158,7 +202,7 @@ def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dic
     try:
         response = httpx.post(
             _VISION_ENDPOINT,
-            params={"key": api_key},
+            headers={"Authorization": f"Bearer {token}"},
             json=request_payload,
             timeout=_REQUEST_TIMEOUT_SECONDS,
         )

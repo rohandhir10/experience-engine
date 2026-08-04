@@ -1785,6 +1785,86 @@ needs no per-language setup.
   a monkeypatched `httpx.post`, no real network call. 488 Python tests
   total, up from 482.
 
+## Cloud Vision auth: API key → service account — detail
+
+Direct follow-up, before the API-key version above was ever deployed
+with a real key: switched auth from a plain API key to a GCP service-
+account credential, on explicit request. A service account is the more
+auditable, more scopeable, more rotatable pattern for server-to-server
+GCP auth — a leaked API key is usable by anyone until manually revoked;
+a service account's credential can be scoped to exactly one API surface
+and rotated/disabled from IAM without touching anything else. The
+tradeoff is real setup cost, disclosed to the user directly: a GCP
+project, billing, the Vision API enabled, a service account with a
+role attached, and a JSON key generated and delivered to this
+deployment — vs. one string for the API-key version.
+
+- **`engine/comics_ocr.py::_access_token`** (new): reads
+  `GOOGLE_CLOUD_VISION_CREDENTIALS_JSON` (base64-encoded service-account
+  JSON — Railway env vars are single-line strings, not files, so the
+  downloaded key can't be mounted directly), decodes and parses it,
+  builds a `google.oauth2.service_account.Credentials` scoped to
+  `cloud-vision`, and calls `.refresh()` to exchange it for a real
+  OAuth access token used as an `Authorization: Bearer` header on the
+  Vision request — replacing the previous version's `?key=` query
+  parameter entirely. Uses `google-auth` directly (new dependency,
+  `requirements.txt`) rather than the full `google-cloud-vision` SDK,
+  since the actual Vision call still goes through `httpx` exactly as
+  before — only the auth step needed a real library, not the request
+  itself.
+- **Deliberately NOT cached across calls**, stated plainly as a real
+  cost rather than glossed over: every OCR request now does a full
+  OAuth token-exchange round-trip to Google in addition to the Vision
+  API call itself, because a cached token needs a thread-safe refresh-
+  before-expiry mechanism to stay correct under concurrent requests —
+  real complexity not worth taking on for this scaffold's request
+  volume yet. A legitimate follow-up optimization if/when panel volume
+  makes the extra round-trip's latency worth removing.
+- **Every failure mode raises `OcrError` with a specific, actionable
+  message** rather than a generic auth failure: the env var missing,
+  the value not valid base64, the decoded value not valid JSON, and
+  the JSON not resembling a real service-account key (missing
+  `private_key`/`client_email`/`token_uri`) are all distinguished.
+  Verified end-to-end, not just unit-tested: a real manual request
+  against a locally-running engine with the env var unset returned a
+  clean HTTP 400 naming exactly `GOOGLE_CLOUD_VISION_CREDENTIALS_JSON`
+  as the missing piece, not a stack trace.
+- **A real, disclosed environment quirk hit while developing this**
+  (not a code bug, a sandbox dependency-resolution issue): this
+  sandbox's system-installed `cryptography` package (Debian-packaged)
+  was missing its `cffi` binding, which crashed on
+  `from google.oauth2 import service_account` with an unrelated-looking
+  Rust panic (`pyo3_runtime.PanicException`, `No module named
+  '_cffi_backend'`) rather than a normal ImportError. Fixed locally by
+  installing `cffi`/`cryptography` via pip. `requirements.txt`'s
+  `cryptography` (pulled in transitively by `google-auth`) should
+  install cleanly in a fresh container (this engine's actual Railway
+  deployment target, per the Dockerfile) since there's no competing
+  system package there to conflict with — flagged here in case the
+  same class of error ever surfaces in another environment.
+- **What GCP console setup this needs, not automatable from here**: a
+  project with billing enabled, the Cloud Vision API turned on, a
+  service account, and a JSON key generated and base64-encoded into
+  Railway's env vars. No tool in this session can create GCP resources
+  or trigger a Railway deploy — both remain the user's to do.
+- **Tier 1** for the credential-parsing/token-exchange logic itself
+  (deterministic given a real key); **Tier 0** in the sense that no
+  real OAuth exchange or real Vision call has been exercised in this
+  sandbox — every test here mocks `google.oauth2.service_account.
+  Credentials` and `httpx.post` rather than performing a real exchange,
+  since no real service-account key exists in this environment. That
+  first real end-to-end call is still the user's to make once the key
+  is live on the actual deployment.
+- **Benchmark coverage:** `tests/test_comics_ocr.py` grew to 17 tests
+  (up from 12) — the 12 request/response-parsing tests now stub
+  `_access_token` directly (a fake token string) rather than an API
+  key env var, plus 5 new tests dedicated to `_access_token` itself:
+  missing env var, non-base64 value, base64-but-not-JSON value, a
+  structurally invalid service-account dict, and a valid path returning
+  the refreshed token (mocking `Credentials.from_service_account_info`,
+  not a real signed JWT/OAuth exchange). 493 Python tests total, up
+  from 488.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
