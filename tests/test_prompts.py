@@ -7,8 +7,13 @@ that a section with no repetition sees a byte-identical prompt.
 """
 from __future__ import annotations
 
-from engine.prompts import _repeated_source_lines_note, creative_adapter_prompt
-from engine.models import RoomMemory, SongDNA
+from engine.prompts import (
+    _repeated_source_lines_note,
+    _ruling_schema,
+    creative_adapter_prompt,
+    judge_triage_prompt,
+)
+from engine.models import Candidate, RoomMemory, RoutingSignals, SongDNA
 
 MINIMAL_DNA = SongDNA.model_validate(
     {
@@ -97,3 +102,49 @@ def test_creative_adapter_prompt_omits_the_note_when_source_has_no_repeats():
         RoomMemory(),
     )
     assert "appears" not in user
+
+
+# ---------------------------------------------------------------------------
+# _ruling_schema's honorific_note field — item #6 of the chapter-level-
+# context roadmap. Gated on `voice` so an unattributed section (most
+# songs) sees a byte-identical schema; see tests/test_golden_prompts.py
+# for confirmation the no-voice fixture's hash didn't need to change.
+# ---------------------------------------------------------------------------
+
+
+def test_ruling_schema_omits_honorific_field_without_a_voice():
+    assert "honorific_note" not in _ruling_schema(voice=None)
+
+
+def test_ruling_schema_includes_honorific_field_when_voice_is_given():
+    schema = _ruling_schema(voice="Guard Captain")
+    assert "honorific_note" in schema
+
+
+def test_judge_triage_prompt_includes_honorific_field_only_with_a_voice():
+    candidates = [
+        Candidate(id="a", agent="translator", text="x", round="generation", confidence=1.0),
+    ]
+    signals = RoutingSignals(culturally_specific_symbol_count=0, suggested_specialists=[], reasons=[])
+
+    system_without_voice, _ = judge_triage_prompt(
+        candidates, signals, "source", MINIMAL_DNA, "verse_1", RoomMemory()
+    )
+    assert "honorific_note" not in system_without_voice
+
+    system_with_voice, _ = judge_triage_prompt(
+        candidates, signals, "source", MINIMAL_DNA, "verse_1", RoomMemory(), voice="Guard Captain"
+    )
+    assert "honorific_note" in system_with_voice
+
+
+def test_room_memory_surfaces_honorific_state_to_every_prompt():
+    """RoomMemory.summary_for_prompt() already gets included in
+    creative_adapter_prompt/judge_triage_prompt/judge_final_prompt/
+    generation_prompt_v1 - confirming it here is enough to know every
+    one of those stages sees the running honorific state, without
+    needing to touch each prompt builder's signature.
+    """
+    memory = RoomMemory(honorific_state={"Guard Captain": "formal, deferential"})
+    _, user = creative_adapter_prompt("source text", MINIMAL_DNA, "verse_1", memory)
+    assert "Guard Captain: formal, deferential" in user

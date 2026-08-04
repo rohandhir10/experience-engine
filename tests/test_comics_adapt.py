@@ -8,7 +8,7 @@ already passes; no real API call is made.
 from __future__ import annotations
 
 from engine.comics_adapt import _bubble_song_dna, adapt_bubble, adapt_chapter
-from engine.models import BubbleInput, ChapterDNA, ChapterInput, RoomMemory
+from engine.models import BubbleInput, ChapterDNA, ChapterInput, CharacterVoice, RoomMemory
 
 CHAPTER_DNA = ChapterDNA(
     artistic_thesis="Loyalty gets tested the moment it becomes costly.",
@@ -209,3 +209,95 @@ def test_adapt_chapter_carries_compensations_across_bubbles():
     assert len(results[0].compensations) == 1
     judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
     assert "speaker's deference to the king" in judge_calls[1]
+
+
+# ---------------------------------------------------------------------------
+# Honorific/speech-register tracking — item #6 of the chapter-level-
+# context roadmap.
+# ---------------------------------------------------------------------------
+
+CHAPTER_DNA_WITH_CHARACTER = ChapterDNA(
+    artistic_thesis=CHAPTER_DNA.artistic_thesis,
+    genre_feel=CHAPTER_DNA.genre_feel,
+    tone=CHAPTER_DNA.tone,
+    ongoing_plot_context=CHAPTER_DNA.ongoing_plot_context,
+    characters=[
+        CharacterVoice(
+            name="Guard Captain",
+            voice_description="Terse, deferential, speaks in short clipped sentences under stress.",
+            honorific_register="formal, deferential (하십시오체)",
+            relationships=[],
+        )
+    ],
+)
+
+
+def test_adapt_chapter_seeds_honorific_state_from_chapter_dna():
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain")]
+    )
+    client = FakeClientRulesImmediately()
+
+    adapt_chapter(chapter, CHAPTER_DNA_WITH_CHARACTER, client)
+
+    judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
+    assert "Guard Captain: formal, deferential (하십시오체)" in judge_calls[0]
+
+
+def test_adapt_chapter_updates_honorific_state_after_a_reported_shift():
+    class FakeClientReportsShift(FakeClientRulesImmediately):
+        def complete_json(self, system, user, max_tokens=None, stage="unknown") -> dict:
+            self.calls.append((stage, user))
+            if stage == "judge_triage":
+                data = _ruling(self.adapted_line)
+                data["ruling"]["honorific_note"] = (
+                    "shifted to casual banmal - anger breaking through formality"
+                )
+                return data
+            if stage == "translator":
+                return {
+                    "text": "We failed to stop the princess.",
+                    "leans_into": "fear",
+                    "confidence": 0.9,
+                    "uncertainty_type": "none",
+                }
+            if stage == "creative_adapter":
+                return {"candidates": _candidates(self.adapted_line)}
+            raise AssertionError(f"Unexpected stage: {stage!r}")
+
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="line two", voice="Guard Captain"),
+        ]
+    )
+    client = FakeClientReportsShift()
+
+    results = adapt_chapter(chapter, CHAPTER_DNA_WITH_CHARACTER, client)
+
+    assert results[0].ruling.honorific_note == (
+        "shifted to casual banmal - anger breaking through formality"
+    )
+    judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
+    assert "Guard Captain: formal, deferential (하십시오체)" in judge_calls[0]
+    assert "Guard Captain: shifted to casual banmal" in judge_calls[1]
+    # The dict entry is overwritten, not appended - only the latest
+    # register should appear in bubble 2's prompt.
+    assert judge_calls[1].count("Guard Captain:") == 1
+
+
+def test_adapt_chapter_does_not_update_honorific_state_for_an_unattributed_bubble():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one"),  # no voice
+            BubbleInput(id="b2", source_text="line two", voice="Guard Captain"),
+        ]
+    )
+    client = FakeClientRulesImmediately()
+
+    adapt_chapter(chapter, CHAPTER_DNA_WITH_CHARACTER, client)
+
+    judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
+    # The chapter-seeded register is still what bubble 2 sees - an
+    # unattributed bubble 1 has nothing to update it with.
+    assert "Guard Captain: formal, deferential (하십시오체)" in judge_calls[1]

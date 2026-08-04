@@ -2198,6 +2198,76 @@ entries) into a real HTTP endpoint and a real "Adapt chapter" button in
   response correctly filled the "Adapted text" and "Why" fields in the
   UI — not just that the fetch call resolved.
 
+## Honorific/speech-register tracking through room memory — detail
+
+Item #6, the last item on the chapter-level-context roadmap and the one
+flagged as hardest when this was first scoped: real honorific/speech-
+register shifts across a conversation (Korean/Japanese speech levels,
+tu/vous) are a common, meaningful plot beat — a character dropping
+formality out of anger, or turning formal to address a superior. Until
+now, `ChapterDNA.characters[].honorific_register` was only ever a
+snapshot of where a character starts, read once and never updated (the
+previous two entries said so explicitly).
+
+- **The integration point, found rather than built from scratch:**
+  `RoomMemory.summary_for_prompt()` already gets included, unmodified,
+  in every stage's prompt (Translator, Creative Adapter, Judge triage
+  and final) via each builder's existing `room_memory.summary_for_prompt()`
+  call — that's how `compensations` already reaches every stage. Adding
+  `RoomMemory.honorific_state: dict[str, str]` (character name -> current
+  register) and rendering it in `summary_for_prompt()` meant **no prompt
+  builder's function signature needed to change at all** — the new state
+  is automatically visible everywhere `RoomMemory` already flows.
+- **`engine/models.py::JudgeRuling.honorific_note`** (new, optional):
+  the Judge's own report of a character's speech register AFTER ruling
+  on a section. **Gated on `voice` being set**
+  (`engine/prompts.py::_ruling_schema(profile, voice)`) — an
+  unattributed/narrator section (most songs, most narration-only
+  chapters) has no clear "whose register" question to ask, so the
+  schema stays exactly as before for those. This is also why the
+  Phase-1 byte-identical-prompt guarantee held: `tests/test_golden_prompts.py`'s
+  fixture never sets `voice`, so its hash needed NO update — confirmed
+  by running that suite, not assumed.
+- **`engine/comics_adapt.py::adapt_chapter`**: seeds
+  `room_memory.honorific_state` from `ChapterDNA.characters`' snapshot
+  register at the start of a chapter, then after every bubble with a
+  `voice` set, overwrites that character's entry with
+  `result.ruling.honorific_note` when the Judge reported one — a real
+  update, not an append, so a later section always sees the CURRENT
+  register, not a growing history. An unattributed bubble neither reads
+  nor writes this state.
+- **Same mechanism works for songs too, not just comics** — a duet with
+  a real mid-song formality shift (Hindi tu/aap, Korean speech levels)
+  gets the identical benefit for free, since `RoomMemory`/`voice` are
+  shared primitives, not comics-specific. Nothing about this entry is
+  gated to `ChapterDNA` specifically.
+- **What this does NOT do:** the Judge is ASKED to report a shift
+  honestly rather than defaulting to the old listed register, but
+  nothing verifies it actually does so accurately — this is Tier 0,
+  same as any other Judge self-report in this document (the deviation
+  ledger and dimension scores have the same status). No UI surfaces
+  `honorific_note`/`honorific_state` anywhere yet — it's real backend
+  state used by later prompts, not shown to the human reviewing a
+  panel. And this is the LAST item on the chapter-level-context
+  roadmap scoped at the start of this thread — everything from bubble
+  reading order through here is now wired end to end, though real usage
+  (a real chapter, a real API key, a human reviewing real output) still
+  hasn't happened in this sandbox.
+- **Tier 1** for the plumbing (deterministic: seed once, overwrite on a
+  reported change, surface via existing `summary_for_prompt`); **Tier 0**
+  for whether the Judge's self-reported shift is actually correct.
+- **Benchmark coverage:** 4 new `tests/test_prompts.py` tests
+  (`_ruling_schema` omits/includes the field based on `voice`;
+  `judge_triage_prompt` end-to-end does the same; `RoomMemory.
+  summary_for_prompt()` surfaces `honorific_state` into a real prompt)
+  and 3 new `tests/test_comics_adapt.py` tests (`adapt_chapter` seeds
+  the state from Chapter DNA and it reaches the first judge prompt; a
+  reported shift correctly overwrites — not appends — the character's
+  entry, verified by inspecting bubble 2's actual prompt text and
+  confirming the OLD register no longer appears; an unattributed bubble
+  neither reads nor writes the tracked state). 523 Python tests total,
+  up from 516. No web changes this round — this is backend-only state.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

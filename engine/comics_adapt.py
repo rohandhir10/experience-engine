@@ -19,13 +19,23 @@ was never asked to produce.
 What this does NOT do: no batching (one full Writers' Room run per
 bubble — a real chapter with dozens of bubbles means dozens of runs,
 same per-section cost a song already has, just applied to much shorter
-units), no motif/ambiguity/symbol tracking (ChapterDNA has none of
-these yet), and no honorific-register tracking through room memory
-(item #6, still not built — a character's `honorific_register` snapshot
-from Chapter DNA is read once here and never updated as the chapter
-progresses). Voice consistency DOES work correctly, for free: bubble
+units), and no motif/ambiguity/symbol tracking (ChapterDNA has none of
+these yet). Voice consistency DOES work correctly, for free: bubble
 voices thread through exactly the way SectionInput.voice already does
 for a song's duet/dialogue sections.
+
+Honorific/speech-register tracking (item #6 of the chapter-level-
+context roadmap) IS wired here now: `adapt_chapter` seeds
+RoomMemory.honorific_state from each CharacterVoice's
+honorific_register snapshot, and after every bubble attributed to a
+voice, updates that character's entry from JudgeRuling.honorific_note
+— the Judge's own report of that character's register after ruling on
+this bubble (engine/prompts.py's `_ruling_schema` only asks for this
+field when the section has an attributed voice, so unattributed
+bubbles and ordinary songs are unaffected). RoomMemory.summary_for_prompt()
+already surfaces the running state to every stage (Translator, Creative
+Adapter, Judge) automatically, the same way it already does for
+compensations — no new prompt wiring was needed beyond that field.
 """
 from __future__ import annotations
 
@@ -148,12 +158,17 @@ def adapt_chapter(
     section loop. Room memory carries forward exactly the way it does
     for song sections (prior rulings, compensations), so voice
     consistency and Hindi/Japanese/etc. structural-trap compensations
-    actually hold across a whole chapter, not just within one bubble.
+    actually hold across a whole chapter, not just within one bubble —
+    plus honorific/speech-register state (see this module's docstring),
+    seeded here from Chapter DNA's per-character snapshot and updated
+    after every attributed bubble.
 
     No batching (see this module's docstring): N sequential full
     Writers' Room runs, not one call handling several bubbles at once.
     """
-    room_memory = RoomMemory()
+    room_memory = RoomMemory(
+        honorific_state={c.name: c.honorific_register for c in dna.characters}
+    )
     results: list[SectionResultV1] = []
     known_compensations = {c.source_feature for c in room_memory.compensations}
 
@@ -165,5 +180,7 @@ def adapt_chapter(
             if compensation.source_feature not in known_compensations:
                 room_memory.compensations.append(compensation)
                 known_compensations.add(compensation.source_feature)
+        if bubble.voice and result.ruling.honorific_note:
+            room_memory.honorific_state[bubble.voice] = result.ruling.honorific_note
 
     return results

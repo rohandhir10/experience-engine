@@ -897,17 +897,42 @@ _CULTURAL_ANCHORS_FIELD = (
     "be used identically at every recurrence of that term in the song)"
 )
 
+_HONORIFIC_FIELD = (
+    ', "honorific_note": str (this section\'s speaking character\'s '
+    "speech register/formality AFTER this ruling — e.g. \"still formal, "
+    'no shift" or "shifted to casual banmal — anger breaking through '
+    'formality." Only meaningful for a source with a real formality '
+    "register to track (Korean/Japanese speech levels, tu/vous, or "
+    "similar) — if this specific line has nothing of the kind to track, "
+    'say so plainly (e.g. "no tracked honorific register for this '
+    'line") rather than inventing one. Room memory below may already '
+    "list this character's current register from an earlier section — "
+    "this is the CURRENT state after THIS ruling, and should report a "
+    "real shift honestly rather than defaulting to whatever was listed "
+    "before)"
+)
 
-def _ruling_schema(profile: LanguageProfile | None = None) -> str:
-    """The ruling schema, plus the cultural-anchor field only when the
-    source language actually has an anchor lexicon. Asking every song to
-    reason about culturally dense terms when none are known would spend
-    Judge attention on nothing — and would break the Phase 1 guarantee
-    that a neutral profile leaves prompts byte-identical.
+
+def _ruling_schema(profile: LanguageProfile | None = None, voice: str | None = None) -> str:
+    """The ruling schema, plus:
+      - the cultural-anchor field only when the source language actually
+        has an anchor lexicon (existing behavior)
+      - the honorific_note field only when this section has an
+        attributed voice/speaker — an unattributed/narrator section has
+        no clear "whose speech register" question to ask in the first
+        place, and this keeps the vast majority of song sections (no
+        voice set) byte-identical to before this field existed.
+    Asking every section to reason about either dimension when it
+    doesn't apply would spend Judge attention on nothing — and would
+    break the Phase 1 guarantee that a neutral/no-voice case leaves
+    prompts byte-identical.
     """
+    schema = _RULING_SCHEMA
     if profile and profile.anchor_lexicon:
-        return _RULING_SCHEMA[:-1] + _CULTURAL_ANCHORS_FIELD + "}"
-    return _RULING_SCHEMA
+        schema = schema[:-1] + _CULTURAL_ANCHORS_FIELD + "}"
+    if voice:
+        schema = schema[:-1] + _HONORIFIC_FIELD + "}"
+    return schema
 
 
 def judge_triage_prompt(
@@ -956,7 +981,7 @@ def judge_triage_prompt(
         "that is itself a reason to consult native_speaker before ruling, "
         "not a reason to guess.\n\n"
         'Respond with ONLY a JSON object: {"ready_to_rule": bool, "ruling": '
-        + _ruling_schema(profile) + ' or null, "specialists_needed": '
+        + _ruling_schema(profile, voice) + ' or null, "specialists_needed": '
         '["cultural_historian"|"native_speaker"|"psychologist", ...], "why": '
         'str}. If ready_to_rule is false, ruling must be null and '
         "specialists_needed must be non-empty."
@@ -1028,7 +1053,7 @@ def judge_final_prompt(
         "that is exactly the kind of concern worth a real rewrite, not a "
         "shrug — and either way, the deviation ledger for whatever you ship "
         "must still hold up.\n\n"
-        f"Respond with ONLY a JSON object: {_ruling_schema(profile)}."
+        f"Respond with ONLY a JSON object: {_ruling_schema(profile, voice)}."
     )
     candidates_text = "\n".join(
         f"[{c.id}] ({c.agent}"

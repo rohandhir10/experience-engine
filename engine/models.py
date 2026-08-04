@@ -506,6 +506,15 @@ class JudgeRuling(BaseModel):
     # SectionInput.voice so room-memory summaries can label prior rulings
     # per voice. None for single-voice works.
     voice: str | None = None
+    # This section's speaking character's speech register/formality AFTER
+    # this ruling (Korean/Japanese honorific level, tu/vous, or the
+    # closest equivalent the source has) — only asked for when `voice` is
+    # set (see engine/prompts.py's _ruling_schema), so it's always None
+    # for unattributed/narrator sections and most songs. None does not
+    # mean "no shift"; it means the question was never asked for this
+    # section. engine/comics_adapt.py reads this to update
+    # RoomMemory.honorific_state after each bubble.
+    honorific_note: str | None = None
 
 
 class SectionResult(BaseModel):
@@ -636,6 +645,17 @@ class RoomMemory(BaseModel):
     # carry each. Decided once, then binding for the rest of the song —
     # a speaker who is 俺 in verse 1 cannot become 僕 in the chorus.
     compensations: list[Compensation] = Field(default_factory=list)
+    # Character name -> that character's current speech register/
+    # formality (Korean/Japanese honorific level, tu/vous, or the closest
+    # equivalent the source has), as of the most recent section attributed
+    # to them. Comics-motivated (engine/comics_adapt.py seeds this from
+    # ChapterDNA.characters' honorific_register snapshot, then updates it
+    # from JudgeRuling.honorific_note after each bubble), but not comics-
+    # exclusive — a song duet with a real mid-song formality shift is the
+    # same phenomenon. Unlike `compensations`, this is NOT binding: it is
+    # the CURRENT state, meant to change when a real shift happens, not a
+    # decision fixed for the rest of the work.
+    honorific_state: dict[str, str] = Field(default_factory=dict)
 
     def summary_for_prompt(self) -> str:
         compensation_block = ""
@@ -657,10 +677,25 @@ class RoomMemory(BaseModel):
                 "it; the carrier is diction, not addition:\n" + entries + "\n"
             )
 
+        honorific_block = ""
+        if self.honorific_state:
+            entries = "\n".join(
+                f"- {character}: {register}"
+                for character, register in self.honorific_state.items()
+            )
+            honorific_block = (
+                "\nCurrent speech register/formality per character (this is "
+                "the CURRENT state, not a fixed decision — if this section's "
+                "dialogue genuinely shifts a character's register, write that "
+                "shift and report it honestly, don't silently hold the old "
+                "register just because it's listed here):\n" + entries + "\n"
+            )
+
         if not self.prior_rulings:
             return (
                 "No prior sections yet — this is the first section of the song."
                 + compensation_block
+                + honorific_block
             )
         lines = ["Decisions already made earlier in this song:"]
         for r in self.prior_rulings:
@@ -672,4 +707,4 @@ class RoomMemory(BaseModel):
             lines.append("Motif renderings established so far:")
             for motif, rendering in self.motif_decisions.items():
                 lines.append(f"- {motif}: {rendering}")
-        return "\n".join(lines) + compensation_block
+        return "\n".join(lines) + compensation_block + honorific_block
