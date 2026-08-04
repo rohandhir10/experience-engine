@@ -1865,6 +1865,67 @@ deployment — vs. one string for the API-key version.
   not a real signed JWT/OAuth exchange). 493 Python tests total, up
   from 488.
 
+## Comics: bubble reading-order fix — detail
+
+First real end-to-end confirmation that OCR works: the user ran a real
+manhwa (Korean webtoon) speech-bubble panel through the deployed engine
+and Cloud Vision correctly read the dialogue, word-for-word, including
+proper handling of a real-world artifact (Korean's agglutinative
+grammar inserting extra spaces between a noun and its particle -
+`공주님 을` instead of `공주님을` - flagged as a known, cosmetic OCR
+quirk, not a content error, left as-is for the human review step to
+absorb rather than adding an unrequested cleanup pass).
+
+That success surfaced the next real gap, scoped directly out of it: to
+wire panels into the actual Reasoning Engine (Song DNA -> Translator ->
+Creative Adapter -> Judge, reusing the existing Writers' Room machinery
+with a new "Chapter DNA" equivalent providing chapter-level context),
+bubble reading order has to be correct FIRST — Cloud Vision returns
+detected regions sorted by plain top-to-bottom/left-to-right position
+(engine/comics_ocr.py's own docstring already disclosed this), which is
+wrong for manga's right-to-left reading and not guaranteed correct for
+any multi-bubble panel whose real reading order isn't simple geometry.
+Nothing existed to let a human fix that before this entry.
+
+- **`components/comics/PanelWorkspace.tsx`**: each detected region's
+  bounding-box overlay now carries a numbered badge (reading-order
+  position), and a new "Reading order" list below the image shows every
+  region's text with ↑/↓ buttons to reorder it — the badges on the
+  image and the list stay in sync since both render from the same
+  `ocrRegions` array. Only shown when a panel has more than one region
+  (a single-bubble panel has no order to fix). An explicit "Apply this
+  order to Extracted text" button rewrites the extracted-text field
+  from the corrected order — deliberately NOT automatic on every
+  reorder, so moving a region around never silently overwrites text a
+  human has already started editing; the overwrite only happens on an
+  explicit click, the same opt-in-only-when-intentional discipline
+  "Run OCR" itself already follows (pre-fills an empty field, never a
+  populated one).
+- **No backend changes** — this is pure client-side array reordering
+  (`ComicPanel.ocrRegions`, already a plain array on existing state);
+  nothing new needed from `engine/comics_ocr.py` or the API route.
+- **What this does NOT solve yet**: it fixes the ORDER of already-
+  detected regions: it does not detect a missed bubble, split a
+  wrongly-merged one, or auto-correct anything — a human still has to
+  look at the panel and decide the right order. This is also just the
+  first item on the scoped chapter-level-context roadmap (see the
+  previous conversation turn's scoping breakdown, not yet its own
+  document) — Chapter DNA generation, per-character voice/honorific
+  tracking, and the actual `/api/comics/adapt` endpoint are still not
+  built.
+- **Tier 1** — pure UI state manipulation, no LLM judgment involved.
+  Verified with a real Playwright run (mocking only the `/api/comics/
+  ocr` network response, since no real Vision credential exists in this
+  sandbox, to supply two regions in a deliberately wrong order): the
+  numbered badges and list started in the wrong order, clicking ↓
+  correctly swapped both the list AND the image overlay's badges
+  together, and "Apply this order" correctly rewrote Extracted text in
+  the corrected order — confirmed by reading the actual rendered
+  screenshots and the field's value, not just that the code compiled.
+  `tsc --noEmit`/`next build` clean; existing 38-test web suite and
+  493-test Python suite both re-run and still green (this change didn't
+  touch Python at all).
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

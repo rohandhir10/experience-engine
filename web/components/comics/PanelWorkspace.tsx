@@ -8,7 +8,17 @@ import type { ComicPanel } from "@/lib/comics-types";
  * overlaid, once run) on one side, and its script fields on the other.
  * "Extracted text"/"Adapted text" stay plain editable fields regardless
  * of whether OCR has run - OCR only ever pre-fills a draft, never locks
- * the field or overwrites something the human already typed. */
+ * the field or overwrites something the human already typed.
+ *
+ * Reading order: Cloud Vision returns detected regions sorted by plain
+ * top-to-bottom/left-to-right position (see engine/comics_ocr.py's
+ * docstring) - wrong for manga's right-to-left reading, and not
+ * guaranteed correct for any multi-bubble panel whose actual reading
+ * order isn't simple geometry. The numbered badges below double as a
+ * reorder control: the human fixes the order before it ever feeds a
+ * chapter-level adaptation pass, the same review step every other
+ * ingestion path in this project (YouTube captions, the literal
+ * anchor) already requires before trusting machine output. */
 export function PanelWorkspace({
   panels,
   onUpdatePanel,
@@ -31,6 +41,24 @@ export function PanelWorkspace({
     const clamped = Math.max(0, Math.min(panels.length - 1, index));
     setActiveId(panels[clamped].id);
     setNaturalSize(null);
+  }
+
+  function moveRegion(fromIndex: number, toIndex: number) {
+    const regions = active.ocrRegions;
+    if (!regions) return;
+    const clamped = Math.max(0, Math.min(regions.length - 1, toIndex));
+    if (clamped === fromIndex) return;
+    const reordered = [...regions];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(clamped, 0, moved);
+    onUpdatePanel(active.id, { ocrRegions: reordered });
+  }
+
+  function applyRegionOrderToExtractedText() {
+    if (!active.ocrRegions) return;
+    onUpdatePanel(active.id, {
+      extractedText: active.ocrRegions.map((r) => r.text).join("\n\n"),
+    });
   }
 
   return (
@@ -123,7 +151,11 @@ export function PanelWorkspace({
                       width: `${(region.bbox.width / naturalSize.width) * 100}%`,
                       height: `${(region.bbox.height / naturalSize.height) * 100}%`,
                     }}
-                  />
+                  >
+                    <span className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
+                      {i + 1}
+                    </span>
+                  </div>
                 ))}
             </div>
 
@@ -151,6 +183,57 @@ export function PanelWorkspace({
               >
                 {active.ocrMessage}
               </p>
+            )}
+
+            {active.ocrRegions && active.ocrRegions.length > 1 && (
+              <div className="mt-4">
+                <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Reading order</p>
+                <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                  Vision sorts bubbles top-to-bottom, left-to-right — wrong for manga's
+                  right-to-left reading, and not guaranteed correct for any multi-bubble
+                  panel. Fix the order here before it feeds anything downstream.
+                </p>
+                <ol className="mt-2 flex flex-col gap-1.5">
+                  {active.ocrRegions.map((region, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white/50 px-2.5 py-1.5 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                    >
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
+                        {i + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-ink/60 dark:text-ink-dark/60">
+                        {region.text}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => moveRegion(i, i - 1)}
+                        disabled={i === 0}
+                        aria-label={`Move region ${i + 1} earlier`}
+                        className="shrink-0 text-ink/40 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 dark:text-ink-dark/40 dark:hover:text-ink-dark"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveRegion(i, i + 1)}
+                        disabled={i === active.ocrRegions!.length - 1}
+                        aria-label={`Move region ${i + 1} later`}
+                        className="shrink-0 text-ink/40 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 dark:text-ink-dark/40 dark:hover:text-ink-dark"
+                      >
+                        ↓
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                <button
+                  type="button"
+                  onClick={applyRegionOrderToExtractedText}
+                  className="mt-2 text-[12px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+                >
+                  Apply this order to Extracted text
+                </button>
+              </div>
             )}
           </div>
 
