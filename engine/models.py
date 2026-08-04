@@ -290,7 +290,11 @@ class Critique(BaseModel):
     agent: str
     verdict: Literal["strong", "workable", "fails"]
     strength: str
-    failure: str
+    # Optional: a real production response sent an explicit `"failure":
+    # null` for a "strong" verdict (nothing to report), which `.get(...,
+    # "")` still passes through as None rather than the "" default -
+    # str-only rejected that at validation time and crashed the backend.
+    failure: str | None = None
     suggested_fix: str | None = None
 
 
