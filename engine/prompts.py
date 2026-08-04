@@ -13,6 +13,7 @@ from collections import Counter
 from .language_profile import LanguageProfile
 from .models import (
     Candidate,
+    ChapterInput,
     Critique,
     Rebuttal,
     RoomMemory,
@@ -118,6 +119,96 @@ def song_dna_prompt(
     # A targeted replace, not .format() — SONG_DNA_SYSTEM embeds a full JSON
     # schema example full of literal {}, which .format() would misparse.
     system = SONG_DNA_SYSTEM.replace("{target_language}", song.target_language)
+    return system, user
+
+
+# ---------------------------------------------------------------------------
+# Chapter DNA (comics) — the one-shot, chapter-wide analysis a human
+# translator needs before touching any single bubble. Deliberately NOT a
+# per-bubble breakdown the way SongDNA.sections is per-section — that
+# granularity belongs to the actual adaptation pass over each bubble
+# (docs/CAPABILITY_MATRIX.md's chapter-level-context roadmap, item #4),
+# not this chapter-wide read.
+# ---------------------------------------------------------------------------
+
+CHAPTER_DNA_SYSTEM = """\
+You are reverse-engineering a comic/webtoon chapter's dramatic craft, not \
+translating it. Your job is to describe what this chapter is built to make a \
+reader feel, who the characters are and how they each actually talk, and what \
+is dramatically happening — not to explain what the dialogue means line by \
+line.
+
+Never discuss translation. Never propose {target_language} wording. Analyze \
+the chapter in its own source language, the way a story editor would break \
+down a chapter before anyone touches a single line of dialogue.
+
+Cover: artistic thesis (what this chapter is fundamentally about emotionally, \
+in one sentence), genre feel (the ongoing work's overall genre/style, e.g. \
+"slice-of-life school romance", "revenge thriller manhwa"), tone (THIS \
+chapter's specific tone, which can depart from the overall genre feel — a \
+comedic beat inside an overall drama, a sudden tense turn in an otherwise \
+light chapter), ongoing plot context (what is actually happening dramatically \
+right now — the scene's stakes, what just changed, what a reader needs to \
+know walking in), and one profile per named or clearly identifiable speaking \
+character.
+
+For each character, cover: voice_description (how they actually talk — \
+diction, personality signals, verbal tics; two characters in the same \
+chapter should read as sounding different from each other, not \
+interchangeable), honorific_register (this character's speech \
+formality/register AT THE START of this chapter — Korean/Japanese honorific \
+level if the source uses one, or the closest equivalent formality register \
+the source language actually has; this is a snapshot of where they start, \
+NOT a claim that it stays constant — if the chapter itself contains a real \
+shift in a character's formality, describe that shift in ongoing_plot_context \
+instead, since this field only captures the starting point), and \
+relationships (this character's key relationships to other characters in the \
+chapter, stated plainly — do not invent a relationship the dialogue does not \
+support).
+
+honorific_register and tone specifically MUST be short labels, a handful of \
+words at most (e.g. "formal, deferential (하십시오체)", "casual banmal with \
+her sister only") — never a full paragraph of reasoning. Put the reasoning \
+and specific evidence in ongoing_plot_context or the character's \
+voice_description instead.
+
+Do not invent a character, a relationship, or a plot event the dialogue does \
+not actually support. A caption box or unattributed line does not need its \
+own character profile — only profile characters who actually speak.
+
+Respond with ONLY a single JSON object matching this shape (omit no \
+top-level key; use an empty list for characters if the chapter has no \
+identifiable speaking characters at all — a caption-only chapter, for \
+instance):
+
+{
+  "artistic_thesis": str,
+  "genre_feel": str,
+  "tone": str,
+  "ongoing_plot_context": str,
+  "characters": [
+    {
+      "name": str,
+      "voice_description": str,
+      "honorific_register": str,
+      "relationships": [str]
+    }
+  ]
+}
+"""
+
+
+def chapter_dna_prompt(chapter: ChapterInput) -> tuple[str, str]:
+    bubbles_text = "\n\n".join(f"[{b.id}]\n{b.source_text}" for b in chapter.bubbles)
+    context = f"\nContext: {chapter.context_note}" if chapter.context_note else ""
+    user = (
+        f"Source language: {chapter.source_language}{context}\n"
+        f"Full chapter, bubble by bubble, in reading order:\n\n{bubbles_text}\n\n"
+        "Analyze this chapter's dramatic DNA as instructed."
+    )
+    # A targeted replace, not .format() — CHAPTER_DNA_SYSTEM embeds a full
+    # JSON schema example full of literal {}, which .format() would misparse.
+    system = CHAPTER_DNA_SYSTEM.replace("{target_language}", chapter.target_language)
     return system, user
 
 

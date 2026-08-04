@@ -1990,6 +1990,76 @@ single OCR run; see the "Switch to Google Cloud Vision" entry).
   2 OCR'd panels)" rendered — not just that the aggregation function
   passed in isolation.
 
+## Chapter DNA schema + generation prompt — detail
+
+Item #3 of the chapter-level-context roadmap: the Song DNA equivalent
+for a chapter's worth of comic dialogue — what a human translator (or
+the Creative Adapter, eventually) needs to know before touching any
+single bubble. This is schema + prompt + a one-shot generation call
+ONLY — nothing calls this yet from anywhere real (no `/api/comics/
+adapt`, no wiring into `app/comics/page.tsx`); that's items #4/#5,
+still not built.
+
+- **`engine/models.py`** (new): `BubbleInput` (one speech bubble/caption
+  box — `id`, `source_text`, optional `voice`) and `ChapterInput` (a
+  chapter: `source_language`, `target_language`, optional
+  `context_note`, a list of bubbles already in corrected reading order —
+  see the bubble-reordering entry above, a real prerequisite, not just
+  a nice-to-have). Mirrors `SectionInput`/`SongInput`'s shape
+  deliberately, down to the same duplicate-id/empty-id validation
+  `SongInput._validate_sections` already does for song sections.
+  `ChapterDNA` (new): `artistic_thesis`, `genre_feel`, `tone`,
+  `ongoing_plot_context`, and a `characters: list[CharacterVoice]`.
+  Deliberately NOT a per-bubble array the way `SongDNA.sections` is
+  per-section — that granularity belongs to the later per-bubble
+  adaptation pass (#4), not this one-shot chapter-wide read.
+- **`CharacterVoice`** (new): `name`, `voice_description` (diction/
+  personality, scoped per character so two characters in one chapter
+  are pushed to sound different from each other — the comics
+  equivalent of `SectionResultV1`'s per-voice consistency rule, not a
+  single work-wide style), `honorific_register` (this character's
+  speech formality/register — Korean/Japanese honorific level, or the
+  closest equivalent a language without grammaticalized honorifics
+  still has — AT THE START of the chapter only), and `relationships`
+  (free text, only what the dialogue actually supports).
+  `honorific_register` is explicitly a SNAPSHOT, not a tracker: real
+  honorific shifts across a conversation (a common, meaningful plot
+  beat in Korean/Japanese dialogue) need their own mechanism through
+  room memory, which is item #6 on the roadmap and does not exist yet
+  — the field only captures where a character starts, and the prompt
+  says so explicitly so the model doesn't try to encode a shift into a
+  short label.
+- **`engine/prompts.py::chapter_dna_prompt`** + **`CHAPTER_DNA_SYSTEM`**
+  (new): mirrors `song_dna_prompt`/`SONG_DNA_SYSTEM`'s structure and
+  discipline closely — "never discuss translation, never propose
+  {target_language} wording," a required JSON shape with no omitted
+  top-level keys, and an explicit "empty list is fine, don't invent a
+  character/relationship the dialogue doesn't support" instruction
+  (the comics equivalent of Song DNA's "use empty lists where a
+  dimension genuinely doesn't apply").
+- **`engine/chapter_dna.py::generate_chapter_dna`** (new): one LLM call,
+  parsed via `ChapterDNA.model_validate`. Deliberately simpler than
+  `generate_song_dna` — no `_fill_missing_sections`/
+  `_duplicate_repeated_profiles` equivalent needed, since there's no
+  per-bubble array to backfill. Same known bound as Song DNA, disclosed
+  the same way: a very long chapter (many dozens of bubbles) risks the
+  same silent-degradation-not-crash failure mode already documented
+  there; no chunked analysis exists for either.
+- **Tier 0** — prompt text and schema only; no test corpus or real
+  chapter has been run through this yet, and no downstream consumer
+  exists to judge whether the resulting `ChapterDNA` is actually useful
+  once #4/#5 exist to use it.
+- **Benchmark coverage:** 10 new `tests/test_chapter_dna.py` tests —
+  model validation (empty bubble list rejected, duplicate/empty bubble
+  ids rejected, `voice` defaults to unattributed), prompt content
+  (every bubble present in reading order, `{target_language}`
+  substituted correctly, `honorific_register`/`voice_description`
+  covered, `context_note` included when given), and
+  `generate_chapter_dna` itself (a valid fake response parses
+  correctly; an empty `characters` list — the caption-only-chapter
+  case — is accepted, not forced to fabricate a profile). 507 Python
+  tests total, up from 497. No web changes this round.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

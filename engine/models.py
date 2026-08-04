@@ -97,6 +97,112 @@ class SongInput(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Comics: Chapter DNA input (docs/CAPABILITY_MATRIX.md's "Chapter DNA"
+# entry) - the comics-side equivalent of SongInput/SongDNA above. A
+# "chapter" is a sequence of speech bubbles/captions across a set of
+# panel images, already in corrected reading order (see components/
+# comics/PanelWorkspace.tsx's reorder UI, a prerequisite for this to
+# mean anything) - the same relationship SongInput.sections has to
+# SongDNA, just a bubble instead of a verse/chorus.
+# ---------------------------------------------------------------------------
+
+
+class BubbleInput(BaseModel):
+    """One speech bubble or caption box's OCR'd (and human-corrected)
+    text, in chapter reading order. `id` is free text (a panel/region
+    index is a natural choice, e.g. "panel_3_bubble_1") rather than a
+    human-authored section name like SectionInput.name - dialogue
+    doesn't get named the way a verse/chorus does, so this only needs to
+    be unique, not meaningful on its own.
+    """
+
+    id: str
+    source_text: str
+    # Which character is speaking, when known - the same role
+    # SectionInput.voice plays for a duet/dialogue song section, and the
+    # thing per-character voice consistency (ChapterDNA.characters
+    # below) actually keys off of. None means unattributed - a caption
+    # box, an unclear speaker, or simply not determined yet.
+    voice: str | None = None
+
+
+class ChapterInput(BaseModel):
+    title: str | None = None
+    source_language: str
+    # Real, product-scoped plumbing, matching SongInput - see
+    # SUPPORTED_LANGUAGES above. Needed by chapter_dna_prompt (engine/
+    # prompts.py) even before any adaptation call exists, since the
+    # Chapter DNA system prompt tells the model never to propose
+    # {target_language} wording, the same as SongDNA's own prompt does.
+    target_language: str = "English"
+    source_language_code: str | None = None
+    context_note: str | None = None
+    bubbles: list[BubbleInput]
+
+    @model_validator(mode="after")
+    def _validate_bubbles(self) -> "ChapterInput":
+        if not self.bubbles:
+            raise ValueError("A chapter needs at least one bubble.")
+        seen: set[str] = set()
+        for bubble in self.bubbles:
+            if not bubble.id.strip():
+                raise ValueError("Every bubble needs a non-empty id.")
+            if bubble.id in seen:
+                raise ValueError(f"Duplicate bubble id {bubble.id!r} — ids must be unique.")
+            seen.add(bubble.id)
+        return self
+
+
+# ---------------------------------------------------------------------------
+# Chapter DNA (comics) - the Song DNA equivalent for a chapter's worth of
+# dialogue: what a human translator needs to know before touching any
+# single bubble, not a per-bubble breakdown (that granularity belongs to
+# the actual adaptation pass over each BubbleInput, not this one-shot
+# chapter-wide analysis).
+# ---------------------------------------------------------------------------
+
+
+class CharacterVoice(BaseModel):
+    name: str
+    # How this character actually talks - diction, personality signals,
+    # verbal tics. The comics-side equivalent of StyleProfile, but
+    # scoped per character rather than to the whole work, since two
+    # characters in the same chapter routinely need to sound different
+    # from each other (mirrors SectionResultV1's per-voice consistency
+    # rule, not a single work-wide style).
+    voice_description: str
+    # This character's speech register/formality AT THE START of this
+    # chapter - Korean/Japanese honorific level (반말/존댓말, keigo) or
+    # the closest equivalent register a language without grammaticalized
+    # honorifics still has (formal vs. casual English, tu/vous French).
+    # Free text, not an enum, same reasoning as SongDNA.poetic_register:
+    # the real vocabulary for "how formal" is language-specific and
+    # open-ended. This is a SNAPSHOT, not a running tracker - honorific
+    # shifts across a conversation (a real, common plot beat) need their
+    # own tracking mechanism through room memory, not yet built; see
+    # docs/CAPABILITY_MATRIX.md's chapter-level-context roadmap.
+    honorific_register: str
+    relationships: list[str] = Field(default_factory=list)
+
+
+class ChapterDNA(BaseModel):
+    artistic_thesis: str
+    genre_feel: str
+    # The chapter's tone (comedic, dramatic, tense, slice-of-life...) -
+    # kept distinct from genre_feel (the ongoing work's overall genre,
+    # which a single chapter's tone can depart from, e.g. a comedic
+    # beat inside an overall drama series), same distinction SongDNA
+    # draws between genre_feel and poetic_register.
+    tone: str
+    # What's actually happening in this chapter, dramatically - the
+    # comics-side equivalent of arc_shape + songwriter_intention
+    # combined, since a chapter's "plot" and "why it's built this way"
+    # are usually the same question for dialogue-driven narrative.
+    ongoing_plot_context: str
+    characters: list[CharacterVoice] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
 # Song DNA  (docs/SONG_DNA.md)
 # ---------------------------------------------------------------------------
 
