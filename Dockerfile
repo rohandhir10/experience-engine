@@ -12,19 +12,16 @@
 # a container that ignores $PORT and always listens on 8000 can build and
 # start successfully while still being unreachable from the outside,
 # which looks identical to a crash from the platform's health check.
+#
+# Panel OCR (/api/comics/ocr, engine/comics_ocr.py) calls Google Cloud
+# Vision over plain HTTPS with an API key - GOOGLE_CLOUD_VISION_API_KEY
+# must be set in this deployment's environment for that endpoint to
+# work (unset, it returns a clear error rather than failing silently).
+# No system package needed for it (replaces an earlier Tesseract-based
+# scaffold that DID need one per language - see docs/CAPABILITY_MATRIX.md).
 FROM python:3.11-slim
 
 WORKDIR /app
-
-# tesseract-ocr: the system binary engine/comics_ocr.py shells out to
-# (via pytesseract) for /api/comics/ocr. tesseract-ocr-eng is pulled in
-# automatically as tesseract-ocr's own dependency; tesseract-ocr-kor is
-# added explicitly for Korean webtoon text - see that module's docstring
-# for what that means for AURA's remaining supported languages until
-# their data packages (tesseract-ocr-hin/jpn/spa/urd) are added here too.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-kor \
-    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

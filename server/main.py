@@ -279,15 +279,20 @@ def youtube_draft(request: YoutubeDraftRequest) -> dict:
 @app.post("/api/comics/ocr")
 def comics_ocr_endpoint(
     image: UploadFile = File(...),
-    language: str = Form("English"),
+    language: str | None = Form(None),
 ) -> dict:
     """Extracts text regions from one uploaded comic panel image via
-    Tesseract (engine/comics_ocr.py) — see that module's docstring for
-    what this can and can't do (no stylized-lettering guarantees, only
-    English OCR data installed today). Called from web/app/comics's
-    panel workspace to pre-fill a panel's "Extracted text" field instead
-    of a fully manual paste; the result is always a draft the human
-    reviews, never handed straight to the adaptation engine.
+    Google Cloud Vision (engine/comics_ocr.py) — see that module's
+    docstring for what this can and can't do (no stylized-lettering
+    guarantees; requires GOOGLE_CLOUD_VISION_API_KEY to be set). Called
+    from web/app/comics's panel workspace to pre-fill a panel's
+    "Extracted text" field instead of a fully manual paste; the result
+    is always a draft the human reviews, never handed straight to the
+    adaptation engine.
+
+    `language` is optional and used only as a hint — Cloud Vision
+    auto-detects script/language per block on its own, unlike the
+    Tesseract-based version this replaced.
 
     Plain `def`, not `async def` — reads the upload via the underlying
     SpooledTemporaryFile (`image.file.read()`) rather than UploadFile's

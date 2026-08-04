@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_API_URL } from "@/lib/api";
 
-// A single Tesseract run over one panel image, not a multi-agent engine
-// call - same ceiling reasoning as app/api/youtube-draft/route.ts, well
-// under /api/adapt's 60s but still worth a deliberate value.
+// A single Cloud Vision call over one panel image, not a multi-agent
+// engine call - same ceiling reasoning as app/api/youtube-draft/route.ts,
+// well under /api/adapt's 60s but still worth a deliberate value.
 export const maxDuration = 30;
 
-// Proxies to server/main.py's /api/comics/ocr (wraps engine/comics_ocr.py).
-// Re-packages the incoming multipart form rather than piping the raw
-// request body through, since Next.js's fetch needs a real FormData/Blob
-// to send a multipart request to the upstream engine.
+// Proxies to server/main.py's /api/comics/ocr (wraps engine/comics_ocr.py,
+// a Google Cloud Vision call). Re-packages the incoming multipart form
+// rather than piping the raw request body through, since Next.js's
+// fetch needs a real FormData/Blob to send a multipart request to the
+// upstream engine.
 export async function POST(request: NextRequest) {
   const incoming = await request.formData().catch(() => null);
   const image = incoming?.get("image");
@@ -20,7 +21,11 @@ export async function POST(request: NextRequest) {
 
   const upstreamForm = new FormData();
   upstreamForm.append("image", image, image instanceof File ? image.name : "panel.png");
-  upstreamForm.append("language", typeof language === "string" ? language : "English");
+  // Optional hint only - Cloud Vision auto-detects script/language per
+  // block on its own, so omitting this entirely is the normal case.
+  if (typeof language === "string" && language) {
+    upstreamForm.append("language", language);
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25_000);

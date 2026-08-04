@@ -1,110 +1,190 @@
-"""Tests for engine/comics_ocr.py. Region-grouping is tested against
-synthetic Tesseract-shaped data (no binary needed); extract_text_regions
-itself is skipped unless tesseract-ocr is actually installed, since it
-shells out to the real binary - see the module docstring for why a real
-OCR run, not a mock, is what this project treats as trustworthy here.
+"""Tests for engine/comics_ocr.py (Google Cloud Vision-backed OCR).
+
+No real network call is made — httpx.post is monkeypatched with a fake
+response shaped like Cloud Vision's actual DOCUMENT_TEXT_DETECTION JSON,
+built from a real sample of that response shape. _block_text/
+_bounding_box are also tested directly against synthetic Vision-shaped
+block dicts.
 """
 from __future__ import annotations
 
-import io
-import shutil
-
 import pytest
-from PIL import Image, ImageDraw
 
-from engine.comics_ocr import OcrError, _group_words_into_regions, extract_text_regions
-
-TESSERACT_INSTALLED = shutil.which("tesseract") is not None
+from engine import comics_ocr
+from engine.comics_ocr import OcrError, _bounding_box, _block_text, extract_text_regions
 
 
-def _fake_ocr_data(rows: list[tuple[int, int, str, int, int, int, int, int]]) -> dict:
-    """Builds a dict shaped like pytesseract.image_to_data's DICT output
-    from (block_num, par_num, text, left, top, width, height, conf) rows.
-    """
-    data: dict[str, list] = {
-        "block_num": [],
-        "par_num": [],
-        "text": [],
-        "left": [],
-        "top": [],
-        "width": [],
-        "height": [],
-        "conf": [],
+class _FakeResponse:
+    def __init__(self, status_code: int, json_body: dict, text: str = ""):
+        self.status_code = status_code
+        self._json_body = json_body
+        self.text = text or str(json_body)
+
+    def json(self) -> dict:
+        return self._json_body
+
+
+def _vision_success_response(blocks: list[dict], width: int = 500, height: int = 600) -> dict:
+    return {
+        "responses": [
+            {
+                "fullTextAnnotation": {
+                    "pages": [{"width": width, "height": height, "blocks": blocks}],
+                }
+            }
+        ]
     }
-    for block_num, par_num, text, left, top, width, height, conf in rows:
-        data["block_num"].append(block_num)
-        data["par_num"].append(par_num)
-        data["text"].append(text)
-        data["left"].append(left)
-        data["top"].append(top)
-        data["width"].append(width)
-        data["height"].append(height)
-        data["conf"].append(conf)
-    return data
 
 
-def test_groups_words_in_the_same_block_and_paragraph_into_one_region():
-    data = _fake_ocr_data(
-        [
-            (1, 1, "Hello", 10, 10, 40, 15, 92),
-            (1, 1, "there", 55, 10, 35, 15, 88),
-            (2, 1, "Goodbye", 10, 100, 60, 15, 90),
+def _block(text_words: list[str], vertices: list[dict], confidence: float) -> dict:
+    return {
+        "boundingBox": {"vertices": vertices},
+        "confidence": confidence,
+        "paragraphs": [
+            {
+                "words": [
+                    {"symbols": [{"text": ch} for ch in word]} for word in text_words
+                ]
+            }
+        ],
+    }
+
+
+@pytest.fixture(autouse=True)
+def _api_key(monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLOUD_VISION_API_KEY", "test-key")
+
+
+def test_block_text_joins_words_with_spaces_and_paragraphs_with_newlines():
+    block = {
+        "paragraphs": [
+            {"words": [{"symbols": [{"text": "H"}, {"text": "i"}]}]},
+            {"words": [{"symbols": [{"text": "b"}, {"text": "ye"}]}]},
         ]
+    }
+    assert _block_text(block) == "Hi\nbye"
+
+
+def test_block_text_skips_empty_paragraphs():
+    block = {"paragraphs": [{"words": []}, {"words": [{"symbols": [{"text": "ok"}]}]}]}
+    assert _block_text(block) == "ok"
+
+
+def test_bounding_box_collapses_quadrilateral_to_axis_aligned_rect():
+    vertices = [{"x": 10, "y": 10}, {"x": 90, "y": 12}, {"x": 88, "y": 40}, {"x": 12, "y": 38}]
+    box = _bounding_box(vertices)
+    assert box == {"x": 10, "y": 10, "width": 80, "height": 30}
+
+
+def test_bounding_box_handles_missing_vertices():
+    assert _bounding_box([]) == {"x": 0, "y": 0, "width": 0, "height": 0}
+
+
+def test_missing_api_key_raises_before_any_request(monkeypatch):
+    monkeypatch.delenv("GOOGLE_CLOUD_VISION_API_KEY", raising=False)
+    with pytest.raises(OcrError, match="GOOGLE_CLOUD_VISION_API_KEY"):
+        extract_text_regions(b"fake-image-bytes")
+
+
+def test_extracts_real_looking_blocks_with_scaled_confidence(monkeypatch):
+    blocks = [
+        _block(
+            ["HELLO", "THERE"],
+            [{"x": 10, "y": 10}, {"x": 110, "y": 10}, {"x": 110, "y": 30}, {"x": 10, "y": 30}],
+            0.95,
+        ),
+        _block(
+            ["GOODBYE"],
+            [{"x": 10, "y": 100}, {"x": 130, "y": 100}, {"x": 130, "y": 120}, {"x": 10, "y": 120}],
+            0.9,
+        ),
+    ]
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(200, _vision_success_response(blocks)),
     )
-    regions = _group_words_into_regions(data)
-    assert len(regions) == 2
-    assert regions[0].text == "Hello there"
-    assert regions[0].x == 10
-    assert regions[0].y == 10
-    # width spans from the first word's left edge to the second word's right edge
-    assert regions[0].width == 80
-    assert regions[1].text == "Goodbye"
+    result = extract_text_regions(b"fake-image-bytes")
+    assert result["image_width"] == 500
+    assert result["image_height"] == 600
+    assert len(result["regions"]) == 2
+    assert result["regions"][0]["text"] == "HELLO THERE"
+    assert result["regions"][0]["confidence"] == 95.0
+    assert result["regions"][0]["bbox"] == {"x": 10, "y": 10, "width": 100, "height": 20}
+    assert "HELLO THERE" in result["full_text"]
+    assert result["warning"] is None
 
 
-def test_ignores_blank_and_whitespace_only_words():
-    data = _fake_ocr_data(
-        [
-            (1, 1, "  ", 0, 0, 5, 5, -1),
-            (1, 1, "Real", 10, 10, 30, 15, 95),
-        ]
+def test_majority_low_confidence_blocks_produce_a_warning(monkeypatch):
+    blocks = [
+        _block(["a"], [{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 10}, {"x": 0, "y": 10}], 0.3),
+        _block(["b"], [{"x": 0, "y": 20}, {"x": 10, "y": 20}, {"x": 10, "y": 30}, {"x": 0, "y": 30}], 0.4),
+    ]
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(200, _vision_success_response(blocks)),
     )
-    regions = _group_words_into_regions(data)
-    assert len(regions) == 1
-    assert regions[0].text == "Real"
+    result = extract_text_regions(b"fake-image-bytes")
+    assert result["warning"] is not None
+    assert "low" in result["warning"].lower()
 
 
-def test_confidence_averages_only_non_negative_word_confidences():
-    data = _fake_ocr_data(
-        [
-            (1, 1, "A", 0, 0, 10, 10, 80),
-            (1, 1, "B", 10, 0, 10, 10, 60),
-            (1, 1, "C", 20, 0, 10, 10, -1),  # -1 marks "no confidence", excluded
-        ]
+def test_no_text_detected_returns_empty_regions_and_a_warning(monkeypatch):
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(200, {"responses": [{}]}),
     )
-    regions = _group_words_into_regions(data)
-    assert regions[0].confidence == 70.0
+    result = extract_text_regions(b"fake-image-bytes")
+    assert result["regions"] == []
+    assert result["warning"] == "No text detected in this panel. Type it in by hand."
 
 
-def test_unsupported_language_raises_before_any_ocr_runs():
-    with pytest.raises(OcrError, match="not configured for 'French'"):
-        extract_text_regions(b"not even a real image", language="French")
+def test_http_error_status_raises_ocr_error(monkeypatch):
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(403, {}, text="Forbidden"),
+    )
+    with pytest.raises(OcrError, match="403"):
+        extract_text_regions(b"fake-image-bytes")
 
 
-def test_undecodable_image_raises_ocr_error():
-    with pytest.raises(OcrError, match="Could not decode"):
-        extract_text_regions(b"this is not an image", language="English")
+def test_vision_error_in_response_raises_ocr_error(monkeypatch):
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(
+            200, {"responses": [{"error": {"message": "Bad image data."}}]}
+        ),
+    )
+    with pytest.raises(OcrError, match="Bad image data"):
+        extract_text_regions(b"fake-image-bytes")
 
 
-@pytest.mark.skipif(not TESSERACT_INSTALLED, reason="tesseract-ocr binary not installed")
-def test_extract_text_regions_finds_real_printed_text():
-    image = Image.new("RGB", (400, 120), "white")
-    draw = ImageDraw.Draw(image)
-    draw.text((20, 40), "HELLO WORLD", fill="black")
-    buf = io.BytesIO()
-    image.save(buf, format="PNG")
+def test_known_language_is_sent_as_a_hint(monkeypatch):
+    captured = {}
 
-    result = extract_text_regions(buf.getvalue(), language="English")
-    assert "HELLO" in result["full_text"].upper()
-    assert result["image_width"] == 400
-    assert result["image_height"] == 120
-    assert all("bbox" in r for r in result["regions"])
+    def fake_post(url, params=None, json=None, timeout=None):
+        captured["payload"] = json
+        return _FakeResponse(200, {"responses": [{}]})
+
+    monkeypatch.setattr(comics_ocr.httpx, "post", fake_post)
+    extract_text_regions(b"fake-image-bytes", language="Korean")
+    assert captured["payload"]["requests"][0]["imageContext"]["languageHints"] == ["ko"]
+
+
+def test_unknown_or_missing_language_sends_no_hint(monkeypatch):
+    captured = {}
+
+    def fake_post(url, params=None, json=None, timeout=None):
+        captured["payload"] = json
+        return _FakeResponse(200, {"responses": [{}]})
+
+    monkeypatch.setattr(comics_ocr.httpx, "post", fake_post)
+    extract_text_regions(b"fake-image-bytes", language="French")
+    assert "imageContext" not in captured["payload"]["requests"][0]
+
+    extract_text_regions(b"fake-image-bytes")
+    assert "imageContext" not in captured["payload"]["requests"][0]

@@ -1,9 +1,9 @@
 // A single chapter-slice image plus whatever script text has been drawn
 // out of it so far. extractedText/adaptedText/why are plain user-
 // editable fields regardless of source - "Run OCR" (lib/comicsOcr.ts)
-// can pre-fill extractedText from a real Tesseract pass, but the field
-// itself is always just text the human can freely overwrite, never
-// locked to whatever OCR returned.
+// can pre-fill extractedText from a real Google Cloud Vision pass, but
+// the field itself is always just text the human can freely overwrite,
+// never locked to whatever OCR returned.
 export type ComicPanel = {
   id: string;
   fileName: string;

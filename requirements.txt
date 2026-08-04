@@ -17,5 +17,7 @@ deep-translator>=1.11  # benchmark only: Google Translate baseline
 sudachipy>=0.6.8
 sudachidict-core>=20230927
 python-multipart>=0.0.9  # FastAPI needs this to parse the /api/comics/ocr image upload
-Pillow>=10.0  # engine/comics_ocr.py decodes uploaded panel images with this
-pytesseract>=0.3.10  # engine/comics_ocr.py; wraps the tesseract-ocr system binary installed in the Dockerfile
+# Google Cloud Vision is called directly over HTTPS via httpx (already a
+# dependency above) with a plain API key - see engine/comics_ocr.py's
+# docstring. No google-cloud-vision SDK/service-account dependency
+# needed for that simpler auth path.

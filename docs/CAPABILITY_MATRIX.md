@@ -1701,6 +1701,90 @@ changes, one preventative and one corrective.
   preserving candidate already exists; no real repetition to escalate
   on). 482 Python tests total, up from 472.
 
+## Switch to Google Cloud Vision — detail
+
+Direct follow-up on real product direction: the target content for
+/comics is Japanese manga, Chinese manhua, and Spanish/French indie
+comics, on top of AURA's existing Hindi/Korean/Urdu roster. The
+Tesseract-based scaffold from two entries up made that untenable — it
+needs a system-level language pack installed per script AND a language
+picked by the user before every OCR run (Tesseract can't reliably guess
+script on its own), which is exactly the friction a walk-up-and-use,
+international product shouldn't have. Replaced Tesseract with Google
+Cloud Vision, which auto-detects script/language per block of text and
+needs no per-language setup.
+
+- **`engine/comics_ocr.py`** (rewritten, not just extended): calls
+  Cloud Vision's `DOCUMENT_TEXT_DETECTION` feature directly over HTTPS
+  with a plain API key (`GOOGLE_CLOUD_VISION_API_KEY`) via `httpx`
+  (already a dependency) — deliberately NOT the `google-cloud-vision`
+  SDK, which authenticates via a service-account JSON credential file.
+  A single env var is a much better fit for how Railway (this engine's
+  actual deployment target) manages secrets than shipping/mounting a
+  JSON key file would be. `extract_text_regions` keeps the exact same
+  return shape as the Tesseract version (`regions`/`full_text`/
+  `warning`/`image_width`/`image_height`, each region a `bbox` of
+  `{x, y, width, height}` plus a 0-100 `confidence`) specifically so
+  `server/main.py`'s endpoint, `web/app/api/comics/ocr/route.ts`, and
+  `components/comics/PanelWorkspace.tsx`'s bounding-box overlay needed
+  NO changes at all — only the module producing that shape changed.
+  Vision's confidence is natively 0-1; scaled ×100 to match the old
+  API's percentage scale rather than changing every consumer's
+  assumption.
+- **`language` is now optional and non-gating everywhere it's
+  threaded through** (`server/main.py`'s endpoint, `lib/comicsOcr.ts`,
+  the Next.js proxy route) — the whole point of this switch is that
+  nobody has to pick one. It survives only as an optional
+  `imageContext.languageHints` bias (`_LANGUAGE_HINTS`, AURA language
+  name -> BCP-47 code) for the rare case a caller already knows the
+  language; an unrecognized or absent value sends no hint at all rather
+  than raising, unlike the old Tesseract version's `OcrError` on an
+  unsupported language.
+- **Real cost/dependency tradeoff, stated plainly:** this moves panel
+  OCR from a free, local, no-network-dependency binary to a paid,
+  metered, external API call — every `/api/comics/ocr` request now
+  costs money and requires network egress to `vision.googleapis.com`
+  from wherever the engine is deployed. `GOOGLE_CLOUD_VISION_API_KEY`
+  unset raises `OcrError` with a clear message (verified: a real manual
+  request against a locally-running engine with no key set returned a
+  clean HTTP 400 with that exact message, not a crash or a silent
+  fallback) — this was NOT a hypothetical checked only by a mock in
+  this round.
+- **Dockerfile reverted**: the `apt-get install tesseract-ocr
+  tesseract-ocr-kor` step from two entries up is gone — Cloud Vision
+  needs no system package. `requirements.txt`'s `Pillow`/`pytesseract`
+  entries removed likewise (nothing else in the codebase used PIL or
+  pytesseract).
+- **What this does NOT fix, stated plainly:** Cloud Vision is trained
+  on general documents and photographed text, not comic lettering
+  specifically — stylized fonts, outlined sound-effect text, and
+  speech-bubble-curved text can still come back wrong regardless of
+  provider; every region still carries its own confidence and a
+  low-confidence warning for exactly this reason, unchanged from the
+  Tesseract version. Reading order is still a plain top-to-bottom,
+  left-to-right sort of detected blocks, not a real reading-order guess
+  (right-to-left scripts, Z-pattern multi-bubble panels). No test
+  corpus confirms real accuracy on actual manga/manhua/webtoon art —
+  every test in this entry mocks the Cloud Vision HTTP response rather
+  than calling the real API, since no `GOOGLE_CLOUD_VISION_API_KEY`
+  exists in this sandbox; that first real call is the user's to make
+  once the key is configured on the actual deployment.
+- **Tier 1** for the request/response parsing and routing logic (all
+  deterministic); the OCR ACCURACY itself is an external vendor's
+  black box, same epistemic status any third-party API call has in
+  this document — measured by its own returned confidence, not
+  independently verified against ground truth here.
+- **Benchmark coverage:** `tests/test_comics_ocr.py` rewritten from
+  scratch (12 tests, up from 6) — `_block_text`/`_bounding_box` unit
+  tests against synthetic Vision-shaped block dicts, a missing-API-key
+  test, a full successful-parse test (confidence scaling, bbox
+  collapsing, multi-block text joining), a majority-low-confidence
+  warning test, a no-text-detected test, an HTTP-error-status test, a
+  Vision-reported-error test, and two language-hint tests (a known
+  language sends the hint, an unknown/absent one sends none) — all via
+  a monkeypatched `httpx.post`, no real network call. 488 Python tests
+  total, up from 482.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

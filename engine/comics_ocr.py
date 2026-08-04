@@ -1,213 +1,227 @@
 """Comic panel OCR: pulls speech-bubble/caption text out of an uploaded
-panel image via Tesseract (open source, deterministic, no API key and no
-per-call cost), for /comics's panel-by-panel review workspace
-(components/comics/PanelWorkspace.tsx) to pre-fill instead of a fully
-manual paste.
+panel image via Google Cloud Vision's DOCUMENT_TEXT_DETECTION, for
+/comics's panel-by-panel review workspace (components/comics/
+PanelWorkspace.tsx) to pre-fill instead of a fully manual paste.
+
+Replaces the original Tesseract-based scaffold (see docs/
+CAPABILITY_MATRIX.md's "/comics OCR integration" and "Switch to Google
+Cloud Vision" entries for that history and the reasoning behind the
+switch). Tesseract required a language pack installed per script AND a
+language picked before every run, with no reliable way to guess script
+on its own; the real target content this product needs to handle
+(Japanese manga, Chinese manhua, Spanish/French indie comics, alongside
+AURA's existing Hindi/Korean/Urdu roster) made that untenable. Cloud
+Vision auto-detects script/language per block of text and needs no
+per-language setup on this server at all.
+
+The tradeoff, stated plainly: this is now a paid, metered, external API
+call instead of a free local binary, and it requires a real GCP API key
+configured in this deployment's environment
+(GOOGLE_CLOUD_VISION_API_KEY). Unset, this raises OcrError rather than
+silently failing, falling back to a worse method, or returning a
+fabricated result.
 
 Deliberately NOT an adaptation step - this only extracts text and where
-it was found on the page (a bounding box per detected text region). The
+it was found on the page (a bounding box per detected text block). The
 extracted text is handed back to the browser as a draft the human
 reviews and edits, the same "never pipe straight into anything" review
 step engine/youtube_ingest.py already established for captions.
 
-What this can't fix, stated plainly, same discipline as youtube_ingest.py:
-  - Tesseract is trained on ordinary printed/scanned text, not stylized
-    comic lettering (hand-drawn fonts, outlined/bold sound-effect text,
-    text warped to follow a speech-bubble tail). Expect it to miss or
-    garble stylized text more often than it does printed prose - every
-    region comes back with Tesseract's own per-word confidence, averaged
-    per region, so a low-confidence result can be flagged rather than
-    silently trusted.
-  - Only English-language OCR data (tesseract-ocr-eng) ships with this
-    engine today (see the root Dockerfile). Requesting any other AURA-
-    supported language raises OcrError naming exactly which system
-    package is missing, rather than silently falling back to English or
-    returning garbage - the remaining five languages' tesseract data
-    packages (tesseract-ocr-hin/jpn/kor/spa/urd) are a follow-up, not
-    done here.
-  - Reading order is a plain top-to-bottom, left-to-right sort of
-    detected regions - not a real guess at panel/bubble reading order,
-    which can run right-to-left (Urdu, some manga-style layouts) or in a
-    Z-pattern across multiple bubbles. The human reviewing the draft is
-    expected to reorder it, the same way youtube_ingest's section
-    boundaries are a guess the human corrects, not a final answer.
+What this can't fix, stated plainly, same discipline as every other
+ingestion module in this project:
+  - Cloud Vision is trained on general documents and photographed text,
+    not comic lettering specifically - hand-drawn fonts, outlined/bold
+    sound-effect text, and text warped to follow a speech-bubble tail
+    can still come back wrong or garbled, same caveat manga/webtoon OCR
+    has regardless of provider. Every region carries Vision's own
+    per-block confidence so a low-confidence result can be flagged
+    rather than silently trusted.
+  - Reading order is a plain top-to-bottom, left-to-right ordering of
+    detected blocks, not a real guess at panel/bubble reading order -
+    which can run right-to-left or in a Z-pattern across multiple
+    bubbles. The human reviewing the draft is expected to reorder it.
 """
 from __future__ import annotations
 
-import io
+import base64
 import logging
-from dataclasses import dataclass
+import os
 
-from PIL import Image
+import httpx
 
 logger = logging.getLogger(__name__)
 
-try:
-    import pytesseract
-    from pytesseract import TesseractError, TesseractNotFoundError
-except ImportError:  # pytesseract itself isn't installed
-    pytesseract = None  # type: ignore[assignment]
+_VISION_ENDPOINT = "https://vision.googleapis.com/v1/images:annotate"
+_API_KEY_ENV_VAR = "GOOGLE_CLOUD_VISION_API_KEY"
+_REQUEST_TIMEOUT_SECONDS = 30.0
 
-    class TesseractError(Exception):  # type: ignore[no-redef]
-        pass
+# Below this per-block confidence (Vision's own 0-1 scale, reported here
+# scaled to 0-100 to match the rest of this API's percentages), a result
+# is unreliable enough that the reviewing human should be told plainly -
+# stylized comic lettering can score below this even when the text is
+# basically legible to a person.
+_LOW_CONFIDENCE_THRESHOLD = 60.0
 
-    class TesseractNotFoundError(Exception):  # type: ignore[no-redef]
-        pass
+# AURA's language names -> BCP-47 codes, used ONLY as an optional
+# `imageContext.languageHints` bias when the caller happens to know the
+# language - never required, never used to gate or reject a request.
+# Cloud Vision auto-detects script/language per block on its own; this
+# is a hint, not a dependency, unlike the old Tesseract setup.
+_LANGUAGE_HINTS = {
+    "English": "en",
+    "Hindi": "hi",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Spanish": "es",
+    "Urdu": "ur",
+}
 
 
 class OcrError(Exception):
     """Raised for any OCR failure a human needs to see plainly, not a stack trace."""
 
 
-# AURA's language names -> Tesseract's ISO 639-2 language codes. Only
-# "eng" actually ships with this engine's Docker image today; the rest
-# are named here so OcrError can say exactly what's missing instead of
-# guessing or silently defaulting to English.
-_TESSERACT_LANGUAGE_CODES = {
-    "English": "eng",
-    "Hindi": "hin",
-    "Japanese": "jpn",
-    "Korean": "kor",
-    "Spanish": "spa",
-    "Urdu": "urd",
-}
-
-# Below this per-word confidence (Tesseract's own 0-100 scale), a result
-# is unreliable enough that the reviewing human should be told plainly -
-# stylized comic lettering routinely scores below this even when the
-# text is basically legible to a person.
-_LOW_CONFIDENCE_THRESHOLD = 60.0
-
-
-@dataclass
-class TextRegion:
-    text: str
-    x: int
-    y: int
-    width: int
-    height: int
-    confidence: float  # 0-100, averaged over this region's words
-
-
-def _group_words_into_regions(ocr_data: dict) -> list[TextRegion]:
-    """Tesseract's image_to_data returns one row per detected word, each
-    tagged with (block_num, par_num). Grouping by that pair clusters
-    words into the same layout region Tesseract's own page-segmentation
-    already separated, which in practice usually lines up with one
-    speech bubble or caption box per region rather than the whole page
-    as one blob - not guaranteed, just the deterministic grouping
-    Tesseract's own layout analysis gives us for free.
+def _block_text(block: dict) -> str:
+    """Reconstructs one block's text from Vision's nested paragraph ->
+    word -> symbol structure. Words within a paragraph are joined with
+    single spaces; paragraphs within a block are joined with newlines -
+    a reasonable default for a speech bubble that may have more than one
+    line, without trying to reproduce Vision's detected break types
+    exactly.
     """
-    groups: dict[tuple[int, int], list[int]] = {}
-    for i in range(len(ocr_data["text"])):
-        text = ocr_data["text"][i].strip()
-        if not text:
-            continue
-        key = (ocr_data["block_num"][i], ocr_data["par_num"][i])
-        groups.setdefault(key, []).append(i)
-
-    regions: list[TextRegion] = []
-    for indices in groups.values():
-        words = [ocr_data["text"][i].strip() for i in indices]
-        lefts = [ocr_data["left"][i] for i in indices]
-        tops = [ocr_data["top"][i] for i in indices]
-        rights = [ocr_data["left"][i] + ocr_data["width"][i] for i in indices]
-        bottoms = [ocr_data["top"][i] + ocr_data["height"][i] for i in indices]
-        confidences = [
-            float(ocr_data["conf"][i]) for i in indices if float(ocr_data["conf"][i]) >= 0
-        ]
-
-        x, y = min(lefts), min(tops)
-        regions.append(
-            TextRegion(
-                text=" ".join(words),
-                x=x,
-                y=y,
-                width=max(rights) - x,
-                height=max(bottoms) - y,
-                confidence=sum(confidences) / len(confidences) if confidences else 0.0,
-            )
-        )
-
-    # Stable top-to-bottom-then-left-to-right order - see the module
-    # docstring's note on reading order not being a real structural guess.
-    regions.sort(key=lambda r: (r.y, r.x))
-    return regions
+    paragraphs = []
+    for paragraph in block.get("paragraphs", []):
+        words = []
+        for word in paragraph.get("words", []):
+            words.append("".join(s.get("text", "") for s in word.get("symbols", [])))
+        paragraph_text = " ".join(w for w in words if w)
+        if paragraph_text:
+            paragraphs.append(paragraph_text)
+    return "\n".join(paragraphs)
 
 
-def extract_text_regions(image_bytes: bytes, language: str = "English") -> dict:
-    """Runs Tesseract over one panel image and returns a dict:
+def _bounding_box(vertices: list[dict]) -> dict:
+    """Vision's boundingBox.vertices is a (possibly rotated)
+    quadrilateral's 4 corners; this collapses it to the axis-aligned
+    box the frontend's percentage-coordinate overlay expects (same
+    {x, y, width, height} shape the old Tesseract-based version used,
+    so components/comics/PanelWorkspace.tsx needed no changes).
+    """
+    xs = [v.get("x", 0) for v in vertices]
+    ys = [v.get("y", 0) for v in vertices]
+    if not xs or not ys:
+        return {"x": 0, "y": 0, "width": 0, "height": 0}
+    x, y = min(xs), min(ys)
+    return {"x": x, "y": y, "width": max(xs) - x, "height": max(ys) - y}
+
+
+def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dict:
+    """Sends one panel image to Google Cloud Vision's
+    DOCUMENT_TEXT_DETECTION feature and returns:
     {"regions": [{"text", "bbox": {x, y, width, height}, "confidence"}],
      "full_text": str, "warning": str | None,
      "image_width": int, "image_height": int}
 
-    bbox values are pixel coordinates in the original image - the caller
-    is expected to scale them against the image's actual rendered size,
-    not assume any fixed display resolution.
+    bbox values are pixel coordinates in the original image - the
+    caller is expected to scale them against the image's actual
+    rendered size, not assume any fixed display resolution.
 
-    Raises OcrError if Tesseract/pytesseract isn't installed, if the
-    requested language's data pack isn't installed, or if the image
-    can't be decoded. Never returns a fabricated/placeholder result on
-    failure - an error the caller must surface is preferred over a
-    result that looks real and isn't.
+    `language` is accepted for signature compatibility with the
+    pre-Cloud-Vision version of this function but is NOT used to gate
+    anything - see _LANGUAGE_HINTS above. Pass None (the default) to let
+    Vision auto-detect entirely on its own, which is the normal case.
+
+    Raises OcrError if GOOGLE_CLOUD_VISION_API_KEY isn't configured, the
+    request fails, or Vision itself reports an error - never returns a
+    fabricated/placeholder result on failure.
     """
-    if pytesseract is None:
+    api_key = os.environ.get(_API_KEY_ENV_VAR, "")
+    if not api_key:
         raise OcrError(
-            "pytesseract is not installed on this server. Add it to "
-            "requirements.txt and install tesseract-ocr (see the Dockerfile)."
+            f"{_API_KEY_ENV_VAR} is not set on this server. Panel OCR needs a "
+            "Google Cloud Vision API key - see docs/CAPABILITY_MATRIX.md's "
+            "Cloud Vision entry for setup."
         )
 
-    lang_code = _TESSERACT_LANGUAGE_CODES.get(language)
-    if lang_code is None:
-        raise OcrError(
-            f"OCR is not configured for {language!r} - supported languages "
-            f"are {sorted(_TESSERACT_LANGUAGE_CODES)}."
-        )
+    request_payload: dict = {
+        "requests": [
+            {
+                "image": {"content": base64.b64encode(image_bytes).decode("ascii")},
+                "features": [{"type": "DOCUMENT_TEXT_DETECTION"}],
+            }
+        ]
+    }
+    hint = _LANGUAGE_HINTS.get(language) if language else None
+    if hint:
+        request_payload["requests"][0]["imageContext"] = {"languageHints": [hint]}
 
     try:
-        image = Image.open(io.BytesIO(image_bytes))
-        image.load()
-    except Exception as exc:  # noqa: BLE001 - surfaced as OcrError either way
-        raise OcrError(f"Could not decode this image: {exc}") from exc
-
-    try:
-        ocr_data = pytesseract.image_to_data(
-            image, lang=lang_code, output_type=pytesseract.Output.DICT
+        response = httpx.post(
+            _VISION_ENDPOINT,
+            params={"key": api_key},
+            json=request_payload,
+            timeout=_REQUEST_TIMEOUT_SECONDS,
         )
-    except TesseractNotFoundError as exc:
-        raise OcrError("The tesseract-ocr binary is not installed on this server.") from exc
-    except TesseractError as exc:
+    except httpx.HTTPError as exc:
+        logger.warning("Cloud Vision request failed: %s", exc)
         raise OcrError(
-            f"Tesseract could not process this image with language data "
-            f"{lang_code!r} - is tesseract-ocr-{lang_code} installed? ({exc})"
+            "Could not reach Google Cloud Vision right now. This is usually "
+            "temporary - try again in a moment."
         ) from exc
 
-    regions = _group_words_into_regions(ocr_data)
-    full_text = "\n\n".join(r.text for r in regions)
+    if response.status_code != 200:
+        logger.warning(
+            "Cloud Vision returned HTTP %d: %s", response.status_code, response.text[:500]
+        )
+        raise OcrError(
+            f"Google Cloud Vision returned an error (HTTP {response.status_code})."
+        )
+
+    data = response.json()
+    result = (data.get("responses") or [{}])[0]
+    if "error" in result:
+        message = result["error"].get("message", "unknown error")
+        raise OcrError(f"Google Cloud Vision could not process this image: {message}")
+
+    full_annotation = result.get("fullTextAnnotation")
+    pages = full_annotation.get("pages") if full_annotation else None
+    if not pages:
+        return {
+            "regions": [],
+            "full_text": "",
+            "warning": "No text detected in this panel. Type it in by hand.",
+            "image_width": 0,
+            "image_height": 0,
+        }
+
+    page = pages[0]
+    regions = []
+    for block in page.get("blocks", []):
+        text = _block_text(block)
+        if not text.strip():
+            continue
+        vertices = block.get("boundingBox", {}).get("vertices", [])
+        confidence = round(block.get("confidence", 0.0) * 100, 1)
+        regions.append({"text": text, "bbox": _bounding_box(vertices), "confidence": confidence})
+
+    full_text = "\n\n".join(r["text"] for r in regions)
 
     warning = None
     if not regions:
         warning = "No text detected in this panel. Type it in by hand."
     else:
-        low_confidence = [r for r in regions if r.confidence < _LOW_CONFIDENCE_THRESHOLD]
+        low_confidence = [r for r in regions if r["confidence"] < _LOW_CONFIDENCE_THRESHOLD]
         if len(low_confidence) >= len(regions) / 2:
             warning = (
-                "OCR confidence is low for much of this panel - common for stylized "
-                "comic lettering. Check every region against the image before "
-                "trusting this text."
+                "OCR confidence is low for much of this panel - common for "
+                "stylized comic lettering. Check every region against the "
+                "image before trusting this text."
             )
 
     return {
-        "regions": [
-            {
-                "text": r.text,
-                "bbox": {"x": r.x, "y": r.y, "width": r.width, "height": r.height},
-                "confidence": round(r.confidence, 1),
-            }
-            for r in regions
-        ],
+        "regions": regions,
         "full_text": full_text,
         "warning": warning,
-        "image_width": image.width,
-        "image_height": image.height,
+        "image_width": page.get("width", 0),
+        "image_height": page.get("height", 0),
     }

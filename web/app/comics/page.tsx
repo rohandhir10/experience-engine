@@ -102,10 +102,11 @@ export default function ComicsPage() {
           </h1>
           <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
             Upload a chapter's worth of panel images and draft a literal/adapted script for each
-            one. "Run OCR" pulls real text out of a panel with Tesseract — it's genuinely
-            imperfect on stylized comic lettering and only reads English today, so treat it as a
-            starting draft, not a finished transcript. The comics Reasoning Engine (automated
-            adaptation) is a separate, later step, not built yet.
+            one. "Run OCR" pulls real text out of a panel with Google Cloud Vision — it
+            auto-detects the script and language, but it's still genuinely imperfect on
+            stylized comic lettering, so treat it as a starting draft, not a finished
+            transcript. The comics Reasoning Engine (automated adaptation) is a separate, later
+            step, not built yet.
           </p>
 
           {panels.length === 0 ? (
