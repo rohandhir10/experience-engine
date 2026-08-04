@@ -427,3 +427,55 @@ def test_youtube_draft_reports_ingest_failure_as_a_400(monkeypatch):
 
     assert exc_info.value.status_code == 400
     assert "Captions are disabled" in exc_info.value.detail
+
+
+class _FakeUploadFile:
+    """Stands in for FastAPI's UploadFile — only the `.file.read()` path
+    server/main.py's comics_ocr_endpoint actually uses."""
+
+    def __init__(self, data: bytes):
+        self.file = _FakeSpooledFile(data)
+
+
+class _FakeSpooledFile:
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+
+def test_comics_ocr_endpoint_returns_extract_text_regions_result(monkeypatch):
+    def fake_extract(image_bytes, language="English"):
+        assert image_bytes == b"fake-image-bytes"
+        assert language == "English"
+        return {"regions": [], "full_text": "", "warning": None, "image_width": 10, "image_height": 10}
+
+    monkeypatch.setattr(main.comics_ocr, "extract_text_regions", fake_extract)
+
+    result = main.comics_ocr_endpoint(
+        image=_FakeUploadFile(b"fake-image-bytes"), language="English"
+    )
+
+    assert result["image_width"] == 10
+
+
+def test_comics_ocr_endpoint_reports_ocr_failure_as_a_400(monkeypatch):
+    def fake_extract(image_bytes, language="English"):
+        raise main.OcrError("Could not decode this image.")
+
+    monkeypatch.setattr(main.comics_ocr, "extract_text_regions", fake_extract)
+
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_ocr_endpoint(image=_FakeUploadFile(b"garbage"), language="English")
+
+    assert exc_info.value.status_code == 400
+    assert "Could not decode" in exc_info.value.detail
+
+
+def test_comics_ocr_endpoint_rejects_an_oversized_image():
+    oversized = b"x" * (main.MAX_IMAGE_BYTES + 1)
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_ocr_endpoint(image=_FakeUploadFile(oversized), language="English")
+
+    assert exc_info.value.status_code == 413

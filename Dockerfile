@@ -16,6 +16,16 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# tesseract-ocr: the system binary engine/comics_ocr.py shells out to
+# (via pytesseract) for /api/comics/ocr. Only the English language data
+# (tesseract-ocr-eng, pulled in automatically as tesseract-ocr's
+# dependency) is installed - see that module's docstring for what that
+# means for AURA's other five supported languages until their data
+# packages (tesseract-ocr-hin/jpn/kor/spa/urd) are added here too.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

@@ -6,16 +6,17 @@ import { PanelUploader } from "@/components/comics/PanelUploader";
 import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
 import { naturalCompare } from "@/lib/naturalSort";
 import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
+import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
 
 // Not linked from primary nav or the marketing homepage - reachable only
 // by URL, same convention as /alternate-homepage. Per the project's
 // non-fabrication discipline, the homepage won't pitch a Comics
 // workspace until there's a real, working tool to show a real
 // screenshot of. This page is that tool's functional foundation: file
-// upload plus a panel-by-panel review workspace. It has no backend yet
-// (see the banner below) - the shared Reasoning Engine (OCR extraction,
-// automated adaptation) is a separate, later integration, not
-// scaffolded here.
+// upload, a panel-by-panel review workspace, and a real (if imperfect)
+// OCR pass per panel via /api/comics/ocr (engine/comics_ocr.py) - the
+// comics Reasoning Engine (automated adaptation) is a separate, later
+// integration, not scaffolded here.
 export default function ComicsPage() {
   const [panels, setPanels] = useState<ComicPanel[]>([]);
 
@@ -24,10 +25,14 @@ export default function ComicsPage() {
       .map((file) => ({
         id: `${file.name}-${file.size}-${file.lastModified}`,
         fileName: file.name,
+        file,
         previewUrl: URL.createObjectURL(file),
         extractedText: "",
         adaptedText: "",
         why: "",
+        ocrStatus: "idle" as const,
+        ocrRegions: null,
+        ocrMessage: null,
       }))
       .sort((a, b) => naturalCompare(a.fileName, b.fileName));
 
@@ -40,6 +45,29 @@ export default function ComicsPage() {
 
   function updatePanel(id: string, patch: Partial<ComicPanel>) {
     setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }
+
+  async function runOcr(id: string) {
+    const panel = panels.find((p) => p.id === id);
+    if (!panel) return;
+    updatePanel(id, { ocrStatus: "running", ocrMessage: null, ocrRegions: null });
+    try {
+      const result = await runPanelOcr(panel.file);
+      updatePanel(id, {
+        ocrStatus: "done",
+        ocrRegions: result.regions,
+        ocrMessage: result.warning,
+        // Only pre-fills an empty field - never overwrites text the
+        // human has already reviewed/edited by hand.
+        extractedText: panel.extractedText.trim() ? panel.extractedText : result.fullText,
+      });
+    } catch (err) {
+      updatePanel(id, {
+        ocrStatus: "error",
+        ocrMessage:
+          err instanceof OcrRequestError ? err.message : "OCR failed for this panel.",
+      });
+    }
   }
 
   function removePanel(id: string) {
@@ -74,10 +102,10 @@ export default function ComicsPage() {
           </h1>
           <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
             Upload a chapter's worth of panel images and draft a literal/adapted script for each
-            one. Nothing here is connected to OCR or the Reasoning Engine yet — extracted and
-            adapted text are plain fields you fill in by hand. This is the workspace's functional
-            foundation; automatic caption extraction and adaptation are a separate step, not yet
-            built.
+            one. "Run OCR" pulls real text out of a panel with Tesseract — it's genuinely
+            imperfect on stylized comic lettering and only reads English today, so treat it as a
+            starting draft, not a finished transcript. The comics Reasoning Engine (automated
+            adaptation) is a separate, later step, not built yet.
           </p>
 
           {panels.length === 0 ? (
@@ -119,6 +147,7 @@ export default function ComicsPage() {
                   panels={panels}
                   onUpdatePanel={updatePanel}
                   onRemovePanel={removePanel}
+                  onRunOcr={runOcr}
                 />
               </div>
             </>

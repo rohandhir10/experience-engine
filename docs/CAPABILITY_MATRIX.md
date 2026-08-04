@@ -1474,6 +1474,89 @@ Reasoning Engine integration.
   rendered "Panel 1 of 3 · panel-1.png" header) before calling this
   done.
 
+## /comics OCR integration: real Tesseract, not a stub — detail
+
+The first real backend piece of the Comics workspace, following directly
+from the previous entry's scaffold. Chose Tesseract over a hosted OCR API
+(Google Vision / AWS Textract / Azure) specifically because it's open
+source, deterministic, needs no API key or per-call billing to wire up,
+and runs as a plain system binary in the same Docker image the engine
+already ships in — no new secret, no new vendor account, no new async
+webhook flow, just one `apt-get install`. The tradeoff, stated plainly:
+Tesseract is trained on printed/scanned prose, not stylized comic
+lettering, so accuracy on real chapter art will often be worse than a
+purpose-built comics-OCR API would give. That tradeoff is worth it for a
+scaffold; revisit if real usage shows Tesseract's accuracy is the actual
+bottleneck.
+
+- **`engine/comics_ocr.py`** (new): `extract_text_regions(image_bytes,
+  language)` decodes the image with Pillow, runs
+  `pytesseract.image_to_data`, and groups Tesseract's per-word output by
+  `(block_num, par_num)` into regions — in practice usually one region
+  per speech bubble or caption box, since that's what Tesseract's own
+  page-segmentation already separated. Each region carries a pixel-space
+  bounding box and an averaged per-word confidence. `OcrError` is raised
+  (never a fabricated/placeholder result) when pytesseract isn't
+  installed, the image can't be decoded, or Tesseract itself fails.
+- **Two limitations disclosed in both the module docstring and the
+  actual API response, not just code comments:** (1) only English OCR
+  data (`tesseract-ocr-eng`) is installed — requesting `language="Hindi"`
+  etc. raises `OcrError` naming exactly which system package is missing,
+  rather than silently falling back to English; the other five
+  languages' data packages are a real, scoped follow-up, not done here.
+  (2) When at least half of a panel's detected regions score below a
+  60/100 Tesseract confidence — routine for stylized lettering — the
+  response includes a `warning` string the frontend surfaces verbatim,
+  the same "tell the human plainly" discipline `engine/youtube_ingest.py`
+  established for auto-generated captions.
+- **`server/main.py`'s `POST /api/comics/ocr`** (new): a plain `def`
+  (not `async def`) FastAPI route taking a multipart image + language
+  field, reading the upload via `image.file.read()` rather than
+  `UploadFile`'s async `.read()` specifically so it runs in FastAPI's
+  threadpool like every other endpoint here and needs no new
+  pytest-asyncio dependency just to unit-test. A 15MB size cap
+  (`AURA_MAX_IMAGE_BYTES`) rejects anything clearly wrong before it ever
+  reaches Tesseract.
+- **`web/app/api/comics/ocr/route.ts`** (new): proxies to the above,
+  same shape as `app/api/youtube-draft/route.ts` — re-packages the
+  incoming multipart form into a fresh one for the upstream `fetch`
+  rather than piping the raw request body, with the same
+  timeout/abort/error-shape handling as every other engine-proxy route.
+- **Frontend wiring:** `lib/comicsOcr.ts`'s `runPanelOcr` posts the
+  panel's real `File` (now kept on `ComicPanel` itself, not just its
+  blob preview URL) to that route.
+  `components/comics/PanelWorkspace.tsx` gained a "Run OCR" button, a
+  bounding-box overlay drawn in percentage coordinates (region pixel /
+  the image's own natural size, captured via the `<img>`'s `onLoad`) so
+  boxes stay aligned regardless of the image's rendered width, and
+  surfaces the OCR warning/error text directly. **OCR only ever
+  pre-fills the "Extracted text" field when it's empty** — it never
+  overwrites text a human has already reviewed or typed, the same
+  never-overwrite-a-human-edit discipline as
+  `InputScreen.tsx`'s YouTube-draft handling.
+- **Dockerfile**: added `apt-get install tesseract-ocr` (pulling in
+  `tesseract-ocr-eng` as its own dependency) before the pip install
+  step, plus `python-multipart`/`Pillow`/`pytesseract` added to
+  `requirements.txt` — this is a real new system dependency for
+  production, not just a local sandbox convenience, called out here so
+  it isn't missed on the next deploy.
+- **Tier 1** — real deterministic OCR, but explicitly imperfect on the
+  actual target content (comic lettering), which is why every result
+  carries its own confidence and warning rather than presenting as
+  ground truth. Verified: 6 new `tests/test_comics_ocr.py` tests
+  (region-grouping logic against synthetic Tesseract-shaped data, plus
+  one real end-to-end Tesseract run against a generated test image,
+  skipped only if `tesseract` isn't on PATH) and 3 new
+  `tests/test_server.py` tests for the endpoint (469 Python tests
+  total, up from 460), `tsc --noEmit`/`next build` clean, and a real
+  three-process manual run (uvicorn + `next start` + Playwright) that
+  uploaded a synthetic two-speech-bubble test panel, clicked "Run OCR,"
+  and confirmed a real Tesseract result came back: one bubble's text
+  correctly extracted and boxed, the other bubble missed entirely by
+  Tesseract on this synthetic font, and the low-confidence warning
+  correctly shown — a genuinely imperfect but genuinely real result,
+  not a mocked success path.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

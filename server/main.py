@@ -22,6 +22,10 @@ Endpoints:
   GET  /api/adapt/jobs/{id} -> {"status": "pending"|"running"|"done"|
                             "error", "result": ..., "error": ...} - poll
                             until status is "done" or "error".
+  POST /api/comics/ocr     multipart: image file + language -> detected
+                            text regions with bounding boxes (engine/
+                            comics_ocr.py) for /comics's panel review
+                            workspace. Never adapts anything itself.
 
 Why /api/adapt/start exists: a real multi-section song run is several
 sections deep, each running 3-7 sequential LLM calls of its own (Song DNA
@@ -66,12 +70,13 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from engine import config
+from engine import comics_ocr, config
 from engine import youtube_ingest
+from engine.comics_ocr import OcrError
 from engine.llm_client import LLMError, create_default_client
 from engine.models import SUPPORTED_LANGUAGES, SectionInput, SongInput
 from engine.pipeline import run_engine
@@ -90,6 +95,12 @@ logger = logging.getLogger("aura.server")
 
 MAX_INPUT_CHARS = int(os.environ.get("AURA_MAX_INPUT_CHARS", "8000"))
 DAILY_LIMIT = int(os.environ.get("AURA_DAILY_LIMIT", "10"))
+# A full-resolution chapter-slice PNG can be several megabytes; this caps
+# a single panel upload well above any normal slice, not just above a
+# typical one, so this only ever rejects something clearly wrong (a
+# non-panel file, a batch accidentally concatenated) rather than a real
+# comic page.
+MAX_IMAGE_BYTES = int(os.environ.get("AURA_MAX_IMAGE_BYTES", str(15 * 1024 * 1024)))
 # Shared secret between the Next.js server and this API, for the
 # account endpoints (/api/users/sync, /api/me/*) and for trusting a
 # user id forwarded on adapt requests. The Next.js side is the party
@@ -262,6 +273,36 @@ def youtube_draft(request: YoutubeDraftRequest) -> dict:
     try:
         return youtube_ingest.build_web_draft(request.url, request.preferred_languages)
     except IngestError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/api/comics/ocr")
+def comics_ocr_endpoint(
+    image: UploadFile = File(...),
+    language: str = Form("English"),
+) -> dict:
+    """Extracts text regions from one uploaded comic panel image via
+    Tesseract (engine/comics_ocr.py) — see that module's docstring for
+    what this can and can't do (no stylized-lettering guarantees, only
+    English OCR data installed today). Called from web/app/comics's
+    panel workspace to pre-fill a panel's "Extracted text" field instead
+    of a fully manual paste; the result is always a draft the human
+    reviews, never handed straight to the adaptation engine.
+
+    Plain `def`, not `async def` — reads the upload via the underlying
+    SpooledTemporaryFile (`image.file.read()`) rather than UploadFile's
+    async `.read()`, so this runs in FastAPI's threadpool like every
+    other endpoint here instead of needing pytest-asyncio just to test.
+    """
+    image_bytes = image.file.read()
+    if len(image_bytes) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
+        )
+    try:
+        return comics_ocr.extract_text_regions(image_bytes, language=language)
+    except OcrError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 

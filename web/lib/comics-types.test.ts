@@ -5,10 +5,14 @@ function panel(overrides: Partial<ComicPanel> = {}): ComicPanel {
   return {
     id: "1",
     fileName: "panel-1.jpg",
+    file: new File([], "panel-1.jpg"),
     previewUrl: "blob:mock",
     extractedText: "",
     adaptedText: "",
     why: "",
+    ocrStatus: "idle",
+    ocrRegions: null,
+    ocrMessage: null,
     ...overrides,
   };
 }

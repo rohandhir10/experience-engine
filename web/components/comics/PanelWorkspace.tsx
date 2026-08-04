@@ -4,22 +4,24 @@ import { useState } from "react";
 import type { ComicPanel } from "@/lib/comics-types";
 
 /** Panel-by-panel review: a thumbnail rail to jump between panels, the
- * active panel's real image on the left, and its script fields on the
- * right. There's no OCR or reasoning-engine backend wired up yet (see
- * app/comics/page.tsx), so "Extracted text" and "Adapted text" are plain
- * editable fields the user fills in by hand for now - the same
- * literal/adapted/why shape the music side ships, but manually authored
- * rather than model-generated, until OCR + the engine land here. */
+ * active panel's real image (with a real OCR pass's bounding boxes
+ * overlaid, once run) on one side, and its script fields on the other.
+ * "Extracted text"/"Adapted text" stay plain editable fields regardless
+ * of whether OCR has run - OCR only ever pre-fills a draft, never locks
+ * the field or overwrites something the human already typed. */
 export function PanelWorkspace({
   panels,
   onUpdatePanel,
   onRemovePanel,
+  onRunOcr,
 }: {
   panels: ComicPanel[];
   onUpdatePanel: (id: string, patch: Partial<ComicPanel>) => void;
   onRemovePanel: (id: string) => void;
+  onRunOcr: (id: string) => void;
 }) {
   const [activeId, setActiveId] = useState(panels[0]?.id);
+  const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
   const activeIndex = panels.findIndex((p) => p.id === activeId);
   const active = panels[activeIndex] ?? panels[0];
 
@@ -28,6 +30,7 @@ export function PanelWorkspace({
   function goTo(index: number) {
     const clamped = Math.max(0, Math.min(panels.length - 1, index));
     setActiveId(panels[clamped].id);
+    setNaturalSize(null);
   }
 
   return (
@@ -37,7 +40,10 @@ export function PanelWorkspace({
           <button
             key={panel.id}
             type="button"
-            onClick={() => setActiveId(panel.id)}
+            onClick={() => {
+              setActiveId(panel.id);
+              setNaturalSize(null);
+            }}
             className={`relative shrink-0 overflow-hidden rounded-lg border transition ${
               panel.id === active.id
                 ? "border-accent"
@@ -89,17 +95,69 @@ export function PanelWorkspace({
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.02] dark:border-white/[0.08] dark:bg-white/[0.02]">
-            {/* A real, unmodified render of the user's own file - not a
-                bounding-box overlay, since there's no OCR run yet to say
-                where on the panel any text actually came from. */}
-            <img src={active.previewUrl} alt={active.fileName} className="w-full" />
+          <div>
+            <div className="relative overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.02] dark:border-white/[0.08] dark:bg-white/[0.02]">
+              {/* A real, unmodified render of the user's own file. Boxes
+                  are drawn in percentage coordinates (region pixel / the
+                  image's own natural size), so they stay aligned with
+                  the image regardless of its rendered width. */}
+              <img
+                key={active.id}
+                src={active.previewUrl}
+                alt={active.fileName}
+                className="w-full"
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+                }}
+              />
+              {naturalSize &&
+                active.ocrRegions?.map((region, i) => (
+                  <div
+                    key={i}
+                    title={`${region.text} (${region.confidence.toFixed(0)}% confidence)`}
+                    className="absolute border-2 border-accent/70 bg-accent/10"
+                    style={{
+                      left: `${(region.bbox.x / naturalSize.width) * 100}%`,
+                      top: `${(region.bbox.y / naturalSize.height) * 100}%`,
+                      width: `${(region.bbox.width / naturalSize.width) * 100}%`,
+                      height: `${(region.bbox.height / naturalSize.height) * 100}%`,
+                    }}
+                  />
+                ))}
+            </div>
+
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => onRunOcr(active.id)}
+                disabled={active.ocrStatus === "running"}
+                className="rounded-full border border-black/[0.1] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+              >
+                {active.ocrStatus === "running" ? "Reading panel…" : "Run OCR"}
+              </button>
+              {active.ocrStatus === "done" && !active.ocrMessage && (
+                <span className="text-[12px] text-ink/40 dark:text-ink-dark/40">
+                  {active.ocrRegions?.length ?? 0} region
+                  {(active.ocrRegions?.length ?? 0) === 1 ? "" : "s"} found
+                </span>
+              )}
+            </div>
+            {active.ocrMessage && (
+              <p
+                className={`mt-2 text-[12px] leading-relaxed ${
+                  active.ocrStatus === "error" ? "text-red-500/80" : "text-ink/40 dark:text-ink-dark/40"
+                }`}
+              >
+                {active.ocrMessage}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-4">
             <Field
               label="Extracted text"
-              hint="No OCR connected yet — type or paste the panel's dialogue here."
+              hint="Run OCR to pre-fill this, or type/paste the panel's dialogue by hand."
               value={active.extractedText}
               onChange={(value) => onUpdatePanel(active.id, { extractedText: value })}
             />
