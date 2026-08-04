@@ -470,6 +470,53 @@ def test_preserved_line_structure_does_not_trigger_collapse():
     assert not [f for f in v.findings if "lines" in f.detail]
 
 
+def _repetition_findings(v):
+    return [f for f in v.findings if f.law == "Law 3 — Compression Floor (repetition)"]
+
+
+def test_dropped_repeated_couplet_is_an_error():
+    """The real failure from the Kun Faya Kun Hindi->Japanese resubmission:
+    a couplet the source repeats twice shipped only once, while the
+    section's overall line count stayed close enough to the anchor's that
+    the general collapse check alone wouldn't have caught it.
+    """
+    repeated_couplet_anchor = "hold me now\nnever let go\nhold me now\nnever let go"
+    v = verify_section(
+        _section("hold me tight\nnever let me go", anchor=repeated_couplet_anchor)
+    )
+    assert _repetition_findings(v), "a repeated couplet shipped once should be an error"
+
+
+def test_repeated_couplet_preserved_with_different_wording_each_time_is_fine():
+    """AURA adapts, not translates - a repeated line legitimately earns a
+    different rendering each occurrence (see recurrence.py). This checks
+    that reworded-but-still-repeated content isn't penalized just because
+    the wording differs between occurrences.
+    """
+    repeated_couplet_anchor = "hold me now\nnever let go\nhold me now\nnever let go"
+    v = verify_section(
+        _section(
+            "hold me tight\nnever let me go\nhold on tight\ndon't let go now",
+            anchor=repeated_couplet_anchor,
+        )
+    )
+    assert not _repetition_findings(v)
+
+
+def test_a_single_incidental_repeated_line_does_not_trigger_the_check():
+    """One line happening to repeat once (not a deliberate refrain/couplet
+    device) is below MIN_REPEATED_LINES_FOR_CHECK - a real drop would need
+    at least two extra repeated occurrences to flag, so an isolated
+    coincidence doesn't manufacture a requirement the anchor's repetition
+    doesn't clearly establish.
+    """
+    lightly_repeated_anchor = "hold me now\nsome other line\nanother line here\nhold me now"
+    v = verify_section(
+        _section("hold me close\nanother line\nyet another", anchor=lightly_repeated_anchor)
+    )
+    assert not _repetition_findings(v)
+
+
 def test_added_connective_tissue_is_flagged():
     v = verify_section(
         _section(

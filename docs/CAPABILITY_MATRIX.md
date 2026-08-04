@@ -1557,6 +1557,67 @@ bottleneck.
   correctly shown — a genuinely imperfect but genuinely real result,
   not a mocked success path.
 
+## Deterministic repeated-line-preservation check — detail
+
+User-reported: shipped songs sometimes skip lines that repeat in the
+source. This is the same failure class as the "Multi-line repeated block
+(couplet/verse/stanza) preservation" and "Translator literal anchor:
+repetition preservation" entries above — both of those fixes were
+**prompt text only** (Tier 0), explicitly disclosed at the time as having
+"no deterministic check confirms a shipped anchor actually preserved
+every repeat." This closes that specific gap with a real, code-level
+check rather than another prompt tweak.
+
+- **`engine/verify.py::_check_repeated_line_preservation`** (new): counts
+  verbatim-duplicate lines in the literal anchor (`Counter` over
+  normalized lines). If the anchor has at least
+  `MIN_REPEATED_LINES_FOR_CHECK` (2) extra repeated occurrences beyond
+  each line's first, and the shipped section's line count is at or below
+  the anchor's DEDUPLICATED line count, that's flagged as an
+  `error`-severity finding under a new law tag ("Law 3 — Compression
+  Floor (repetition)"). Because it's `severity="error"`, it automatically
+  feeds `engine/pipeline.py`'s existing corrective-retry mechanism
+  (`section.errors` -> `retry_section_with_finding`) — no new pipeline
+  wiring needed, same as the completeness check two entries up.
+- **Deliberately does NOT try to match wording between anchor and final.**
+  AURA adapts, not translates — recurrence.py's own docstring states the
+  whole point of a source-side refrain is that it "earns a differently-
+  worded English line each time." Matching exact repeated wording in the
+  shipped text would false-positive on every legitimately-reworded
+  repeat. Instead this checks a cruder but reliable structural proxy:
+  a "drop every repeat, ship the gist once" rewrite can only ever produce
+  at most as many lines as the anchor's distinct (deduplicated) line
+  count — so a shipped line count at or below that number is diagnostic
+  of the failure regardless of what words were actually used.
+  `MIN_REPEATED_LINES_FOR_CHECK = 2` (not 1) keeps a single incidental
+  duplicate short line — two unrelated lines that happen to read
+  identically, not a deliberate refrain/couplet device — from
+  manufacturing a requirement the anchor's repetition doesn't clearly
+  establish; that borderline case is left to the existing, coarser
+  `LINE_COLLAPSE_RATIO` check.
+- **What this does NOT fix, stated plainly, same discipline as every
+  other entry here:** `retry_section_with_finding` only re-runs the
+  Judge against the Creative Adapter's EXISTING candidates — it does not
+  regenerate them. If every one of the 5 candidates already dropped the
+  repeat (the Creative Adapter itself collapsed it, not just the Judge's
+  final pick), re-judging among already-flawed candidates cannot recover
+  the missing repeat; this check will still catch and report the failure
+  in that case, but the automatic corrective pass won't fix it, and it
+  will surface in production logs as an unresolved verify warning the
+  same way any other post-retry residual error does. Also unchanged: no
+  test corpus confirms this changes real deployed output beyond what the
+  unit tests below establish — that requires the user resubmitting real
+  songs, same caveat as every fix in this document.
+- **Tier 1** — the check itself is deterministic string/count logic, not
+  LLM judgment; whether it actually catches every real instance of this
+  failure in production, and whether the corrective retry actually fixes
+  what it catches, isn't something a unit test can confirm.
+- **Benchmark coverage:** 3 new `tests/test_verify.py` tests — a
+  repeated couplet shipped once is flagged; the same couplet shipped
+  twice with DIFFERENT wording each time (a legitimate adaptation) is
+  not flagged; a single incidental repeated line below the threshold is
+  not flagged. 472 Python tests total, up from 469.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

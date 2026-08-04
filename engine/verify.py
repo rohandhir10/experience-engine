@@ -41,6 +41,7 @@ import difflib
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Literal
 
@@ -360,6 +361,68 @@ def _function_word_ratio(text: str) -> float:
 
 def _non_empty_lines(text: str) -> list[str]:
     return [line for line in text.splitlines() if line.strip()]
+
+
+# Below this many extra (beyond-the-first) verbatim-repeated lines, the
+# anchor's repetition is too thin for a drop to be worth flagging as its
+# own error — a single incidental duplicate short line ("if you're here"
+# appearing twice by coincidence, not as a device) is exactly the kind of
+# borderline case LINE_COLLAPSE_RATIO above already has a say over;
+# this check is for the more deliberate, larger repeat structures
+# (a refrain, a couplet repeated twice) that a real production run
+# showed being silently collapsed to one occurrence each while the
+# section's overall line count still looked plausible.
+MIN_REPEATED_LINES_FOR_CHECK = 2
+
+
+def _check_repeated_line_preservation(
+    section: str, anchor_lines: list[str], final_lines: list[str]
+) -> list[Finding]:
+    """A narrower, more sensitive signal than the LINE_COLLAPSE_RATIO check
+    above. That check only fires when a section's line count roughly
+    halves; a real production run (see docs/CAPABILITY_MATRIX.md's
+    "Multi-line repeated block preservation" entry) showed a section
+    keeping a normal-looking OVERALL line count while specifically
+    dropping the anchor's repeat structure — a refrain or repeated
+    couplet shipped only once each, with other lines running longer to
+    fill the difference, hiding the loss from an aggregate count/length
+    check.
+
+    This does not try to match WORDING between anchor and final — AURA
+    adapts, so a repeated line legitimately earns a different rendering
+    each occurrence (see recurrence.py's module docstring). It checks a
+    cruder but reliable structural proxy instead: if the anchor has
+    verbatim-repeated lines, the shipped section's line count should
+    exceed the anchor's DEDUPLICATED line count — the number of lines a
+    "drop every repeat, ship the gist once" rewrite would produce. A
+    shipped count at or below that number is exactly what that failure
+    looks like, regardless of what the actual words are.
+    """
+    anchor_counts = Counter(_normalize(line) for line in anchor_lines)
+    repeated_line_excess = sum(count - 1 for count in anchor_counts.values() if count >= 2)
+    if repeated_line_excess < MIN_REPEATED_LINES_FOR_CHECK:
+        return []
+
+    distinct_anchor_lines = len(anchor_counts)
+    if len(final_lines) > distinct_anchor_lines:
+        return []
+
+    return [
+        Finding(
+            law="Law 3 — Compression Floor (repetition)",
+            severity="error",
+            section=section,
+            detail=(
+                f"The literal anchor repeats {repeated_line_excess} line(s) "
+                f"verbatim ({len(anchor_lines)} total lines, "
+                f"{distinct_anchor_lines} distinct) but the shipped version "
+                f"has only {len(final_lines)} line(s) — at or below the "
+                "anchor's distinct-line count, consistent with every "
+                "repeat being collapsed to a single occurrence instead of "
+                "preserved."
+            ),
+        )
+    ]
 
 
 def _stress_pattern_for_clash_detection(line: str) -> str:
@@ -699,6 +762,8 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
                 ),
             )
         )
+
+    findings.extend(_check_repeated_line_preservation(section, anchor_lines, final_lines))
 
     anchor_ratio = _function_word_ratio(anchor)
     final_ratio = _function_word_ratio(final)
