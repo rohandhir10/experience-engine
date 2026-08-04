@@ -7,8 +7,13 @@ import { engineFetchAsUser } from "@/lib/engineFetch";
 // this answers 200-with-signedIn:false for anonymous visitors instead of
 // 401 - the dashboard renders a "sign in to keep history" prompt from
 // it, so a signed-out visit is an expected state here, not an error.
-// ?favoritesOnly / ?collectionId narrow the list; both filter in SQL
-// upstream rather than being trimmed here.
+// ?favoritesOnly / ?collectionId / ?medium narrow the list; all three
+// filter in SQL upstream rather than being trimmed here. ?medium is
+// omitted entirely when not passed - server/main.py's medium=None
+// default returns both mediums combined, which is what every caller
+// gets today (no UI passes this param yet; see
+// components/RecentAdaptations.tsx for the per-row rendering that makes
+// a combined list safe to show).
 export async function GET(request: NextRequest) {
   const session = await auth().catch(() => null);
   if (!session?.auraUserId) {
@@ -21,6 +26,8 @@ export async function GET(request: NextRequest) {
   });
   const collectionId = params.get("collectionId");
   if (collectionId) query.set("collection_id", collectionId);
+  const medium = params.get("medium");
+  if (medium) query.set("medium", medium);
 
   const response = await engineFetchAsUser(`/api/me/adaptations?${query}`);
   if (!response.ok) return response;

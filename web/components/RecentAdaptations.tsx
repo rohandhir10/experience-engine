@@ -6,6 +6,7 @@ import { applyFavorite } from "@/lib/favorites";
 import { applyMembership, type Collection } from "@/lib/collections";
 import { CollectionMenu } from "./CollectionMenu";
 import type { HistoryEntry } from "@/lib/history";
+import { resolveHistoryEntryDisplay } from "@/lib/historyEntryDisplay";
 
 type HistoryState =
   | { status: "loading" }
@@ -32,16 +33,23 @@ function StarIcon({ filled }: { filled: boolean }) {
 /** The signed-in user's adaptation history, backed by
  * /api/me/adaptations (which returns signedIn:false rather than an error
  * for anonymous visitors — history is an account perk, not a
- * requirement). Each entry links to the same shareable /s/[id] page the
- * original submission landed on.
+ * requirement). Each entry links to whichever share page its own medium
+ * uses — /s/[id] for music, /comics/s/[id] for webtoons — since this
+ * combined list can now genuinely contain both (see
+ * server/accounts.py::list_adaptations's medium=None default).
  *
  * favoritesOnly drives both the query and the empty-state copy, so the
  * dashboard's "Recent" list and the Favorites page are the same
- * component rather than two that can drift apart. */
+ * component rather than two that can drift apart. `medium`, when
+ * passed, narrows to just that one — omitted (the default, and what
+ * every caller passes today), both mediums show together in one
+ * timeline, no filter control exists yet to change that. */
 export function RecentAdaptations({
   favoritesOnly = false,
+  medium,
 }: {
   favoritesOnly?: boolean;
+  medium?: "music" | "webtoons";
 }) {
   const [state, setState] = useState<HistoryState>({ status: "loading" });
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -49,8 +57,11 @@ export function RecentAdaptations({
 
   useEffect(() => {
     let cancelled = false;
-    const query = favoritesOnly ? "?favoritesOnly=true" : "";
-    fetch(`/api/me/adaptations${query}`)
+    const query = new URLSearchParams();
+    if (favoritesOnly) query.set("favoritesOnly", "true");
+    if (medium) query.set("medium", medium);
+    const qs = query.toString();
+    fetch(`/api/me/adaptations${qs ? `?${qs}` : ""}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((body) => {
         if (cancelled) return;
@@ -63,7 +74,7 @@ export function RecentAdaptations({
     return () => {
       cancelled = true;
     };
-  }, [favoritesOnly]);
+  }, [favoritesOnly, medium]);
 
   // Collections for the per-row "file into…" menu. Failing to load them
   // only costs the menu — the list itself and favoriting still work, so
@@ -180,7 +191,7 @@ export function RecentAdaptations({
         >
           Sign in
         </Link>{" "}
-        to keep {favoritesOnly ? "favorites" : "a history of the songs you adapt"}.
+        to keep {favoritesOnly ? "favorites" : "a history of what you adapt"}.
       </p>
     );
   }
@@ -197,59 +208,60 @@ export function RecentAdaptations({
       <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
         {favoritesOnly
           ? "No favorites yet — star an adaptation to keep it here."
-          : "No adaptations yet — the first song you adapt will show up here."}
+          : "No adaptations yet — the first thing you adapt will show up here."}
       </p>
     );
   }
   return (
     <ul className="mt-4 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
-      {state.entries.map((entry) => (
-        <li key={entry.resultId} className="flex items-center gap-3 py-3">
-          <button
-            type="button"
-            onClick={() => toggleFavorite(entry)}
-            disabled={pending.has(entry.resultId)}
-            aria-pressed={entry.isFavorite}
-            aria-label={
-              entry.isFavorite
-                ? `Remove ${entry.hook || "this adaptation"} from favorites`
-                : `Add ${entry.hook || "this adaptation"} to favorites`
-            }
-            className={`shrink-0 rounded-full p-1 transition disabled:opacity-40 ${
-              entry.isFavorite
-                ? "text-accent"
-                : "text-ink/20 hover:text-ink/45 dark:text-ink-dark/20 dark:hover:text-ink-dark/45"
-            }`}
-          >
-            <StarIcon filled={entry.isFavorite} />
-          </button>
-          <Link
-            href={`/s/${entry.resultId}`}
-            className="group flex min-w-0 flex-1 items-baseline justify-between gap-4"
-          >
-            <span className="min-w-0 truncate text-[14px] text-ink/75 transition group-hover:text-ink dark:text-ink-dark/75 dark:group-hover:text-ink-dark">
-              {entry.hook || "Untitled adaptation"}
-            </span>
-            <span className="shrink-0 text-[12px] text-ink/35 dark:text-ink-dark/35">
-              {[entry.sourceLanguage, entry.targetLanguage].filter(Boolean).join(" → ")}
-              {" · "}
-              {new Date(entry.createdAt).toLocaleDateString()}
-            </span>
-          </Link>
+      {state.entries.map((entry) => {
+        const { label, href } = resolveHistoryEntryDisplay(entry);
+        return (
+          <li key={entry.resultId} className="flex items-center gap-3 py-3">
+            <button
+              type="button"
+              onClick={() => toggleFavorite(entry)}
+              disabled={pending.has(entry.resultId)}
+              aria-pressed={entry.isFavorite}
+              aria-label={
+                entry.isFavorite ? `Remove ${label} from favorites` : `Add ${label} to favorites`
+              }
+              className={`shrink-0 rounded-full p-1 transition disabled:opacity-40 ${
+                entry.isFavorite
+                  ? "text-accent"
+                  : "text-ink/20 hover:text-ink/45 dark:text-ink-dark/20 dark:hover:text-ink-dark/45"
+              }`}
+            >
+              <StarIcon filled={entry.isFavorite} />
+            </button>
+            <Link
+              href={href}
+              className="group flex min-w-0 flex-1 items-baseline justify-between gap-4"
+            >
+              <span className="min-w-0 truncate text-[14px] text-ink/75 transition group-hover:text-ink dark:text-ink-dark/75 dark:group-hover:text-ink-dark">
+                {label}
+              </span>
+              <span className="shrink-0 text-[12px] text-ink/35 dark:text-ink-dark/35">
+                {[entry.sourceLanguage, entry.targetLanguage].filter(Boolean).join(" → ")}
+                {" · "}
+                {new Date(entry.createdAt).toLocaleDateString()}
+              </span>
+            </Link>
 
-          <CollectionMenu
-            collections={collections}
-            memberIds={entry.collectionIds}
-            onToggle={(collectionId, member) =>
-              toggleMembership(entry, collectionId, member)
-            }
-            onCollectionCreated={(created) =>
-              setCollections((prev) => [created, ...prev])
-            }
-            ariaLabel={`Add ${entry.hook || "this adaptation"} to a collection`}
-          />
-        </li>
-      ))}
+            <CollectionMenu
+              collections={collections}
+              memberIds={entry.collectionIds}
+              onToggle={(collectionId, member) =>
+                toggleMembership(entry, collectionId, member)
+              }
+              onCollectionCreated={(created) =>
+                setCollections((prev) => [created, ...prev])
+              }
+              ariaLabel={`Add ${label} to a collection`}
+            />
+          </li>
+        );
+      })}
     </ul>
   );
 }

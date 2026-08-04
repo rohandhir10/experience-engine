@@ -2544,6 +2544,48 @@ previous two entries said so explicitly).
   `collection_id`'s existing coverage, which is also only exercised at
   the `accounts.py` level, not re-tested through the FastAPI route.
 
+## Frontend threading for the medium filter — detail
+
+- **What it is:** the frontend catches up to last round's backend-only
+  `medium` filter. `app/api/me/adaptations/route.ts` forwards an
+  optional `?medium=` straight through (omitted by every caller today,
+  same as before). `HistoryEntry` (`lib/history.ts`) now types `medium`.
+  `RecentAdaptations.tsx` accepts an optional `medium` prop (no UI
+  control passes it yet - this is the plumbing, not the filter chip)
+  and, more importantly, its per-row rendering is now genuinely
+  mixed-list-safe: a new `lib/historyEntryDisplay.ts` resolves each
+  row's label and href from its own `medium` — a webtoons row links to
+  `/comics/s/[id]` and shows "Adapted chapter" (there's no hook line to
+  show; the comics wire shape never produces one), a music row keeps
+  its long-standing `/s/[id]` + hook-or-"Untitled adaptation" behavior.
+  The two generic copy strings that said "songs" (`"a history of the
+  songs you adapt"`, `"the first song you adapt will show up here"`)
+  were also genuinely wrong now that this list can contain both — reworded
+  medium-neutral.
+- **What this does NOT do:** no visible filter control anywhere — the
+  `medium` prop exists so a future one has something to call, but
+  nothing calls it yet. `app/dashboard/page.tsx` itself is still
+  Music-only and untouched, same open question as every prior round.
+- **Tier 1** — deterministic rendering/routing logic, no model-quality
+  claim. **Verified live:** a Chromium/Playwright pass against the
+  production build with `/api/me/adaptations` mocked to return one
+  music row and one webtoons row together confirmed (via each row's
+  actual rendered `href` attribute, not just a screenshot) that the
+  music row points at `/s/song-xyz` and the webtoons row at
+  `/comics/s/chapter-abc`, with "Adapted chapter" reading naturally
+  alongside a real hook line rather than looking broken or blank.
+- **Benchmark coverage:** extracted the label/href resolution into
+  `lib/historyEntryDisplay.ts` specifically so it could get real Vitest
+  coverage rather than only being checked by eye in the browser — 4 new
+  tests (music entry keeps its hook + `/s/` link; music entry with no
+  hook falls back to "Untitled adaptation"; webtoons entry links to
+  `/comics/s/` with "Adapted chapter"; the fallback is hook-first, not
+  medium-first, documented in case a webtoons hook ever exists) plus 2
+  existing fixture files (`favorites.test.ts`, `collections.test.ts`)
+  updated for the now-required `medium` field — 52 Vitest tests total,
+  up from 48. `tsc --noEmit`, `next build`, and all 536 Python tests
+  stayed green (Python side untouched this round).
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

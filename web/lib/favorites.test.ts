@@ -7,6 +7,7 @@ function entry(resultId: string, isFavorite = false): HistoryEntry {
     resultId,
     createdAt: "2026-08-04T00:00:00+00:00",
     isFavorite,
+    medium: "music",
     hook: `hook for ${resultId}`,
     sourceLanguage: "Hindi",
     targetLanguage: "English",

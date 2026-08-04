@@ -6,6 +6,11 @@ export type HistoryEntry = {
   resultId: string;
   createdAt: string;
   isFavorite: boolean;
+  /** "music" | "webtoons" (server/db_models.py::Adaptation.medium).
+   * Drives which share page a row links to and how it renders, since a
+   * webtoons entry has no hook line at all - see
+   * components/RecentAdaptations.tsx. */
+  medium: "music" | "webtoons";
   hook: string | null;
   sourceLanguage: string | null;
   targetLanguage: string | null;

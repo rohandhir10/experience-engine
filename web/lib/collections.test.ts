@@ -74,6 +74,7 @@ describe("applyMembership", () => {
       resultId,
       createdAt: "2026-08-04T00:00:00+00:00",
       isFavorite: false,
+      medium: "music",
       hook: null,
       sourceLanguage: null,
       targetLanguage: null,
