@@ -3,7 +3,11 @@
 // supported pairing now (full matrix, not a curated allow-list) -
 // "supported" meaning the prompt layer runs, not that every pair has been
 // quality-checked (see engine/models.py's comment on that distinction).
-export const LANGUAGES = ["English", "Hindi", "Korean", "Japanese", "Spanish", "Urdu"] as const;
+// Alphabetical after English (the default target) rather than any other
+// order - this is a global, direction-agnostic tool, and an arbitrary
+// non-alphabetical ordering reads as ranking one language/region above
+// the others, which isn't a claim this list should make either way.
+export const LANGUAGES = ["English", "Hindi", "Japanese", "Korean", "Spanish", "Urdu"] as const;
 
 export type Language = (typeof LANGUAGES)[number];
 
@@ -15,7 +19,7 @@ export const TARGET_LANGUAGES = LANGUAGES;
 
 export function sourceHintFor(targetLanguage: string, sourceLanguage: string): string {
   if (targetLanguage === "English") {
-    return "Paste lyrics in Hindi, Korean, Japanese, Spanish, or Urdu — adapted into English, not translated.";
+    return "Paste lyrics in Hindi, Japanese, Korean, Spanish, or Urdu — adapted into English, not translated.";
   }
   if (sourceLanguage === "English") {
     return `Paste English lyrics — adapted into ${targetLanguage}, not translated.`;

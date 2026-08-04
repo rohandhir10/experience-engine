@@ -5,7 +5,6 @@ import Link from "next/link";
 import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
-import { comparisonEntries } from "@/lib/comparison-data";
 import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 import type { YoutubeSource } from "@/lib/useAdaptSubmit";
@@ -88,10 +87,6 @@ export function InputScreen({
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT_PX)}px`;
   }
-
-  const featured = comparisonEntries[0];
-  const featuredAura = featured?.sections[0]?.systems.aura;
-  const featuredSource = featured?.sections[0]?.source;
 
   return (
     <main className="min-h-screen bg-[#0b0b0c] px-6 pb-28 pt-8 sm:px-10">
@@ -261,49 +256,41 @@ export function InputScreen({
         </Link>
       </div>
 
-      {featured && featuredAura && (
-        <div className="animate-fade-up mx-auto mt-16 w-full max-w-3xl" style={{ animationDelay: "260ms" }}>
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
-            <div className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
-              <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-              <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-              <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
-              <span className="ml-3 text-[12px] text-white/35">
-                {featured.title} — real production run
-              </span>
-            </div>
-            <div className="grid gap-7 px-6 py-7 sm:grid-cols-2 sm:divide-x sm:divide-white/[0.07] sm:px-8">
-              <div className="sm:pr-7">
-                <span className="inline-flex items-center rounded-md border border-white/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-white/40">
-                  [ Original ]
-                </span>
-                <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-white/40">
-                  {featuredSource}
-                </p>
-              </div>
-              <div className="sm:pl-7">
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-accent"
-                  style={{
-                    background: "rgba(91, 91, 214, 0.14)",
-                    boxShadow: "0 0 12px rgba(91, 91, 214, 0.22)",
-                  }}
-                >
-                  Aura
-                </span>
-                <p className="mt-3 whitespace-pre-line text-[16px] leading-relaxed text-white">
-                  {featuredAura}
-                </p>
-              </div>
-            </div>
-            <div className="border-t border-white/10 px-6 py-3 text-right sm:px-8">
-              <Link href="/compare" className="text-[13px] text-white/45 transition hover:text-white/75">
-                See the full comparison, unedited →
-              </Link>
-            </div>
-          </div>
+      {/* A language matrix, not a single lyric — AURA supports six
+          languages in any direction, and the only real, fully-benchmarked
+          comparison example available today (see lib/comparison-data.ts)
+          happens to be one Hindi/Punjabi song. Showing that one example
+          prominently and unprompted on the homepage read as "built for
+          Hindi songs," which is the opposite of what this tool is. The
+          real comparison still lives on /compare, honestly labeled as one
+          example; the homepage now states the actual language coverage
+          instead of implying it from a single sample. */}
+      <div
+        className="animate-fade-up mx-auto mt-16 w-full max-w-2xl text-center"
+        style={{ animationDelay: "260ms" }}
+      >
+        <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+          Any language, either direction
+        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {LANGUAGES.map((lang) => (
+            <span
+              key={lang}
+              className="rounded-full border border-white/10 px-3 py-1 text-[13px] text-white/50"
+            >
+              {lang}
+            </span>
+          ))}
         </div>
-      )}
+        <p className="mt-4 text-[13px] text-white/30">
+          <Link
+            href="/compare"
+            className="underline decoration-white/15 underline-offset-4 transition hover:text-white/60 hover:decoration-white/30"
+          >
+            See a real, unedited comparison →
+          </Link>
+        </p>
+      </div>
     </main>
   );
 }

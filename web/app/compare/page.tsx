@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SystemComparisonCard } from "@/components/SystemComparisonCard";
 import { comparisonEntries, methodologyNote } from "@/lib/comparison-data";
+import { LANGUAGES } from "@/lib/languages";
 
 export const metadata = {
   title: "AURA — Compare",
@@ -31,6 +32,17 @@ export default function ComparePage() {
           </h1>
           <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
             {methodologyNote}
+          </p>
+          {/* The one entry below happens to be a Hindi/Punjabi song -
+              that's which benchmark run has been through the full
+              Google-Translate/GPT/AURA comparison so far
+              (benchmark/README.md), not a statement about which
+              languages this tool is for. Named explicitly so a single
+              example doesn't stand in for the whole language matrix. */}
+          <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+            AURA adapts between any two of {LANGUAGES.join(", ")} — the
+            example below is the one benchmark run completed so far, not
+            the limit of what it does.
           </p>
         </div>
 

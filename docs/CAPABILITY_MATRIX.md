@@ -1020,6 +1020,60 @@ with nothing reading or writing them.
   menus (that stays on `/dashboard/collections`, where there's room for
   a confirm step), and any notion of sharing a collection.
 
+## Homepage/marketing: removed the single-culture showcase — detail
+
+The homepage's first impression (a showcase card rendered directly below
+the input form, unprompted) was a real, honestly-labeled production run
+— but it happened to be the ONLY comparison entry that has ever been
+generated (`lib/comparison-data.ts`), and that entry is a Hindi/Punjabi
+song shown in Devanagari script. With no second example to balance it,
+the homepage's actual visual identity was "a Hindi-lyrics tool," which
+is the opposite of what a six-language, any-direction tool should
+communicate.
+
+- **Root cause, stated plainly:** this isn't a copy problem, it's a
+  single-data-point problem. `comparison-data.ts`'s own docstring
+  requires every entry to be a real benchmark run
+  (`benchmark/cli.py run --corpus examples`), never hand-typed — so
+  fabricating a second example in, say, Korean or Spanish to "balance"
+  the homepage would violate the same non-fabrication discipline this
+  entire project has enforced from the start. The honest fix available
+  without running the engine (no API keys/network in this sandbox) is
+  to stop giving the one real example outsized, unprompted weight, not
+  to invent a fake second one.
+- **`components/InputScreen.tsx`:** the showcase card is replaced with a
+  language-matrix strip (every entry in `LANGUAGES`, rendered as plain
+  chips) plus a link to `/compare`, which still hosts the one real
+  example — clearly labeled there, not surfaced as the homepage's
+  identity. Nothing is asserted about output quality in the new strip;
+  it states supported languages only, which is verifiably true from
+  `engine/models.py::SUPPORTED_LANGUAGES`.
+- **`lib/languages.ts`:** `LANGUAGES` reordered alphabetically after
+  English (was Hindi-first, arbitrarily). An arbitrary non-alphabetical
+  order reads as a ranking; alphabetical asserts nothing about any
+  language's priority. `sourceHintFor`'s copy follows the same order.
+- **`app/compare/page.tsx`:** added one explicit line naming the full
+  supported roster, so the single Hindi/Punjabi entry reads as "the one
+  benchmark run completed so far," not as the scope of the tool.
+- **Left alone, deliberately:** `/s/demo` (`lib/demo-data.ts`) is also a
+  real captured Hindi example, but it's reached only by an explicit
+  click ("See an example first"), and its default view shows the
+  English *adapted* output — the Devanagari original is behind a
+  "Show original" toggle, off by default. Low signal, and replacing it
+  would have the same fabrication problem as the homepage card did.
+- **Tier 1** — this is presentation/copy, not a model-behavior claim.
+  No new tests needed (nothing here is logic); verified via `tsc`/
+  `next build` (both clean) and a manual read of the rendered strip's
+  copy against `engine/models.py::SUPPORTED_LANGUAGES` for accuracy.
+- **What this does NOT fix:** the project still has exactly one
+  fully-benchmarked comparison example, in one language pair. The
+  underlying gap — no Korean, Spanish, Japanese, or Urdu example has
+  ever been run through `benchmark/cli.py` — is unchanged; this only
+  stops that gap from reading as a design decision on the homepage.
+  Closing it for real needs `OPENAI_API_KEY` and the benchmark CLI run
+  against real songs in those languages, which is real future work, not
+  something this pass could responsibly simulate.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and
