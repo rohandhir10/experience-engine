@@ -1109,6 +1109,57 @@ generate), so the fix is framing, not content.
   real means running the benchmark CLI against real songs spanning more
   genres and languages, which needs API access this sandbox doesn't have.
 
+## Removed the /compare page, added a Use Cases section — detail
+
+A structural follow-up to the two homepage-framing fixes above, prompted
+by a direct suggestion: replace the single-example proof page with a
+features/use-cases section, and remove `/compare` entirely rather than
+keep reframing around its one example.
+
+- **Why this is a better fix than the previous two, not just a
+  different one:** every earlier fix in this area (removing the
+  homepage showcase, reordering languages, framing the demo page) was
+  still built around the fact that the project has exactly one real
+  benchmark example, in one language. A use-case section sidesteps that
+  constraint entirely — "here is who this is for and what it's for" is a
+  claim that doesn't depend on which language or genre a real example
+  happens to be in, unlike "here is output, judge it," which needed
+  examples spanning the whole matrix to be honest. Pairing a new
+  features section WITH the old `/compare` page would have recreated the
+  identical single-example problem this whole pass exists to fix, just
+  with an added section next to it — hence removing the page rather than
+  keeping both.
+- **Removed:** `app/compare/page.tsx`, `components/
+  SystemComparisonCard.tsx`, `lib/comparison-data.ts` (the "GATE Google
+  Translate / GPT single-prompt / AURA" three-way comparison view built
+  around the one Hindi/Punjabi benchmark entry). `benchmark/cli.py` and
+  `benchmark/README.md` are untouched — the benchmark tooling itself is
+  still real and still useful for internal quality checks; it's the
+  public-facing page built on top of one of its outputs that's gone.
+- **`components/SiteHeader.tsx`:** the "Examples" nav link (→ `/compare`)
+  replaced with "Use Cases" (→ `/#features`, an in-page anchor on the
+  homepage). The `active` prop's type dropped `"compare"` since nothing
+  sets it anymore.
+- **`components/InputScreen.tsx`:** a `USE_CASES` section (four cards:
+  understanding a song in an unfamiliar language, adapting lyrics for a
+  cover/performance, studying a song's craft via the literal/adapted/why
+  breakdown, sharing music across a language gap). Each claim is scoped
+  to what the product actually does — literal-vs-adapted-vs-why,
+  singability, Song DNA's imagery/repetition/arc — not a claim about who
+  currently uses it or for what, since no such adoption data exists to
+  make that claim honestly.
+- **Tier 1** — presentation/copy, no logic. Verified via `tsc --noEmit`
+  (after clearing a stale `.next/types` cache that referenced the
+  deleted route) and `next build` (confirms `/compare` no longer appears
+  in the route list) — both clean.
+- **What this does NOT change:** the underlying gap from the last two
+  entries is still there — there is still no real benchmark example
+  outside one Hindi/Punjabi song. This fix makes that gap irrelevant to
+  the homepage's honesty (nothing there depends on an example anymore),
+  it doesn't close the gap itself. If a public comparison page is wanted
+  again later, it should launch with more than one language's worth of
+  real benchmark runs, not the same single entry re-presented.
+
 ## Urdu source grounding — detail
 
 Urdu was added late (full open language matrix + Urdu, source and

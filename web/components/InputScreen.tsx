@@ -266,13 +266,13 @@ export function InputScreen({
 
       {/* A language matrix, not a single lyric — AURA supports six
           languages in any direction, and the only real, fully-benchmarked
-          comparison example available today (see lib/comparison-data.ts)
+          comparison example ever generated (see benchmark/README.md)
           happens to be one Hindi/Punjabi song. Showing that one example
           prominently and unprompted on the homepage read as "built for
-          Hindi songs," which is the opposite of what this tool is. The
-          real comparison still lives on /compare, honestly labeled as one
-          example; the homepage now states the actual language coverage
-          instead of implying it from a single sample. */}
+          Hindi songs," which is the opposite of what this tool is. This
+          states the actual language coverage instead of implying it from
+          a single sample - no /compare page to link to anymore (see
+          the Use Cases section below for why). */}
       <div
         className="animate-fade-up mx-auto mt-16 w-full max-w-2xl text-center"
         style={{ animationDelay: "260ms" }}
@@ -290,15 +290,66 @@ export function InputScreen({
             </span>
           ))}
         </div>
-        <p className="mt-4 text-[13px] text-white/30">
-          <Link
-            href="/compare"
-            className="underline decoration-white/15 underline-offset-4 transition hover:text-white/60 hover:decoration-white/30"
-          >
-            See a real, unedited comparison →
-          </Link>
+      </div>
+
+      {/* Use cases, replacing the old /compare page entirely. That page's
+          only content was one real Hindi song shown against Google
+          Translate/a single GPT prompt — informative, but it was also the
+          site's one piece of "proof," and pairing it with a features
+          section would have re-created the exact single-example problem
+          this whole pass exists to fix (one language, standing in for
+          the whole product). A use-case description makes a narrower,
+          easier-to-stand-behind claim than a demo does: not "here is
+          output you can judge," just "here is who this is for and what
+          it's for" — true regardless of which language or genre someone
+          actually brings to it. The real benchmark tooling
+          (benchmark/cli.py) still exists for internal quality checks;
+          it just isn't a public page anymore. */}
+      <div
+        id="features"
+        className="animate-fade-up mx-auto mt-20 w-full max-w-3xl scroll-mt-20"
+        style={{ animationDelay: "280ms" }}
+      >
+        <p className="text-center text-[12px] uppercase tracking-[0.15em] text-white/25">
+          Use cases
         </p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          {USE_CASES.map((useCase) => (
+            <div
+              key={useCase.title}
+              className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-left"
+            >
+              <h3 className="text-[14px] font-medium text-white/85">{useCase.title}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-white/45">
+                {useCase.description}
+              </p>
+            </div>
+          ))}
+        </div>
       </div>
     </main>
   );
 }
+
+const USE_CASES: { title: string; description: string }[] = [
+  {
+    title: "Understand a song you love",
+    description:
+      "Streaming put music from everywhere in front of everyone, but a literal translation usually kills the reason a song moved you in the first place. Get what it's actually saying, and why it lands the way it does.",
+  },
+  {
+    title: "Adapt lyrics for a cover or performance",
+    description:
+      "A singable adaptation for another language needs to scan, rhyme, and breathe like a real lyric — not read like a subtitle. Start from something built for that, not a word-for-word draft you'd have to rewrite anyway.",
+  },
+  {
+    title: "Study how a song is actually built",
+    description:
+      "Every section comes with a literal reading next to the adapted line, and a plain-language reason for every real change — imagery, repetition, and emotional arc made visible instead of left to guess at.",
+  },
+  {
+    title: "Share music across a language gap",
+    description:
+      "Explaining to a friend, a partner, or a fan community why a song in a language they don't speak actually hits — with something more specific to hand them than \"trust me, it's beautiful.\"",
+  },
+];

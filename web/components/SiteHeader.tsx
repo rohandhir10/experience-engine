@@ -15,7 +15,7 @@ export function SiteHeader({
   right,
   forceDark,
 }: {
-  active?: "compare" | "pricing" | "home";
+  active?: "pricing" | "home";
   right?: ReactNode;
   forceDark?: boolean;
 }) {
@@ -34,11 +34,9 @@ export function SiteHeader({
         <Logo force={forceDark ? "light" : undefined} />
       </Link>
       <div className="flex items-center gap-4 sm:gap-6">
-        {active !== "compare" && (
-          <Link href="/compare" className={`hidden sm:inline ${navLink}`}>
-            Examples
-          </Link>
-        )}
+        <Link href="/#features" className={`hidden sm:inline ${navLink}`}>
+          Use Cases
+        </Link>
         {active !== "pricing" && (
           <Link href="/pricing" className={`hidden sm:inline ${navLink}`}>
             Pricing
