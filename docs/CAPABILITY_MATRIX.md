@@ -1618,6 +1618,89 @@ check rather than another prompt tweak.
   not flagged; a single incidental repeated line below the threshold is
   not flagged. 472 Python tests total, up from 469.
 
+## Resolving the retry limitation: a computed prompt hint + a real regeneration escalation — detail
+
+Direct follow-up closing the gap the previous entry disclosed but didn't
+fix: `retry_section_with_finding` only ever re-judges the EXISTING
+candidate pool, so if every one of the 5 Creative Adapter candidates
+already dropped a repeat, no amount of re-judging can recover it. Two
+changes, one preventative and one corrective.
+
+- **Preventative — `engine/prompts.py::_repeated_source_lines_note`
+  (new):** rather than trusting the Creative Adapter to notice AND
+  count a source repeat while also holding constraint #7's abstract
+  rule in mind, this computes the exact count deterministically (a
+  `Counter` over the source's own lines) and hands it to
+  `creative_adapter_prompt` as a concrete fact — e.g. `'hold me now'
+  appears 2 times` — appended to the user prompt. Returns `""` (no
+  change at all) when the source has no verbatim-repeated line, which
+  is why `tests/test_golden_prompts.py`'s `creative_adapter` hash did
+  NOT need updating: its fixture source is a single line with nothing
+  to repeat, so the prompt stays byte-identical for that case — a
+  concrete instance of the note's design goal, not just a claim about
+  it. A repeated multi-line couplet reports as two separate per-line
+  counts (one per line of the couplet), since the note doesn't need to
+  understand "couplet" as a unit — it just states each line's own
+  verbatim count, which is the same granularity
+  `verify.py::repeated_lines_preserved` (below) checks on the receiving
+  end.
+- **Corrective — `engine/pipeline.py`'s regeneration escalation
+  (new):** `_apply_corrective_pass` now routes a dropped-repeat finding
+  (`Law 3 — Compression Floor (repetition)`) to one of two paths,
+  decided by a new `_all_creative_candidates_drop_a_repeat` check: if at
+  least one of the section's existing Creative Adapter candidates
+  already preserves the repeat, the existing `retry_section_with_finding`
+  re-judge is still the right, cheaper fix (the Judge just picked the
+  wrong option). Only when EVERY candidate has already dropped it does
+  it escalate to `writers_room_v1.regenerate_creative_adapter_candidates`
+  — a fresh Creative Adapter generation call (Translator's anchor is
+  deliberately NOT re-run; it already preserves repeats correctly) with
+  explicit feedback about what was dropped — followed by a full
+  re-judge of the new combined pool via the newly-extracted
+  `writers_room_v1.judge_candidates` (the triage/specialist/final-ruling
+  half of `run_section`, factored out specifically so this new path
+  doesn't duplicate that logic). Bounded to exactly one regeneration +
+  one re-judge per flagged section, same discipline as the plain
+  re-judge path — it does not loop.
+- **`engine/verify.py::repeated_lines_preserved`** (new): the Finding-
+  producing `_check_repeated_line_preservation` refactored to expose a
+  plain boolean underneath, so `pipeline.py` can test individual
+  candidates (anchor vs. one candidate's text) BEFORE a Judge ruling
+  exists — the Finding-producing version only ever checked the anchor
+  against the single already-shipped final line, which is one level too
+  coarse for "did ANY candidate preserve this."
+- **What this does NOT guarantee, stated plainly:** the prompt hint is
+  still Tier 0 (it's a stronger, computed instruction, not a guarantee
+  the model follows it) — the regeneration escalation is the actual
+  backstop for when it doesn't. And the regeneration escalation is
+  itself bounded to one attempt: if the REGENERATED 5 candidates also
+  all drop the repeat, this pass ships the Judge's pick from that
+  (still-flawed) second pool rather than looping indefinitely — the
+  same "surface it, don't infinitely retry" discipline the rest of the
+  corrective-pass system uses. No test corpus confirms either change
+  moves the needle on real deployed output beyond what the unit tests
+  below establish — that requires the user resubmitting real songs,
+  same caveat as every fix in this document.
+- **Tier 1** for the routing logic and the computed line-repeat counts
+  (both deterministic); **Tier 0** for whether the model actually
+  produces a better result when prompted with them — no different from
+  every other prompt-text mitigation in this document's repetition
+  entries.
+- **Benchmark coverage:** 6 new `tests/test_prompts.py` tests for
+  `_repeated_source_lines_note` (no note without repetition; a repeated
+  line reported; a repeated couplet reported as two per-line counts;
+  case-insensitive matching; the note appears in/is absent from the
+  real `creative_adapter_prompt` output as expected) and 4 new
+  `tests/test_pipeline_regeneration.py` tests using a fake LLM client
+  that branches on the real `stage=` argument every call site already
+  passes (not prompt-text parsing) — confirming the escalation actually
+  fires and produces a repeat-preserving final line when every original
+  candidate dropped it, confirming the plain flag-off run still ships
+  the dropped version uncorrected, and two direct unit tests of
+  `_all_creative_candidates_drop_a_repeat`'s two false cases (one
+  preserving candidate already exists; no real repetition to escalate
+  on). 482 Python tests total, up from 472.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

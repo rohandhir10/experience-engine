@@ -209,6 +209,6 @@ def test_extract_correctable_errors_maps_section_findings():
         ],
     )
     correctable = _extract_correctable_section_errors(report)
-    assert correctable["verse_1"] == ["unaudited change"]
-    assert correctable["chorus"] == ["inconsistent motif rendering"]
+    assert [f.detail for f in correctable["verse_1"]] == ["unaudited change"]
+    assert [f.detail for f in correctable["chorus"]] == ["inconsistent motif rendering"]
     assert "sher_3" not in correctable

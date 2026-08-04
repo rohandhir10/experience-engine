@@ -8,6 +8,7 @@ rules become model instructions.
 from __future__ import annotations
 
 import json
+from collections import Counter
 
 from .language_profile import LanguageProfile
 from .models import (
@@ -575,6 +576,36 @@ def _voice_line(voice: str | None) -> str:
     )
 
 
+def _repeated_source_lines_note(source_text: str) -> str:
+    """Deterministically counts verbatim-repeated lines in `source_text`
+    and, if any exist, hands the exact count back as a concrete fact —
+    rather than trusting the model to notice and count a repeat on its
+    own while also holding constraint #7's abstract rule in mind. Same
+    technique this module already uses elsewhere (Song DNA context,
+    room memory): compute what's checkable in code, state it as a fact,
+    and let the model's job be following the instruction rather than
+    also doing the counting.
+
+    Returns "" when the source has no verbatim-repeated line — byte-
+    identical to the prompt before this note existed, so a section with
+    no repetition to protect sees no change at all (confirmed by
+    tests/test_golden_prompts.py's fixture, which has none).
+    """
+    lines = [line.strip() for line in source_text.splitlines() if line.strip()]
+    counts = Counter(line.lower() for line in lines)
+    repeated = [(line, counts[line.lower()]) for line in dict.fromkeys(lines) if counts[line.lower()] >= 2]
+    if not repeated:
+        return ""
+    listed = "; ".join(f"{text!r} appears {count} times" for text, count in repeated)
+    return (
+        "\n\nMechanical count, not a stylistic note: the source repeats the "
+        f"following line(s) verbatim — your candidate must include each at "
+        f"the SAME count, not fewer: {listed}. Dropping any of these "
+        "occurrences is exactly the failure constraint #7 above exists to "
+        "stop."
+    )
+
+
 def creative_adapter_prompt(
     source_text: str,
     dna: SongDNA,
@@ -603,7 +634,9 @@ def creative_adapter_prompt(
         "the order listed above]}."
     )
     user = (
-        f"Original ({section_name}):\n{source_text}\n\n"
+        f"Original ({section_name}):\n{source_text}"
+        + _repeated_source_lines_note(source_text)
+        + "\n\n"
         + _voice_line(voice)
         + f"Song DNA context:\n{_song_dna_context(dna, section_name)}\n\n"
         f"{room_memory.summary_for_prompt()}\n\n"

@@ -224,6 +224,41 @@ def run_section(
     candidates, compensations = _generate(
         client, source_text, dna, section_name, room_memory, target_language, voice, profile
     )
+    return judge_candidates(
+        client,
+        candidates,
+        compensations,
+        source_text,
+        dna,
+        section_name,
+        room_memory,
+        target_language,
+        voice,
+        profile,
+    )
+
+
+def judge_candidates(
+    client: LLMClient,
+    candidates: list[Candidate],
+    compensations: list[Compensation],
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+    target_language: str = "English",
+    voice: str | None = None,
+    profile: LanguageProfile = NEUTRAL_PROFILE,
+) -> SectionResultV1:
+    """The triage/specialist/final-ruling half of run_section, taking an
+    already-built candidate pool instead of generating one itself.
+    Factored out so engine/pipeline.py can re-judge a FRESH candidate
+    pool (regenerate_creative_adapter_candidates below) without
+    duplicating the triage/specialist/ruling logic — the specific path
+    needed when every existing candidate already dropped a source
+    repeat and re-judging the same pool (retry_section_with_finding)
+    cannot recover it.
+    """
     routing_signals = compute_routing_signals(dna, section_name, candidates)
     # Per-language source grounding first (Devanagari, Hangul, ...);
     # fall back to the Latin-script estimate. None stays None — the
@@ -379,3 +414,73 @@ def retry_section_with_finding(
         compensations=result.compensations,
         source_syllable_count=result.source_syllable_count,
     )
+
+
+def regenerate_creative_adapter_candidates(
+    client: LLMClient,
+    source_text: str,
+    dna: SongDNA,
+    section_name: str,
+    room_memory: RoomMemory,
+    feedback: str,
+    target_language: str = "English",
+    voice: str | None = None,
+    profile: LanguageProfile = NEUTRAL_PROFILE,
+) -> list[Candidate]:
+    """Re-runs ONLY the Creative Adapter's generation call, with explicit
+    corrective feedback appended, for the one failure
+    retry_section_with_finding cannot fix: every one of the existing 5
+    candidates already dropped a repeat the source has, so re-judging
+    the same pool (engine/verify.py::repeated_lines_preserved on each
+    candidate all coming back False) can only choose among already-
+    flawed options. The Translator is deliberately NOT re-run here — its
+    anchor already preserves repeats correctly (generation_prompt_v1's
+    own repetition instruction), so the problem is isolated to the
+    Creative Adapter's candidates.
+
+    Returns a fresh set of 5 candidates only; the caller (engine/
+    pipeline.py) combines these with the existing Translator candidate
+    and re-judges the combined pool via judge_candidates. Bounded to
+    exactly one regeneration call per flagged section by the caller,
+    same discipline as retry_section_with_finding.
+    """
+    system, user = prompts.creative_adapter_prompt(
+        source_text, dna, section_name, room_memory, target_language, voice, profile
+    )
+    corrective_user = (
+        user
+        + "\n\nA deterministic post-hoc check (engine/verify.py) found that "
+        "EVERY candidate from your previous attempt dropped a repeat the "
+        "source actually has — not a stylistic note, a specific violation "
+        "of constraint #7 above:\n\n"
+        + feedback
+        + "\n\nProduce a fresh set of 5 candidates that all preserve this "
+        "repeat at the source's own count. This is not a request for more "
+        "variety — every one of the 5 must fix this specific failure, not "
+        "just one or two of them."
+    )
+    data = client.complete_json(
+        system,
+        corrective_user,
+        max_tokens=_content_max_tokens(source_text, num_outputs=5, overhead_per_output=200),
+        stage="creative_adapter_regeneration",
+    )
+    candidates: list[Candidate] = []
+    for item in data.get("candidates", []):
+        candidate_text = item["text"]
+        candidates.append(
+            Candidate(
+                id=_new_id(),
+                agent="creative_adapter",
+                text=candidate_text,
+                leans_into=item.get("leans_into", ""),
+                confidence=float(item.get("confidence", 1.0)),
+                uncertainty_type=item.get("uncertainty_type", "none"),
+                philosophy=item.get("philosophy", ""),
+                round="generation",
+                syllable_count=count_syllables_text(candidate_text)
+                if target_language == "English"
+                else None,
+            )
+        )
+    return candidates

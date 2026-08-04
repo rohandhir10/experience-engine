@@ -425,6 +425,24 @@ def _check_repeated_line_preservation(
     ]
 
 
+def repeated_lines_preserved(anchor: str, final: str) -> bool:
+    """True unless `anchor` has meaningfully repeated verbatim lines that
+    `final`'s line count fails to plausibly preserve — see
+    _check_repeated_line_preservation's docstring for the exact
+    reasoning and false-positive guardrails (MIN_REPEATED_LINES_FOR_CHECK,
+    no wording match required). Exposed as a plain boolean, separate from
+    the Finding-producing check above, so engine/pipeline.py can test
+    individual Creative Adapter candidates BEFORE a Judge ruling exists —
+    specifically, to tell "the Judge picked a repeat-dropping candidate
+    when a better one was available" (re-judging fixes this) apart from
+    "every candidate already dropped the repeat" (re-judging cannot fix
+    this; the candidates themselves need to be regenerated).
+    """
+    return not _check_repeated_line_preservation(
+        "_", _non_empty_lines(anchor), _non_empty_lines(final)
+    )
+
+
 def _stress_pattern_for_clash_detection(line: str) -> str:
     """Like rhythm.stress_pattern_word/_line, but every FUNCTION_WORDS
     token is forced to '0' regardless of its CMU citation-form stress.

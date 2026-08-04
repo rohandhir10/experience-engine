@@ -19,14 +19,24 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from .language_profile import resolve_profile
+from .language_profile import LanguageProfile, resolve_profile
 from .llm_client import LLMClient, create_default_client
-from .models import RoomMemory, SectionResult, SectionResultV1, SongDNA, SongInput
+from .models import RoomMemory, SectionInput, SectionResult, SectionResultV1, SongDNA, SongInput
 from .song_dna import generate_song_dna
-from .verify import VerificationReport, verify_result
+from .verify import Finding, VerificationReport, repeated_lines_preserved, verify_result
 from .writers_room import run_section as run_section_full
-from .writers_room_v1 import retry_section_with_finding
+from .writers_room_v1 import (
+    judge_candidates,
+    regenerate_creative_adapter_candidates,
+    retry_section_with_finding,
+)
 from .writers_room_v1 import run_section as run_section_v1
+
+# verify.py's law tag for a dropped source-side repeat (engine/
+# verify.py::_check_repeated_line_preservation) — the one error class
+# where re-judging the existing candidate pool may not be enough; see
+# _all_creative_candidates_drop_a_repeat below.
+_REPEATED_LINE_LAW = "Law 3 — Compression Floor (repetition)"
 
 RoomVersion = Literal["v1", "full"]
 
@@ -103,21 +113,26 @@ def _reuse_repeated_section(
     return reused
 
 
-def _extract_correctable_section_errors(report: VerificationReport) -> dict[str, list[str]]:
-    """Maps section name -> verify.py finding details worth a corrective
-    retry. Only severity=='error' findings are used, deliberately:
-    warnings (Structural recurrence, the singability check, the
-    connective-ratio signal) were designed with disclosed false-positive
-    risk precisely so they would NOT auto-trigger a rewrite of a section
-    that may well be fine — see their docstrings/comments in verify.py.
-    Auto-retrying on a warning would reintroduce exactly the risk those
-    checks were deliberately kept non-blocking to avoid. This scoping is a
-    judgment call, not something measured.
+def _extract_correctable_section_errors(report: VerificationReport) -> dict[str, list[Finding]]:
+    """Maps section name -> verify.py Findings worth a corrective retry.
+    Only severity=='error' findings are used, deliberately: warnings
+    (Structural recurrence, the singability check, the connective-ratio
+    signal) were designed with disclosed false-positive risk precisely so
+    they would NOT auto-trigger a rewrite of a section that may well be
+    fine — see their docstrings/comments in verify.py. Auto-retrying on a
+    warning would reintroduce exactly the risk those checks were
+    deliberately kept non-blocking to avoid. This scoping is a judgment
+    call, not something measured.
+
+    Returns the Finding objects themselves, not just their `.detail`
+    text, so the caller can tell WHICH law fired (needed to route a
+    dropped-repeat finding to regeneration instead of a plain re-judge —
+    see _all_creative_candidates_drop_a_repeat below).
     """
-    by_section: dict[str, list[str]] = {}
+    by_section: dict[str, list[Finding]] = {}
     for section in report.sections:
         for finding in section.errors:
-            by_section.setdefault(section.section, []).append(finding.detail)
+            by_section.setdefault(section.section, []).append(finding)
     for finding in report.cross_section_findings:
         if finding.severity != "error":
             continue
@@ -128,8 +143,77 @@ def _extract_correctable_section_errors(report: VerificationReport) -> dict[str,
             # conform — the same forward-carry rule RoomMemory applies
             # everywhere else. Fix the later section, not the earlier one.
             _, later = finding.section.split(" vs ", 1)
-            by_section.setdefault(later.strip(), []).append(finding.detail)
+            by_section.setdefault(later.strip(), []).append(finding)
     return by_section
+
+
+def _all_creative_candidates_drop_a_repeat(result: SectionResultV1) -> bool:
+    """True only when the Translator's anchor has a verbatim-repeated
+    line/block that NONE of the Creative Adapter's own candidates
+    preserved — the specific case retry_section_with_finding cannot fix,
+    since it only ever re-judges the existing pool; if every option in
+    that pool already dropped the repeat, no amount of re-judging can
+    produce a ruling that keeps it.
+
+    False (re-judging can still work) when the anchor has no repetition
+    verify.py's check would flag in the first place, or when at least
+    one Creative Adapter candidate already preserved it — meaning the
+    Judge simply picked the wrong candidate, which retry_section_with_
+    finding CAN fix by pointing it at a better existing option.
+    """
+    anchor = next((c.text for c in result.candidates if c.agent == "translator"), None)
+    creative_candidates = [c for c in result.candidates if c.agent == "creative_adapter"]
+    if not anchor or not creative_candidates:
+        return False
+    return all(not repeated_lines_preserved(anchor, c.text) for c in creative_candidates)
+
+
+def _regenerate_and_rejudge_section(
+    client: LLMClient,
+    original: SectionResultV1,
+    section_input: SectionInput,
+    dna: SongDNA,
+    room_memory: RoomMemory,
+    feedback: str,
+    target_language: str,
+    profile: LanguageProfile,
+) -> SectionResultV1:
+    """The escalation retry_section_with_finding cannot perform: keeps the
+    Translator's own anchor (already correct — generation_prompt_v1's own
+    repetition instruction), gets a genuinely fresh set of Creative
+    Adapter candidates with explicit feedback about what was dropped
+    (writers_room_v1.regenerate_creative_adapter_candidates), then
+    re-judges the combined pool from scratch (writers_room_v1.
+    judge_candidates) rather than re-judging the stale, already-flawed
+    one. Bounded to exactly one regeneration + one re-judge per flagged
+    section by the caller (_apply_corrective_pass), same discipline as
+    the plain re-judge path.
+    """
+    translator_candidate = next(c for c in original.candidates if c.agent == "translator")
+    fresh_creative_candidates = regenerate_creative_adapter_candidates(
+        client,
+        section_input.source_text,
+        dna,
+        original.section,
+        room_memory,
+        feedback,
+        target_language,
+        section_input.voice,
+        profile,
+    )
+    new_candidates = [translator_candidate] + fresh_creative_candidates
+    return judge_candidates(
+        client,
+        new_candidates,
+        original.compensations,
+        section_input.source_text,
+        dna,
+        original.section,
+        room_memory,
+        target_language,
+        section_input.voice,
+        profile,
+    )
 
 
 def _apply_corrective_pass(
@@ -139,14 +223,26 @@ def _apply_corrective_pass(
 ) -> "EngineResult":
     """One bounded corrective pass: verify the finished song, and for
     every error-severity finding that names a single correctable section,
-    re-judge just that section with the finding as corrective context
-    (writers_room_v1.retry_section_with_finding). Runs at most once — it
-    does not loop and does not re-verify its own output, so anything a
-    correction fails to fully resolve, or newly introduces, is left for
-    the next explicit `--verify` run to surface to a human rather than
-    being silently retried again. That cap is deliberate: an uncapped loop
-    risks oscillation (a fix reintroducing a different violation) with no
-    guaranteed termination.
+    fix just that section. Two routes, chosen per section:
+
+      - The usual case: re-judge the section with the finding as
+        corrective context (writers_room_v1.retry_section_with_finding).
+        This covers most error findings, which are almost always about
+        the RULING (an uncovered deviation, a fabricated ledger entry) —
+        the candidates themselves are fine, the Judge's pick wasn't.
+      - The escalation: when the finding is a dropped source repeat
+        AND every existing Creative Adapter candidate already dropped it
+        (_all_creative_candidates_drop_a_repeat), re-judging the same
+        pool cannot recover the repeat — there is nothing left to pick
+        that has it. _regenerate_and_rejudge_section gets a fresh
+        candidate pool with explicit feedback instead.
+
+    Runs at most once — it does not loop and does not re-verify its own
+    output, so anything a correction fails to fully resolve, or newly
+    introduces, is left for the next explicit `--verify` run to surface
+    to a human rather than being silently retried again. That cap is
+    deliberate: an uncapped loop risks oscillation (a fix reintroducing a
+    different violation) with no guaranteed termination.
     """
     report = verify_result(result.to_dict())
     correctable = _extract_correctable_section_errors(report)
@@ -157,29 +253,50 @@ def _apply_corrective_pass(
     sections_by_name = {s.name: s for s in result.song.sections}
     results_by_name = {r.section: r for r in result.section_results}
 
-    for section_name, details in correctable.items():
+    for section_name, findings in correctable.items():
         if section_name not in sections_by_name or section_name not in results_by_name:
             continue
         section_input = sections_by_name[section_name]
         original = results_by_name[section_name]
-        finding_text = "\n".join(f"- {detail}" for detail in details)
-        logger.warning(
-            "Corrective pass: re-judging %r for %d verify.py error(s).",
-            section_name,
-            len(details),
-        )
-        results_by_name[section_name] = retry_section_with_finding(
-            client,
-            original,
-            section_input.source_text,
-            result.dna,
-            section_name,
-            room_memory,
-            finding_text,
-            result.song.target_language,
-            section_input.voice,
-            profile,
-        )
+        finding_text = "\n".join(f"- {f.detail}" for f in findings)
+
+        dropped_repeat = any(f.law == _REPEATED_LINE_LAW for f in findings)
+        if dropped_repeat and _all_creative_candidates_drop_a_repeat(original):
+            logger.warning(
+                "Corrective pass: every Creative Adapter candidate for %r "
+                "already dropped a source repeat - regenerating a fresh "
+                "candidate pool with feedback instead of re-judging the "
+                "stale one.",
+                section_name,
+            )
+            results_by_name[section_name] = _regenerate_and_rejudge_section(
+                client,
+                original,
+                section_input,
+                result.dna,
+                room_memory,
+                finding_text,
+                result.song.target_language,
+                profile,
+            )
+        else:
+            logger.warning(
+                "Corrective pass: re-judging %r for %d verify.py error(s).",
+                section_name,
+                len(findings),
+            )
+            results_by_name[section_name] = retry_section_with_finding(
+                client,
+                original,
+                section_input.source_text,
+                result.dna,
+                section_name,
+                room_memory,
+                finding_text,
+                result.song.target_language,
+                section_input.voice,
+                profile,
+            )
 
     new_section_results = [results_by_name[r.section] for r in result.section_results]
     # Same client as the first pass, so its call_log already includes
