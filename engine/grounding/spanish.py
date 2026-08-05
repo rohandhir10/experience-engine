@@ -58,6 +58,14 @@ def _breaks_diphthong(first: str, second: str) -> bool:
 def _count_word(word: str) -> int:
     """Syllable nuclei in one word, before synalepha."""
     word = word.lower()
+    if word == "y":
+        # The conjunction "y" ("and") is pronounced /i/ — a full vowel and a
+        # syllable on its own ("pan y vino" is three syllables, not two).
+        # This is the one case where standalone "y" is a nucleus: elsewhere
+        # (word-initial "yo", intervocalic "leyes", word-final "hoy") it is
+        # a consonant/glide and is correctly not counted as one, since the
+        # code has no letter-y in its vowel sets at all.
+        return 1
     syllables = 0
     i = 0
     while i < len(word):
@@ -88,6 +96,8 @@ def _starts_with_vowel_sound(word: str) -> bool:
     w = word.lower()
     if not w:
         return False
+    if w == "y":
+        return True  # the conjunction "y" is itself the vowel /i/
     if w[0] == "h" and len(w) > 1:
         return _is_vowel(w[1])  # silent h — "la hora" still merges
     return _is_vowel(w[0])
@@ -95,6 +105,8 @@ def _starts_with_vowel_sound(word: str) -> bool:
 
 def _ends_with_vowel_sound(word: str) -> bool:
     w = word.lower()
+    if w == "y":
+        return True  # the conjunction "y" is itself the vowel /i/
     return bool(w) and _is_vowel(w[-1])
 
 

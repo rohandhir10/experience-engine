@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import functools
 import re
+import unicodedata
 
 from .base import GroundingResult, register_counter
 
@@ -64,7 +65,15 @@ def count_morae_in_kana(text: str) -> int:
     ん/っ/ー are already covered by "every kana counts once" — they are
     listed in _FULL_MORA_MARKS for documentation, since assuming they are
     modifiers rather than morae is the classic error.
+
+    NFC-normalizes first: が can arrive as one precomposed codepoint
+    (U+304C) or as か + a combining voiced-sound mark (U+304B U+3099) —
+    common from clipboard/macOS-originated text. Both are the same one
+    mora, but the combining mark (U+3099/U+309A) falls inside the
+    Hiragana block same as any other kana, so without normalizing first
+    the decomposed spelling was counted as 2 morae instead of 1.
     """
+    text = unicodedata.normalize("NFC", text)
     return sum(
         1 for c in text if _is_kana(c) and c not in _SMALL_KANA and c != "ー"
     ) + sum(1 for c in text if c == "ー")
@@ -99,9 +108,32 @@ def count_japanese(text: str) -> GroundingResult | None:
     if not any(_is_kana(c) or _is_kanji(c) for c in stripped):
         return None  # not Japanese
 
-    has_kanji = any(_is_kanji(c) for c in stripped)
+    if any(c.isdigit() for c in stripped):
+        # Digit-string pronunciation is context-dependent in Japanese, the
+        # same way Hindi numerals are suppletive (engine/grounding/
+        # devanagari.py): "24" is read differently as a bare count, a
+        # counter-word quantity, a date, or a time, and SudachiPy's
+        # reading_form() picks one reading regardless (observed: "24" ->
+        # "ニシ" for "24時間", "2024" -> "ニレイニシ" for "2024年" — both
+        # wrong). Without kanji, digits are simply not kana and would be
+        # silently skipped rather than read at all. Neither is honest, so
+        # this declines outright rather than reporting a confident count
+        # for the wrong number of morae.
+        return None
 
-    if has_kanji:
+    has_kanji = any(_is_kanji(c) for c in stripped)
+    has_latin = any(c.isalpha() and ord(c) < 128 for c in stripped)
+
+    if has_kanji or has_latin:
+        # Latin words are common and load-bearing here — the Japanese
+        # profile explicitly expects a J-pop chorus in English (see
+        # benchmark/corpora/JAPANESE.md's city-pop/Vocaloid rows). Without
+        # this branch, a line with Latin but no kanji ("ラーメンhappy")
+        # fell to the kana-only count below, which silently drops any
+        # character that isn't kana — undercounting exactly the mixed-
+        # script lines this language is known for. SudachiPy reads Latin
+        # words the same way it reads kanji (e.g. "happy" -> "ハッピー"),
+        # so routing both through the same reading pass fixes both.
         reading = _readings(text)
         if reading is None:
             # Counting only the kana of a kanji-heavy line would report
@@ -114,8 +146,9 @@ def count_japanese(text: str) -> GroundingResult | None:
             language="Japanese",
             caveat=(
                 "morae, not syllables — the unit Japanese verse is actually "
-                "built on; kanji readings resolved by morphological analysis, "
-                "which can pick the wrong reading for names and rare words"
+                "built on; kanji/Latin readings resolved by morphological "
+                "analysis, which can pick the wrong reading for names and "
+                "rare words"
             ),
         )
 

@@ -516,3 +516,85 @@ def test_korean_does_not_silently_drop_latin_digits_or_hanja():
     # 사랑(2) + forever(3) + 이십사(3) + 시간(2)
     assert result.value == 10
     assert result.caveat and "Latin" in result.caveat
+
+
+# ---------------------------------------------------------------------------
+# Spanish — the standalone conjunction "y" is a vowel, not a consonant
+# ---------------------------------------------------------------------------
+
+
+def test_spanish_standalone_y_is_one_syllable():
+    """"y" ("and") is pronounced /i/ — a full vowel and its own syllable.
+    _count_word("y") previously returned 0 because 'y' was never in any
+    vowel set, silently dropping the word from every line it appeared in.
+    """
+    assert _count_word("y") == 1
+
+
+@pytest.mark.parametrize(
+    "word,expected,why",
+    [
+        ("hoy", 1, "y is a diphthong glide here, not a separate nucleus"),
+        ("muy", 1, "same — glide, not a separate vowel"),
+        ("leyes", 2, "intervocalic y is a consonant separating le-yes"),
+        ("yo", 1, "word-initial y is a consonant/glide before the vowel"),
+    ],
+)
+def test_spanish_y_is_not_a_vowel_except_standing_alone(word: str, expected: int, why: str):
+    """The fix for the standalone "y" must not turn y into a vowel
+    everywhere else, where treating it as one would be wrong.
+    """
+    assert _count_word(word) == expected, f"{word}: {why}"
+
+
+def test_spanish_counts_the_conjunction_y_in_a_line():
+    # pan(1) y(1) vi-no(2), no vowel-sound junction on either side (pan
+    # ends in a consonant, vino starts with one)
+    assert count_spanish("pan y vino").value == 4
+
+
+# ---------------------------------------------------------------------------
+# Japanese — dakuten encoding, numerals, and mixed-script Latin
+# ---------------------------------------------------------------------------
+
+
+def test_japanese_counts_the_same_with_decomposed_dakuten():
+    """が can arrive as one precomposed codepoint or as か + a combining
+    voiced-sound mark (common from clipboard/macOS-originated text). The
+    combining mark falls inside the Hiragana Unicode block same as any
+    other kana, so without NFC-normalizing first it was counted as an
+    extra mora of its own.
+    """
+    import unicodedata
+
+    nfc = "がっこう"
+    nfd = unicodedata.normalize("NFD", nfc)
+    assert len(nfd) > len(nfc), "the test input must actually be decomposed"
+    assert count_morae_in_kana(nfc) == count_morae_in_kana(nfd) == 4
+
+
+def test_japanese_declines_on_digits_rather_than_guessing_or_dropping():
+    """SudachiPy's reading_form() for a bare digit string depends on
+    context it doesn't have and is observed to pick wrong readings
+    ("24" -> "ニシ" for "24時間"); without kanji, digits are simply not
+    kana and would be silently skipped instead. Neither is honest —
+    Japanese numeral pronunciation is as context-dependent as Hindi's
+    suppletive numerals (engine/grounding/devanagari.py), so this
+    declines the same way.
+    """
+    assert count_japanese("24時間") is None
+    assert count_japanese("らーめん24じかん") is None
+
+
+def test_japanese_counts_latin_words_even_without_kanji():
+    """"らーめんhappy" has no kanji, so it never reached the reading pass
+    before — only the kana were counted and "happy" was silently dropped.
+    J-pop/Vocaloid lyrics routinely mix in English words (see
+    benchmark/corpora/JAPANESE.md's city-pop/Vocaloid rows), so this is a
+    real, not hypothetical, undercount.
+    """
+    result = count_japanese("らーめんhappy")
+    if result is None:
+        pytest.skip("SudachiPy not installed — Latin readings unavailable")
+    # らーめん(4) + ハッピー(4)
+    assert result.value == 8

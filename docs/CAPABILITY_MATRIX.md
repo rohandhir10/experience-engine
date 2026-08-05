@@ -3551,6 +3551,68 @@ input through. Both counters were checked for each.
   the NFD normalisation fails the encoding-agreement test, reverting the
   Latin counting fails the code-switch test. Full suite green: 790 pytest.
 
+### Auditing Spanish and Japanese for the same bug classes
+
+Same audit, applied to the two remaining Latin/kana-script counters.
+Neither had the Urdu-style averaged admission gate — both are fully
+rule-governed with no "how confident is this word" concept — so the
+audit found a different manifestation of the same underlying discipline
+gap in each: a real linguistic unit silently miscounted or dropped.
+
+- **Spanish — one real defect, fixed.** The standalone conjunction
+  `"y"` ("and") is pronounced /i/ — a full vowel, a syllable on its own.
+  It was never in `_VOWELS` at all (by design: word-initial `y` as in
+  `yo`/`ya` is a consonant, and word-final `y` as in `hoy`/`muy` is a
+  diphthong glide, both correctly uncounted), so `_count_word("y")`
+  returned **0**, silently dropping the word from every line containing
+  it — `"pan y vino"` counted **3** instead of **4**. Fixed by
+  special-casing the single-character word `"y"` in `_count_word` and in
+  the two synalepha boundary checks, without touching how `y` behaves
+  anywhere else (verified `hoy`/`muy`/`leyes`/`yo` are all unchanged).
+  Also found, and left as-is rather than "fixed": `_SPANISH_HINT_RE` is
+  defined but never wired into `count_spanish` — the counter has no way
+  to decline pure non-Spanish Latin-script text (`count_spanish("Hello
+  world, how are you today")` confidently returns 9 syllables). Wiring
+  it in was considered and rejected: plain unaccented Spanish is common
+  and legitimate, and gating on Spanish-specific characters would
+  misfire on exactly that real input. Recorded here rather than
+  silently left as dead code that looks like a safeguard but isn't one;
+  distinguishing "this is Spanish" from "this is any Latin-alphabet
+  text" without a dictionary is a real, unsolved problem here, not an
+  oversight with an obvious fix.
+- **Japanese — three real defects, all fixed.**
+  - **Decomposed dakuten double-counted.** が (U+304C, one mora) can
+    arrive as か + a combining voiced-sound mark (U+3099) — routine from
+    clipboard/macOS-originated text. That combining mark sits inside the
+    Hiragana Unicode block same as any ordinary kana, so
+    `count_morae_in_kana` counted it as a second, separate mora:
+    `がっこう` was 4 morae precomposed, 5 decomposed. Fixed by
+    NFC-normalising inside `count_morae_in_kana` itself, so every caller
+    is covered regardless of the input's encoding.
+  - **Digit runs got a confidently wrong reading, or were dropped.**
+    Japanese numeral pronunciation is context-dependent the same way
+    Hindi's is suppletive — "24" is read differently as a bare count, a
+    date, or a counter-word quantity — and SudachiPy's `reading_form()`
+    picks one regardless of which: observed `"24時間"` → `"ニシ"` and
+    `"2024年"` → `"ニレイニシ"`, both wrong. Without kanji present, digits
+    are simply not kana and were silently skipped instead (undercounting
+    the same way). Fixed by declining outright — `return None` — the
+    same choice already made for Hindi digits, for the same reason.
+  - **Latin words were silently dropped when no kanji was present.**
+    The reading pass (SudachiPy) only ran when kanji was found in the
+    text, so a line with Latin script but no kanji fell through to the
+    kana-only count, which just skips anything that isn't kana:
+    `"らーめんhappy"` counted 4 morae, dropping "happy" entirely, even
+    though SudachiPy reads it correctly (`"happy"` → `"ハッピー"`) when
+    given the chance. J-pop/Vocaloid choruses in English are exactly the
+    case `benchmark/corpora/JAPANESE.md`'s coverage table calls out, so
+    this was a real, not hypothetical, gap. Fixed by routing text through
+    the reading pass whenever it contains kanji **or** Latin letters, not
+    kanji alone.
+- **Benchmark coverage:** 8 new tests. All four fixes falsified —
+  reverting each one individually reproduces the exact wrong number shown
+  above, restoring it fixes it. Full suite green: 799 pytest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
