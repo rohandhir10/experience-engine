@@ -251,7 +251,10 @@ def test_the_examples_corpus_excludes_the_fixture_and_the_fragment():
     titles = {s.title for s in load_corpus(Path("examples"))}
     assert not any("synthetic" in t.lower() for t in titles)
     assert not any("single line" in t.lower() for t in titles)
-    assert len(titles) == 4
+    # Three, not four: balam_pichkari was found to be an unfilled
+    # template (every section reads "REPLACE with ...") and is excluded
+    # until real lyrics are put in it.
+    assert titles == {"Agar Tum Saath Ho", "Har Ek Baat Pe Kehte Ho Tum", "Sadda Haq"}
 
 
 def test_the_excluded_files_still_exist_for_their_other_uses(tmp_path):
@@ -307,3 +310,101 @@ def test_excluding_everything_is_an_error_not_an_empty_run(tmp_path):
     (tmp_path / ".benchmarkignore").write_text("a\n")
     with _pytest.raises(ValueError):
         load_corpus(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Corpus validation.
+#
+# Every failure here is silent - none would crash a run, all would produce
+# a report that looks finished and means less than it appears to. Both of
+# the first two were found for real in examples/ on this validator's very
+# first run.
+# ---------------------------------------------------------------------------
+
+
+def _song(tmp_path, name, language, *texts):
+    import json
+
+    (tmp_path / f"{name}.json").write_text(
+        json.dumps({
+            "title": name, "source_language": language,
+            "sections": [{"name": f"s{i}", "source_text": t} for i, t in enumerate(texts)],
+        }),
+        encoding="utf-8",
+    )
+
+
+def test_an_unfilled_template_is_an_error(tmp_path):
+    """examples/balam_pichkari.json had nine sections every one of which
+    read "REPLACE with the opening 4 lines ...". The engine would have
+    adapted the instructions and reviewers would have rated the result.
+    """
+    from benchmark.validate import validate_corpus
+
+    _song(tmp_path, "template", "Hindi",
+          "REPLACE with the opening 4 lines", "REPLACE with the chorus", "x")
+    report = validate_corpus(tmp_path)
+    assert not report.ok
+    assert any("placeholder" in e for e in report.errors)
+
+
+def test_romanised_lyrics_are_a_warning_not_an_error(tmp_path):
+    """Real lyrics in Latin script are a legitimate input this product
+    accepts - but G2P grounding cannot run on them, so the run tests a
+    different path than the same song in its own script."""
+    from benchmark.validate import validate_corpus
+
+    _song(tmp_path, "romanised", "Hindi/Punjabi (code-switched)",
+          "Tum logon ki, is duniya mein", "Sadda haq, aithe rakh", "Guzarish hai")
+    report = validate_corpus(tmp_path)
+    assert report.ok
+    assert any("romanised" in w for w in report.warnings)
+
+
+def test_a_song_in_its_own_script_passes_clean(tmp_path):
+    from benchmark.validate import validate_corpus
+
+    _song(tmp_path, "devanagari", "Hindi",
+          "पल-भर ठहर जाओ", "दिल ये सँभल जाए", "कैसे तुम्हें रोकूँ")
+    report = validate_corpus(tmp_path)
+    assert report.ok
+    assert not report.warnings
+
+
+def test_a_fragment_is_flagged(tmp_path):
+    from benchmark.validate import validate_corpus
+
+    _song(tmp_path, "fragment", "Hindi", "पल-भर ठहर जाओ")
+    report = validate_corpus(tmp_path)
+    assert any("section" in w for w in report.warnings)
+
+
+def test_empty_and_malformed_files_are_errors(tmp_path):
+    from benchmark.validate import validate_corpus
+
+    (tmp_path / "broken.json").write_text("{not json", encoding="utf-8")
+    _song(tmp_path, "empty", "Hindi", "", "  ")
+    report = validate_corpus(tmp_path)
+    assert len(report.errors) == 2
+
+
+def test_excluded_files_are_reported_but_not_validated(tmp_path):
+    from benchmark.validate import validate_corpus
+
+    _song(tmp_path, "skipme", "Hindi", "REPLACE with anything")
+    _song(tmp_path, "keep", "Hindi", "पल-भर ठहर जाओ", "दिल ये", "सँभल जाए")
+    (tmp_path / ".benchmarkignore").write_text("skipme\n")
+    report = validate_corpus(tmp_path)
+    assert report.ok  # the placeholder was excluded, so it isn't an error
+    assert report.excluded == ["skipme"]
+
+
+def test_the_shipped_examples_corpus_has_no_placeholder_songs():
+    """Regression guard: balam_pichkari must stay excluded until it is
+    actually filled in."""
+    from pathlib import Path
+
+    from benchmark.validate import validate_corpus
+
+    report = validate_corpus(Path("examples"))
+    assert report.ok, report.render()

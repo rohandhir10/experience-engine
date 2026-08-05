@@ -34,6 +34,34 @@ language family, not about the six-language roster. Japanese, Korean and
 Spanish songs are needed before any claim can be made about them — see
 `corpora/KOREAN.md` for the collection spec.
 
+## Validate before you spend
+
+```bash
+python -m benchmark.cli validate --corpus examples
+```
+
+Every problem it reports is silent — none would crash a run, all would
+produce a report that looks finished and means less than it appears to.
+Its first run against `examples/` found two real ones: a song file that
+was an unfilled template (nine sections each reading "REPLACE with the
+opening 4 lines ...", which the engine would have adapted and reviewers
+would have rated), and a song declaring Hindi whose text is entirely
+romanised, so the deterministic G2P grounding cannot run on it.
+
+## Adding Japanese or Korean
+
+Specs: `corpora/JAPANESE.md`, `corpora/KOREAN.md`. Each names what the
+12 songs must cover and *which profile claim each row tests* — a corpus
+that cannot falsify a claim cannot support it either.
+
+Collected lyrics stay out of the repo (`.gitignore` excludes
+`corpora/*.json`). Put them in a local directory and point the run at it:
+
+```bash
+python -m benchmark.cli validate --corpus benchmark/corpora/ja_pilot
+python -m benchmark.cli run --corpus benchmark/corpora/ja_pilot --run-id ja_pilot_1
+```
+
 ## The three stages
 
 ```bash

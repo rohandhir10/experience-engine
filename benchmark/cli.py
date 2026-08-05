@@ -44,7 +44,21 @@ def main(argv: list[str] | None = None) -> int:
     p_report = sub.add_parser("report", help="De-blind ratings and write report.md")
     p_report.add_argument("--run-id", required=True)
 
+    p_validate = sub.add_parser(
+        "validate", help="Check a corpus before paying for a run over it"
+    )
+    p_validate.add_argument("--corpus", type=Path, required=True)
+
     args = parser.parse_args(argv)
+
+    # validate is the one command that needs no run id.
+    if args.command == "validate":
+        from .validate import validate_corpus
+
+        report = validate_corpus(args.corpus)
+        print(report.render())
+        return 0 if report.ok else 1
+
     run_dir = RUNS_DIR / args.run_id
 
     if args.command == "run":

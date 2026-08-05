@@ -11,3 +11,7 @@ sample_song
 # case. One section is too little to rate a system on, and it would carry
 # the same weight as a full ten-section song in the paired tests.
 sadda_haq_single_line
+# A scaffolded template that was never filled in - every section reads
+# "REPLACE with ...". Adapting it would produce ratings of instruction
+# text. Remove this line once real lyrics are in the file.
+balam_pichkari
