@@ -500,3 +500,134 @@ def test_concurrent_cold_calls_perform_exactly_one_exchange(
 
     assert len(set(tokens)) == 1
     assert _total_refreshes() == 1
+
+
+# ---------------------------------------------------------------------------
+# detectedBreak-aware reconstruction.
+#
+# Reproduces a real production failure on a Korean webtoon panel. Vision
+# segments Korean at a sub-word level, handing back each particle (조사) as
+# its own "word". The old space-joining reconstruction turned
+#
+#     공주님을 / 막지 못하고 / 전하께 보인다면 / 저희가 매를 / 맞을 겁니다.
+#
+# into
+#
+#     공주님 을 막지 못하고 / 전하 께 보인다 면 / 저희 가 매 를 / 맞을 겁니다
+#
+# - a space before every particle, which is a grammatical error in Korean.
+# The engine then received broken Korean as its source text, so the
+# corruption was upstream of every translation decision made from it.
+# ---------------------------------------------------------------------------
+
+
+def _sym(char: str, break_type: str | None = None) -> dict:
+    symbol: dict = {"text": char}
+    if break_type:
+        symbol["property"] = {"detectedBreak": {"type": break_type}}
+    return symbol
+
+
+def _word(text: str, break_type: str | None = None) -> dict:
+    """One Vision "word", with an optional break after its last symbol."""
+    symbols = [_sym(c) for c in text[:-1]] + [_sym(text[-1], break_type)]
+    return {"symbols": symbols}
+
+
+def _para(*words: dict) -> dict:
+    return {"paragraphs": [{"words": list(words)}]}
+
+
+def test_korean_particles_attach_with_no_space():
+    """The actual bug: a particle carries no break, so nothing may be
+    inserted before it.
+
+    The trailing LINE_BREAK is not incidental - a real
+    DOCUMENT_TEXT_DETECTION response always marks the end of a line, and
+    without any break at all in the block the fallback below correctly
+    kicks in instead. An earlier version of this test omitted it and so
+    was testing the fallback while claiming to test this.
+    """
+    block = _para(_word("공주님"), _word("을", "LINE_BREAK"))
+    assert _block_text(block) == "공주님을"
+
+
+def test_a_real_space_between_words_is_preserved():
+    block = _para(_word("막지", "SPACE"), _word("못하고"))
+    assert _block_text(block) == "막지 못하고"
+
+
+def test_the_full_production_bubble_round_trips_exactly():
+    block = _para(
+        _word("공주님"), _word("을", "LINE_BREAK"),
+        _word("막지", "SPACE"), _word("못하고", "LINE_BREAK"),
+        _word("전하"), _word("께", "SPACE"), _word("보인다"), _word("면", "LINE_BREAK"),
+        _word("저희"), _word("가", "SPACE"), _word("매"), _word("를", "LINE_BREAK"),
+        _word("맞을", "SPACE"), _word("겁니다."),
+    )
+    assert _block_text(block) == (
+        "공주님을\n막지 못하고\n전하께 보인다면\n저희가 매를\n맞을 겁니다."
+    )
+
+
+def test_no_spurious_space_appears_anywhere_in_a_korean_read():
+    """Guards the specific regression: not one of the particles that were
+    split off may come back with a space in front of it."""
+    block = _para(
+        _word("공주님"), _word("을", "LINE_BREAK"),
+        _word("전하"), _word("께", "SPACE"), _word("보인다"), _word("면"),
+    )
+    text = _block_text(block)
+    for broken in ("공주님 을", "전하 께", "보인다 면"):
+        assert broken not in text
+
+
+def test_english_words_still_get_their_spaces():
+    block = _para(_word("HOLD", "SPACE"), _word("ON", "SPACE"), _word("TIGHT"))
+    assert _block_text(block) == "HOLD ON TIGHT"
+
+
+@pytest.mark.parametrize("break_type", ["LINE_BREAK", "EOL_SURE_SPACE"])
+def test_line_breaks_become_newlines(break_type):
+    block = _para(_word("FIRST", break_type), _word("SECOND"))
+    assert _block_text(block) == "FIRST\nSECOND"
+
+
+def test_sure_space_is_treated_as_a_space():
+    block = _para(_word("A", "SURE_SPACE"), _word("B"))
+    assert _block_text(block) == "A B"
+
+
+def test_a_hyphenated_word_is_rejoined_rather_than_split():
+    block = _para(_word("some", "HYPHEN"), _word("thing"))
+    assert _block_text(block) == "something"
+
+
+def test_a_block_with_no_break_information_falls_back_to_spaces():
+    """Some responses omit detectedBreak entirely. Concatenating with
+    nothing would run English words together - a worse failure than the
+    one being fixed - so the old behaviour is the fallback."""
+    block = _para(_word("HELLO"), _word("THERE"))
+    assert _block_text(block) == "HELLO THERE"
+
+
+def test_multiple_paragraphs_are_separated_without_blank_lines():
+    block = {
+        "paragraphs": [
+            {"words": [_word("ONE", "LINE_BREAK")]},
+            {"words": [_word("TWO")]},
+        ]
+    }
+    assert _block_text(block) == "ONE\nTWO"
+
+
+def test_trailing_break_is_not_kept_as_content():
+    block = _para(_word("DONE", "LINE_BREAK"))
+    assert _block_text(block) == "DONE"
+
+
+def test_an_unrecognised_break_type_inserts_nothing():
+    # Better to under-separate than to invent whitespace the API didn't
+    # actually report.
+    block = _para(_word("A", "SOMETHING_NEW"), _word("B"))
+    assert _block_text(block) == "AB"

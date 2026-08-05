@@ -301,3 +301,141 @@ def test_adapt_chapter_does_not_update_honorific_state_for_an_unattributed_bubbl
     # The chapter-seeded register is still what bubble 2 sees - an
     # unattributed bubble 1 has nothing to update it with.
     assert "Guard Captain: formal, deferential (하십시오체)" in judge_calls[1]
+
+
+# ---------------------------------------------------------------------------
+# Verification on the comics path.
+#
+# engine/verify.py's constitution checks existed for songs and were never
+# wired into comics, so every one of them was dead code here. Found from a
+# real Korean panel whose shipped "why" cited wording absent from the
+# literal anchor AND justified itself as "to maintain a formal tone" -
+# a ledger-integrity error and a vacuous justification respectively, both
+# of which verify.py already detects.
+# ---------------------------------------------------------------------------
+
+
+class FakeClientWithRetry(FakeClientRulesImmediately):
+    """Adds the corrective_retry stage the base fake rejects, so a test
+    can let the retry actually complete instead of only proving it was
+    attempted."""
+
+    def complete_json(self, system: str, user: str, max_tokens=None, stage: str = "unknown") -> dict:
+        if stage == "corrective_retry":
+            self.calls.append((stage, user))
+            # retry_section_with_finding expects a bare ruling, not the
+            # triage envelope _ruling() wraps it in.
+            return _ruling("We will be caned if the King sees her.")["ruling"]
+        return super().complete_json(system, user, max_tokens=max_tokens, stage=stage)
+
+
+def _stages(client) -> list[str]:
+    """client.calls holds (stage, user) tuples - counting the raw list for
+    a stage name silently never matches, which made an earlier version of
+    these tests pass vacuously."""
+    return [stage for stage, _user in client.calls]
+
+
+def test_a_bubble_that_ships_the_anchor_with_an_empty_ledger_is_not_re_judged():
+    """Verification must not cost a retry on every panel.
+
+    The line shipped here IS the Translator's anchor, with an empty
+    deviation ledger - nothing changed, so there is nothing to log and no
+    finding to raise. That is the Judge's documented behaviour when no
+    candidate earns a real improvement.
+
+    Worth noting what this test replaced: the module's default fixture
+    ships a completely different line with an empty ledger, which the
+    verifier correctly reports as a Law 1 error ("every change is
+    unaudited"). Wiring verification into this path immediately flagged
+    the project's own test fixture - which is the check doing its job,
+    not a false positive.
+    """
+    anchor = "We failed to stop the princess."
+    client = FakeClientWithRetry(adapted_line=anchor)
+    adapt_chapter(_chapter(), CHAPTER_DNA, client)
+    assert "corrective_retry" not in _stages(client)
+
+
+def test_an_unaudited_change_is_caught_on_the_comics_path():
+    """The regression that matters: before verification was wired in
+    here, a bubble could ship any rewrite with an empty ledger and
+    nothing would notice."""
+    client = FakeClientWithRetry(adapted_line="Something else entirely, unlogged.")
+    adapt_chapter(_chapter(), CHAPTER_DNA, client)
+    assert "corrective_retry" in _stages(client)
+
+
+def test_an_error_finding_triggers_exactly_one_corrective_retry(monkeypatch):
+    from engine import comics_adapt
+    from engine.verify import Finding, SectionVerification
+
+    def fake_verify(result, target_language="English"):
+        return SectionVerification(
+            section=result.section,
+            findings=[
+                Finding(
+                    law="ledger integrity",
+                    severity="error",
+                    section=result.section,
+                    detail="A deviation claims the final line says this, but it does not.",
+                )
+            ],
+            ledger_coverage=0.0,
+            computed_invention_penalty=0.0,
+            reported_invention_penalty=0.0,
+            changed_word_count=0,
+        )
+
+    monkeypatch.setattr(comics_adapt, "verify_section", fake_verify)
+    client = FakeClientWithRetry()
+    results = adapt_chapter(_chapter(), CHAPTER_DNA, client)
+
+    # Exactly one - bounded, so a stubborn finding can't loop even though
+    # fake_verify would keep reporting the same error forever.
+    assert _stages(client).count("corrective_retry") == 1
+    # And the corrected ruling is what ships, not the original.
+    assert results[0].ruling.final_line == "We will be caned if the King sees her."
+
+
+def test_a_failing_verifier_does_not_lose_the_adaptation(monkeypatch):
+    """Verification is a quality gate, not a correctness precondition."""
+    from engine import comics_adapt
+
+    monkeypatch.setattr(
+        comics_adapt,
+        "verify_section",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("verifier blew up")),
+    )
+    results = adapt_chapter(_chapter(), CHAPTER_DNA, FakeClientRulesImmediately())
+    assert len(results) == 1
+    assert results[0].ruling.final_line
+
+
+def test_a_failing_retry_keeps_the_original_ruling(monkeypatch):
+    from engine import comics_adapt
+    from engine.verify import Finding, SectionVerification
+
+    monkeypatch.setattr(
+        comics_adapt,
+        "verify_section",
+        lambda result, target_language="English": SectionVerification(
+            section=result.section,
+            findings=[
+                Finding(law="ledger integrity", severity="error",
+                        section=result.section, detail="broken")
+            ],
+            ledger_coverage=0.0,
+            computed_invention_penalty=0.0,
+            reported_invention_penalty=0.0,
+            changed_word_count=0,
+        ),
+    )
+    monkeypatch.setattr(
+        comics_adapt,
+        "retry_section_with_finding",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("retry failed")),
+    )
+    results = adapt_chapter(_chapter(), CHAPTER_DNA, FakeClientRulesImmediately())
+    assert len(results) == 1
+    assert results[0].ruling.final_line

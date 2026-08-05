@@ -215,19 +215,75 @@ def _access_token() -> str:
         return credentials.token
 
 
+# Vision reports, per symbol, whether a break follows it and what kind.
+# Honouring this is the difference between real source text and a
+# mangled approximation of it - see _block_text below.
+_BREAK_TEXT = {
+    "SPACE": " ",
+    "SURE_SPACE": " ",
+    "EOL_SURE_SPACE": "\n",
+    "LINE_BREAK": "\n",
+    # A word hyphenated across a line break: rejoin it into one word
+    # rather than leaving a stray hyphen mid-sentence.
+    "HYPHEN": "",
+}
+
+
 def _block_text(block: dict) -> str:
     """Reconstructs one block's text from Vision's nested paragraph ->
-    word -> symbol structure. Words within a paragraph are joined with
-    single spaces; paragraphs within a block are joined with newlines -
-    a reasonable default for a speech bubble that may have more than one
-    line, without trying to reproduce Vision's detected break types
-    exactly.
+    word -> symbol structure, honouring Vision's own detectedBreak.
+
+    Why this cannot just join Vision's "words" with spaces, which is what
+    this function used to do: Vision segments at a sub-word level for
+    languages whose morphology it understands, and for Korean that means
+    it hands back each particle as its own "word". Space-joining them
+    produced text like "공주님 을 막지 못하고 / 전하 께 보인다 면" -
+    Korean particles (조사) attach directly to the noun with NO space, so
+    every one of those spaces is a grammatical error. The engine then
+    received broken Korean as its source text and translated that, which
+    is a silent, upstream corruption of the one input everything
+    downstream depends on. Confirmed against a real production panel.
+
+    Falls back to the old space-joining behaviour when a block carries no
+    break information at all - some responses omit it, and concatenating
+    with nothing at all would run English words together, which is a
+    worse failure than the one being fixed.
+    """
+    pieces: list[str] = []
+    saw_break = False
+
+    for paragraph in block.get("paragraphs", []):
+        for word in paragraph.get("words", []):
+            for symbol in word.get("symbols", []):
+                pieces.append(symbol.get("text", ""))
+                break_type = (
+                    (symbol.get("property") or {}).get("detectedBreak") or {}
+                ).get("type")
+                if break_type:
+                    saw_break = True
+                    pieces.append(_BREAK_TEXT.get(break_type, ""))
+        # Vision usually ends a paragraph with its own LINE_BREAK; only add
+        # one when it didn't, so paragraphs don't gain blank lines.
+        if pieces and not "".join(pieces).endswith("\n"):
+            pieces.append("\n")
+
+    if not saw_break:
+        return _space_joined_block_text(block)
+
+    # Trailing break from the last paragraph is structure, not content.
+    return "".join(pieces).strip()
+
+
+def _space_joined_block_text(block: dict) -> str:
+    """The pre-detectedBreak reconstruction, kept only as the fallback for
+    a response that carries no break information at all.
     """
     paragraphs = []
     for paragraph in block.get("paragraphs", []):
-        words = []
-        for word in paragraph.get("words", []):
-            words.append("".join(s.get("text", "") for s in word.get("symbols", [])))
+        words = [
+            "".join(s.get("text", "") for s in word.get("symbols", []))
+            for word in paragraph.get("words", [])
+        ]
         paragraph_text = " ".join(w for w in words if w)
         if paragraph_text:
             paragraphs.append(paragraph_text)

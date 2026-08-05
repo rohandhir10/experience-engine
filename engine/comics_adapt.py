@@ -39,6 +39,8 @@ compensations — no new prompt wiring was needed beyond that field.
 """
 from __future__ import annotations
 
+import logging
+
 from .language_profile import NEUTRAL_PROFILE, LanguageProfile
 from .llm_client import LLMClient
 from .models import (
@@ -54,7 +56,10 @@ from .models import (
     SongDNA,
     StyleProfile,
 )
-from .writers_room_v1 import run_section
+from .verify import verify_section
+from .writers_room_v1 import retry_section_with_finding, run_section
+
+logger = logging.getLogger(__name__)
 
 
 def _bubble_song_dna(dna: ChapterDNA, bubble: BubbleInput) -> SongDNA:
@@ -174,6 +179,9 @@ def adapt_chapter(
 
     for bubble in chapter.bubbles:
         result = adapt_bubble(chapter, dna, bubble, room_memory, client, profile)
+        result = _verify_and_correct_bubble(
+            result, chapter, dna, bubble, room_memory, client, profile
+        )
         results.append(result)
         room_memory.prior_rulings.append(result.ruling)
         for compensation in getattr(result, "compensations", []):
@@ -184,3 +192,66 @@ def adapt_chapter(
             room_memory.honorific_state[bubble.voice] = result.ruling.honorific_note
 
     return results
+
+
+def _verify_and_correct_bubble(
+    result: SectionResultV1,
+    chapter: ChapterInput,
+    dna: ChapterDNA,
+    bubble: BubbleInput,
+    room_memory: RoomMemory,
+    client: LLMClient,
+    profile: LanguageProfile,
+) -> SectionResultV1:
+    """Verifies one adapted bubble and, on an error-severity finding,
+    re-judges it once with that finding as corrective context.
+
+    This existed for songs (engine/pipeline.py::_apply_corrective_pass)
+    and was simply never wired up here, so the comics path ran with NO
+    verification at all - every deterministic constitution check in
+    engine/verify.py was dead code for comics. Found from a real Korean
+    panel whose shipped "why" both cited wording that was not in the
+    literal anchor (a ledger-integrity error) and justified itself as
+    "to maintain a formal tone" (a vacuous justification). Both are
+    checks verify.py already performs and never got the chance to.
+
+    Bounded to one retry per bubble and does not re-verify its own
+    output, the same discipline the song path uses for the same reason:
+    an uncapped loop can oscillate with no guaranteed termination.
+
+    Degrades rather than raises. Verification is a quality gate, not a
+    correctness precondition - if it or the retry fails, the original
+    ruling ships and the human reviewing the panel still sees it.
+    """
+    try:
+        verification = verify_section(result, chapter.target_language)
+        errors = verification.errors
+    except Exception as exc:  # noqa: BLE001 - a broken gate must not lose the adaptation
+        logger.warning("Verification failed for bubble %s: %s", bubble.id, exc)
+        return result
+
+    if not errors:
+        return result
+
+    logger.warning(
+        "Bubble %s: %d verify error(s), re-judging once - %s",
+        bubble.id,
+        len(errors),
+        "; ".join(f.law for f in errors),
+    )
+    try:
+        return retry_section_with_finding(
+            client,
+            result,
+            bubble.source_text,
+            _bubble_song_dna(dna, bubble),
+            bubble.id,
+            room_memory,
+            "\n".join(f"- {f.detail}" for f in errors),
+            chapter.target_language,
+            bubble.voice,
+            profile,
+        )
+    except Exception as exc:  # noqa: BLE001 - keep the original ruling
+        logger.warning("Corrective retry failed for bubble %s: %s", bubble.id, exc)
+        return result

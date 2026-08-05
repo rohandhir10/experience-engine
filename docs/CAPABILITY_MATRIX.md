@@ -3382,6 +3382,57 @@ model with downloaded weights, and the API image is `python:3.11-slim`.
   fallback was falsified before being trusted: removing it fails two
   tests. Full suite green — 742 pytest, 86 Vitest.
 
+### Two upstream defects found from one real Korean panel
+
+Both diagnosed from a single production screenshot of a Korean webtoon
+panel. Neither was a model failure; both were this codebase's own bugs,
+sitting upstream of every translation decision made from them.
+
+- **OCR inserted spaces that broke the source grammar**
+  (`engine/comics_ocr.py::_block_text`). Cloud Vision segments Korean at
+  a sub-word level, returning each particle (조사) as its own "word". The
+  reconstruction joined those with `" ".join(...)`, so a bubble reading
+  `공주님을 / 막지 못하고 / 전하께 보인다면` came back as
+  `공주님 을 막지 못하고 / 전하 께 보인다 면` — a space before every
+  particle, which is a grammatical error in Korean. **The engine then
+  received broken Korean as its source text**, so the corruption preceded
+  the Translator, the Adapter, the Judge and the ledger alike. Fixed by
+  honouring Vision's own `detectedBreak` per symbol, which reports
+  exactly where real whitespace and line breaks fall. Falls back to the
+  old space-joining only when a block carries no break information at
+  all, since concatenating with nothing would run English words together
+  — a worse failure than the one being fixed.
+- **The comics path ran with no verification whatsoever**
+  (`engine/comics_adapt.py`). `adapt_chapter` called `run_section`
+  directly and never called `verify_result` or any corrective pass, so
+  every deterministic constitution check in `engine/verify.py` was dead
+  code for comics. The panel's shipped "why" demonstrated two of them at
+  once: it cited wording absent from the literal anchor (a
+  ledger-integrity error) and justified itself as "to maintain a formal
+  tone" (a vacuous justification). Both are checks that already existed
+  and had never been given the chance to run. Now each bubble is
+  verified and, on an error-severity finding, re-judged once with that
+  finding as context — the same bounded discipline the song path uses,
+  and degrading rather than raising, since verification is a quality
+  gate and not a correctness precondition.
+- **What wiring it in immediately revealed:** the module's own default
+  test fixture ships a completely rewritten line with an empty deviation
+  ledger, which the verifier correctly reports as a Law 1 error ("every
+  change is unaudited"). The fixture had been asserting on unverified
+  output for as long as it existed. That is the check working, not a
+  false positive.
+- **Tier 1** — both are deterministic. **Not yet verified against the
+  live Vision API:** the `detectedBreak` fix is written against Google's
+  documented semantics and tested against fixtures shaped like real
+  responses; confirming it needs one real panel run through a deployment
+  with credentials. The reconstruction is exact on those fixtures — the
+  production bubble round-trips character for character.
+- **Benchmark coverage:** 17 new tests (12 OCR reconstruction including
+  the full production bubble, 5 comics verification including the
+  bounded-retry cap and both degradation paths). Both falsified before
+  being trusted: reverting the OCR fix fails 7 tests, removing the
+  comics verification fails 2. Full suite green — 760 pytest, 86 Vitest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
