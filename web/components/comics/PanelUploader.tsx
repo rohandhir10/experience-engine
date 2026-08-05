@@ -1,8 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { PdfConversionError, pdfToImageFiles } from "@/lib/pdfToImages";
 
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+function isPdf(file: File): boolean {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
 
 /** Drag-and-drop (or file-picker) entry point for a chapter's worth of
  * panel images. Known limitation, stated plainly: dropping a folder onto
@@ -11,19 +16,59 @@ const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
  * objects, and wiring that up is real additional work. For now, folders
  * are only supported via the "Choose a folder" button below (native
  * `webkitdirectory` file input), and drag-and-drop accepts individual
- * image files dragged in directly. Both paths land in the same
- * `onFilesSelected` callback. */
+ * image files (or PDFs) dragged in directly. Both paths land in the same
+ * `onFilesSelected` callback.
+ *
+ * PDFs are converted client-side (lib/pdfToImages.ts, pdf.js) into one
+ * PNG per page before reaching that callback - the rest of the pipeline
+ * (detection, OCR, adaptation) only ever deals in per-panel images and
+ * has no PDF-parsing step of its own, so conversion has to happen here,
+ * not downstream. */
 export function PanelUploader({
   onFilesSelected,
 }: {
   onFilesSelected: (files: File[]) => void;
 }) {
   const [dragActive, setDragActive] = useState(false);
+  const [converting, setConverting] = useState<string | null>(null);
+  const [conversionErrors, setConversionErrors] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  function acceptImages(files: FileList | File[]): File[] {
-    return Array.from(files).filter((file) => ACCEPTED_TYPES.includes(file.type));
+  function splitAcceptable(files: FileList | File[]): { images: File[]; pdfs: File[] } {
+    const images: File[] = [];
+    const pdfs: File[] = [];
+    for (const file of Array.from(files)) {
+      if (ACCEPTED_IMAGE_TYPES.includes(file.type)) images.push(file);
+      else if (isPdf(file)) pdfs.push(file);
+    }
+    return { images, pdfs };
+  }
+
+  async function handleIncoming(files: FileList | File[]) {
+    const { images, pdfs } = splitAcceptable(files);
+    if (images.length) onFilesSelected(images);
+    if (!pdfs.length) return;
+
+    const errors: string[] = [];
+    for (const pdf of pdfs) {
+      setConverting(pdf.name);
+      try {
+        const pages = await pdfToImageFiles(pdf, (pageNumber, totalPages) =>
+          setConverting(`${pdf.name} (page ${pageNumber} of ${totalPages})`)
+        );
+        onFilesSelected(pages);
+      } catch (err) {
+        console.error("PDF conversion failed", pdf.name, err);
+        const message =
+          err instanceof PdfConversionError
+            ? `${err.fileName}: ${err.message}`
+            : `${pdf.name}: couldn't be converted`;
+        errors.push(message);
+      }
+    }
+    setConverting(null);
+    if (errors.length) setConversionErrors(errors);
   }
 
   return (
@@ -36,8 +81,7 @@ export function PanelUploader({
       onDrop={(e) => {
         e.preventDefault();
         setDragActive(false);
-        const files = acceptImages(e.dataTransfer.files);
-        if (files.length) onFilesSelected(files);
+        void handleIncoming(e.dataTransfer.files);
       }}
       className={`flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-16 text-center transition ${
         dragActive
@@ -46,12 +90,25 @@ export function PanelUploader({
       }`}
     >
       <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
-        Drop chapter images here
+        Drop chapter images or a PDF here
       </p>
       <p className="max-w-sm text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
         JPG, PNG, or WebP panel slices, in any order — they'll be sorted by file name once
-        they're in.
+        they're in. A PDF works too: each page becomes its own panel automatically.
       </p>
+
+      {converting && (
+        <p className="text-[12px] text-ink/50 dark:text-ink-dark/50">
+          Converting {converting}…
+        </p>
+      )}
+      {conversionErrors.length > 0 && (
+        <div className="max-w-sm text-[12px] leading-relaxed text-red-600/80 dark:text-red-400/80">
+          {conversionErrors.map((error) => (
+            <p key={error}>{error}</p>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button
@@ -74,13 +131,10 @@ export function PanelUploader({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) {
-            const files = acceptImages(e.target.files);
-            if (files.length) onFilesSelected(files);
-          }
+          if (e.target.files) void handleIncoming(e.target.files);
           e.target.value = "";
         }}
       />
@@ -94,10 +148,7 @@ export function PanelUploader({
         webkitdirectory=""
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) {
-            const files = acceptImages(e.target.files);
-            if (files.length) onFilesSelected(files);
-          }
+          if (e.target.files) void handleIncoming(e.target.files);
           e.target.value = "";
         }}
       />
