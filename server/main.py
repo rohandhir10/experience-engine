@@ -104,7 +104,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, credits, db, jobs, paddle, quota
+from . import accounts, api_keys, cache, credits, db, jobs, paddle, password_auth, quota
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -345,6 +345,24 @@ class UserSyncRequest(BaseModel):
     google_sub: str
     email: str | None = None
     display_name: str | None = None
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class ResendVerificationRequest(BaseModel):
+    email: str
 
 
 class FavoriteRequest(BaseModel):
@@ -757,6 +775,52 @@ def users_sync(request: UserSyncRequest, http_request: Request) -> dict:
             detail="Accounts need a database (DATABASE_URL is unset on this deployment).",
         )
     return result
+
+
+@app.post("/api/auth/register")
+def auth_register(request: RegisterRequest, http_request: Request) -> dict:
+    """Called by web/app/api/auth/register - the email/password
+    counterpart to /api/users/sync above. Always {"status": "ok"} on a
+    well-formed request (see server/password_auth.py's no-enumeration
+    rule) - a 400 here means the input itself was invalid (bad email
+    shape, too-short password), never "this email is taken"."""
+    _require_internal_secret(http_request)
+    try:
+        result = password_auth.register(request.email, request.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Accounts need a database (DATABASE_URL is unset on this deployment).",
+        )
+    return result
+
+
+@app.post("/api/auth/login")
+def auth_login(request: LoginRequest, http_request: Request) -> dict:
+    """Called from next-auth/providers/credentials's authorize()
+    (web/auth.ts), never directly from a browser. Always 200 - the
+    response's `status` field ("ok" | "unverified" | "invalid") is what
+    the caller branches on, so a wrong password and an unreachable
+    database don't have to be told apart by HTTP status alone."""
+    _require_internal_secret(http_request)
+    return password_auth.authenticate(request.email, request.password)
+
+
+@app.post("/api/auth/verify-email")
+def auth_verify_email(request: VerifyEmailRequest, http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    ok = password_auth.verify_email_token(request.token)
+    if not ok:
+        raise HTTPException(status_code=400, detail="This verification link is invalid or has expired.")
+    return {"status": "ok"}
+
+
+@app.post("/api/auth/resend-verification")
+def auth_resend_verification(request: ResendVerificationRequest, http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    return password_auth.resend_verification(request.email)
 
 
 @app.post("/webhooks/paddle")

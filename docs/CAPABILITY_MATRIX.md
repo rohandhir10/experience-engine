@@ -3777,6 +3777,78 @@ browser and needs the signed-in user's id there too.
   when the fix is reverted. Full suite green: 855 pytest, 103 Vitest,
   clean `tsc`/`npm run build`.
 
+## Email/password sign-up with real email verification
+
+- **A second way onto the same account, not a second account system.**
+  Sign-in was Google-only (`web/auth.ts`), which already verifies an
+  address at OAuth time — there was no verification *feature* to build
+  there. Email/password is the case that actually needs one: nothing
+  vouches for an address a person just typed in, so `server/password_auth.py`
+  adds a real, single-use, expiring verification token
+  (`EmailVerificationToken`, `server/db_models.py`) gating a brand-new
+  password account until its link is clicked. A Google account created
+  later with the same email adopts the row and flips it verified too
+  (`server/accounts.py::sync_user`) — Google re-verifies on every sign-in,
+  so that's not a shortcut, it's the same evidence a fresh Google sign-in
+  always provides.
+- **Same trust boundary as the rest of accounts.** `/api/auth/register`,
+  `/login`, `/verify-email`, `/resend-verification` (`server/main.py`)
+  are gated by `CASTIA_INTERNAL_API_SECRET` exactly like
+  `/api/users/sync` — called only from `web/auth.ts`'s Credentials
+  provider `authorize()` (server-side in the Next.js app, never the
+  browser) and three thin proxy routes under `web/app/api/auth/`.
+- **No account-enumeration leak.** `register()` and
+  `resend_verification()` always report `{"status": "ok"}` regardless of
+  whether the email was new, already verified, or belongs to a
+  Google-only account — only server-side logging differs. `authenticate()`
+  runs a decoy PBKDF2 comparison against a fixed dummy hash when no real
+  user/password exists, so a login attempt against an unregistered email
+  takes about as long as one against a real email with a wrong password.
+- **Password hashing is PBKDF2-HMAC-SHA256 (stdlib, no new dependency)**
+  at 260,000 iterations (the long-standing Django default), with the
+  iteration count stored inside the hash string itself so raising it
+  later never invalidates existing hashes. Verification tokens are
+  hashed with a fast SHA-256 before storage (same reasoning as
+  `ApiKey.key_hash`) — a database read alone should never be enough to
+  mint a valid link.
+- **Login and "not verified yet" are distinct outcomes, not both
+  "invalid".** `authenticate()` returns `{"status": "ok" | "unverified" |
+  "invalid"}`; `web/auth.ts` throws a custom `CredentialsSignin`
+  subclass (`code = "email_not_verified"`) specifically for the
+  unverified case, which `/sign-in` reads back off the redirect's
+  `?error=&code=` and renders as a real, distinct message instead of a
+  generic "wrong password."
+- **Real sending is deliberately deferred, per direction.** No
+  transactional email provider account exists yet, so
+  `server/emailing.py::send_verification_email` degrades the same way
+  `server/paddle.py` degrades without real Paddle credentials: it does
+  the real, correct thing up to the point that needs a paid third party,
+  then logs the actual clickable link instead of silently pretending to
+  send it. Wiring a real provider (Resend/Postmark/SES) later is meant
+  to be a same-file change — same function signature, an HTTP call
+  behind that provider's own env var, gated the same way
+  `PADDLE_WEBHOOK_SECRET` gates the webhook route.
+- **Migration `0007_add_password_auth`** adds `users.password_hash`,
+  `users.email_verified`, and `email_verification_tokens`, existence-
+  guarded per the 0002–0006 convention, and backfills
+  `email_verified = true` for every row with a `google_sub` — Google
+  already verified those addresses; a pre-existing Google account should
+  never suddenly read as unverified.
+- **Verified end-to-end in a real browser, not just unit tests:** a
+  Playwright run against a real `next start` + a real local `uvicorn`
+  instance (sqlite `DATABASE_URL`) walked the actual round trip — sign
+  up, confirm login is correctly refused with "unverified" before the
+  link is clicked, pull the real logged verification link, visit it,
+  confirm re-login succeeds and the session persists on reload. All
+  five steps passed against the real HTTP stack, not a mock.
+- **Benchmark coverage:** 29 new tests — `tests/test_password_auth.py`
+  (22, hashing round-trip, register/verify/authenticate/resend against a
+  real sqlite database) and `tests/test_auth_endpoints.py` (7, the
+  actual routes via a real `TestClient`). The expired-token rejection
+  was falsified (temporarily disabling the expiry check reproduced an
+  expired token verifying successfully) before being trusted. Full suite
+  green: 884 pytest, 103 Vitest, clean `tsc`/`npm run build`.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

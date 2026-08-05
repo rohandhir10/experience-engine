@@ -47,6 +47,16 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     google_sub: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Only set for the email/password sign-up path (server/password_auth.py)
+    # - a PBKDF2-HMAC-SHA256 hash, never the plaintext password. Null for
+    # a Google-only account, which has no password of its own.
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    # True the moment a Google account syncs (Google already verified that
+    # address) or once an email/password account clicks its verification
+    # link (server/password_auth.py::verify_email_token). False is the
+    # real, meaningful "can't be trusted yet" state for a brand-new
+    # password signup - see EmailVerificationToken below.
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     # A plain string, not a separate plans table — four tiers, no per-plan
     # relational data yet beyond the name itself.
     plan: Mapped[str] = mapped_column(String, default="free")
@@ -330,4 +340,28 @@ class PaddleProcessedEvent(Base):
     __tablename__ = "paddle_processed_events"
 
     event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class EmailVerificationToken(Base):
+    """One row per outstanding "verify your email" link
+    (server/password_auth.py). Only the SHA-256 hash of the actual token
+    is stored - same reasoning as ApiKey.key_hash (server/api_keys.py):
+    a database read alone should never be enough to mint a valid link.
+    A fast hash is fine here (unlike a password) because the token itself
+    is 32 random bytes of entropy, not a low-entropy human-chosen secret.
+
+    Single-use: verify_email_token sets used_at and the row is never
+    reused after that, even if the same link is clicked twice. Expired
+    (now > expires_at) or already-used tokens are rejected identically -
+    the token is simply no longer good, and the caller doesn't need to
+    know which.
+    """
+
+    __tablename__ = "email_verification_tokens"
+
+    token_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

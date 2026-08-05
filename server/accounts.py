@@ -51,7 +51,12 @@ def sync_user(google_sub: str, email: str | None, display_name: str | None) -> d
             if user is not None:
                 user.google_sub = google_sub
         if user is None:
-            user = User(google_sub=google_sub, email=email, display_name=display_name)
+            user = User(
+                google_sub=google_sub,
+                email=email,
+                display_name=display_name,
+                email_verified=True,
+            )
             session.add(user)
         else:
             # Refresh mutable profile fields on every sign-in — email and
@@ -60,6 +65,12 @@ def sync_user(google_sub: str, email: str | None, display_name: str | None) -> d
                 user.email = email
             if display_name:
                 user.display_name = display_name
+            # Google re-verifies the address on every sign-in, including
+            # one that's adopting a row created by the password flow
+            # (the email match above) - so this is the one place a
+            # not-yet-verified password account can legitimately become
+            # verified without ever clicking a link.
+            user.email_verified = True
         session.commit()
         return {"id": str(user.id), "plan": user.plan}
 
