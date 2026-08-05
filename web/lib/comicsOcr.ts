@@ -1,4 +1,5 @@
 import type { DetectedLanguage, OcrRegion } from "./comics-types";
+import { downscaleForOcr, rescaleRegions } from "./imageDownscale";
 
 export type OcrResult = {
   regions: OcrRegion[];
@@ -18,8 +19,15 @@ export class OcrRequestError extends Error {}
 // needs to pick one before running OCR. Always returns text for the
 // caller to drop into an editable field, never applies it directly.
 export async function runPanelOcr(file: File, language?: string): Promise<OcrResult> {
+  // Uploads a downscaled copy when the panel is larger than OCR needs -
+  // smaller upload, smaller payload, less for Vision to chew through.
+  // The returned `scale` maps bboxes measured on that smaller image back
+  // into the ORIGINAL image's pixel space, which is what every consumer
+  // of these regions assumes (see lib/imageDownscale.ts::rescaleRegions).
+  const { file: upload, scale } = await downscaleForOcr(file);
+
   const form = new FormData();
-  form.append("image", file, file.name);
+  form.append("image", upload, upload.name);
   if (language) form.append("language", language);
 
   const res = await fetch("/api/comics/ocr", { method: "POST", body: form });
@@ -30,7 +38,7 @@ export async function runPanelOcr(file: File, language?: string): Promise<OcrRes
   }
 
   return {
-    regions: body.regions ?? [],
+    regions: rescaleRegions(body.regions ?? [], scale),
     fullText: body.full_text ?? "",
     warning: body.warning ?? null,
     detectedLanguages: (body.detected_languages ?? []).map(

@@ -3055,6 +3055,73 @@ previous two entries said so explicitly).
   verified live instead (build succeeding + raw-HTML/JSON-LD inspection
   + rendered screenshots).
 
+### Comics OCR latency pass (token cache, upload downscale, batch runs)
+
+Three independent causes of "OCR is slow," fixed together. None of them
+changes OCR *quality* — this is purely about the time and payload spent
+getting the same result.
+
+- **Cached OAuth token** (`engine/comics_ocr.py`). Every OCR call used to
+  perform a full service-account token exchange with Google *before* the
+  Vision call — the previous code said so in its own comment ("a real,
+  deferred optimization, not an oversight"). Now cached module-level,
+  keyed by a SHA-256 of the credential env var so rotating the key
+  invalidates the cache rather than serving a token minted from the old
+  one, refreshed 5 minutes before stated expiry, and refreshed while
+  holding the lock so a cold cache produces one exchange rather than a
+  thundering herd of identical ones. Falls back to a 55-minute TTL when
+  the credentials object reports no expiry; a naive `expiry` datetime is
+  pinned to UTC (which is what google-auth actually returns) rather than
+  read as local time.
+- **Client-side downscale before upload** (`web/lib/imageDownscale.ts`,
+  wired into `lib/comicsOcr.ts`). Panels are downscaled to a 2000px long
+  edge and re-encoded as JPEG before upload. **Critically**, the returned
+  bboxes are scaled back into the ORIGINAL image's pixel space
+  (`rescaleRegions`) — `PanelWorkspace.tsx` positions its overlay by
+  dividing bbox by the *displayed original's* `naturalWidth`, and the
+  redraw action sends the *original* file with those same boxes, so
+  returning boxes measured on a smaller image would have silently
+  misaligned the overlay and made redraw inpaint over artwork. Returns
+  the untouched original whenever resizing isn't possible (no
+  `createImageBitmap`, unreadable image, failed encode) or wouldn't help
+  (already small; re-encode came out larger than the source) — an
+  optimization that can fail a request outright would be a bug.
+- **Batch "Run OCR on all panels"** (`web/lib/concurrency.ts`, wired into
+  `app/comics/page.tsx`). OCR was previously one manual button click per
+  panel, each a full sequential round trip — a 30-panel chapter meant 30
+  clicks and 30 serial waits. Now one action runs the unread panels 4 at
+  a time, via a shared-cursor worker pool (not fixed chunks, so one slow
+  panel doesn't stall three idle workers). Never rejects: a failing panel
+  records its own error and the rest of the batch continues. Skips panels
+  already read rather than re-sending them — each Vision call is real and
+  metered, and re-running would discard OCR text a human may have edited.
+- **What this does NOT do:** does not change OCR accuracy, does not
+  address Cloud Vision's known weakness on stylized comic lettering, and
+  does not add speaker identification or dialogue-vs-SFX classification
+  (all of which need a vision-LLM pass — deliberately scoped as separate
+  future work, since it *adds* latency rather than removing it).
+- **Tier 1** — deterministic infrastructure, no model-quality claim.
+  **Verified live, end to end:** a real Chromium/Playwright run against a
+  production build, with the engine proxy pointed at a local stand-in
+  that recorded exactly what the browser uploaded, confirmed a 3000×2200
+  PNG (3.33 MB) arriving as a 2000×1467 JPEG (779 KB) — a 77% payload
+  reduction — while the rendered region overlay read `left: 25%`
+  (= 750/3000), proving the bbox was mapped back into original-image
+  coordinates rather than left in the downscaled space (an un-rescaled
+  box would have read 16.67%). All three panels dispatched within 26 ms
+  of one click, confirming real concurrency rather than serial runs. An
+  earlier attempt with flat synthetic white panels correctly did *not*
+  downscale — PNG compressed them below the JPEG re-encode, tripping the
+  "don't make it bigger" guard — which is why the check was redone with
+  realistically-compressible art.
+- **Benchmark coverage:** 21 new tests (12 Vitest for the downscale/
+  rescale maths including a round-trip pixel-accuracy invariant, 9 Vitest
+  for the concurrency pool, 7 pytest for the token cache). The token-cache
+  tests were falsified before being trusted: with the cache path disabled,
+  8 concurrent callers produced 8 separate exchanges instead of 1 and the
+  suite failed as intended. Full suite green — 79 Vitest, 595 pytest,
+  `tsc --noEmit` and `next build` clean.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

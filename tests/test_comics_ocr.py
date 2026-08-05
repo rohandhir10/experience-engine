@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import base64
 import json
+import threading
+import time
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -25,6 +28,18 @@ from engine.comics_ocr import (
     _detected_languages,
     extract_text_regions,
 )
+
+
+@pytest.fixture(autouse=True)
+def _clear_token_cache():
+    """_access_token caches across calls, keyed by a hash of the
+    credential env var. Two tests using the same fake credential would
+    otherwise share a cached token, so the second one would silently
+    assert against the first one's result instead of its own.
+    """
+    comics_ocr._reset_token_cache()
+    yield
+    comics_ocr._reset_token_cache()
 
 
 class _FakeResponse:
@@ -329,3 +344,159 @@ def test_valid_credentials_return_the_refreshed_token(monkeypatch):
         lambda info, scopes=None: _FakeCredentials(),
     )
     assert _access_token() == "real-token"
+
+
+# ---------------------------------------------------------------------------
+# Token caching — the whole point is that a second call does NOT perform
+# another OAuth exchange, so every test here counts real refresh() calls.
+# ---------------------------------------------------------------------------
+
+
+class _CountingCredentials:
+    """Stands in for a real service-account Credentials object, counting
+    how many times a token exchange actually happened.
+    """
+
+    instances: list["_CountingCredentials"] = []
+
+    def __init__(self, expiry=None):
+        self.token = None
+        self.expiry = expiry
+        self.refresh_calls = 0
+        _CountingCredentials.instances.append(self)
+
+    def refresh(self, request):
+        self.refresh_calls += 1
+        self.token = f"token-{len(_CountingCredentials.instances)}"
+
+
+@pytest.fixture
+def counting_credentials(monkeypatch):
+    _CountingCredentials.instances = []
+    expiry_holder = {"expiry": None}
+
+    monkeypatch.setattr(
+        comics_ocr.service_account.Credentials,
+        "from_service_account_info",
+        lambda info, scopes=None: _CountingCredentials(expiry_holder["expiry"]),
+    )
+    return expiry_holder
+
+
+def _total_refreshes() -> int:
+    return sum(c.refresh_calls for c in _CountingCredentials.instances)
+
+
+def test_second_call_reuses_the_cached_token_without_a_new_exchange(
+    monkeypatch, counting_credentials
+):
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "service_account"})
+    )
+    first = _access_token()
+    second = _access_token()
+
+    assert first == second
+    assert _total_refreshes() == 1
+
+
+def test_rotating_the_credential_invalidates_the_cache(monkeypatch, counting_credentials):
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "service_account"})
+    )
+    first = _access_token()
+
+    # A genuinely different credential must never be served the token
+    # minted from the previous one.
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON",
+        _encoded({"type": "service_account", "client_email": "rotated@example.com"}),
+    )
+    second = _access_token()
+
+    assert first != second
+    assert _total_refreshes() == 2
+
+
+def test_a_token_near_expiry_is_refreshed_rather_than_served(
+    monkeypatch, counting_credentials
+):
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "service_account"})
+    )
+    _access_token()
+    assert _total_refreshes() == 1
+
+    # Rewrite the cache so the stored token sits inside the safety margin.
+    fingerprint, token, _ = comics_ocr._token_cache
+    comics_ocr._token_cache = (
+        fingerprint,
+        token,
+        time.time() + comics_ocr._TOKEN_EXPIRY_MARGIN_SECONDS - 1,
+    )
+
+    _access_token()
+    assert _total_refreshes() == 2
+
+
+def test_a_naive_expiry_is_read_as_utc_not_local_time(counting_credentials):
+    # google-auth reports expiry as a naive datetime already in UTC.
+    # Reading it as local time would place expiry hours off in either
+    # direction, so a token would be cached far too long or thrown away
+    # immediately - depending purely on the server's timezone.
+    naive_utc = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(hours=1)
+    credentials = _CountingCredentials(expiry=naive_utc)
+
+    expiry = comics_ocr._token_expiry_epoch(credentials)
+
+    assert abs(expiry - (time.time() + 3600)) < 60
+
+
+def test_credentials_without_an_expiry_fall_back_to_a_conservative_ttl(
+    counting_credentials,
+):
+    expiry = comics_ocr._token_expiry_epoch(_CountingCredentials(expiry=None))
+    expected = time.time() + comics_ocr._DEFAULT_TOKEN_TTL_SECONDS
+    assert abs(expiry - expected) < 60
+    # Must stay comfortably inside Google's real one-hour token lifetime.
+    assert comics_ocr._DEFAULT_TOKEN_TTL_SECONDS < 3600
+
+
+def test_a_failed_exchange_caches_nothing(monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "x"}))
+
+    def _boom(info, scopes=None):
+        raise ValueError("bad key")
+
+    monkeypatch.setattr(
+        comics_ocr.service_account.Credentials, "from_service_account_info", _boom
+    )
+    with pytest.raises(OcrError):
+        _access_token()
+    assert comics_ocr._token_cache is None
+
+
+def test_concurrent_cold_calls_perform_exactly_one_exchange(
+    monkeypatch, counting_credentials
+):
+    """The thundering-herd case the lock exists for: N threads arriving on
+    a cold cache must produce one token exchange, not N.
+    """
+    monkeypatch.setenv(
+        "GOOGLE_CLOUD_VISION_CREDENTIALS_JSON", _encoded({"type": "service_account"})
+    )
+    tokens: list[str] = []
+    barrier = threading.Barrier(8)
+
+    def _worker():
+        barrier.wait()
+        tokens.append(_access_token())
+
+    threads = [threading.Thread(target=_worker) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert len(set(tokens)) == 1
+    assert _total_refreshes() == 1

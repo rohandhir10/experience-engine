@@ -10,6 +10,7 @@ import { naturalCompare } from "@/lib/naturalSort";
 import { LANGUAGES } from "@/lib/languages";
 import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
+import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
 import { RedrawRequestError, redrawPanel, resolveRedrawRegionText } from "@/lib/comicsRedraw";
@@ -38,6 +39,7 @@ export default function ComicsPage() {
   const [sourceLanguage, setSourceLanguage] = useState("English");
   const [sourceLanguageTouched, setSourceLanguageTouched] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState("English");
+  const [batchOcrRunning, setBatchOcrRunning] = useState(false);
   const [adaptStatus, setAdaptStatus] = useState<"idle" | "running" | "error">("idle");
   const [adaptError, setAdaptError] = useState<string | null>(null);
   // Set once a "Adapt chapter" call succeeds - server/main.py now persists
@@ -94,6 +96,17 @@ export default function ComicsPage() {
   async function runOcr(id: string) {
     const panel = panels.find((p) => p.id === id);
     if (!panel) return;
+    await ocrPanel(panel);
+  }
+
+  // Takes the panel itself rather than looking it up by id, so a batch
+  // run works off the panels it captured when the user pressed the
+  // button instead of re-reading a `panels` array that its own earlier
+  // iterations have already changed. Every write below goes through
+  // updatePanel's functional setState, so concurrent panels updating at
+  // once can't clobber each other.
+  async function ocrPanel(panel: ComicPanel) {
+    const id = panel.id;
     updatePanel(id, {
       ocrStatus: "running",
       ocrMessage: null,
@@ -123,6 +136,26 @@ export default function ComicsPage() {
         ocrMessage:
           err instanceof OcrRequestError ? err.message : "OCR failed for this panel.",
       });
+    }
+  }
+
+  // Runs OCR across the whole chapter a few panels at a time. Targets
+  // only panels that don't already have a result - re-reading a panel
+  // that's already done costs a real, metered Cloud Vision call and
+  // would throw away OCR text the human may have started editing. Use
+  // the per-panel "Run OCR" button to deliberately redo one.
+  async function runOcrForAllPanels() {
+    if (batchOcrRunning) return;
+    const pending = panels.filter(
+      (p) => p.ocrStatus === "idle" || p.ocrStatus === "error"
+    );
+    if (!pending.length) return;
+
+    setBatchOcrRunning(true);
+    try {
+      await runWithConcurrency(pending, OCR_BATCH_CONCURRENCY, (panel) => ocrPanel(panel));
+    } finally {
+      setBatchOcrRunning(false);
     }
   }
 
@@ -330,6 +363,24 @@ export default function ComicsPage() {
                     }
                   }}
                 />
+                {/* Reading a chapter one panel at a time meant one click
+                    and one full round trip per panel; this runs the
+                    unread ones a few at a time (lib/concurrency.ts).
+                    Panels already read are skipped rather than re-sent -
+                    each Cloud Vision call is real and metered. */}
+                <button
+                  type="button"
+                  onClick={runOcrForAllPanels}
+                  disabled={
+                    batchOcrRunning ||
+                    !panels.some((p) => p.ocrStatus === "idle" || p.ocrStatus === "error")
+                  }
+                  className="rounded-full border border-black/10 px-5 py-2 text-[13px] font-medium transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15"
+                >
+                  {batchOcrRunning
+                    ? `Reading panels… (${panels.filter((p) => p.ocrStatus === "done").length}/${panels.length})`
+                    : "Run OCR on all panels"}
+                </button>
                 <button
                   type="button"
                   onClick={adaptWholeChapter}

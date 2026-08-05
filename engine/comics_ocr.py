@@ -49,9 +49,13 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import os
+import threading
+import time
+from datetime import timezone
 
 import httpx
 from google.auth.exceptions import GoogleAuthError
@@ -113,20 +117,67 @@ class OcrError(Exception):
     """Raised for any OCR failure a human needs to see plainly, not a stack trace."""
 
 
-def _access_token() -> str:
-    """Builds a fresh OAuth access token from the service-account JSON in
-    GOOGLE_CLOUD_VISION_CREDENTIALS_JSON (base64-encoded, since Railway
-    env vars are single-line strings, not files) and refreshes it
-    immediately so the returned token is valid to use right away.
+# Refresh this many seconds BEFORE the token's stated expiry, so a token
+# never expires mid-flight on a request that already passed the check.
+_TOKEN_EXPIRY_MARGIN_SECONDS = 300.0
+# Used only when the credentials object reports no expiry at all. Google
+# access tokens are an hour; 55 minutes stays conservatively inside that
+# rather than trusting an unstated lifetime.
+_DEFAULT_TOKEN_TTL_SECONDS = 3300.0
 
-    Deliberately NOT cached across calls: a cached token needs a
-    thread-safe refresh-before-expiry mechanism to be correct under
-    concurrent requests, which is real complexity not worth taking on
-    for this scaffold's request volume. The known cost, stated plainly:
-    every OCR call does a real token-exchange round-trip to Google's
-    OAuth endpoint in addition to the Vision API call itself - a real,
-    deferred optimization, not an oversight.
+# (credential_fingerprint, token, expires_at_epoch_seconds), or None.
+# Module-level rather than per-LLMClient-style instance state because the
+# token belongs to the deployment's service account, not to any one
+# request - every concurrent request wants the same one.
+_token_cache: tuple[str, str, float] | None = None
+_token_cache_lock = threading.Lock()
+
+
+def _reset_token_cache() -> None:
+    """Drops any cached token. Exists for tests, which would otherwise
+    leak a token cached under one set of fake credentials into the next
+    test's assertions.
     """
+    global _token_cache
+    with _token_cache_lock:
+        _token_cache = None
+
+
+def _token_expiry_epoch(credentials) -> float:
+    """Absolute expiry, in epoch seconds, for a refreshed credentials
+    object. google-auth reports `expiry` as a NAIVE datetime already in
+    UTC, so it's pinned to UTC here rather than run through the local
+    timezone. Falls back to a conservative fixed TTL when no expiry is
+    reported at all.
+    """
+    expiry = getattr(credentials, "expiry", None)
+    if expiry is None:
+        return time.time() + _DEFAULT_TOKEN_TTL_SECONDS
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    return expiry.timestamp()
+
+
+def _access_token() -> str:
+    """Returns a valid OAuth access token for the service-account JSON in
+    GOOGLE_CLOUD_VISION_CREDENTIALS_JSON (base64-encoded, since Railway
+    env vars are single-line strings, not files), reusing a cached one
+    until it nears expiry.
+
+    Cached across calls, keyed by a hash of the credential itself so
+    rotating the env var invalidates the cache instead of serving a token
+    minted from the old key. Before this cache, every OCR call paid a
+    full token-exchange round-trip to Google's OAuth endpoint on top of
+    the Vision call itself - pure latency on every panel.
+
+    The refresh happens while holding the lock, so concurrent callers
+    arriving on a cold/expired cache queue behind one exchange rather
+    than each starting their own. That briefly serializes those callers,
+    which is the intended trade: it happens about once an hour, and the
+    alternative is a thundering herd of identical token requests.
+    """
+    global _token_cache
+
     encoded = os.environ.get(_CREDENTIALS_ENV_VAR, "")
     if not encoded:
         raise OcrError(
@@ -134,22 +185,34 @@ def _access_token() -> str:
             "a base64-encoded Google Cloud service-account JSON key - see "
             "docs/CAPABILITY_MATRIX.md's Cloud Vision entry for setup."
         )
-    try:
-        info = json.loads(base64.b64decode(encoded))
-    except (binascii.Error, ValueError, json.JSONDecodeError) as exc:
-        raise OcrError(
-            f"{_CREDENTIALS_ENV_VAR} is not valid base64-encoded JSON: {exc}"
-        ) from exc
+    fingerprint = hashlib.sha256(encoded.encode()).hexdigest()
 
-    try:
-        credentials = service_account.Credentials.from_service_account_info(
-            info, scopes=_SCOPES
-        )
-        credentials.refresh(GoogleAuthRequest())
-    except (ValueError, KeyError, GoogleAuthError) as exc:
-        raise OcrError(f"Could not authenticate with Google Cloud: {exc}") from exc
+    with _token_cache_lock:
+        cached = _token_cache
+        if (
+            cached is not None
+            and cached[0] == fingerprint
+            and cached[2] - _TOKEN_EXPIRY_MARGIN_SECONDS > time.time()
+        ):
+            return cached[1]
 
-    return credentials.token
+        try:
+            info = json.loads(base64.b64decode(encoded))
+        except (binascii.Error, ValueError, json.JSONDecodeError) as exc:
+            raise OcrError(
+                f"{_CREDENTIALS_ENV_VAR} is not valid base64-encoded JSON: {exc}"
+            ) from exc
+
+        try:
+            credentials = service_account.Credentials.from_service_account_info(
+                info, scopes=_SCOPES
+            )
+            credentials.refresh(GoogleAuthRequest())
+        except (ValueError, KeyError, GoogleAuthError) as exc:
+            raise OcrError(f"Could not authenticate with Google Cloud: {exc}") from exc
+
+        _token_cache = (fingerprint, credentials.token, _token_expiry_epoch(credentials))
+        return credentials.token
 
 
 def _block_text(block: dict) -> str:
