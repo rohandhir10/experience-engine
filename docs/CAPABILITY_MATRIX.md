@@ -3323,6 +3323,65 @@ detect boxes  ->  vision-LLM narrative pass  --+
   serializing the two calls breaks the test's barrier rather than merely
   running slower. Full suite green — 713 pytest, 86 Vitest.
 
+### Inpainting boundary: remote LaMa with local OpenCV fallback
+
+Third component moved behind a service boundary, same shape as the
+recogniser registry and for the same reason: the better model is a torch
+model with downloaded weights, and the API image is `python:3.11-slim`.
+
+- **`engine/comics_inpaint.py`** — an `Inpainter` Protocol with two
+  implementations. `LocalInpainter` is the existing OpenCV Telea fill,
+  kept as the default and the fallback rather than deleted: no weights,
+  no network, no service, so tests and local development need no
+  infrastructure. `RemoteInpainter` calls a LaMa/IOPaint service behind
+  `CASTIA_INPAINT_URL`.
+- **Why the upgrade is worth it, verified rather than asserted.** Telea
+  fills a hole by diffusing surrounding colour inward; it has no notion
+  of what the artwork *is*. A real redraw run through this code on a
+  synthetic panel shows exactly that split: text erased from a plain
+  white bubble is indistinguishable from a correct result, while the
+  same erase over a striped background leaves a visible horizontal smear
+  where the pattern was destroyed. That is the case LaMa exists for.
+- **Shared mask contract.** Both implementations take an 8-bit greyscale
+  mask, 255 where pixels must be reconstructed. That convention is
+  LaMa's, IOPaint's *and* `cv2.inpaint`'s, so one mask serves both and
+  neither implementation needs to know which built it. Built as one
+  combined mask rather than per-region: two nearby bubbles with
+  overlapping padded boxes must be filled in a single pass, or the
+  second pass reconstructs partly from the first's own synthetic pixels.
+  Padded by `MASK_PADDING_PX` because text carries stroke and
+  antialiasing past its measured box, and without the margin a halo of
+  the original lettering survives.
+- **Refuses a reply of the wrong size.** A service that resized the
+  panel would silently invalidate every bounding box about to be
+  typeset into, so a mismatched result is discarded in favour of the
+  local fill rather than drawing text at the wrong scale.
+- **Fallback chain.** Remote failure (unreachable, HTTP error,
+  unreadable body, wrong dimensions) falls back to local OpenCV; if even
+  that fails, the ORIGINAL image is returned untouched and the caller
+  draws over un-erased text — visibly wrong but honest and explicable,
+  unlike a blank or half-processed panel. The method actually used
+  ("remote" | "local" | "none") is returned from
+  `redraw_panel_detailed` and reported by the endpoint as
+  `inpaint_method`, so a silent fallback cannot masquerade as a LaMa
+  reconstruction in the UI.
+- **What is NOT verified here:** `RemoteInpainter` has never run against
+  a real LaMa service in this repository — the weights are on Hugging
+  Face, which this development environment blocks at the network layer.
+  It is written against IOPaint's documented request shape and tested
+  against stubbed responses, accepting both raw image bytes and a JSON
+  body carrying base64 so it doesn't dictate the server implementation.
+  Reconstruction quality is **Tier 0, unmeasured**, until it has been run
+  against a real service on real artwork. The mask geometry, fallback
+  chain, size guard, and reply parsing are **Tier 1** and fully tested.
+- **Benchmark coverage:** 29 new tests — mask geometry (padding,
+  clamping, overlap merging, zero-area boxes), local inpainting actually
+  changing masked pixels and leaving unmasked ones untouched, every
+  unusable remote reply shape, the wrong-size guard, the full fallback
+  chain, and three end-to-end runs through `redraw_panel_detailed`. The
+  fallback was falsified before being trusted: removing it fails two
+  tests. Full suite green — 742 pytest, 86 Vitest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

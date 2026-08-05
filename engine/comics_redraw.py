@@ -42,9 +42,10 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
+
+from . import comics_inpaint
 
 _FONT_DIR = Path(__file__).parent / "assets" / "fonts"
 _FONT_REGULAR = _FONT_DIR / "LiberationSans-Regular.ttf"
@@ -126,23 +127,34 @@ def _estimate_text_color(image: Image.Image, bbox: dict) -> tuple[int, int, int]
     return (int(r), int(g), int(b))
 
 
-def _inpaint_regions(image: Image.Image, bboxes: list[dict]) -> Image.Image:
-    """Erases every region at once (one OpenCV call, one combined mask)
-    rather than per-region, so overlapping padding between two nearby
-    regions is handled correctly instead of one region's fill
-    overwriting another's."""
-    width, height = image.size
-    mask = np.zeros((height, width), dtype=np.uint8)
-    for bbox in bboxes:
-        left, top, right, bottom = _clamp_bbox(bbox, image.size, padding=_INPAINT_PADDING_PX)
-        mask[top:bottom, left:right] = 255
+def build_region_mask(image_size: tuple[int, int], bboxes: list[dict]) -> Image.Image:
+    """The mask handed to whichever inpainter is configured: white over
+    every text region, black everywhere the artwork must survive.
 
-    # PIL is RGB; OpenCV's inpaint expects BGR - a plain channel-order
-    # swap, not a color-space conversion, so this is loss-free.
-    bgr = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR)
-    inpainted_bgr = cv2.inpaint(bgr, mask, _INPAINT_RADIUS, cv2.INPAINT_TELEA)
-    inpainted_rgb = cv2.cvtColor(inpainted_bgr, cv2.COLOR_BGR2RGB)
-    return Image.fromarray(inpainted_rgb)
+    One combined mask rather than one per region, deliberately. Two
+    nearby bubbles whose padded boxes overlap have to be filled in a
+    single pass; filling them one after another means the second pass
+    reconstructs partly from the first pass's own synthetic pixels
+    instead of from real artwork.
+    """
+    clamped = [
+        _clamp_bbox(bbox, image_size, padding=comics_inpaint.MASK_PADDING_PX)
+        for bbox in bboxes
+    ]
+    return comics_inpaint.build_mask(image_size, clamped)
+
+
+def _inpaint_regions(image: Image.Image, bboxes: list[dict]) -> tuple[Image.Image, str]:
+    """Erases every region, via the configured inpainter.
+
+    Returns (image, method) - "remote" when a LaMa/IOPaint service did
+    the work, "local" for the OpenCV Telea fallback, "none" when nothing
+    could be erased and the original came back untouched. The caller
+    reports that upward rather than letting a silent quality difference
+    look identical to a real reconstruction.
+    """
+    mask = build_region_mask(image.size, bboxes)
+    return comics_inpaint.inpaint_with_fallback(image, mask)
 
 
 def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int, draw: ImageDraw.ImageDraw) -> list[str]:
@@ -231,7 +243,7 @@ def redraw_panel(image_bytes: bytes, regions: list[dict]) -> bytes:
 
     text_colors = [_estimate_text_color(image, bbox) for bbox in bboxes]
 
-    inpainted = _inpaint_regions(image, bboxes)
+    inpainted, _method = _inpaint_regions(image, bboxes)
 
     for region, color in zip(regions, text_colors):
         _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color)
@@ -239,3 +251,30 @@ def redraw_panel(image_bytes: bytes, regions: list[dict]) -> bytes:
     buffer = io.BytesIO()
     inpainted.save(buffer, format="PNG")
     return buffer.getvalue()
+
+
+def redraw_panel_detailed(image_bytes: bytes, regions: list[dict]) -> tuple[bytes, str]:
+    """redraw_panel, plus which inpainter actually produced the result
+    ("remote" | "local" | "none").
+
+    Separate from redraw_panel so existing callers keep their simple
+    bytes-in/bytes-out contract, while the endpoint can report honestly
+    which reconstruction the user is looking at. A LaMa result and an
+    OpenCV smear are visually very different on drawn artwork, and a
+    silent fallback would make them indistinguishable in the UI.
+    """
+    if not regions:
+        raise RedrawError("At least one region is required to redraw a panel.")
+
+    image = _load_image(image_bytes)
+    bboxes = [r["bbox"] for r in regions]
+    text_colors = [_estimate_text_color(image, bbox) for bbox in bboxes]
+
+    inpainted, method = _inpaint_regions(image, bboxes)
+
+    for region, color in zip(regions, text_colors):
+        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color)
+
+    buffer = io.BytesIO()
+    inpainted.save(buffer, format="PNG")
+    return buffer.getvalue(), method

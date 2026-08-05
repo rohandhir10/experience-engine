@@ -78,6 +78,17 @@ MANGA_OCR_URL = os.environ.get("CASTIA_MANGA_OCR_URL", "")
 # the pipeline already makes.
 TEXT_DETECTOR_URL = os.environ.get("CASTIA_TEXT_DETECTOR_URL", "")
 
+# engine/comics_inpaint.py — a LaMa/IOPaint inpainting service for
+# reconstructing artwork behind erased comic text. Unset means the local
+# OpenCV Telea fill, which needs no weights, no network and no service:
+# genuinely adequate on plain speech bubbles, and visibly smeary on text
+# over drawn artwork, which is what the remote model is for.
+INPAINT_URL = os.environ.get("CASTIA_INPAINT_URL", "")
+# Generous by default: a LaMa pass on a full page is real GPU work, and a
+# timeout here costs redraw QUALITY (it falls back to OpenCV), not the
+# request itself.
+INPAINT_TIMEOUT_SECONDS = float(os.environ.get("CASTIA_INPAINT_TIMEOUT", "60"))
+
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

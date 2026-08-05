@@ -89,7 +89,7 @@ from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import adapt_chapter
 from engine.comics_ocr import OcrError
-from engine.comics_redraw import RedrawError, redraw_panel
+from engine.comics_redraw import RedrawError, redraw_panel_detailed
 from engine.llm_client import LLMError, create_default_client
 from engine.models import SUPPORTED_LANGUAGES, BubbleInput, ChapterInput, SectionInput, SongInput
 from engine.pipeline import run_engine
@@ -490,11 +490,18 @@ def comics_redraw_endpoint(
         {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text} for r in validated
     ]
     try:
-        result_bytes = redraw_panel(image_bytes, region_dicts)
+        result_bytes, inpaint_method = redraw_panel_detailed(image_bytes, region_dicts)
     except RedrawError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return {"image_base64": base64.b64encode(result_bytes).decode("ascii")}
+    # Reported so a fallback isn't invisible. A LaMa reconstruction and an
+    # OpenCV smear look very different on drawn artwork, and a UI that
+    # showed both without distinction would be implying a quality this
+    # panel may not actually have.
+    return {
+        "image_base64": base64.b64encode(result_bytes).decode("ascii"),
+        "inpaint_method": inpaint_method,
+    }
 
 
 class ComicsPanelText(BaseModel):
