@@ -3670,6 +3670,113 @@ owns Punjabi), and its docstring/title updated from "Hindi/Punjabi" to
   `count_hindi` reproduces `None` on real Gurmukhi text exactly as
   before. Full suite green: 810 pytest.
 
+## The credit ledger, Paddle checkout, and real billing/usage dashboards
+
+The first real billing infrastructure this product has had — until now,
+"credits" existed only as copy on `/pricing`, with nothing backing it
+anywhere in the database, and `/dashboard/billing`/`/usage` were both
+`DashboardStub`s saying so honestly.
+
+**The ledger (`server/credits.py`, `server/db_models.py`'s `User.credits`
++ `CreditTransaction`, migration `0005_add_credits`).** Every account
+starts at 0 credits — there is no free tier in this pricing model (the
+earlier "kill the free tier" decision), so a fresh account owing nothing
+is correct, not a bug to backfill. `deduct`/`grant` are single atomic
+SQLAlchemy `UPDATE ... WHERE ... RETURNING` statements, not a
+read-check-write in Python: the double-spend race this closes, stated
+concretely — 10 credits, 5 concurrent requests each costing 10, a
+read-then-write implementation lets all 5 through before any of them
+writes back, landing the balance at -40. Proven with a real threaded
+test (`test_the_double_spend_race_cannot_overdraw_the_balance`) and
+falsified by swapping in exactly that naive read-then-write: it let all
+5 through where the atomic version correctly blocks 4. Every change
+writes an append-only `CreditTransaction` row in the same DB transaction
+as the balance update (`balance_after` denormalized for cheap history
+rendering) — `reason` is `"purchase"` | `"subscription_renewal"` |
+`"adaptation"` | `"refund"`.
+
+**Wired into both adapt endpoints (`server/main.py`).** A signed-in
+request (real user_id, browser session or API key) now pays in credits,
+charged per unit actually built — `CREDITS_PER_SECTION=5` for songs,
+`CREDITS_PER_PANEL=10` for comics — not a flat per-submission price, so
+a 40-section song costs proportionally more than a 3-section one. These
+rates are derived directly from `/pricing`'s own advertised averages
+(`SONG_CREDITS=30` for "~6 sections", `PAGE_CREDITS=50` for "~5 panels"),
+not invented separately. Insufficient balance is a 402, not a silent
+downgrade. Credits are debited *before* the engine runs (so a user can't
+dodge a charge by deleting their account mid-run) and refunded on
+`LLMError`/`RuntimeError` — both paths covered by tests that mock
+`credits.deduct`/`refund` and assert the exact amount, falsified by
+removing the wiring and confirming the assertions catch it. An anonymous
+request (no account at all) is unaffected — it still falls to the
+existing per-IP quota (`server/quota.py`), untouched by this. Fixed one
+real latent inconsistency found while wiring this in: the comics
+endpoint used to check its quota *before* looking up the cache, meaning
+a cache hit still consumed quota — reordered to match songs (cache hit
+first, cost gate only on an actual run), matching what this module's own
+docstring already claimed.
+
+**Paddle webhook (`server/paddle.py`, migration `0006` for
+`PaddleProcessedEvent`).** Verified against Paddle's own documented
+format, not guessed: `Paddle-Signature: ts=<unix>;h1=<hex hmac>`,
+HMAC-SHA256 of `f"{ts}:{raw_body}"` over the *exact bytes* Paddle sent
+(`server/main.py`'s route reads `await request.body()` before any JSON
+parsing, unlike every other POST endpoint in the file), compared with
+`hmac.compare_digest` (a real Paddle security advisory,
+GHSA-mjgf-xj26-9qf9, exists for the non-constant-time version of this
+exact check). Timestamp tolerance is 300s (Paddle's own docs say
+"5-30s", which is tight enough to reject an ordinary legitimate delivery
+under real network/queueing latency — 300s matches Stripe's commonly
+cited convention for the same check instead). Idempotent against
+Paddle's documented redelivery behavior via an atomic
+`INSERT ... ON CONFLICT DO NOTHING` on the event id (falsified: removing
+the idempotency check reproduces a real double-credit, 144 credits
+becoming 288 on a simulated redelivery). `transaction.completed` is the
+only event handled — Paddle fires that same event for both a one-time
+pack purchase and every subscription renewal, so crediting is entirely
+price-id-driven (`CASTIA_PADDLE_PRICE_CREDITS`, a JSON env var mapping a
+Paddle price id to credits/unit) rather than needing a separate
+subscription-specific path. `custom_data.user_id`, attached at checkout-
+open time (`web/lib/paddle.ts`), is the only way a transaction is
+attached back to a Castia account — there is no other identifying field.
+
+**What this does NOT include, stated plainly:** there is no real Paddle
+account behind any of this. `CASTIA_PADDLE_WEBHOOK_SECRET`,
+`CASTIA_PADDLE_PRICE_CREDITS`, and the frontend's
+`NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`/`_ENVIRONMENT`/`_PRICE_*` are all
+unset on this deployment — every piece of code here is real and tested
+against realistic payloads, but nothing has processed an actual payment.
+`components/BuyButton.tsx` checks for this and degrades to "Checkout
+isn't live yet" rather than attempting a broken call; the webhook route
+answers 503 rather than accepting an unverifiable request. Going live
+needs: a real Paddle account, products/prices created there, and those
+four env var groups set — no further code change.
+
+**Real dashboard pages.** `/dashboard/billing` and `/dashboard/usage`
+are no longer `DashboardStub`s — both render `components/CreditLedger.tsx`
+against a new `GET /api/me/credits` (server/main.py, proxied by
+`web/app/api/me/credits/route.ts`), same balance-plus-history data,
+different framing: Billing shows every transaction plus a buy-more link,
+Usage filters to just the debit side. `DashboardSidebar.tsx`'s
+`LIVE_SECTIONS` updated so both drop their "Soon" tag. Needed adding a
+`SessionProvider` (`components/SessionProviderWrapper.tsx`) to the root
+layout — nothing before this needed `useSession()` client-side (every
+existing `/api/me/*` consumer reads the Auth.js session server-side,
+`lib/engineFetch.ts`), but `BuyButton` opens Paddle checkout in the
+browser and needs the signed-in user's id there too.
+
+- **Benchmark coverage:** 39 new tests across
+  `tests/test_credits.py` (11, including the double-spend race),
+  `tests/test_paddle.py` (16, signature verification + idempotency +
+  the route itself via a real `TestClient`), `tests/test_server.py` (8,
+  the endpoint wiring), `tests/test_accounts.py` (3, the new endpoint),
+  plus migration coverage extended in `tests/test_migrations.py` for
+  both new tables/columns. Every new guarantee falsified before being
+  trusted: the atomic deduct, the webhook idempotency, and the
+  endpoint-level credit wiring all reproduce their exact failure mode
+  when the fix is reverted. Full suite green: 855 pytest, 103 Vitest,
+  clean `tsc`/`npm run build`.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

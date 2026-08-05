@@ -131,6 +131,15 @@ def _no_ip_quota(monkeypatch):
 
 def _new_key(sqlite_db, sub="v1-user"):
     user_id = accounts.sync_user(sub, f"{sub}@m.com", None)["id"]
+    # A real account now needs real credits to adapt anything at all
+    # (server/credits.py) - a fresh user starts at 0, correctly, since
+    # there's no free tier in this pricing model. This file is testing
+    # API-key auth/rate-limiting, not credit sufficiency, so it grants
+    # plenty upfront rather than letting every test incidentally exercise
+    # the 402 path too.
+    from server import credits
+
+    credits.grant(user_id, 1000, reason="purchase", reference="test-grant")
     created = api_keys.generate_key(user_id, "test key")
     return user_id, created["key"], created["id"]
 

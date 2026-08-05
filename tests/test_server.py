@@ -50,6 +50,19 @@ def _no_quota_limit(monkeypatch):
     monkeypatch.setattr(main, "MONTHLY_LIMIT", 0)
 
 
+@pytest.fixture(autouse=True)
+def _unlimited_credits(monkeypatch):
+    """This file has no real database (see tests/test_credits.py and
+    test_v1_api.py for that), but plenty of tests here pass a synthetic
+    user_id to exercise history-recording/auth logic that has nothing to
+    do with credit sufficiency - without this, every one of them would
+    incidentally 402 (credits.deduct returns False with no DATABASE_URL
+    at all). Tests that actually exercise the credit gate itself
+    override this per-test."""
+    monkeypatch.setattr(main.credits, "deduct", lambda *a, **k: True)
+    monkeypatch.setattr(main.credits, "refund", lambda *a, **k: None)
+
+
 def _patch_engine(monkeypatch, engine_result, captured: dict):
     def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
         captured["apply_corrective_pass"] = apply_corrective_pass
@@ -326,6 +339,89 @@ def _patch_engine_with_two_sections(monkeypatch, captured: dict):
     monkeypatch.setattr(main, "run_engine", fake_run_engine)
     monkeypatch.setattr(main, "to_experience_result", fake_to_experience_result)
     monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+
+
+def _authed_request(user_id: str = "user-1", secret: str = "test-secret") -> _FakeRequest:
+    request = _FakeRequest()
+    request.headers = {"x-castia-user-id": user_id, "x-castia-internal-secret": secret}
+    return request
+
+
+def test_adapt_deducts_credits_per_section_for_a_signed_in_user(monkeypatch):
+    """CREDITS_PER_SECTION * the actual section count, not a flat
+    per-submission price - a 2-section song must cost twice a 1-section
+    one, matching web/app/pricing/page.tsx's SONG_CREDITS derivation."""
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+    captured: dict = {}
+    _patch_engine_with_two_sections(monkeypatch, captured)
+    deduct_calls = []
+    monkeypatch.setattr(
+        main.credits,
+        "deduct",
+        lambda user_id, amount, reason, reference=None: deduct_calls.append(
+            (user_id, amount, reason)
+        )
+        or True,
+    )
+
+    request = main.AdaptRequest(text="line one\n\nline two")
+    main.adapt(request, _authed_request("user-1"))
+
+    assert deduct_calls == [("user-1", main.CREDITS_PER_SECTION * 2, "adaptation")]
+
+
+def test_adapt_returns_402_when_credits_are_insufficient(monkeypatch):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+    monkeypatch.setattr(main.credits, "deduct", lambda *a, **k: False)
+
+    request = main.AdaptRequest(text="line one\nline two")
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.adapt(request, _authed_request("user-1"))
+
+    assert exc_info.value.status_code == 402
+
+
+def test_adapt_refunds_credits_when_the_engine_fails(monkeypatch):
+    """Credits are debited before the engine runs (so a user can't dodge
+    the charge by deleting their account mid-run) - a failure after that
+    point must refund the exact amount debited, not leave the user
+    charged for a run that produced nothing."""
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+
+    def raise_llm_error(song, client=None, room_version="v1", apply_corrective_pass=False):
+        raise main.LLMError("provider is down")
+
+    monkeypatch.setattr(main, "run_engine", raise_llm_error)
+    monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+    monkeypatch.setattr(main.credits, "deduct", lambda *a, **k: True)
+    refund_calls = []
+    monkeypatch.setattr(
+        main.credits,
+        "refund",
+        lambda user_id, amount, reference=None: refund_calls.append((user_id, amount)),
+    )
+
+    request = main.AdaptRequest(text="line one\nline two")
+    with pytest.raises(main.HTTPException):
+        main.adapt(request, _authed_request("user-1"))
+
+    assert refund_calls == [("user-1", main.CREDITS_PER_SECTION * 1)]
+
+
+def test_adapt_does_not_touch_credits_for_an_anonymous_request(monkeypatch):
+    """No account at all falls back to the anonymous IP quota entirely -
+    credits.deduct must never even be called."""
+    captured: dict = {}
+    _patch_engine(monkeypatch, _FakeEngineResult(), captured)
+    deduct_calls = []
+    monkeypatch.setattr(
+        main.credits, "deduct", lambda *a, **k: deduct_calls.append(a) or True
+    )
+
+    request = main.AdaptRequest(text="line one\nline two")
+    main.adapt(request, _FakeRequest())
+
+    assert deduct_calls == []
 
 
 def test_adapt_attaches_matching_youtube_timing(monkeypatch):
@@ -731,6 +827,87 @@ def test_comics_adapt_endpoint_enforces_ip_quota(monkeypatch):
 
     assert exc_info.value.status_code == 429
     assert "chapters" in exc_info.value.detail
+
+
+def test_comics_adapt_endpoint_deducts_credits_per_panel_for_a_signed_in_user(monkeypatch):
+    """CREDITS_PER_PANEL * the actual panel count, matching web/app/
+    pricing/page.tsx's PAGE_CREDITS derivation - not a flat per-chapter
+    price, so a 5-panel chapter costs 5x a 1-panel one."""
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+    _patch_comics_adapt(monkeypatch)
+    deduct_calls = []
+    monkeypatch.setattr(
+        main.credits,
+        "deduct",
+        lambda user_id, amount, reason, reference=None: deduct_calls.append(
+            (user_id, amount, reason)
+        )
+        or True,
+    )
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="hello"),
+            main.ComicsPanelText(id="panel-2", text="goodbye"),
+        ],
+    )
+    main.comics_adapt_endpoint(request, _authed_request("user-1"))
+
+    assert deduct_calls == [("user-1", main.CREDITS_PER_PANEL * 2, "adaptation")]
+
+
+def test_comics_adapt_endpoint_returns_402_when_credits_are_insufficient(monkeypatch):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+    monkeypatch.setattr(main.credits, "deduct", lambda *a, **k: False)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_adapt_endpoint(request, _authed_request("user-1"))
+
+    assert exc_info.value.status_code == 402
+
+
+def test_comics_adapt_endpoint_refunds_credits_when_the_engine_fails(monkeypatch):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
+    monkeypatch.setattr(main, "create_default_client", lambda: object())
+
+    def raise_llm_error(chapter, client):
+        raise main.LLMError("provider is down")
+
+    monkeypatch.setattr(main, "generate_chapter_dna", raise_llm_error)
+    monkeypatch.setattr(main.credits, "deduct", lambda *a, **k: True)
+    refund_calls = []
+    monkeypatch.setattr(
+        main.credits,
+        "refund",
+        lambda user_id, amount, reference=None: refund_calls.append((user_id, amount)),
+    )
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+    with pytest.raises(main.HTTPException):
+        main.comics_adapt_endpoint(request, _authed_request("user-1"))
+
+    assert refund_calls == [("user-1", main.CREDITS_PER_PANEL * 1)]
+
+
+def test_comics_adapt_endpoint_does_not_touch_credits_for_an_anonymous_request(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    deduct_calls = []
+    monkeypatch.setattr(
+        main.credits, "deduct", lambda *a, **k: deduct_calls.append(a) or True
+    )
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+    main.comics_adapt_endpoint(request, _FakeRequest())
+
+    assert deduct_calls == []
 
 
 def test_v1_comics_adapt_does_not_enforce_ip_quota(monkeypatch):

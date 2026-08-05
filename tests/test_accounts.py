@@ -620,3 +620,39 @@ def test_no_database_means_save_declines(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     assert accounts.save_adaptation("u", "r") is False
     assert accounts.get_adaptation("u", "r") is None
+
+
+# ---------------------------------------------------------------------------
+# GET /api/me/credits - backs the real Billing/Usage dashboard pages
+# ---------------------------------------------------------------------------
+
+
+def test_me_credits_returns_balance_and_history(client, monkeypatch, sqlite_db):
+    from server import credits as credits_mod
+
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    user = accounts.sync_user("credits-a", "u@m.com", None)
+    credits_mod.grant(user["id"], 144, reason="purchase", reference="txn_1")
+    credits_mod.deduct(user["id"], 30, reason="adaptation", reference="song_1")
+    headers = {"X-Castia-User-Id": user["id"], "X-Castia-Internal-Secret": "right"}
+
+    response = client.get("/api/me/credits", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["balance"] == 114
+    assert len(body["transactions"]) == 2
+    assert body["transactions"][0]["reason"] == "adaptation"  # most recent first
+    assert body["transactions"][0]["amount"] == -30
+
+
+def test_me_credits_requires_the_user_header(client, monkeypatch):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    response = client.get("/api/me/credits", headers={"X-Castia-Internal-Secret": "right"})
+    assert response.status_code == 400
+
+
+def test_me_credits_requires_the_internal_secret(client, monkeypatch):
+    monkeypatch.setattr(main, "INTERNAL_API_SECRET", "right")
+    response = client.get("/api/me/credits", headers={"X-Castia-User-Id": "u1"})
+    assert response.status_code == 401

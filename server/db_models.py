@@ -50,10 +50,22 @@ class User(Base):
     # A plain string, not a separate plans table — four tiers, no per-plan
     # relational data yet beyond the name itself.
     plan: Mapped[str] = mapped_column(String, default="free")
+    # The real balance, in the same credit unit /pricing quotes (web/app/
+    # pricing/page.tsx's SONG_CREDITS/PAGE_CREDITS). Defaults to 0, not
+    # some free grant - there is no free tier in the paid model this
+    # backs (docs/CAPABILITY_MATRIX.md), so a new account starts owing
+    # nothing and holding nothing, same as it will the day Paddle is
+    # live. Never written directly outside server/credits.py's atomic
+    # deduct/grant functions - see that module for why a plain
+    # read-modify-write here would reintroduce the double-spend race.
+    credits: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     adaptations: Mapped[list["Adaptation"]] = relationship(back_populates="user")
     collections: Mapped[list["Collection"]] = relationship(back_populates="user")
+    credit_transactions: Mapped[list["CreditTransaction"]] = relationship(
+        back_populates="user", order_by="CreditTransaction.created_at.desc()"
+    )
 
 
 class Adaptation(Base):
@@ -259,3 +271,63 @@ class ApiKeyUsage(Base):
     day: Mapped[str] = mapped_column(String, primary_key=True)
     api_key_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("api_keys.id"), primary_key=True)
     count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class CreditTransaction(Base):
+    """Append-only credit ledger row - server/credits.py is the only
+    writer, one row per grant (a Paddle purchase/subscription renewal,
+    server/paddle.py's webhook handler) or debit (one per adaptation,
+    server/main.py's adapt endpoints; a positive-amount refund row when
+    the engine/GPU call that debit paid for fails).
+
+    `balance_after` is a denormalized snapshot of User.credits
+    immediately following this transaction, written in the same atomic
+    UPDATE that changed it (server/credits.py) - lets the billing
+    dashboard render a running-balance history without recomputing a sum
+    over every prior row, and doubles as an audit trail: if this column's
+    value ever disagrees with the live sum of amounts up to it, that is
+    itself a real ledger bug to investigate, not something recomputation
+    should silently paper over.
+    """
+
+    __tablename__ = "credit_transactions"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # Positive = credited (purchase, subscription renewal, refund).
+    # Negative = debited (one adaptation's cost).
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    # "purchase" | "subscription_renewal" | "adaptation" | "refund" - a
+    # plain string, not an enum table, matching User.plan's own reasoning
+    # (a handful of values, no relational data of their own yet).
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    # Paddle's transaction id for a grant, or the adaptation result_id
+    # for a debit/refund - what this row is "about", for support/
+    # debugging. Free text, not a foreign key: the two reference
+    # different tables depending on `reason`, and a nullable/polymorphic
+    # FK here is more machinery than a support lookup needs.
+    reference: Mapped[str | None] = mapped_column(String, nullable=True)
+    balance_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    user: Mapped["User"] = relationship(back_populates="credit_transactions")
+
+
+class PaddleProcessedEvent(Base):
+    """Idempotency guard for server/paddle.py's webhook handler - Paddle
+    documents that the same event can be delivered more than once (retry
+    on a slow/ambiguous response), and this product's own atomic-insert
+    convention (DailyQuotaUsage, MonthlyQuotaUsage above) is exactly the
+    right tool: an INSERT that fails on a duplicate primary key is a
+    race-free "have I seen this before" check, unlike a SELECT-then-
+    grant, which two concurrent deliveries of the same webhook could
+    both pass before either commits - crediting the same purchase twice.
+    event_id is Paddle's own id for the notification, globally unique by
+    their own design, so it's the primary key directly rather than a
+    separate surrogate one.
+    """
+
+    __tablename__ = "paddle_processed_events"
+
+    event_id: Mapped[str] = mapped_column(String, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

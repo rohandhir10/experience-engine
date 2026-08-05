@@ -32,6 +32,13 @@ const LIVE_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>([
   // API key management (server/api_keys.py) is real now - the only real
   // content Settings has today, but real is real.
   "settings",
+  // Real balance + ledger history now (server/credits.py's
+  // /api/me/credits) - Billing shows purchase history and a buy-more
+  // link, Usage shows the debit side of the same ledger. Checkout
+  // itself (components/BuyButton.tsx) still degrades until a real
+  // Paddle account exists, but the data these pages show is real.
+  "billing",
+  "usage",
 ]);
 
 function NavRow({

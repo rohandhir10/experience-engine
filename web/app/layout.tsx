@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AmbientGlow } from "@/components/AmbientGlow";
 import { JsonLd } from "@/components/JsonLd";
+import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
 import { SITE_URL, SITE_NAME, absoluteUrl } from "@/lib/seo";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
@@ -84,7 +85,7 @@ export default function RootLayout({
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={softwareApplicationJsonLd} />
         <AmbientGlow />
-        {children}
+        <SessionProviderWrapper>{children}</SessionProviderWrapper>
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/SiteHeader";
 import { Footer } from "@/components/Footer";
+import { BuyButton } from "@/components/BuyButton";
 
 export const metadata = {
   title: "Pricing",
@@ -15,26 +16,34 @@ export const metadata = {
 const SONG_CREDITS = 30; // a typical ~6-section song adaptation
 const PAGE_CREDITS = 50; // a typical 5-panel manga/webtoon page
 
-type Pack = { name: string; price: number; credits: number; blurb: string };
+type Pack = { name: string; price: number; credits: number; blurb: string; priceId?: string };
 
+// Price IDs come from Paddle's own dashboard once a real product/price
+// exists there (this project has no API credentials to create them,
+// only to receive webhooks about them - server/paddle.py) - unset until
+// then, which is why BuyButton degrades to "not live yet" rather than
+// erroring when priceId is undefined.
 const PACKS: Pack[] = [
   {
     name: "Starter",
     price: 10,
     credits: 144,
     blurb: "A one-time pack. No expiry, no commitment.",
+    priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_STARTER,
   },
   {
     name: "Growth",
     price: 29,
     credits: 464,
     blurb: "The best per-credit rate of the one-time packs.",
+    priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_GROWTH,
   },
   {
     name: "Bulk",
     price: 99,
     credits: 1584,
     blurb: "For a full project's worth of adaptations in one purchase.",
+    priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_BULK,
   },
 ];
 
@@ -43,6 +52,7 @@ const SUBSCRIPTION = {
   price: 17,
   credits: 272,
   blurb: "272 credits delivered every month, at the same rate as Bulk - so subscribing never costs more per credit than buying a pack outright.",
+  priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_CREATOR,
 };
 
 function perSong(price: number, credits: number): string {
@@ -125,9 +135,9 @@ export default function PricingPage() {
                   ~${perSong(pack.price, pack.credits)}/song · ~$
                   {perPage(pack.price, pack.credits)}/page
                 </p>
-                <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/30 dark:text-ink-dark/30">
-                  Coming soon
-                </p>
+                <div className="mt-6">
+                  <BuyButton priceId={pack.priceId} label={`Buy ${pack.name}`} />
+                </div>
               </div>
             ))}
           </div>
@@ -161,9 +171,9 @@ export default function PricingPage() {
               ~${perSong(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/song · ~$
               {perPage(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/page
             </p>
-            <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/30 dark:text-ink-dark/30">
-              Coming soon
-            </p>
+            <div className="mt-6">
+              <BuyButton priceId={SUBSCRIPTION.priceId} label="Subscribe" />
+            </div>
           </div>
         </section>
 

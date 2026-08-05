@@ -104,7 +104,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, db, jobs, quota
+from . import accounts, api_keys, cache, credits, db, jobs, paddle, quota
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -138,6 +138,15 @@ MAX_IMAGE_BYTES = int(os.environ.get("CASTIA_MAX_IMAGE_BYTES", str(15 * 1024 * 1
 # despite wildly different real spend. 12 is enough for a real short
 # chapter/one-shot to demonstrate the product, not a whole volume.
 MAX_COMICS_PANELS = int(os.environ.get("CASTIA_MAX_COMICS_PANELS", "12"))
+# Per-unit credit prices, matching web/app/pricing/page.tsx's advertised
+# averages exactly (SONG_CREDITS=30 for "~6 sections" => 5/section;
+# PAGE_CREDITS=50 for "~5 panels" => 10/panel) - charged per actual
+# section/panel count here rather than a flat per-submission price, so a
+# 40-section song or a 40-panel chapter costs proportionally more than a
+# 3-section song or 3-panel chapter, not the same flat price for wildly
+# different real compute.
+CREDITS_PER_SECTION = int(os.environ.get("CASTIA_CREDITS_PER_SECTION", "5"))
+CREDITS_PER_PANEL = int(os.environ.get("CASTIA_CREDITS_PER_PANEL", "10"))
 # Per-API-key daily cap for the public /v1/* endpoints (server/api_keys.py) -
 # a separate dimension from CASTIA_DAILY_LIMIT above, which is per-IP and
 # only ever gates the anonymous browser flow. A real API caller is
@@ -153,6 +162,12 @@ API_DAILY_LIMIT = int(os.environ.get("CASTIA_API_DAILY_LIMIT", "1000"))
 # to this API directly. Unset -> account endpoints answer 503 and
 # forwarded user ids are ignored (accounts off, everything else works).
 INTERNAL_API_SECRET = os.environ.get("CASTIA_INTERNAL_API_SECRET", "")
+# Paddle's own notification/webhook secret (set per-webhook-destination
+# in Paddle's dashboard, not the same as a Paddle API key) - verifies a
+# /webhooks/paddle POST actually came from Paddle (server/paddle.py).
+# Unset -> the webhook route rejects every request with a 503, same
+# "off, not silently insecure" convention as INTERNAL_API_SECRET above.
+PADDLE_WEBHOOK_SECRET = os.environ.get("CASTIA_PADDLE_WEBHOOK_SECRET", "")
 ALLOWED_ORIGINS = os.environ.get(
     "CASTIA_ALLOWED_ORIGINS", "http://localhost:3000"
 ).split(",")
@@ -626,9 +641,6 @@ def _comics_adapt_or_serve_cached(
             ),
         )
 
-    if enforce_ip_quota:
-        _check_quota(_client_ip(http_request), kind="chapters")
-
     result_id = cache.comics_content_id(
         [p.text for p in non_empty_panels],
         target_language=request.target_language,
@@ -636,8 +648,32 @@ def _comics_adapt_or_serve_cached(
     )
     cached = cache.get(result_id)
     if cached is not None:
+        # Moved ahead of the quota/credit check below (it used to run
+        # first here, unlike _adapt_or_serve_cached's equivalent for
+        # songs) - a cache hit costs nothing to serve, so it must not
+        # consume either the anonymous quota or a signed-in account's
+        # balance, matching what this module's own docstring already
+        # claims ("cache hits don't count against either").
         _record_history(user_id, result_id, request.source_language, medium="webtoons")
         return {"id": result_id, **cached}
+
+    # Same split as _adapt_or_serve_cached: a real account (browser
+    # session or API key, either way a real user_id) pays in credits,
+    # charged per panel actually adapted; no account at all falls back
+    # to the anonymous per-IP quota.
+    debited = None
+    if user_id is not None:
+        debited = CREDITS_PER_PANEL * len(non_empty_panels)
+        if not credits.deduct(user_id, debited, reason="adaptation", reference=result_id):
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    f"Not enough credits for this chapter ({debited} needed). "
+                    "Buy more credits on the pricing page."
+                ),
+            )
+    elif enforce_ip_quota:
+        _check_quota(_client_ip(http_request), kind="chapters")
 
     try:
         chapter = ChapterInput(
@@ -650,6 +686,8 @@ def _comics_adapt_or_serve_cached(
             ],
         )
     except ValidationError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     client = create_default_client()
@@ -657,12 +695,16 @@ def _comics_adapt_or_serve_cached(
         dna = generate_chapter_dna(chapter, client)
         results = adapt_chapter(chapter, dna, client)
     except LLMError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
         logger.error("comics adapt engine failure: %s", exc)
         raise HTTPException(
             status_code=502,
             detail="The engine hit a problem processing this chapter. Try again in a moment.",
         ) from exc
     except RuntimeError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
         logger.error("comics adapt configuration failure: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -717,6 +759,42 @@ def users_sync(request: UserSyncRequest, http_request: Request) -> dict:
     return result
 
 
+@app.post("/webhooks/paddle")
+async def paddle_webhook(request: Request) -> dict:
+    """Paddle calls this on every transaction/subscription event -
+    verifies the Paddle-Signature header against the raw body
+    (server/paddle.py has the full format, sourced from Paddle's own
+    docs) and, for transaction.completed, credits the account named in
+    that checkout's custom_data.user_id (web/lib/paddle.ts sets this when
+    opening checkout - there is no other reliable way to attach a Paddle
+    transaction back to a Castia account).
+
+    Reads the body as raw bytes BEFORE any JSON parsing - the signature
+    is computed over the exact bytes Paddle sent, and Pydantic parsing
+    a request body here (like every other POST endpoint in this file
+    does) would only ever hand this the already-decoded object, too late
+    to verify anything against.
+
+    503s if CASTIA_PADDLE_WEBHOOK_SECRET isn't set (webhooks are simply
+    off, not silently accepted unverified) - same "off, not insecure"
+    convention as INTERNAL_API_SECRET.
+    """
+    if not PADDLE_WEBHOOK_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Paddle webhooks aren't configured on this deployment.",
+        )
+
+    raw_body = await request.body()
+    try:
+        paddle.handle_webhook(
+            raw_body, request.headers.get("paddle-signature"), PADDLE_WEBHOOK_SECRET
+        )
+    except paddle.PaddleWebhookError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"status": "ok"}
+
+
 @app.get("/api/me/adaptations")
 def me_adaptations(
     http_request: Request,
@@ -737,6 +815,23 @@ def me_adaptations(
     except ValueError as exc:  # malformed collection_id UUID
         raise HTTPException(status_code=400, detail="Invalid collection id.") from exc
     return {"adaptations": adaptations}
+
+
+@app.get("/api/me/credits")
+def me_credits(http_request: Request) -> dict:
+    """Backs the real Billing/Usage dashboard pages
+    (web/app/dashboard/billing, /usage) - the actual balance and ledger
+    history (server/credits.py), not the DashboardStub placeholder both
+    used to be. `balance` is None only when there's no database at all
+    (accounts don't exist, not "this account has 0 credits" - see
+    credits.get_balance's own docstring for why those two states must
+    never be confused)."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    return {
+        "balance": credits.get_balance(user_id),
+        "transactions": credits.list_transactions(user_id),
+    }
 
 
 # --- Collections -----------------------------------------------------------
@@ -1202,9 +1297,29 @@ def _adapt_or_serve_cached(
         )
         return matched_result
 
-    if enforce_ip_quota:
-        _check_quota(ip)
     sections, song = _build_song(text, target_language, source_language)
+
+    # Signed-in (either a browser session or an API key, both resolve a
+    # real user_id) means a real account with a real balance - that's
+    # what gates cost here, not the anonymous per-IP quota, which stays
+    # reserved for requests with no account behind them at all. Charged
+    # per section actually built, not a flat per-submission price
+    # (CREDITS_PER_SECTION's comment), and debited BEFORE the engine
+    # runs - see _run_adaptation's failure handling below for why a
+    # failed run refunds rather than this waiting until success.
+    debited = None
+    if user_id is not None:
+        debited = CREDITS_PER_SECTION * len(sections)
+        if not credits.deduct(user_id, debited, reason="adaptation", reference=result_id):
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    f"Not enough credits for this song ({debited} needed). "
+                    "Buy more credits on the pricing page."
+                ),
+            )
+    elif enforce_ip_quota:
+        _check_quota(ip)
 
     try:
         return _run_adaptation(
@@ -1213,12 +1328,16 @@ def _adapt_or_serve_cached(
             user_id=user_id,
         )
     except LLMError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
         logger.error("%s id=%s engine failure: %s", log_prefix, result_id, exc)
         raise HTTPException(
             status_code=502,
             detail="The engine hit a problem processing this song. Try again in a moment.",
         ) from exc
     except RuntimeError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
         logger.error("%s id=%s configuration failure: %s", log_prefix, result_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
