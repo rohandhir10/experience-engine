@@ -135,9 +135,16 @@ MAX_IMAGE_BYTES = int(os.environ.get("CASTIA_MAX_IMAGE_BYTES", str(15 * 1024 * 1
 # (MAX_INPUT_CHARS bounds one submission's size), a chapter's cost scales
 # directly with panel count and nothing capped it - a 100-panel chapter
 # and a 3-panel one both cost "1" against DAILY_LIMIT/MONTHLY_LIMIT
-# despite wildly different real spend. 12 is enough for a real short
-# chapter/one-shot to demonstrate the product, not a whole volume.
-MAX_COMICS_PANELS = int(os.environ.get("CASTIA_MAX_COMICS_PANELS", "12"))
+# despite wildly different real spend, for an anonymous request; a
+# signed-in one is charged CREDITS_PER_PANEL regardless, which already
+# prices a large chapter correctly. 12 used to be low specifically to
+# dodge a synchronous request's timeout (see comics_adapt_endpoint's old
+# docstring) - now that /api/comics/adapt/start moves the actual engine
+# run into a background job the same way /api/adapt/start already does
+# for songs, that reason is gone. 100 is a real ceiling against a
+# genuinely abusive single request (a script submitting a whole bound
+# volume as one "chapter"), not a stand-in for a timeout workaround.
+MAX_COMICS_PANELS = int(os.environ.get("CASTIA_MAX_COMICS_PANELS", "100"))
 # Per-unit credit prices, matching web/app/pricing/page.tsx's advertised
 # averages exactly (SONG_CREDITS=30 for "~6 sections" => 5/section;
 # PAGE_CREDITS=50 for "~5 panels" => 10/panel) - charged per actual
@@ -609,13 +616,12 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
     tracking (engine/comics_adapt.py). A panel left unattributed still
     adapts fine; it just doesn't get either benefit.
 
-    Deliberately synchronous — the same known limitation /api/adapt
-    itself had before /api/adapt/start existed: a chapter with many
-    panels means many sequential full Writers' Room runs (3-7 LLM calls
-    each), which can exceed a serverless function's timeout. Fine for
-    the handful of panels this workspace is realistically used with
-    today; a longer chapter would need the same async job-polling
-    pattern /api/adapt/start already established, not built here.
+    Deliberately synchronous, same as /api/adapt still is — fine for a
+    short chapter, but many sequential per-panel Writers' Room runs can
+    exceed a request timeout well before MAX_COMICS_PANELS's real
+    ceiling. A long chapter should use POST /api/comics/adapt/start
+    instead (below) — the same background-job/poll pattern
+    /api/adapt/start already established for songs.
 
     Now persisted: the result is stored under a real, content-addressed
     id (cache.comics_content_id — same get()/set() storage /api/adapt
@@ -628,6 +634,140 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
     return _comics_adapt_or_serve_cached(
         request, http_request, _authed_user_id(http_request), enforce_ip_quota=True
     )
+
+
+@app.post("/api/comics/adapt/start")
+def comics_adapt_start(request: ComicsAdaptRequest, http_request: Request) -> dict:
+    """Same validation, cache, and quota/credit behavior as
+    /api/comics/adapt, but the actual engine run happens in a background
+    thread that outlives this request — see /api/adapt/start's docstring
+    for why, and _run_comics_adaptation's docstring for why panels run
+    sequentially in that thread rather than batched/parallelized (voice/
+    honorific continuity, not cost, is what that continuity buys).
+    Returns immediately either with a cached result (status="done") or a
+    job_id to poll via GET /api/comics/adapt/jobs/{job_id} (status="pending").
+    """
+    user_id = _authed_user_id(http_request)
+    non_empty_panels = [p for p in request.panels if p.text.strip()]
+    if not non_empty_panels:
+        raise HTTPException(
+            status_code=400, detail="At least one panel with extracted text is required."
+        )
+    if len(non_empty_panels) > MAX_COMICS_PANELS:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"That's over the {MAX_COMICS_PANELS}-panel limit for one "
+                "chapter. Try a shorter chapter or a single episode."
+            ),
+        )
+
+    result_id = cache.comics_content_id(
+        [p.text for p in non_empty_panels],
+        target_language=request.target_language,
+        source_language=request.source_language,
+    )
+    cached = cache.get(result_id)
+    if cached is not None:
+        _record_history(user_id, result_id, request.source_language, medium="webtoons")
+        return {"status": "done", "job_id": None, "result": {"id": result_id, **cached}}
+
+    debited = None
+    if user_id is not None:
+        debited = CREDITS_PER_PANEL * len(non_empty_panels)
+        if not credits.deduct(user_id, debited, reason="adaptation", reference=result_id):
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    f"Not enough credits for this chapter ({debited} needed). "
+                    "Buy more credits on the pricing page."
+                ),
+            )
+    else:
+        _check_quota(_client_ip(http_request), kind="chapters")
+
+    job_id = uuid.uuid4().hex
+    jobs.create(job_id)
+
+    thread = threading.Thread(
+        target=_run_comics_job,
+        args=(job_id, request, result_id, non_empty_panels, user_id, debited),
+        daemon=True,
+    )
+    thread.start()
+    return {"status": "pending", "job_id": job_id, "result": None}
+
+
+@app.get("/api/comics/adapt/jobs/{job_id}")
+def comics_adapt_job_status(job_id: str) -> dict:
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=404, detail="No job found for this id. It may have expired."
+        )
+    return job
+
+
+def _run_comics_adaptation(
+    request: ComicsAdaptRequest,
+    result_id: str,
+    non_empty_panels: list[ComicsPanelText],
+    user_id: str | None,
+) -> dict:
+    """The actual engine run: Chapter DNA -> per-panel Writers' Room ->
+    payload assembly, cache write, and history record. Shared by the
+    synchronous /api/comics/adapt flow and the background job
+    /api/comics/adapt/start kicks off — same split _run_adaptation has
+    for songs. Raises ValidationError/LLMError/RuntimeError uncaught;
+    callers differ only in how they turn that into a response (an
+    HTTPException + refund here, a job's stored `error` string there),
+    so those propagate uncaught rather than being translated in here.
+
+    Deliberately NOT internally parallelized across panels: RoomMemory's
+    honorific_state (engine/comics_adapt.py) threads sequentially from
+    one panel to the next, which is what makes per-character voice/
+    honorific-register consistency work across a chapter today. Running
+    panels concurrently would break that continuity, so "handle a big
+    chapter" is solved here by moving this same sequential run off the
+    request thread (the job below), not by batching or parallelizing the
+    panels themselves — the per-panel dollar cost is identical either
+    way, this only removes the request-timeout ceiling on how many
+    panels one chapter can have.
+    """
+    chapter = ChapterInput(
+        source_language=request.source_language,
+        target_language=request.target_language,
+        context_note=request.context_note,
+        bubbles=[
+            BubbleInput(id=p.id, source_text=p.text, voice=p.voice)
+            for p in non_empty_panels
+        ],
+    )
+
+    client = create_default_client()
+    dna = generate_chapter_dna(chapter, client)
+    results = adapt_chapter(chapter, dna, client)
+
+    panels_out = []
+    for bubble, result in zip(chapter.bubbles, results):
+        literal = _translator_text(result)
+        adapted = result.ruling.final_line
+        why = _explain_why(
+            client, dna.artistic_thesis, literal, adapted, result.ruling.priority_tradeoffs_made
+        )
+        panels_out.append(
+            {"id": bubble.id, "literal": literal, "adapted_text": adapted, "why": why}
+        )
+
+    payload = {"chapter_dna": dna.model_dump(), "panels": panels_out}
+    cache.set(
+        result_id,
+        payload,
+        target_language=request.target_language,
+        source_language=request.source_language,
+    )
+    _record_history(user_id, result_id, request.source_language, medium="webtoons")
+    return payload
 
 
 def _comics_adapt_or_serve_cached(
@@ -694,24 +834,11 @@ def _comics_adapt_or_serve_cached(
         _check_quota(_client_ip(http_request), kind="chapters")
 
     try:
-        chapter = ChapterInput(
-            source_language=request.source_language,
-            target_language=request.target_language,
-            context_note=request.context_note,
-            bubbles=[
-                BubbleInput(id=p.id, source_text=p.text, voice=p.voice)
-                for p in non_empty_panels
-            ],
-        )
+        payload = _run_comics_adaptation(request, result_id, non_empty_panels, user_id)
     except ValidationError as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    client = create_default_client()
-    try:
-        dna = generate_chapter_dna(chapter, client)
-        results = adapt_chapter(chapter, dna, client)
     except LLMError as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
@@ -726,26 +853,48 @@ def _comics_adapt_or_serve_cached(
         logger.error("comics adapt configuration failure: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-    panels_out = []
-    for bubble, result in zip(chapter.bubbles, results):
-        literal = _translator_text(result)
-        adapted = result.ruling.final_line
-        why = _explain_why(
-            client, dna.artistic_thesis, literal, adapted, result.ruling.priority_tradeoffs_made
-        )
-        panels_out.append(
-            {"id": bubble.id, "literal": literal, "adapted_text": adapted, "why": why}
-        )
-
-    payload = {"chapter_dna": dna.model_dump(), "panels": panels_out}
-    cache.set(
-        result_id,
-        payload,
-        target_language=request.target_language,
-        source_language=request.source_language,
-    )
-    _record_history(user_id, result_id, request.source_language, medium="webtoons")
     return {"id": result_id, **payload}
+
+
+def _run_comics_job(
+    job_id: str,
+    request: ComicsAdaptRequest,
+    result_id: str,
+    non_empty_panels: list[ComicsPanelText],
+    user_id: str | None,
+    debited: int | None,
+) -> None:
+    """Background-thread target for /api/comics/adapt/start - same
+    _run_slots concurrency bound and jobs.py status storage
+    /api/adapt/start's _run_job already uses for songs, reused as-is
+    (both are medium-agnostic: a semaphore around "one engine run" and a
+    generic pending/running/done/error record)."""
+    with _run_slots:
+        jobs.set_running(job_id)
+        try:
+            payload = _run_comics_adaptation(request, result_id, non_empty_panels, user_id)
+            jobs.set_done(job_id, {"id": result_id, **payload})
+        except ValidationError as exc:
+            if debited is not None:
+                credits.refund(user_id, debited, reference=result_id)
+            jobs.set_error(job_id, str(exc))
+        except LLMError as exc:
+            if debited is not None:
+                credits.refund(user_id, debited, reference=result_id)
+            logger.error("comics job id=%s engine failure: %s", job_id, exc)
+            jobs.set_error(
+                job_id, "The engine hit a problem processing this chapter. Try again in a moment."
+            )
+        except RuntimeError as exc:
+            if debited is not None:
+                credits.refund(user_id, debited, reference=result_id)
+            logger.error("comics job id=%s configuration failure: %s", job_id, exc)
+            jobs.set_error(job_id, str(exc))
+        except Exception:
+            if debited is not None:
+                credits.refund(user_id, debited, reference=result_id)
+            logger.exception("comics job id=%s unexpected failure", job_id)
+            jobs.set_error(job_id, "Something went wrong processing this chapter. Try again.")
 
 
 @app.get("/api/comics/adapt/{result_id}")

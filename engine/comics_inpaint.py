@@ -45,6 +45,37 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
+
+def flatten_to_rgb(image: Image.Image, background: tuple[int, int, int] = (255, 255, 255)) -> Image.Image:
+    """The one correct way to strip transparency from a panel before any
+    pixel work happens - `Image.convert("RGB")` on its own does NOT
+    composite onto a background; it just drops the alpha channel and
+    keeps whatever RGB values sat underneath it, which are frequently
+    garbage for a translucent or fully-transparent pixel (many encoders
+    don't bother writing a sensible color under alpha=0). A panel with a
+    real alpha channel - a ZIP-slice PNG, a PDF page rendered to an RGBA
+    canvas (web/lib/pdfToImages.ts) - can then look subtly discolored or
+    faded everywhere that raw, uncomposited color leaks through, most
+    visibly at antialiased edges.
+
+    Composites onto a plain white background (comic pages are
+    overwhelmingly on white/near-white paper) whenever the image actually
+    carries transparency (RGBA, LA, or a palette image with a
+    "transparency" entry); every other mode is untouched by this and
+    falls through to the same plain convert("RGB") as before, since
+    there's no alpha to have lost information in the first place.
+    """
+    has_alpha = image.mode in ("RGBA", "LA") or (
+        image.mode == "P" and "transparency" in image.info
+    )
+    if not has_alpha:
+        return image.convert("RGB")
+
+    rgba = image.convert("RGBA")
+    flattened = Image.new("RGB", rgba.size, background)
+    flattened.paste(rgba, mask=rgba.split()[-1])
+    return flattened
+
 # Grow every mask box by this many pixels. Text almost always carries a
 # stroke, an outline, or antialiasing a pixel or two beyond its measured
 # bounding box; without the margin, a faint halo of the original
@@ -108,7 +139,13 @@ class LocalInpainter:
         try:
             # PIL is RGB, OpenCV wants BGR - a channel-order swap, not a
             # colour-space conversion, so this is loss-free both ways.
-            bgr = cv2.cvtColor(np.asarray(image.convert("RGB")), cv2.COLOR_RGB2BGR)
+            # flatten_to_rgb, not a bare convert("RGB") - see that
+            # function's docstring for why a naive convert on an image
+            # that still carries alpha (this is a public Protocol method;
+            # callers other than comics_redraw.py's already-flattened
+            # image may pass one in directly) can leak uncomposited pixel
+            # garbage through as a visible color shift.
+            bgr = cv2.cvtColor(np.asarray(flatten_to_rgb(image)), cv2.COLOR_RGB2BGR)
             filled = cv2.inpaint(bgr, np.asarray(mask), self._radius, cv2.INPAINT_TELEA)
             return Image.fromarray(cv2.cvtColor(filled, cv2.COLOR_BGR2RGB))
         except Exception as exc:  # noqa: BLE001 - degrade, never raise
@@ -149,7 +186,7 @@ class RemoteInpainter:
             response = httpx.post(
                 self._url,
                 json={
-                    "image": _encode_png(image.convert("RGB")),
+                    "image": _encode_png(flatten_to_rgb(image)),
                     "mask": _encode_png(mask.convert("L")),
                 },
                 timeout=self._timeout,
@@ -210,7 +247,7 @@ def _open_image(data: bytes) -> Image.Image | None:
     try:
         image = Image.open(io.BytesIO(data))
         image.load()
-        return image.convert("RGB")
+        return flatten_to_rgb(image)
     except Exception as exc:  # noqa: BLE001
         logger.warning("Inpainter reply was not a readable image: %s", exc)
         return None

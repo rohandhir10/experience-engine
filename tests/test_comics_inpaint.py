@@ -21,6 +21,7 @@ from engine.comics_inpaint import (
     LocalInpainter,
     RemoteInpainter,
     build_mask,
+    flatten_to_rgb,
     inpaint_with_fallback,
     mask_is_empty,
 )
@@ -70,6 +71,56 @@ def stub_post(monkeypatch):
         return captured
 
     return _install
+
+
+# --- flatten_to_rgb: the alpha-compositing fix for the redraw color-fade
+# bug report - a naive Image.convert("RGB") drops alpha WITHOUT
+# compositing, leaking whatever raw (often garbage) color sat under a
+# translucent/transparent pixel through as a visible discoloration. ------
+
+
+def test_flatten_to_rgb_leaves_an_already_opaque_image_untouched():
+    image = Image.new("RGB", (10, 10), (200, 100, 50))
+    flattened = flatten_to_rgb(image)
+    assert flattened.mode == "RGB"
+    assert np.asarray(flattened)[0, 0].tolist() == [200, 100, 50]
+
+
+def test_flatten_to_rgb_composites_a_fully_transparent_pixel_onto_white():
+    rgba = Image.new("RGBA", (10, 10), (0, 0, 0, 0))  # fully transparent, raw color black
+    flattened = flatten_to_rgb(rgba)
+    assert flattened.mode == "RGB"
+    # A naive convert("RGB") would have kept the raw (0, 0, 0) black -
+    # compositing onto white must actually change it.
+    assert np.asarray(flattened)[0, 0].tolist() == [255, 255, 255]
+
+
+def test_flatten_to_rgb_correctly_blends_a_translucent_pixel():
+    # alpha=128 (~50%) over a black RGB should land roughly halfway to
+    # white when composited - nowhere near the raw (10, 10, 10) a naive
+    # convert("RGB") would silently keep instead.
+    rgba = Image.new("RGBA", (4, 4), (10, 10, 10, 128))
+    flattened = flatten_to_rgb(rgba)
+    pixel = np.asarray(flattened)[0, 0]
+    assert all(120 <= c <= 140 for c in pixel), f"expected ~half-white blend, got {pixel}"
+
+
+def test_flatten_to_rgb_handles_a_palette_image_with_transparency():
+    # "P" mode with a transparency index (classic GIF-style transparency,
+    # also legal in PNG) is the other real-world shape this has to catch -
+    # `image.mode == "RGBA"` alone would miss it.
+    base = Image.new("RGB", (6, 6), (0, 0, 0))
+    paletted = base.convert("P", palette=Image.ADAPTIVE)
+    paletted.info["transparency"] = 0
+    flattened = flatten_to_rgb(paletted)
+    assert flattened.mode == "RGB"
+    assert np.asarray(flattened)[0, 0].tolist() == [255, 255, 255]
+
+
+def test_flatten_to_rgb_uses_a_custom_background_when_given_one():
+    rgba = Image.new("RGBA", (4, 4), (0, 0, 0, 0))
+    flattened = flatten_to_rgb(rgba, background=(10, 20, 30))
+    assert np.asarray(flattened)[0, 0].tolist() == [10, 20, 30]
 
 
 # --- mask geometry: the contract both implementations share ---------------

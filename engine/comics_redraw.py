@@ -85,7 +85,15 @@ def _load_image(image_bytes: bytes) -> Image.Image:
         image.load()
     except Exception as exc:
         raise RedrawError(f"Could not read this image: {exc}") from exc
-    return image.convert("RGB")
+    # comics_inpaint.flatten_to_rgb, not a bare convert("RGB") - a panel
+    # with a real alpha channel (a ZIP-slice PNG, a PDF page rendered to
+    # an RGBA canvas by web/lib/pdfToImages.ts) would otherwise have its
+    # alpha silently dropped WITHOUT compositing onto anything, exposing
+    # whatever raw, uncomposited color sat underneath every translucent
+    # or fully-transparent pixel - most visible as a faded/discolored
+    # look at antialiased edges, which is exactly what this was fixed to
+    # stop doing. See that function's docstring for the full reasoning.
+    return comics_inpaint.flatten_to_rgb(image)
 
 
 def _clamp_bbox(bbox: dict, image_size: tuple[int, int], padding: int = 0) -> tuple[int, int, int, int]:

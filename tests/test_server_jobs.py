@@ -27,11 +27,19 @@ VALID_BODY = {"text": "line one\n\nline two", "target_language": "English"}
 def _reset_module_state(monkeypatch):
     # jobs/quota are in-memory (no DATABASE_URL in the test environment) -
     # reset their module-level dicts per test so runs don't leak across
-    # tests (or hit the quota).
+    # tests (or hit the quota). MONTHLY_LIMIT is zeroed rather than just
+    # resetting _memory_monthly_counts (quota.py's real cost ceiling,
+    # separate from the daily anti-burst one, is never reset by this
+    # file's own dict-reset above) - a bug that stayed invisible only
+    # because this file alone never made enough real quota-consuming
+    # calls in one session to trip MONTHLY_LIMIT's real default; the same
+    # convention tests/test_server.py's _no_quota_limit fixture already
+    # uses for exactly this reason.
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setattr(jobs, "_jobs", {})
     monkeypatch.setattr(quota, "_memory_counts", defaultdict(int))
     monkeypatch.setattr(main, "DAILY_LIMIT", 0)
+    monkeypatch.setattr(main, "MONTHLY_LIMIT", 0)
 
 
 @pytest.fixture

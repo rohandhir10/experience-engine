@@ -3849,6 +3849,73 @@ browser and needs the signed-in user's id there too.
   expired token verifying successfully) before being trusted. Full suite
   green: 884 pytest, 103 Vitest, clean `tsc`/`npm run build`.
 
+## Comics chapter adaptation as a background job, and a real redraw color bug fixed
+
+- **The actual request was a batching/cost proposal that conflicted with
+  the product's own quality positioning.** The initial ask was a
+  chunked, single-"localization editor"-prompt `/api/adapt-chapter`
+  endpoint for 100-panel chapters — architecturally the single-prompt
+  approach `/compare/chatgpt-prompt` (this same session, earlier)
+  explicitly argues is worse than Castia's Writers' Room. Investigating
+  `engine/comics_adapt.py` surfaced two real constraints that reframed
+  the problem: (1) `RoomMemory.honorific_state` threads sequentially
+  panel-to-panel — genuinely working per-character voice/register
+  continuity today — so panels can't be batched into one prompt or run
+  concurrently without breaking it; (2) the real bottleneck was never
+  per-call cost (identical either way) but the synchronous endpoint's
+  request timeout, exactly as `comics_adapt_endpoint`'s own prior
+  docstring already said, pointing at the fix already used for songs.
+- **`/api/comics/adapt/start` + `/api/comics/adapt/jobs/{job_id}`**
+  (`server/main.py`) mirror `/api/adapt/start`'s background-job pattern
+  exactly, reusing `server/jobs.py` (medium-agnostic) and the existing
+  `_run_slots` concurrency semaphore as-is. `_run_comics_adaptation` is
+  the extracted engine-running body shared by the synchronous and job
+  paths — panels still run sequentially inside the one background
+  thread, preserving voice continuity; only the request-timeout ceiling
+  is gone. `MAX_COMICS_PANELS` raised from 12 to 100 now that the reason
+  it was low (dodging a timeout) no longer applies — credits already
+  price a large chapter correctly per panel.
+- **Frontend**: `web/lib/comicsAdapt.ts` now submits via `/start` and
+  polls `/jobs/{id}`, same shape as `lib/useAdaptSubmit.ts`'s song
+  polling; new proxy routes mirror the song ones exactly.
+- **A real, separately-reported bug, found and fixed while investigating
+  the redraw pipeline for the batching question:** `engine/comics_redraw.py`
+  and `engine/comics_inpaint.py` both called a bare `Image.convert("RGB")`
+  on every loaded panel. That call does NOT composite onto a background —
+  it silently drops the alpha channel and keeps whatever raw RGB values
+  sat underneath, which are frequently garbage for a translucent or
+  fully-transparent pixel. A panel with a real alpha channel (a ZIP-slice
+  PNG, a PDF page rendered to an RGBA canvas by `web/lib/pdfToImages.ts`)
+  could leak that raw color through as a visible discoloration, most
+  noticeable at antialiased edges — matching the reported "redraw looks
+  slightly faded." Fixed with `comics_inpaint.flatten_to_rgb`, which
+  composites onto white only when an image actually carries transparency
+  (RGBA, LA, or a palette image with a `transparency` entry), leaving
+  already-opaque images untouched. Applied everywhere a panel or an
+  inpainter's reply is decoded: `comics_redraw._load_image`,
+  `LocalInpainter.inpaint`, `RemoteInpainter.inpaint`, and `_open_image`.
+  Ruled out first, with real evidence rather than assumption: PNG save
+  already preserves an embedded ICC profile automatically (Pillow's own
+  `PngImagePlugin._save` reads `im.info["icc_profile"]` with no explicit
+  kwarg needed — verified by inspecting its source, not assumed), the
+  RGB↔BGR channel swap for OpenCV is exact both ways, and a synthetic
+  gradient-bubble measurement showed the Telea inpainter itself drifts
+  by only ~1-2/255 — negligible. The alpha-compositing gap was the one
+  hypothesis that reproduced a large, deterministic color error.
+- **Benchmark coverage:** 9 new tests for the job endpoints
+  (`tests/test_comics_adapt_jobs.py`, mirroring
+  `tests/test_server_jobs.py`), which also surfaced and fixed a real
+  pre-existing test-isolation bug: `quota._memory_monthly_counts` (the
+  actual monthly cost-ceiling counter) was never reset by
+  `test_server_jobs.py`'s autouse fixture — invisible until enough
+  quota-consuming calls existed in one session to trip it, which this
+  round's new tests did. Fixed the same way `tests/test_server.py`
+  already does (zero `MONTHLY_LIMIT`, not just reset the dict). Plus 4
+  new Vitest tests for `comicsAdapt.ts`'s polling logic and 6 new pytest
+  tests for `flatten_to_rgb` plus one integration-level redraw test,
+  all falsified before being trusted. Full suite green: 899 pytest, 107
+  Vitest, clean `tsc`/`npm run build`.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

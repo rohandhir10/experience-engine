@@ -232,3 +232,31 @@ def test_redraw_panel_rejects_a_region_entirely_outside_the_image():
             _png_bytes(image),
             [{"bbox": {"x": 500, "y": 500, "width": 20, "height": 20}, "adapted_text": "x"}],
         )
+
+
+def test_redraw_panel_composites_a_transparent_panel_onto_white_not_raw_black():
+    """The color-fade bug report: a panel with a real alpha channel (a
+    ZIP-slice PNG, a PDF page rendered to an RGBA canvas) previously had
+    its alpha silently dropped by a bare convert("RGB") - not composited
+    onto anything - which exposed whatever raw color sat underneath a
+    transparent pixel as a visible discoloration. Every pixel here is
+    fully transparent with an underlying raw color of pure black; a
+    correct fix must show white (or close to it) outside the drawn
+    regions, not black.
+    """
+    width, height = 100, 60
+    rgba = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    buffer = io.BytesIO()
+    rgba.save(buffer, format="PNG")
+
+    bbox = {"x": 20, "y": 20, "width": 40, "height": 20}
+    out_bytes = redraw_panel(buffer.getvalue(), [{"bbox": bbox, "adapted_text": "hi"}])
+    out = Image.open(io.BytesIO(out_bytes)).convert("RGB")
+
+    # Sample well outside the redrawn region, where nothing but the
+    # alpha-flattening step could have touched the pixel.
+    corner = np.asarray(out)[5, 5]
+    assert corner.tolist() == [255, 255, 255], (
+        f"expected the transparent panel to composite onto white, got {corner.tolist()} "
+        "(a bare convert(\"RGB\") would have leaked the raw black through instead)"
+    )
