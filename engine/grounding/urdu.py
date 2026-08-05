@@ -37,10 +37,15 @@ _KASRA = "ِ"  # zer
 _SHORT_VOWELS = {_FATHA, _DAMMA, _KASRA}
 
 _TANWIN = {"ً", "ٌ", "ٍ"}  # nunation — vowel + trailing "n", one nucleus
+# U+0670 superscript (dagger) alef — writes a long ā that the alef letter
+# itself is omitted for, as in اللّٰہ and رَحْمٰن. It is a vowel, so it both
+# resolves the letter it sits on and supplies a nucleus; leaving it out of
+# the diacritic set made those letters look unvocalized.
+_SUPERSCRIPT_ALEF = "ٰ"
 _SUKUN = "ْ"    # explicit "no vowel" — closes a syllable
 _SHADDA = "ّ"   # gemination marker, not a vowel itself
 
-_DIACRITICS = _SHORT_VOWELS | _TANWIN | {_SUKUN, _SHADDA}
+_DIACRITICS = _SHORT_VOWELS | _TANWIN | {_SUKUN, _SHADDA, _SUPERSCRIPT_ALEF}
 
 # Long vowel letters (matres lectionis). ا/آ/ے are unambiguously vowels;
 # و and ی double as consonants (w/y) and are only a vowel when bare (no
@@ -51,7 +56,17 @@ _AMBIGUOUS_LONG_VOWELS = set("وی")
 
 _WORD_SPLIT_RE = re.compile(r"[\s۔،؛؟!,.;:—\-]+")
 
-_MIN_DIACRITIC_DENSITY = 0.5
+# A short vowel written immediately before its matching mater lectionis
+# is ONE long vowel, not a short vowel plus a separate one: fatha+alif is
+# ā, kasra+ya is ī, damma+waw is ū. Counting them as two nuclei
+# over-counts every long vowel in fully-marked text - which is exactly
+# the text this module exists to serve, since a diwan printed with full
+# tashkil uses these spellings throughout.
+_LONG_VOWEL_PAIRS = {
+    _FATHA: set("اآ"),
+    _KASRA: set("یي"),
+    _DAMMA: set("و"),
+}
 
 
 def _in_arabic_script(c: str) -> bool:
@@ -74,9 +89,9 @@ def _has_urdu_script(text: str) -> bool:
 def _diacritic_density(word: str) -> float:
     """Fraction of letters immediately followed by an explicit diacritic.
 
-    Ordinary undiacritized Urdu scores near 0 — this is the gate that
-    tells apart the rare fully-voweled text this module can honestly
-    count from the normal case it can't.
+    Kept for reporting and tests; the gate itself uses
+    `_word_is_determined` below, which asks the question that actually
+    matters rather than a proxy for it.
     """
     letters = [c for c in word if _is_letter(c)]
     if not letters:
@@ -87,6 +102,37 @@ def _diacritic_density(word: str) -> float:
         if _is_letter(c) and i + 1 < len(word) and word[i + 1] in _DIACRITICS
     )
     return marked / len(letters)
+
+
+def _word_is_determined(word: str) -> bool:
+    """True when every letter's vowel is recoverable from what is written.
+
+    Replaces an averaged diacritic-density threshold, which was the wrong
+    shape of test: the count is a SUM over words, so a text of mostly
+    marked words could clear an average while its unmarked words silently
+    contributed only their long vowels. One unvocalizable word makes the
+    whole line's number wrong, so any unvocalizable word must decline.
+
+    A letter is recoverable when it is itself a long vowel, carries a
+    diacritic, is followed by a mater lectionis that supplies its vowel,
+    or is word-final (a final consonant with no vowel closes the syllable
+    and adds no nucleus).
+    """
+    letters = [(i, c) for i, c in enumerate(word) if _is_letter(c)]
+    if not letters:
+        return False
+    for position, (index, c) in enumerate(letters):
+        if c in _UNAMBIGUOUS_LONG_VOWELS or c in _AMBIGUOUS_LONG_VOWELS:
+            continue
+        following = word[index + 1] if index + 1 < len(word) else ""
+        if following in _DIACRITICS:
+            continue
+        if following in _UNAMBIGUOUS_LONG_VOWELS or following in _AMBIGUOUS_LONG_VOWELS:
+            continue
+        if position == len(letters) - 1:
+            continue
+        return False
+    return True
 
 
 def _count_word_nuclei(word: str) -> int:
@@ -100,15 +146,28 @@ def _count_word_nuclei(word: str) -> int:
             continue
         nxt = word[i + 1] if i + 1 < n else ""
 
+        if nxt == _SUPERSCRIPT_ALEF:
+            nuclei += 1  # a long ā written as a mark rather than a letter
+            i += 2
+            continue
         if nxt in _SHORT_VOWELS or nxt in _TANWIN:
             nuclei += 1
-            i += 2
+            step = 2
+            # fatha+alif / kasra+ya / damma+waw spell ONE long vowel.
+            after = word[i + 2] if i + 2 < n else ""
+            if after in _LONG_VOWEL_PAIRS.get(nxt, set()):
+                step = 3
+            i += step
             continue
         if nxt == _SHADDA:
             after = word[i + 2] if i + 2 < n else ""
             if after in _SHORT_VOWELS or after in _TANWIN:
                 nuclei += 1
-                i += 3
+                step = 3
+                beyond = word[i + 3] if i + 3 < n else ""
+                if beyond in _LONG_VOWEL_PAIRS.get(after, set()):
+                    step = 4
+                i += step
             else:
                 i += 2  # geminated consonant with no vowel shown
             continue
@@ -136,10 +195,10 @@ def count_urdu(text: str) -> GroundingResult | None:
     if not words:
         return None
 
-    densities = [_diacritic_density(w) for w in words]
-    if sum(densities) / len(densities) < _MIN_DIACRITIC_DENSITY:
-        # The vowels literally aren't written — there is nothing honest
-        # to count them from. This is the common case for real lyrics.
+    if not all(_word_is_determined(w) for w in words):
+        # At least one word's vowels literally aren't written, and the
+        # total is a sum — so the line's number would be wrong, not
+        # merely approximate. This is the common case for real lyrics.
         return None
 
     total = sum(_count_word_nuclei(w) for w in words)

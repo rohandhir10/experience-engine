@@ -1316,6 +1316,31 @@ section documents what exists for it instead.
   from established literary-historical knowledge of the ghazal
   tradition, not from a corpus or native-speaker review; treat it with
   the same caution as any other profile's authored content.
+- **Two counting bugs fixed after hand-tracing fully-marked spellings.**
+  Both were in the one case this counter claims to handle deterministically,
+  and both were invisible because the module's honest *declines* were
+  working correctly and drew attention away from what it does when it
+  does answer.
+  - **Long vowels were counted twice.** A short vowel written immediately
+    before its matching mater lectionis spells ONE long vowel — fatha+alif
+    is ā, kasra+ya is ī, damma+waw is ū — but each was counted as a
+    separate nucleus. `کِتَاب` (*kitāb*, 2) returned 3; `دِین` (*dīn*, 1)
+    returned 2. This hit precisely the text the module exists for, since a
+    diwan printed with full tashkil uses these spellings throughout. The
+    partially-marked spelling `کِتابْ` (bare alif, no fatha) was already
+    correct and still is.
+  - **The gate averaged where the count sums.** Admission used mean
+    diacritic density across words, but the total is a sum over words — so
+    a line of mostly-marked words cleared the average while its unmarked
+    words silently contributed only their long vowels. Seven marked words
+    plus three bare ones returned a confident 27. Replaced with a per-word
+    determinacy test: every letter must be a long vowel, carry a diacritic,
+    be followed by a mater that supplies its vowel, or be word-final. One
+    unvocalizable word now declines the whole line, because one
+    unvocalizable word makes the number wrong rather than approximate.
+  - **U+0670 (superscript/dagger alef) is now recognised**, a long ā
+    written as a mark rather than a letter. Without it, `رَحْمٰن`
+    (*raḥmān*) read as unvocalized; it now counts 2.
 - **Benchmark coverage:** unit-tested (`tests/test_grounding.py`'s Urdu
   cases, hand-traced against known-correct diacritized words before the
   code was written, same discipline as the Hindi/Hangul counters).

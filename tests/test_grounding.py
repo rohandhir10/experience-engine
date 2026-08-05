@@ -314,7 +314,13 @@ def test_urdu_returns_none_for_non_urdu_text():
 
 
 def test_urdu_result_discloses_why_it_only_works_here():
-    result = count_urdu("بِسْمِ اللّٰہِ")
+    # Fully-marked throughout. The previous input here was "بِسْمِ اللّٰہِ",
+    # which only counted because the old averaged-density gate was
+    # lenient: the ا and the first ل of the اللہ ligature carry no written
+    # vowel at all, so under the module's own premise it should decline -
+    # and now does. The point of this test is the caveat text, so it uses
+    # an input that is genuinely countable.
+    result = count_urdu("بِسْمِ کِتَاب")
     assert result is not None
     assert result.caveat and "omits them entirely" in result.caveat
 
@@ -369,3 +375,67 @@ def test_grounding_result_labels_its_unit_for_the_judge():
     result = count_source_units("한국어", "ko")
     rendered = result.for_prompt()
     assert "syllables" in rendered and "Korean" in rendered
+
+
+# ---------------------------------------------------------------------------
+# Urdu: two counting bugs found by hand-tracing fully-marked spellings.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "word,expected,why",
+    [
+        ("کِتَاب", 2, "ki-tāb: fatha+alif is ONE long ā, not a short vowel plus a vowel"),
+        ("سَلَام", 2, "sa-lām: same fatha+alif pairing"),
+        ("دِین", 1, "dīn: kasra+ya is ONE long ī"),
+        ("نُور", 1, "nūr: damma+waw is ONE long ū"),
+    ],
+)
+def test_urdu_long_vowel_written_as_diacritic_plus_mater_is_one_nucleus(word, expected, why):
+    """A short vowel immediately before its matching mater lectionis
+    spells a single long vowel. Counting the diacritic and the letter as
+    two nuclei over-counted every long vowel - in fully-marked text,
+    which is precisely the text this counter exists to serve, since a
+    diwan printed with full tashkil uses these spellings throughout.
+    """
+    result = count_urdu(word)
+    assert result is not None, why
+    assert result.value == expected, f"{word}: expected {expected} ({why})"
+
+
+def test_urdu_bare_mater_without_a_diacritic_still_counts_once():
+    """The counterpart spelling, which was already correct and must stay
+    so: no fatha on the ت, the alif alone carries the ā."""
+    result = count_urdu("کِتابْ")
+    assert result is not None
+    assert result.value == 2
+
+
+def test_urdu_declines_when_any_single_word_is_unvocalized():
+    """The gate used to average diacritic density across words, but the
+    count is a SUM over words - so a line of mostly-marked words could
+    clear the average while its unmarked words silently contributed only
+    their long vowels. One unvocalizable word makes the whole number
+    wrong, not merely approximate.
+    """
+    mostly_marked = " ".join(["کِتَابْ"] * 7 + ["بادشاہ"] * 3)
+    assert count_urdu(mostly_marked) is None
+
+    just_one_bare = " ".join(["کِتَابْ"] * 3 + ["بادشاہ"])
+    assert count_urdu(just_one_bare) is None
+
+
+def test_urdu_counts_a_fully_marked_multi_word_line():
+    """The case it does serve: every word vocalized, so the sum is real."""
+    result = count_urdu("کِتَاب سَلَام")
+    assert result is not None
+    assert result.value == 4
+
+
+def test_urdu_word_determinacy_allows_a_final_bare_consonant():
+    """A word-final consonant with no vowel closes the syllable and adds
+    no nucleus - it is not an ambiguity and must not trigger a decline."""
+    from engine.grounding.urdu import _word_is_determined
+
+    assert _word_is_determined("کِتَاب")
+    assert not _word_is_determined("بادشاہ")
