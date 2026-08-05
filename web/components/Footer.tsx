@@ -30,6 +30,12 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
         <Link href="/pricing" className={`transition ${dim}`}>
           Pricing
         </Link>
+        <Link href="/blog" className={`transition ${dim}`}>
+          Blog
+        </Link>
+        <Link href="/glossary" className={`transition ${dim}`}>
+          Glossary
+        </Link>
         <Link href="/dashboard/settings" className={`transition ${dim}`}>
           API
         </Link>

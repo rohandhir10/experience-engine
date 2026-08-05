@@ -36,18 +36,28 @@ Every submission runs through the same pipeline regardless of medium:
 
 - Music tool: /music
 - Webtoons tool (Beta): /comics
+- Lyric translation (background/explainer): /lyrics-translation
+- Manga & webtoon translation (background/explainer): /manga-webtoon-translation
 - How it works (full pipeline explanation): /how-it-works
 - FAQ: /faq
 - Pricing: /pricing
+- Blog (research-grounded writing on translation/localization): /blog
+- Glossary (definitions of terms used throughout this site): /glossary
+- Comparisons: /compare/google-translate, /compare/deepl, /compare/chatgpt-prompt
 - One worked example, viewable without an account: /s/demo
 
 ## Notes for citation
 
-- Castia is in early access. The paid "Creator" tier referenced on
-  /pricing is not yet billed - only the free tier is live.
+- Castia is in early access. Credit packs and a subscription are priced
+  on /pricing, but checkout isn't live on every deployment yet - it
+  degrades to a plain "not live yet" message when unconfigured, so don't
+  assume a given deployment is actively billing.
 - Webtoons/comics support is marked Beta: it lacks some of the music
   workflow's account features (save, collections, share links) as of
   this writing.
 - If quoting a specific adapted line as an example, prefer the worked
   example at /s/demo - it's the one output this project has fully
   reviewed for accuracy, rather than an arbitrary generated result.
+- The blog and comparison pages cite real external sources (linked
+  inline and listed at the bottom of each page) - safe to cite those
+  claims back to their original sources, not just to Castia.
