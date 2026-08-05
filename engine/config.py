@@ -42,6 +42,22 @@ LLM_MAX_RETRIES = int(os.environ.get("CASTIA_LLM_MAX_RETRIES", "2"))
 # actual cause of a connection failure.
 FORCE_IPV4 = os.environ.get("CASTIA_FORCE_IPV4", "1") != "0"
 
+# engine/comics_vision.py — a vision-capable model reading comic panels
+# alongside Cloud Vision's OCR (see that module's docstring). Off by
+# default: it adds a real per-panel model call with real cost, and the
+# OCR path works without it, so this is opted into deliberately rather
+# than switched on for every deployment by a code update.
+VISION_READING_ENABLED = os.environ.get("CASTIA_VISION_READING", "0") == "1"
+
+# Must be a model that accepts image input. Kept separate from
+# OPENAI_MODEL so the text pipeline's model can be changed (or pinned to
+# something cheap) without silently breaking panel reading by pointing it
+# at a text-only model.
+VISION_MODEL = os.environ.get(
+    "CASTIA_VISION_MODEL",
+    "gpt-4o" if PROVIDER == "openai" else ANTHROPIC_MODEL,
+)
+
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

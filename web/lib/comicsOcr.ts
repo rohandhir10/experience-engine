@@ -8,6 +8,26 @@ export type OcrResult = {
   detectedLanguages: DetectedLanguage[];
 };
 
+/** The single speaker to pre-fill a panel's "voice" field with, or null.
+ *
+ * A panel carries ONE voice field but can hold several bubbles, so this
+ * only commits when the vision pass named exactly one distinct speaker
+ * across the panel's dialogue. Two speakers in one panel is a real
+ * conversation, and picking either one would attribute half the lines to
+ * the wrong character - which is worse than leaving it blank, because
+ * voice drives per-character consistency for the whole chapter
+ * (engine/comics_adapt.py) and a wrong value corrupts it silently.
+ */
+export function resolvePanelSpeaker(regions: OcrRegion[]): string | null {
+  const speakers = new Set(
+    regions
+      .filter((region) => region.kind === "dialogue")
+      .map((region) => region.speaker?.trim())
+      .filter((speaker): speaker is string => Boolean(speaker))
+  );
+  return speakers.size === 1 ? [...speakers][0] : null;
+}
+
 export class OcrRequestError extends Error {}
 
 // Calls app/api/comics/ocr/route.ts, which proxies to server/main.py's
@@ -37,8 +57,20 @@ export async function runPanelOcr(file: File, language?: string): Promise<OcrRes
     throw new OcrRequestError(body.error || body.detail || "OCR failed for this panel.");
   }
 
+  const regions: OcrRegion[] = (body.regions ?? []).map(
+    (region: Record<string, unknown>) => ({
+      text: region.text as string,
+      bbox: region.bbox as OcrRegion["bbox"],
+      confidence: region.confidence as number,
+      // Present only when the optional vision-LLM pass ran server-side.
+      textSource: region.text_source as OcrRegion["textSource"],
+      kind: region.kind as string | undefined,
+      speaker: (region.speaker as string | null | undefined) ?? null,
+    })
+  );
+
   return {
-    regions: rescaleRegions(body.regions ?? [], scale),
+    regions: rescaleRegions(regions, scale),
     fullText: body.full_text ?? "",
     warning: body.warning ?? null,
     detectedLanguages: (body.detected_languages ?? []).map(

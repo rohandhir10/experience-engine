@@ -71,6 +71,23 @@ export type OcrRegion = {
   text: string;
   bbox: { x: number; y: number; width: number; height: number };
   confidence: number;
+  // Everything below is present only when the optional vision-LLM read
+  // pass ran (engine/comics_vision.py, off unless CASTIA_VISION_READING
+  // is set), so all of it is optional - a plain Cloud Vision result has
+  // none of it and must keep working exactly as before.
+  //
+  // "llm" when a vision model's reading of this bubble was confidently
+  // matched to this box and used; "vision" when it wasn't and Cloud
+  // Vision's own text was kept. Never means "verified correct" - it
+  // means "which system read it", and the human still reviews either way.
+  textSource?: "llm" | "vision";
+  // "dialogue" | "sfx" | "narration" | "background" | "unknown" - lets
+  // sound effects and background signage be told apart from speech.
+  kind?: string;
+  // Who the model believes is speaking, or null when it wouldn't commit.
+  // A null stays null: a wrong speaker silently corrupts character voice
+  // for a whole chapter, so it is never guessed at downstream.
+  speaker?: string | null;
 };
 
 export type DetectedLanguage = {

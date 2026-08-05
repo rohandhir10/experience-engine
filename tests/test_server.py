@@ -432,11 +432,17 @@ def test_youtube_draft_reports_ingest_failure_as_a_400(monkeypatch):
 
 
 class _FakeUploadFile:
-    """Stands in for FastAPI's UploadFile — only the `.file.read()` path
-    server/main.py's comics_ocr_endpoint actually uses."""
+    """Stands in for FastAPI's UploadFile — the `.file.read()` path
+    server/main.py's comics_ocr_endpoint uses, plus `.content_type`,
+    which the endpoint passes to the vision reader as the image's media
+    type. Real UploadFile always has that attribute (it may be None), so
+    the fake carries it too rather than making the endpoint defend
+    against a shape only this test double ever had.
+    """
 
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes, content_type: str | None = "image/png"):
         self.file = _FakeSpooledFile(data)
+        self.content_type = content_type
 
 
 class _FakeSpooledFile:
@@ -759,3 +765,72 @@ def test_comics_adapt_endpoint_reports_engine_failure_as_a_502(monkeypatch):
         main.comics_adapt_endpoint(request, _FakeRequest())
 
     assert exc_info.value.status_code == 502
+
+
+# ---------------------------------------------------------------------------
+# The vision-LLM read pass runs CONCURRENTLY with Cloud Vision, not after
+# it. That's the whole reason the alignment layer (engine/comics_align.py)
+# exists instead of just handing the model Vision's boxes, so it's worth a
+# test that would actually fail if the two calls were ever serialized.
+# ---------------------------------------------------------------------------
+
+
+def test_ocr_and_vision_reading_run_concurrently(monkeypatch):
+    import threading
+
+    from engine import comics_align, comics_vision
+
+    both_started = threading.Barrier(2, timeout=5)
+
+    def fake_ocr(image_bytes, language=None):
+        # Blocks until the vision call has also started. If these ran one
+        # after the other this barrier would never fill and the test times
+        # out rather than passing slowly.
+        both_started.wait()
+        return {
+            "regions": [{"text": "HELL0", "bbox": {"x": 0, "y": 0, "width": 1, "height": 1},
+                         "confidence": 70.0}],
+            "full_text": "HELL0",
+            "warning": None,
+            "image_width": 10,
+            "image_height": 10,
+            "detected_languages": [],
+        }
+
+    def fake_read_panel(image_bytes, mime_type="image/jpeg"):
+        both_started.wait()
+        return [comics_align.Reading(text="HELLO", kind="dialogue", speaker="Mira")]
+
+    monkeypatch.setattr(main.comics_ocr, "extract_text_regions", fake_ocr)
+    monkeypatch.setattr(comics_vision, "read_panel", fake_read_panel)
+
+    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+
+    assert result["regions"][0]["text"] == "HELLO"
+    assert result["vision_corrected_count"] == 1
+
+
+def test_a_vision_failure_still_returns_the_ocr_result(monkeypatch):
+    """Enrichment must never cost the user the thing they asked for."""
+    from engine import comics_vision
+
+    monkeypatch.setattr(
+        main.comics_ocr,
+        "extract_text_regions",
+        lambda image_bytes, language=None: {
+            "regions": [{"text": "HELL0", "bbox": {"x": 0, "y": 0, "width": 1, "height": 1},
+                         "confidence": 70.0}],
+            "full_text": "HELL0",
+            "warning": None,
+            "image_width": 10,
+            "image_height": 10,
+            "detected_languages": [],
+        },
+    )
+    # read_panel's own contract is to swallow failures and return [];
+    # this asserts the endpoint is fine with that empty result.
+    monkeypatch.setattr(comics_vision, "read_panel", lambda *a, **k: [])
+
+    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    assert result["regions"][0]["text"] == "HELL0"
+    assert "vision_corrected_count" not in result

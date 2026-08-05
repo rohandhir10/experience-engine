@@ -68,12 +68,32 @@ class LLMClient:
     never invoke would silently never run.
     """
 
+    def complete_json_with_image(
+        self,
+        system: str,
+        user: str,
+        image_data_url: str,
+        max_tokens: int | None = None,
+        stage: str = "unknown",
+    ) -> dict[str, Any]:
+        """Same contract as complete_json, with one image attached.
+
+        A separate named entry point rather than just a keyword argument
+        on complete_json, so an image call is obvious at the call site -
+        it costs meaningfully more than a text call and only works on a
+        vision-capable model (config.VISION_MODEL).
+        """
+        return self.complete_json(
+            system, user, max_tokens=max_tokens, stage=stage, image_data_url=image_data_url
+        )
+
     def complete_json(
         self,
         system: str,
         user: str,
         max_tokens: int | None = None,
         stage: str = "unknown",
+        image_data_url: str | None = None,
     ) -> dict[str, Any]:
         """Call the model and parse its reply as a single JSON object.
 
@@ -83,7 +103,9 @@ class LLMClient:
         call belongs to (see LLMCallRecord) — purely for cost/latency
         accounting, never sent to the model or used in any decision.
         """
-        raw = self._timed_call(system, user, max_tokens, stage, "initial")
+        raw = self._timed_call(
+            system, user, max_tokens, stage, "initial", image_data_url
+        )
         parsed = self._try_parse(raw)
         if parsed is not None:
             return parsed
@@ -95,7 +117,7 @@ class LLMClient:
             "fences, no commentary before or after it."
         )
         raw_retry = self._timed_call(
-            system, corrective_user, max_tokens, stage, "json_repair_retry"
+            system, corrective_user, max_tokens, stage, "json_repair_retry", image_data_url
         )
         parsed_retry = self._try_parse(raw_retry)
         if parsed_retry is not None:
@@ -113,9 +135,15 @@ class LLMClient:
         max_tokens: int | None,
         stage: str,
         attempt: str,
+        image_data_url: str | None = None,
     ) -> str:
         started = time.perf_counter()
-        text, prompt_tokens, completion_tokens = self._call(system, user, max_tokens)
+        if image_data_url:
+            text, prompt_tokens, completion_tokens = self._call_with_image(
+                system, user, image_data_url, max_tokens
+            )
+        else:
+            text, prompt_tokens, completion_tokens = self._call(system, user, max_tokens)
         elapsed = time.perf_counter() - started
         self.call_log.append(
             LLMCallRecord(
@@ -133,6 +161,15 @@ class LLMClient:
         """Returns (response_text, prompt_tokens, completion_tokens) — the
         token counts come from the provider's own response, never counted
         or estimated locally.
+        """
+        raise NotImplementedError
+
+    def _call_with_image(
+        self, system: str, user: str, image_data_url: str, max_tokens: int | None
+    ) -> tuple[str, int, int]:
+        """Same contract as _call, with one image attached to the user
+        turn. Only implemented by providers whose configured model can
+        accept image input.
         """
         raise NotImplementedError
 
@@ -233,6 +270,40 @@ class OpenAILLMClient(LLMClient):
         completion_tokens = usage.completion_tokens if usage else 0
         return text, prompt_tokens, completion_tokens
 
+    def _call_with_image(
+        self, system: str, user: str, image_data_url: str, max_tokens: int | None
+    ) -> tuple[str, int, int]:
+        import openai
+
+        try:
+            response = self._client.chat.completions.create(
+                model=self.model,
+                max_tokens=max_tokens or config.MAX_TOKENS,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": system},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user},
+                            {"type": "image_url", "image_url": {"url": image_data_url}},
+                        ],
+                    },
+                ],
+            )
+        except openai.APIError as exc:
+            detail = (
+                f"{type(exc.__cause__).__name__}: {exc.__cause__}"
+                if exc.__cause__
+                else "no underlying exception captured"
+            )
+            raise LLMError(
+                f"OpenAI vision call failed: {exc} | underlying: {detail}"
+            ) from exc
+        text = response.choices[0].message.content or ""
+        usage = response.usage
+        return text, (usage.prompt_tokens if usage else 0), (usage.completion_tokens if usage else 0)
+
 
 class AnthropicLLMClient(LLMClient):
     """Inactive by default (engine/config.py PROVIDER). Kept in the
@@ -271,6 +342,47 @@ class AnthropicLLMClient(LLMClient):
         completion_tokens = usage.output_tokens if usage else 0
         return text, prompt_tokens, completion_tokens
 
+    def _call_with_image(
+        self, system: str, user: str, image_data_url: str, max_tokens: int | None
+    ) -> tuple[str, int, int]:
+        import anthropic
+
+        # Anthropic takes the media type and raw base64 as separate
+        # fields rather than a single data: URL, so unpack it here rather
+        # than making every caller know which provider is active.
+        media_type, _, encoded = image_data_url.partition(";base64,")
+        media_type = media_type.removeprefix("data:")
+        if not encoded:
+            raise LLMError("Image must be a base64 data: URL for the Anthropic provider.")
+
+        try:
+            response = self._client.messages.create(
+                model=self.model,
+                max_tokens=max_tokens or config.MAX_TOKENS,
+                system=system,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": media_type,
+                                    "data": encoded,
+                                },
+                            },
+                            {"type": "text", "text": user},
+                        ],
+                    }
+                ],
+            )
+        except anthropic.APIError as exc:
+            raise LLMError(f"Anthropic vision call failed: {exc}") from exc
+        text = "".join(block.text for block in response.content if block.type == "text")
+        usage = response.usage
+        return text, (usage.input_tokens if usage else 0), (usage.output_tokens if usage else 0)
+
 
 _PROVIDERS: dict[str, type[LLMClient]] = {
     "openai": OpenAILLMClient,
@@ -293,3 +405,14 @@ def create_default_client(model: str | None = None) -> LLMClient:
             f"Unknown CASTIA_PROVIDER {provider!r}; expected one of {list(_PROVIDERS)}"
         )
     return cls(model=model) if model else cls()
+
+
+def create_vision_client() -> LLMClient:
+    """Builds a client pinned to config.VISION_MODEL - a model that can
+    accept image input (engine/comics_vision.py).
+
+    Separate from create_default_client so the text pipeline's model can
+    be changed, or pointed at something cheap, without silently breaking
+    panel reading by aiming it at a text-only model.
+    """
+    return create_default_client(model=config.VISION_MODEL)

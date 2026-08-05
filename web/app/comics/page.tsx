@@ -9,7 +9,7 @@ import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
 import { naturalCompare } from "@/lib/naturalSort";
 import { LANGUAGES } from "@/lib/languages";
 import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
-import { OcrRequestError, runPanelOcr } from "@/lib/comicsOcr";
+import { OcrRequestError, resolvePanelSpeaker, runPanelOcr } from "@/lib/comicsOcr";
 import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
@@ -129,6 +129,13 @@ export default function ComicsPage() {
         // Only pre-fills an empty field - never overwrites text the
         // human has already reviewed/edited by hand.
         extractedText: panel.extractedText.trim() ? panel.extractedText : result.fullText,
+        // Same rule for the speaker. Only set when the optional vision
+        // pass named exactly one speaker for this panel (see
+        // resolvePanelSpeaker) - otherwise it stays whatever it was,
+        // including blank.
+        voice: panel.voice?.trim()
+          ? panel.voice
+          : resolvePanelSpeaker(result.regions) ?? panel.voice,
       });
     } catch (err) {
       updatePanel(id, {

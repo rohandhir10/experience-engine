@@ -3179,6 +3179,78 @@ didn't fire.
   regeneration test (it falls through to the plain re-judge path). Full
   suite green — 609 pytest, 79 Vitest.
 
+### Vision-LLM read pass for comic panels (opt-in, parallel to OCR)
+
+Classic OCR finds pixels that look like characters and reports strings
+and boxes; it has no idea what it is reading. This adds a vision-capable
+model reading the same panel **alongside** Cloud Vision, not instead of
+it — each system is asked only for what it is actually good at.
+
+- **Split of responsibilities.** Cloud Vision keeps producing the
+  bounding boxes, because the redraw/typeset path
+  (`engine/comics_redraw.py`) needs real pixel geometry and vision LLMs
+  are unreliable at exact coordinates. The model supplies the *text*, plus
+  two things OCR structurally cannot: a per-piece classification
+  (dialogue / sfx / narration / background, so shop signs and sound
+  effects stop entering the dialogue script) and a speaker attribution
+  where the panel makes it visually unambiguous.
+- **Run in parallel, not in sequence** (`server/main.py`, a
+  `ThreadPoolExecutor` of 2). The model is deliberately *not* handed
+  Vision's boxes to correct one at a time, because that would make total
+  latency the sum of both calls rather than the slower of the two. The
+  price of not sharing a coordinate frame is paid afterwards by
+  `engine/comics_align.py`.
+- **Alignment** (`engine/comics_align.py`) — pure, deterministic, no
+  model. Matches each reading to at most one region by descending text
+  similarity, greedily. Matching on *content* rather than position is
+  deliberate: comics reading order is genuinely unsolved (manga runs
+  right-to-left, bubbles can sit in a Z), so nth-to-nth pairing would be
+  wrong exactly where this feature matters. Below a similarity floor the
+  region simply keeps Cloud Vision's own text and is marked
+  `text_source: "vision"` — an uncertain match is never guessed at,
+  because putting one bubble's dialogue in another's box would then make
+  redraw erase and re-letter the wrong artwork.
+- **Failure is always soft** (`engine/comics_vision.py`). No API key, a
+  model error, unparseable output, an unrecognised `kind` — every path
+  returns no readings rather than raising, because the caller already
+  holds a complete Cloud Vision result. Degrading to plain OCR is
+  correct; failing the request the user actually asked for is not.
+- **Speaker pre-fill** (`web/lib/comicsOcr.ts::resolvePanelSpeaker`).
+  Only commits when exactly one distinct speaker was named across a
+  panel's dialogue. Two speakers in one panel is a conversation, and
+  choosing either would attribute half the lines to the wrong character —
+  worse than blank, since `voice` drives per-character consistency for
+  the whole chapter. Never overwrites a name a human already typed.
+- **Off by default** (`CASTIA_VISION_READING=1` to enable,
+  `CASTIA_VISION_MODEL` to pick the model). It adds a real per-panel
+  model call with real cost, and OCR works without it, so it is opted
+  into per deployment rather than switched on for everyone by a code
+  change. With the flag off, the endpoint is byte-for-byte the old
+  OCR-only path.
+- **What this does NOT do:** does not make OCR *faster* (it adds a
+  concurrent call; the latency work is the separate entry above), does
+  not do typography matching or layered PSD export, does not maintain a
+  chapter-wide glossary/translation memory, and `text_source: "llm"`
+  means "which system read it", never "verified correct" — the human
+  still reviews every panel.
+- **Tier 0 for the model's reading quality** (no benchmark corpus of
+  stylized comic lettering exists to measure it against, so no accuracy
+  claim is made). **Tier 1 for the alignment and merge**, which are
+  deterministic and fully unit-tested.
+- **Benchmark coverage:** 38 new tests. 18 for alignment (garbled-read
+  matching, content-not-position pairing, one-reading-per-region, CJK
+  normalization, determinism, region count/order preservation), 18 for
+  the vision module and merge (every malformed-reply shape, every
+  failure path degrading to OCR-only, and the invariant that a merge
+  never touches a bounding box), and 2 endpoint tests — including one
+  that would fail rather than merely run slowly if the two calls were
+  ever serialized, since concurrency is the whole architectural claim.
+  Writing the alignment tests caught a real defect before it shipped: a
+  codepoint-range normalizer kept CJK and fullwidth punctuation, so a
+  Japanese bubble read with and without its `！` scored as a weaker match
+  than it deserved; replaced with Unicode-category filtering. Full suite
+  green — 647 pytest, 86 Vitest, `tsc --noEmit` and `next build` clean.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

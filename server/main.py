@@ -77,13 +77,14 @@ import os
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
-from engine import comics_ocr, config
+from engine import comics_align, comics_ocr, comics_vision, config
 from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import adapt_chapter
@@ -358,10 +359,68 @@ def comics_ocr_endpoint(
             status_code=413,
             detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
         )
-    try:
-        return comics_ocr.extract_text_regions(image_bytes, language=language)
-    except OcrError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Both reads are fired at once rather than one after the other. The
+    # vision model is not given Cloud Vision's boxes to correct, precisely
+    # so it doesn't have to wait for them - total latency is the slower of
+    # the two calls instead of their sum. The cost of not sharing a
+    # coordinate frame is paid afterwards, by matching the model's text
+    # back onto Vision's boxes (engine/comics_align.py).
+    #
+    # Disabled by default (config.VISION_READING_ENABLED); when off,
+    # read_panel returns [] without making a call and this is exactly the
+    # old OCR-only path.
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        ocr_future = pool.submit(
+            comics_ocr.extract_text_regions, image_bytes, language=language
+        )
+        vision_future = pool.submit(
+            comics_vision.read_panel, image_bytes, image.content_type or "image/jpeg"
+        )
+        try:
+            result = ocr_future.result()
+        except OcrError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        # read_panel never raises - it degrades to [] - so a vision
+        # failure can only ever cost the enrichment, never the OCR result
+        # the user actually asked for.
+        readings = vision_future.result()
+
+    return _merge_vision_readings(result, readings)
+
+
+def _merge_vision_readings(ocr_result: dict, readings: list) -> dict:
+    """Folds a vision-LLM reading of the panel into the Cloud Vision
+    result, region by region. Returns ocr_result unchanged when there are
+    no readings, so the OCR-only path is untouched.
+
+    Every region keeps its Cloud Vision bounding box no matter what -
+    only the TEXT can come from the model, and only where the match was
+    confident. `text_source` is reported per region so the frontend can
+    show which readings were corrected rather than implying the whole
+    panel was.
+    """
+    if not readings:
+        return ocr_result
+
+    regions = ocr_result.get("regions", [])
+    aligned = comics_align.align_readings([r["text"] for r in regions], readings)
+
+    for region, match in zip(regions, aligned.regions):
+        region["text"] = match.text
+        region["text_source"] = match.source
+        region["kind"] = match.kind
+        region["speaker"] = match.speaker
+
+    ocr_result["full_text"] = "\n\n".join(r["text"] for r in regions)
+    ocr_result["vision_corrected_count"] = aligned.corrected_count
+    # Text the model read that no OCR box matched - almost always a bubble
+    # Cloud Vision missed entirely. Surfaced rather than dropped, but kept
+    # out of regions/full_text since there's no box to place or redraw it.
+    ocr_result["unplaced_readings"] = [
+        {"text": r.text, "kind": r.kind, "speaker": r.speaker} for r in aligned.unplaced
+    ]
+    return ocr_result
 
 
 class RedrawBbox(BaseModel):
