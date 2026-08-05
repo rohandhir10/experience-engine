@@ -159,7 +159,22 @@ TAUTOLOGICAL_PATTERNS = (
     r"\bmore\s+relatable\b",
     r"\bmore\s+engaging\b",
     r"\bmore\s+accessible\b",
+    # Found in a real production run justifying a single inserted comma
+    # as "for clearer rhythm and flow" — the same class as "flows better"
+    # above, which the earlier patterns missed only because it says
+    # "clearer" instead of "better".
+    r"\bclearer\s+(rhythm|flow|phrasing|cadence)\b",
+    r"\brhythm\s+and\s+flow\b",
+    r"\bbetter\s+(rhythm|flow|phrasing|cadence)\b",
+    r"\bimproves?\s+(the\s+)?(flow|rhythm|readability|clarity)\b",
+    r"\beasier\s+to\s+(read|sing|follow|say)\b",
 )
+
+# At or below this adaptation_distance, the shipped line is the literal
+# anchor for all practical purposes — a token-level diff found essentially
+# nothing between them. Not zero: a one-word article swap shouldn't be
+# treated as a full rewrite either.
+_HOLLOW_CHANGE_DISTANCE = 0.05
 
 _TOKEN_RE = re.compile(r"[^\W\d_]+")
 
@@ -443,6 +458,26 @@ def repeated_lines_preserved(anchor: str, final: str) -> bool:
     )
 
 
+def line_structure_preserved(anchor: str, final: str) -> bool:
+    """False when `final` has collapsed `anchor`'s lyric lines into running
+    prose — the same condition verify_section reports as a Law 3
+    Compression Floor error, exposed as a plain boolean for the same
+    reason repeated_lines_preserved above is.
+
+    engine/pipeline.py uses this to tell two situations apart that need
+    different corrections: the Judge picked a prose-y candidate when a
+    line-preserving one was sitting right there (re-judging the existing
+    pool fixes that), versus every candidate in the pool already
+    flattened the verse (re-judging cannot fix that — there is nothing
+    left to pick, so the candidates themselves have to be regenerated).
+    """
+    anchor_lines = _non_empty_lines(anchor)
+    final_lines = _non_empty_lines(final)
+    if len(anchor_lines) < MIN_LINES_FOR_COLLAPSE_CHECK:
+        return True
+    return len(final_lines) >= len(anchor_lines) * LINE_COLLAPSE_RATIO
+
+
 def _stress_pattern_for_clash_detection(line: str) -> str:
     """Like rhythm.stress_pattern_word/_line, but every FUNCTION_WORDS
     token is forced to '0' regardless of its CMU citation-form stress.
@@ -663,6 +698,49 @@ def verify_section(result: SectionResultV1, target_language: str = "English") ->
                 ),
             )
         )
+
+    # --- The Burden of Change, enforced in the other direction --------------
+    # Everything in Law 1 above asks "did you justify what you changed?"
+    # This asks the inverse: "you logged a change - did you actually make
+    # one?" The Judge's own standing rule is that when no candidate earns
+    # a real improvement it ships the Translator's anchor as-is. Shipping
+    # the anchor is therefore never a failure; shipping the anchor while
+    # CLAIMING an improvement is, because the deviation ledger is the
+    # product's entire audit trail and a "why" the reader can see through
+    # devalues every genuine one next to it.
+    #
+    # Caught in a real production run: a section shipped token-identical
+    # to its anchor apart from one inserted comma, with a ledger entry
+    # justifying it as "for clearer rhythm and flow."
+    #
+    # Deliberately requires BOTH conditions - materially unchanged AND a
+    # vacuous justification. Distance alone would punish a small but real
+    # change that a token diff can't see (a statement turned into a
+    # question, say), which is exactly the kind of precise, defensible
+    # edit this engine is supposed to make; such an edit carries a
+    # specific reason and so never trips the tautology half.
+    if can_diff_against_anchor and _adaptation_distance(anchor, final) <= _HOLLOW_CHANGE_DISTANCE:
+        hollow = [d for d in deviations if _is_tautological(d.justification)]
+        if hollow:
+            findings.append(
+                Finding(
+                    law="Law 1 — Burden of Change",
+                    severity="error",
+                    section=section,
+                    detail=(
+                        f"The shipped line is materially the literal anchor "
+                        f"(adaptation distance "
+                        f"{_adaptation_distance(anchor, final):.2f}), yet the "
+                        f"ledger logs {len(hollow)} change(s) whose stated reason "
+                        "does not name anything specific: "
+                        f"{hollow[0].justification!r}. Either make a real, "
+                        "defensible change to this line, or ship the anchor "
+                        "with an empty deviation ledger - do not dress an "
+                        "unchanged line up as an adapted one."
+                    ),
+                    fragment=hollow[0].fragment_adapted,
+                )
+            )
 
     # --- Is the ledger itself real? ----------------------------------------
     for deviation in deviations:

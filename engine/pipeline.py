@@ -23,7 +23,13 @@ from .language_profile import LanguageProfile, resolve_profile
 from .llm_client import LLMClient, create_default_client
 from .models import RoomMemory, SectionInput, SectionResult, SectionResultV1, SongDNA, SongInput
 from .song_dna import generate_song_dna
-from .verify import Finding, VerificationReport, repeated_lines_preserved, verify_result
+from .verify import (
+    Finding,
+    VerificationReport,
+    line_structure_preserved,
+    repeated_lines_preserved,
+    verify_result,
+)
 from .writers_room import run_section as run_section_full
 from .writers_room_v1 import (
     judge_candidates,
@@ -37,6 +43,14 @@ from .writers_room_v1 import run_section as run_section_v1
 # where re-judging the existing candidate pool may not be enough; see
 # _all_creative_candidates_drop_a_repeat below.
 _REPEATED_LINE_LAW = "Law 3 — Compression Floor (repetition)"
+
+# verify.py's law tag for a section whose lyric lines were merged into
+# running prose. The same tag is also used by two Compression Floor
+# WARNINGS (function-word ratio, explanatory connectives), but only the
+# line-collapse check raises it at error severity, and only errors reach
+# the corrective pass — so among the findings routed here it is
+# unambiguous. See _all_creative_candidates_collapse_structure below.
+_LINE_COLLAPSE_LAW = "Law 3 — Compression Floor"
 
 RoomVersion = Literal["v1", "full"]
 
@@ -168,6 +182,30 @@ def _all_creative_candidates_drop_a_repeat(result: SectionResultV1) -> bool:
     return all(not repeated_lines_preserved(anchor, c.text) for c in creative_candidates)
 
 
+def _all_creative_candidates_collapse_structure(result: SectionResultV1) -> bool:
+    """True only when the Translator's anchor is a multi-line lyric that
+    NONE of the Creative Adapter's candidates kept the line structure of
+    — every option in the pool already flattened the verse into running
+    prose.
+
+    Exactly the same escalation logic as _all_creative_candidates_drop_a_
+    repeat above, for the other Compression Floor failure. Re-judging a
+    pool in which every candidate is already prose cannot produce a
+    ruling that isn't; the pool has to be regenerated with feedback.
+
+    This matters because a source with short, repetitive, partly
+    untranslatable lines is precisely the kind of text that tempts every
+    candidate toward smooth English prose at once — the failure mode is
+    correlated across candidates, not independent, so "some other
+    candidate will be fine" is not a safe assumption.
+    """
+    anchor = next((c.text for c in result.candidates if c.agent == "translator"), None)
+    creative_candidates = [c for c in result.candidates if c.agent == "creative_adapter"]
+    if not anchor or not creative_candidates:
+        return False
+    return all(not line_structure_preserved(anchor, c.text) for c in creative_candidates)
+
+
 def _regenerate_and_rejudge_section(
     client: LLMClient,
     original: SectionResultV1,
@@ -260,13 +298,21 @@ def _apply_corrective_pass(
         original = results_by_name[section_name]
         finding_text = "\n".join(f"- {f.detail}" for f in findings)
 
+        # Two failures where the whole candidate pool can already be
+        # unsalvageable, so re-judging it is guaranteed not to help: a
+        # dropped source repeat, and a verse flattened into prose.
         dropped_repeat = any(f.law == _REPEATED_LINE_LAW for f in findings)
-        if dropped_repeat and _all_creative_candidates_drop_a_repeat(original):
+        collapsed = any(f.law == _LINE_COLLAPSE_LAW for f in findings)
+        needs_fresh_candidates = (
+            dropped_repeat and _all_creative_candidates_drop_a_repeat(original)
+        ) or (collapsed and _all_creative_candidates_collapse_structure(original))
+
+        if needs_fresh_candidates:
             logger.warning(
                 "Corrective pass: every Creative Adapter candidate for %r "
-                "already dropped a source repeat - regenerating a fresh "
-                "candidate pool with feedback instead of re-judging the "
-                "stale one.",
+                "already lost the structure the finding is about - "
+                "regenerating a fresh candidate pool with feedback instead "
+                "of re-judging the stale one.",
                 section_name,
             )
             results_by_name[section_name] = _regenerate_and_rejudge_section(

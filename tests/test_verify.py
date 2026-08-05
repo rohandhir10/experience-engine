@@ -974,3 +974,110 @@ def test_report_summary_renders_and_flags_lenient_self_grading():
     summary = report.summary()
     assert "VERDICT: FAIL" in summary
     assert "graded itself more leniently" in summary
+
+
+# ---------------------------------------------------------------------------
+# Law 1 — Burden of Change: an unchanged line dressed up as an adapted one.
+# Reproduces a real production failure on "Jiya Jale": a section shipped
+# token-identical to its anchor apart from one inserted comma, with the
+# ledger justifying it as "for clearer rhythm and flow."
+# ---------------------------------------------------------------------------
+
+
+def _hollow_deviation(justification: str) -> Deviation:
+    return Deviation(
+        fragment_original="I keep the drawer locked",
+        fragment_adapted="I keep the drawer locked",
+        justification=justification,
+        dimension="artistic_fidelity",
+    )
+
+
+def _burden_errors(result) -> list:
+    return [
+        f for f in verify_section(result).errors if f.law == "Law 1 — Burden of Change"
+    ]
+
+
+def test_comma_only_change_justified_as_flow_is_an_error():
+    # The exact shape of the real failure: punctuation-only edit, vacuous reason.
+    result = _section(
+        "I keep the drawer locked, and I never open it",
+        [_hollow_deviation("for clearer rhythm and flow")],
+    )
+    errors = _burden_errors(result)
+    assert len(errors) == 1
+    assert "materially the literal anchor" in errors[0].detail
+
+
+def test_the_error_is_severity_error_so_it_triggers_a_corrective_retry():
+    # Severity is the whole point: engine/pipeline.py only retries on
+    # errors, so a warning here would be recorded and then ignored.
+    result = _section(
+        "I keep the drawer locked, and I never open it",
+        [_hollow_deviation("it just sounds better")],
+    )
+    assert _burden_errors(result)[0].severity == "error"
+
+
+def test_shipping_the_anchor_verbatim_with_an_empty_ledger_is_not_flagged():
+    # The Judge's actual documented rule - when nothing earns a change,
+    # ship the anchor. That is correct behavior and must stay silent here.
+    assert not _burden_errors(_section(ANCHOR, []))
+
+
+def test_a_real_adaptation_with_a_specific_reason_is_not_flagged():
+    assert not _burden_errors(_adapted_section())
+
+
+def test_a_small_change_with_a_specific_reason_is_not_flagged():
+    # The false positive this check is deliberately built to avoid: a
+    # precise, defensible edit that a token diff barely registers. It
+    # survives because its justification names something real.
+    result = _section(
+        "I keep the drawer locked and I never open it?",
+        [
+            Deviation(
+                fragment_original="I never open it",
+                fragment_adapted="I never open it?",
+                justification=(
+                    "The source's rising final particle marks this as a "
+                    "question she is asking herself, not a statement."
+                ),
+                dimension="artistic_fidelity",
+            )
+        ],
+    )
+    assert not _burden_errors(result)
+
+
+def test_a_genuinely_rewritten_line_with_a_weak_reason_is_not_a_burden_error():
+    # A vacuous justification on a line that DID really change is a
+    # justification-quality warning, not this error - the engine did do
+    # the work, it just explained itself badly.
+    result = _section(
+        "The drawer stays shut. I never open it.",
+        [
+            Deviation(
+                fragment_original="I keep the drawer locked",
+                fragment_adapted="The drawer stays shut",
+                justification="it flows better",
+                dimension="artistic_fidelity",
+            )
+        ],
+    )
+    assert not _burden_errors(result)
+
+
+def test_clearer_rhythm_and_flow_is_recognised_as_tautological():
+    # The specific phrasing that slipped past the original pattern list:
+    # it says "clearer", where every existing pattern said "better".
+    from engine.verify import _is_tautological
+
+    assert _is_tautological("for clearer rhythm and flow")
+    assert _is_tautological("improves the flow")
+    assert _is_tautological("easier to sing")
+    # ...without swallowing a real, specific reason.
+    assert not _is_tautological(
+        "the source repeats this line twice and the English has to as well"
+    )

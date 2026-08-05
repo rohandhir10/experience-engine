@@ -3122,6 +3122,63 @@ getting the same result.
   suite failed as intended. Full suite green — 79 Vitest, 595 pytest,
   `tsc --noEmit` and `next build` clean.
 
+### Two adaptation-quality failures found on a real run ("Jiya Jale")
+
+Both diagnosed from one real production output, both fixed. The output
+preserved the source's meaning while losing its song-like qualities —
+and in both cases the machinery to catch it already existed and simply
+didn't fire.
+
+- **Hollow deviations** (`engine/verify.py`). The shipped section was
+  token-identical to its literal anchor apart from one inserted comma,
+  and the deviation ledger justified that comma as "for clearer rhythm
+  and flow." Two separate gaps let it through: `TAUTOLOGICAL_PATTERNS`
+  matched "flows better"/"more natural" but not "clearer rhythm and
+  flow" (same vacuity, different adjective), and even when a tautology
+  IS caught it is only `severity="warning"`, which `pipeline.py`
+  deliberately never retries on. Adds a new `Law 1 — Burden of Change`
+  check at **error** severity, so it reaches the corrective pass: it
+  fires when the shipped line is materially the anchor
+  (`adaptation_distance <= 0.05`) **and** at least one logged deviation
+  justifies itself vacuously. Requiring both conditions is what keeps it
+  safe — distance alone would punish a small but genuine edit a token
+  diff can't see (a statement turned into a question), and such an edit
+  carries a specific reason so never trips the tautology half. Shipping
+  the anchor verbatim with an *empty* ledger stays correct and silent;
+  that is the Judge's documented rule. Also widened the pattern list
+  ("clearer rhythm/flow/cadence", "improves the flow", "easier to sing").
+- **Compression Floor collapse** (`engine/pipeline.py`,
+  `engine/verify.py`). The source's short verse lines came back as one
+  continuous prose paragraph, with commas and periods standing in for
+  line breaks. `verify.py` already detects this (Law 3, error severity),
+  but the corrective pass responded by *re-judging the same candidate
+  pool* — and when every Creative Adapter candidate has already
+  flattened the verse, no re-judge can produce line-broken output,
+  because there is nothing left in the pool to pick. The existing
+  escalation for this exact situation (`_all_creative_candidates_drop_a_
+  repeat` → regenerate a fresh pool with feedback) covered only dropped
+  repeats. Generalised it: new `verify.line_structure_preserved`
+  predicate + `_all_creative_candidates_collapse_structure`, routing a
+  collapse to regeneration on the same terms. This failure mode is
+  *correlated* across candidates rather than independent — a short,
+  repetitive, partly untranslatable source tempts every candidate toward
+  smooth English prose at once — so "some other candidate will be fine"
+  was never a safe assumption.
+- **What this does NOT do:** neither fix makes the adaptation *better* on
+  its own; they make the engine stop shipping two specific failures
+  silently, by routing them into the corrective pass that already
+  existed. Each firing costs one extra corrective LLM call. Nothing here
+  addresses the deeper open gap (cross-language emotional fidelity —
+  still on the research roadmap below).
+- **Tier 1** — deterministic checks and routing, no model-quality claim.
+- **Benchmark coverage:** 13 new tests (7 verify, 6 pipeline), including
+  a fake client whose whole candidate pool collapses, to exercise the
+  **routing** decision rather than only the predicate. Both fixes were
+  falsified before being trusted: disabling the Burden-of-Change check
+  fails 2 tests, and disabling the collapse routing fails the end-to-end
+  regeneration test (it falls through to the plain re-judge path). Full
+  suite green — 609 pytest, 79 Vitest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
