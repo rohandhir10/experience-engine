@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
 import { MediumSwitcher } from "./MediumSwitcher";
+import { ThemeToggle } from "./ThemeToggle";
 
 /** Sign In / Get Started render everywhere (consistent global chrome, like
  * ChatGPT). Sign In is now real (Auth.js + Google, see web/auth.ts) and
@@ -77,6 +78,8 @@ export function SiteHeader({
         </Link>
 
         {right}
+
+        <ThemeToggle forceDark={forceDark} />
 
         <Link href="/sign-in" className={`hidden sm:inline ${navLink}`}>
           Sign In

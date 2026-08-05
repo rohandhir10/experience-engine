@@ -52,7 +52,12 @@ const config: Config = {
       },
     },
   },
-  darkMode: "media",
+  // Class-based, not "media": a manual toggle (components/ThemeToggle.tsx)
+  // needs to override the OS preference, which "media" can't do. The
+  // `dark` class is set on <html> by lib/theme.ts's THEME_INIT_SCRIPT
+  // (inlined into app/layout.tsx, before hydration) and by the toggle
+  // itself, defaulting to prefers-color-scheme when nothing is stored yet.
+  darkMode: "class",
   plugins: [],
 };
 

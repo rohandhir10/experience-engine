@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { AmbientGlow } from "@/components/AmbientGlow";
 import { JsonLd } from "@/components/JsonLd";
 import { SITE_URL, SITE_NAME, absoluteUrl } from "@/lib/seo";
+import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const DEFAULT_TITLE = "Castia — Adapt the feeling, not just the words";
 const DEFAULT_DESCRIPTION =
@@ -69,8 +71,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="font-sans bg-paper text-ink dark:bg-paper-dark dark:text-ink-dark antialiased">
+        {/* Sets the `dark` class on <html> before hydration - beforeInteractive
+            runs it as part of the initial HTML, ahead of paint, so there's no
+            flash of the wrong theme. suppressHydrationWarning above covers the
+            <html> element since this script mutates its class/style attributes
+            outside React's own render. */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={softwareApplicationJsonLd} />
         <AmbientGlow />
