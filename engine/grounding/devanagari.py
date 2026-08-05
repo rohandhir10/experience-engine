@@ -31,6 +31,7 @@ and says so.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from .base import GroundingResult, register_counter
 
@@ -38,13 +39,24 @@ from .base import GroundingResult, register_counter
 _INDEPENDENT_VOWELS = set("अआइईउऊऋॠऌएऐओऔऑऍ")
 # Dependent vowel signs (matras) — these REPLACE the inherent schwa.
 _MATRAS = set("ािीुूृॄॢेैोौॉॅ")
-# Consonants: क through ह, plus nukta forms.
-_CONSONANTS = set(
-    "कखगघङचछजझञटठडढणतथदधनपफबभमयरलळवशषसह"
-    "क़ख़ग़ज़ड़ढ़फ़"
-)
+# Consonants: क through ह. Nukta forms are deliberately NOT listed here.
+#
+# They used to be, written as "क़ख़ग़ज़ड़ढ़फ़" — which is 14 codepoints for 7
+# letters, because each is a base consonant plus a combining nukta.
+# set() over that string therefore put the bare NUKTA MARK in the
+# consonant set and left the precomposed characters (U+0958-095F) out of
+# it entirely, so the same word counted differently depending only on
+# which Unicode form it arrived in: decomposed क+़ gained a spurious
+# consonant, precomposed क़ was not recognised as a consonant at all and
+# lost its vowel. Handled by normalising to NFD below and treating the
+# nukta as what it is - a modifier on the preceding consonant.
+_CONSONANTS = set("कखगघङचछजझञटठडढणतथदधनपफबभमयरलळवशषसह")
 _VIRAMA = "्"  # ्  — kills the inherent schwa (conjunct former)
+_NUKTA = "़"   # ़  — modifies the preceding consonant; never a syllable
 _ANUSVARA_CANDRABINDU = set("ंँः")  # nasalization/visarga: no new syllable
+
+_LATIN_RUN_RE = re.compile(r"[A-Za-z][A-Za-z']*")
+_DIGIT_RUN_RE = re.compile(r"\d")
 
 _DEVANAGARI_RANGE = (0x0900, 0x097F)
 _WORD_SPLIT_RE = re.compile(r"[\s।॥,.!?;:—\-​]+")
@@ -71,18 +83,21 @@ def _syllable_nuclei(word: str) -> list[str]:
             continue
 
         if char in _CONSONANTS:
-            nxt = word[i + 1] if i + 1 < len(word) else ""
+            # A nukta binds to this consonant and changes its sound, not
+            # its syllable count - look past it for the real next mark.
+            offset = 2 if word[i + 1 : i + 2] == _NUKTA else 1
+            nxt = word[i + offset] if i + offset < len(word) else ""
             if nxt == _VIRAMA:
                 # Conjunct: this consonant has no vowel of its own.
-                i += 2
+                i += offset + 1
                 continue
             if nxt in _MATRAS:
                 nuclei.append("explicit")
-                i += 2
+                i += offset + 1
                 continue
             # Bare consonant: carries the inherent schwa (for now).
             nuclei.append("schwa")
-            i += 1
+            i += offset
             continue
 
         # Matras/nasalization handled with their consonant; skip anything else.
@@ -123,7 +138,22 @@ def _count_word(word: str) -> int:
 
 
 def count_hindi(text: str) -> GroundingResult | None:
+    # NFD, not NFC: U+0958-095F (the precomposed nukta consonants) are
+    # Unicode composition exclusions, so NFC leaves them precomposed and
+    # the two encodings stay different. NFD collapses both to the same
+    # base+nukta sequence, which is what makes the count encoding-
+    # independent.
+    text = unicodedata.normalize("NFD", text)
+
     if not _has_devanagari(text):
+        return None
+
+    # Hindi numerals are suppletive - एक दो तीन ... इक्कीस बाईस are all
+    # separate words, unlike Sino-Korean's regular place-value system
+    # (see grounding/hangul.py, which CAN count digits for that reason).
+    # There is no honest way to syllabify an arbitrary digit run here, and
+    # silently dropping it would be an undercount that still looks exact.
+    if _DIGIT_RUN_RE.search(text):
         return None
 
     total = 0
@@ -132,18 +162,29 @@ def count_hindi(text: str) -> GroundingResult | None:
             if word:
                 total += _count_word(word)
 
+    # Hindi film lyrics code-switch into English constantly, and dropping
+    # it silently undercounts exactly the lines that do it most. The
+    # Korean counter already handles this for the same reason.
+    from ..rhythm import count_syllables_word
+
+    latin = sum(count_syllables_word(w) for w in _LATIN_RUN_RE.findall(text))
+
     if total == 0:
         return None
 
+    caveat = (
+        "schwa deletion applied (word-final and one medial position); "
+        "Hindi schwa deletion is not fully regular, so treat as close "
+        "rather than exact"
+    )
+    if latin:
+        caveat += f"; includes {latin} syllable(s) from Latin-script words"
+
     return GroundingResult(
-        value=total,
+        value=total + latin,
         unit="syllables",
         language="Hindi",
-        caveat=(
-            "schwa deletion applied (word-final and one medial position); "
-            "Hindi schwa deletion is not fully regular, so treat as close "
-            "rather than exact"
-        ),
+        caveat=caveat,
     )
 
 

@@ -3503,6 +3503,54 @@ Result: **clean on both, and a third defect found in the benchmark.**
   the two cannot silently drift apart again. Falsified: restoring the
   old default fails the test. Full suite green — 763 pytest, 86 Vitest.
 
+### Auditing Hindi and Hangul for the Urdu bug classes
+
+The two Urdu defects were (a) a multi-codepoint sequence spelling one
+unit counted as several, and (b) an admission gate that let uncountable
+input through. Both counters were checked for each.
+
+- **Hangul — clean on both.** It NFC-normalises before counting, so
+  decomposed jamo and precomposed blocks agree; and it already counts
+  Latin words, digits (Sino-Korean place values) and Hanja rather than
+  dropping them, on the stated grounds that "anything left uncounted
+  would be a silent undercount that still looks exact". That is the
+  discipline Devanagari was missing.
+- **Devanagari — two real defects, both fixed.**
+  - **The same word counted differently in different Unicode encodings.**
+    The consonant set listed nukta forms as the literal
+    `"क़ख़ग़ज़ड़ढ़फ़"` — 14 codepoints for 7 letters, since each is a base
+    consonant plus a combining nukta. `set()` over that therefore put the
+    bare **nukta mark** into the consonant set (where it could take an
+    inherent schwa of its own) and left the **precomposed** characters
+    U+0958–095F out of it entirely (so they were not recognised as
+    consonants and lost their vowel). `बक़ा` counted 2 decomposed and 1
+    precomposed. Fixed by normalising to **NFD** — deliberately not NFC,
+    because U+0958–095F are Unicode composition exclusions and NFC leaves
+    them precomposed, so the two encodings would stay different — and by
+    treating the nukta as what it is, a modifier on the preceding
+    consonant.
+  - **Code-switched English was dropped in silence.** Hindi film lyrics
+    mix English constantly, and only Devanagari was counted:
+    `तू meri baby doll` returned **1**. Latin words are now counted via
+    the same CMU-backed helper the Korean counter uses, and disclosed in
+    the caveat. Digit runs now **decline** instead: Hindi numerals are
+    suppletive (एक दो तीन … इक्कीस are separate words), unlike
+    Sino-Korean's regular place-value system, so there is no honest way
+    to syllabify an arbitrary digit run — and silently dropping it is the
+    exact failure being fixed.
+- **Observed but NOT changed — medial schwa deletion.** Spot-checking 11
+  common words, three came back one short (`ज़िंदगी`, `मोहब्बत`,
+  `आसमान`), all from the medial rule firing. Deliberately left alone:
+  the module already discloses schwa deletion as "close rather than
+  exact", Hindi schwa deletion is genuinely irregular, and at least one
+  of those (`आसमान` as *aas-maan*) is defensible in sung Hindi. The
+  hand-romanisations used to spot them are one person's judgment, not
+  evidence. **This needs a native speaker to settle, not a code change** —
+  recorded here so it is not rediscovered as new.
+- **Benchmark coverage:** 7 new tests. Both fixes falsified — reverting
+  the NFD normalisation fails the encoding-agreement test, reverting the
+  Latin counting fails the code-switch test. Full suite green: 790 pytest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

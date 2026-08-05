@@ -439,3 +439,80 @@ def test_urdu_word_determinacy_allows_a_final_bare_consonant():
 
     assert _word_is_determined("کِتَاب")
     assert not _word_is_determined("بادشاہ")
+
+
+# ---------------------------------------------------------------------------
+# Devanagari: the same two bug classes found in the Urdu counter, checked
+# for here after the fact. Hangul was audited too and was clean on both -
+# it NFC-normalises, and it already counts Latin/digits/Hanja rather than
+# dropping them, which is the discipline Devanagari was missing.
+# ---------------------------------------------------------------------------
+
+
+def test_hindi_nukta_counts_the_same_in_both_unicode_encodings():
+    """क़ has two encodings: precomposed U+0958, or क + combining nukta.
+    The consonant set was written with the decomposed spelling, so set()
+    put the bare nukta mark in it and left U+0958 out - the same word
+    then counted differently depending only on how it was encoded.
+    """
+    decomposed = "ब" + "क" + "़" + "ा"
+    precomposed = "ब" + "क़" + "ा"
+    a, b = count_hindi(decomposed), count_hindi(precomposed)
+    assert a is not None and b is not None
+    assert a.value == b.value == 2, "baqā is 2 syllables in either encoding"
+
+
+def test_hindi_nukta_is_never_its_own_syllable():
+    """The bare nukta was in the consonant set, so it could pick up an
+    inherent schwa of its own."""
+    from engine.grounding.devanagari import _NUKTA, _CONSONANTS
+
+    assert _NUKTA not in _CONSONANTS
+
+
+def test_hindi_counts_code_switched_english():
+    """Hindi film lyrics code-switch constantly, and the Latin words were
+    dropped in silence - 'तू meri baby doll' returned 1."""
+    result = count_hindi("तू meri baby doll")
+    assert result is not None
+    assert result.value == 6, "tū me-ri ba-by doll"
+    assert "Latin" in (result.caveat or "")
+
+
+def test_hindi_declines_when_digits_are_present():
+    """Hindi numerals are suppletive - एक दो तीन ... इक्कीस are separate
+    words, unlike Sino-Korean's regular place-value system. There is no
+    honest way to syllabify an arbitrary digit run, and dropping it
+    silently would be an undercount that still looks exact.
+    """
+    assert count_hindi("दिल 24 घंटे") is None
+
+
+def test_hindi_plain_devanagari_is_unchanged():
+    for word, expected in [("कमल", 2), ("समझ", 2), ("अमर", 2), ("दिल", 1)]:
+        result = count_hindi(word)
+        assert result is not None and result.value == expected, word
+
+
+# --- Hangul: audited for the same two classes, clean on both ---------------
+
+
+def test_korean_counts_the_same_decomposed_or_precomposed():
+    import unicodedata
+
+    from engine.grounding.hangul import count_korean
+
+    nfc = "공주"
+    nfd = unicodedata.normalize("NFD", nfc)
+    assert len(nfd) > len(nfc), "the test input must actually be decomposed"
+    assert count_korean(nfc).value == count_korean(nfd).value == 2
+
+
+def test_korean_does_not_silently_drop_latin_digits_or_hanja():
+    from engine.grounding.hangul import count_korean
+
+    result = count_korean("사랑 forever 24시간")
+    assert result is not None
+    # 사랑(2) + forever(3) + 이십사(3) + 시간(2)
+    assert result.value == 10
+    assert result.caveat and "Latin" in result.caveat
