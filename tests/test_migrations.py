@@ -27,7 +27,7 @@ def test_migrate_to_head_succeeds_on_a_fresh_database(tmp_path, monkeypatch):
 
     insp = inspect(db.get_engine())
     tables = set(insp.get_table_names())
-    assert {"adaptations", "api_keys", "api_key_usage"} <= tables
+    assert {"adaptations", "api_keys", "api_key_usage", "monthly_quota_usage"} <= tables
     assert "medium" in {c["name"] for c in insp.get_columns("adaptations")}
 
 
@@ -65,3 +65,12 @@ def test_migrate_to_head_succeeds_on_a_preexisting_pre_migration_database(tmp_pa
     insp = inspect(db.get_engine())
     assert "medium" in {c["name"] for c in insp.get_columns("adaptations")}
     assert "api_keys" in insp.get_table_names()
+    # 0004 runs in this same chain (the DB is stuck before 0002/0003/0004
+    # all ran) - the real scenario it targets, distinct from the fresh-
+    # database case above where baseline's create_all already includes it.
+    assert "monthly_quota_usage" in insp.get_table_names()
+    assert {c["name"] for c in insp.get_columns("monthly_quota_usage")} == {
+        "month",
+        "ip",
+        "count",
+    }

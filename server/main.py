@@ -50,11 +50,18 @@ needs an external job queue at today's scale), and the caller polls
 Operational behavior:
   - Same-text submissions are served from server/.cache without re-running
     the engine (server/cache.py); the id doubles as the share-URL slug.
-  - Input is length-capped (CASTIA_MAX_INPUT_CHARS) so one paste can't run
-    an unbounded number of engine sections.
-  - A simple per-IP daily quota (CASTIA_DAILY_LIMIT, in-memory, resets on
-    restart) caps LLM spend from any single client. Cache hits don't
-    count against it. Set to 0 to disable.
+  - Input is length-capped (CASTIA_MAX_INPUT_CHARS for songs,
+    CASTIA_MAX_COMICS_PANELS for a chapter's panel count) so one
+    submission can't run an unbounded number of engine sections.
+  - A per-IP daily quota (CASTIA_DAILY_LIMIT, Postgres-backed when
+    DATABASE_URL is set - server/quota.py) is an anti-burst limit only,
+    not a cost ceiling by itself - it resets every day, forever. A
+    separate per-IP monthly quota (CASTIA_MONTHLY_LIMIT) is the real
+    ceiling on cumulative free-tier spend, shared across music and
+    comics for the same IP. Both cover the browser-facing endpoints
+    (/api/adapt, /api/comics/adapt); the public API (/v1/*) uses its own
+    per-API-key limit (CASTIA_API_DAILY_LIMIT) instead. Cache hits don't
+    count against either. Set a limit to 0 to disable it.
   - Endpoints are plain `def`, so FastAPI runs them in its threadpool —
     the engine is synchronous and a full song takes tens of seconds; this
     keeps the event loop free without touching the engine.
@@ -107,13 +114,30 @@ logging.basicConfig(
 logger = logging.getLogger("castia.server")
 
 MAX_INPUT_CHARS = int(os.environ.get("CASTIA_MAX_INPUT_CHARS", "8000"))
-DAILY_LIMIT = int(os.environ.get("CASTIA_DAILY_LIMIT", "10"))
+# Anti-burst only, not a real cost ceiling on its own (see MONTHLY_LIMIT
+# below) - lowered from 10 once the real per-request cost was worked out
+# (docs/CAPABILITY_MATRIX.md): 10/day with no monthly cap left a
+# persistent free IP's cumulative spend completely unbounded.
+DAILY_LIMIT = int(os.environ.get("CASTIA_DAILY_LIMIT", "3"))
+# The actual free-tier cost ceiling per IP, checked alongside DAILY_LIMIT
+# in _check_quota (server/quota.py::check_and_increment_monthly). Shares
+# one counter across both music and comics for the same IP (deliberately
+# not tracked per-medium) - it's a total spend ceiling, not a per-feature
+# allowance.
+MONTHLY_LIMIT = int(os.environ.get("CASTIA_MONTHLY_LIMIT", "6"))
 # A full-resolution chapter-slice PNG can be several megabytes; this caps
 # a single panel upload well above any normal slice, not just above a
 # typical one, so this only ever rejects something clearly wrong (a
 # non-panel file, a batch accidentally concatenated) rather than a real
 # comic page.
 MAX_IMAGE_BYTES = int(os.environ.get("CASTIA_MAX_IMAGE_BYTES", str(15 * 1024 * 1024)))
+# Comics has no per-request cost ceiling at all otherwise: unlike songs
+# (MAX_INPUT_CHARS bounds one submission's size), a chapter's cost scales
+# directly with panel count and nothing capped it - a 100-panel chapter
+# and a 3-panel one both cost "1" against DAILY_LIMIT/MONTHLY_LIMIT
+# despite wildly different real spend. 12 is enough for a real short
+# chapter/one-shot to demonstrate the product, not a whole volume.
+MAX_COMICS_PANELS = int(os.environ.get("CASTIA_MAX_COMICS_PANELS", "12"))
 # Per-API-key daily cap for the public /v1/* endpoints (server/api_keys.py) -
 # a separate dimension from CASTIA_DAILY_LIMIT above, which is per-IP and
 # only ever gates the anonymous browser flow. A real API caller is
@@ -237,16 +261,27 @@ def _require_api_key(request: Request) -> dict:
     return resolved
 
 
-def _check_quota(ip: str) -> None:
+def _check_quota(ip: str, kind: str = "songs") -> None:
     # server/quota.py: Postgres-backed (atomic, safe across more than one
     # process/instance) when DATABASE_URL is set, an in-memory dict
-    # otherwise - see that module's docstring.
+    # otherwise - see that module's docstring. Daily is an anti-burst
+    # limit only; monthly is the real cost ceiling - see MONTHLY_LIMIT's
+    # comment above for why the daily-only check that used to be here
+    # left cumulative spend completely unbounded.
     if not quota.check_and_increment(ip, DAILY_LIMIT):
         raise HTTPException(
             status_code=429,
             detail=(
-                "You've reached today's limit for new songs. Already-"
-                "processed songs are still free to view and share."
+                f"You've reached today's limit for new {kind}. Already-"
+                f"processed {kind} are still free to view and share."
+            ),
+        )
+    if not quota.check_and_increment_monthly(ip, MONTHLY_LIMIT):
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You've reached this month's free limit for new {kind}. "
+                f"Already-processed {kind} are still free to view and share."
             ),
         )
 
@@ -557,23 +592,42 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
     persistence comics has had; see GET /api/comics/adapt/{result_id}
     below for the share-link read side this unlocks.
     """
-    return _comics_adapt_or_serve_cached(request, _authed_user_id(http_request))
+    return _comics_adapt_or_serve_cached(
+        request, http_request, _authed_user_id(http_request), enforce_ip_quota=True
+    )
 
 
-def _comics_adapt_or_serve_cached(request: ComicsAdaptRequest, user_id: str | None) -> dict:
+def _comics_adapt_or_serve_cached(
+    request: ComicsAdaptRequest,
+    http_request: Request,
+    user_id: str | None,
+    enforce_ip_quota: bool,
+) -> dict:
     """The actual cache-hit / run-engine flow for a comics chapter,
-    shared by /api/comics/adapt (browser, session-derived user_id) and
-    /v1/comics/adapt (public API, user_id resolved from the API key
-    instead of a session) - same split as
-    _adapt_or_serve_cached does for songs, and for the same reason: only
-    the auth story differs between the two callers, not what actually
-    happens once a user_id is known.
+    shared by /api/comics/adapt (browser, per-IP quota, session-derived
+    user_id) and /v1/comics/adapt (public API, per-API-key quota already
+    enforced by the caller before this runs, user_id resolved from the
+    key instead of a session) - same split, same reasoning, as
+    _adapt_or_serve_cached does for songs: only the auth/quota gating
+    differs between the two callers, not what actually happens once a
+    user_id is known.
     """
     non_empty_panels = [p for p in request.panels if p.text.strip()]
     if not non_empty_panels:
         raise HTTPException(
             status_code=400, detail="At least one panel with extracted text is required."
         )
+    if len(non_empty_panels) > MAX_COMICS_PANELS:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"That's over the {MAX_COMICS_PANELS}-panel limit for one "
+                "chapter. Try a shorter chapter or a single episode."
+            ),
+        )
+
+    if enforce_ip_quota:
+        _check_quota(_client_ip(http_request), kind="chapters")
 
     result_id = cache.comics_content_id(
         [p.text for p in non_empty_panels],
@@ -1325,4 +1379,6 @@ def v1_adapt(request: AdaptRequest, http_request: Request) -> dict:
 @app.post("/v1/comics/adapt")
 def v1_comics_adapt(request: ComicsAdaptRequest, http_request: Request) -> dict:
     api_key_context = _require_api_key(http_request)
-    return _comics_adapt_or_serve_cached(request, api_key_context["user_id"])
+    return _comics_adapt_or_serve_cached(
+        request, http_request, api_key_context["user_id"], enforce_ip_quota=False
+    )

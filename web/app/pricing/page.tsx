@@ -17,8 +17,6 @@ const PAGE_CREDITS = 50; // a typical 5-panel manga/webtoon page
 
 type Pack = { name: string; price: number; credits: number; blurb: string };
 
-const FREE_CREDITS = 100;
-
 const PACKS: Pack[] = [
   {
     name: "Starter",
@@ -101,11 +99,12 @@ export default function PricingPage() {
           </h2>
           <div className="mt-4 rounded-2xl border border-black/[0.06] px-7 py-8 dark:border-white/[0.07]">
             <p className="font-serif text-xl text-ink dark:text-ink-dark">
-              {FREE_CREDITS} credits / month
+              A few adaptations every month
             </p>
             <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
-              No account needed, no card. Enough for a few songs or a couple
-              of comic pages a month.
+              No account needed, no card. Enough to genuinely try Castia on a
+              real song or comic page - not sized for daily or bulk use, since
+              this tier isn't billed for.
             </p>
           </div>
         </section>

@@ -164,16 +164,37 @@ class AdaptationJob(Base):
 
 class DailyQuotaUsage(Base):
     """Per-(day, ip) run count backing server.main's daily submission cap
-    (CASTIA_DAILY_LIMIT). Same reasoning as AdaptationJob above: an
-    in-memory dict can't be checked-and-incremented consistently across
-    more than one process, so a burst split across instances could blow
-    past the intended per-IP limit. Falls back to an in-memory dict when
-    DATABASE_URL isn't set - see server/quota.py.
+    (CASTIA_DAILY_LIMIT) - an anti-burst limit only. See
+    MonthlyQuotaUsage below for the actual cost ceiling; this table alone
+    never bounded cumulative spend, since it resets every day forever.
+    Same reasoning as AdaptationJob above: an in-memory dict can't be
+    checked-and-incremented consistently across more than one process, so
+    a burst split across instances could blow past the intended per-IP
+    limit. Falls back to an in-memory dict when DATABASE_URL isn't set -
+    see server/quota.py.
     """
 
     __tablename__ = "daily_quota_usage"
 
     day: Mapped[str] = mapped_column(String, primary_key=True)  # ISO date, e.g. "2026-08-03"
+    ip: Mapped[str] = mapped_column(String, primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class MonthlyQuotaUsage(Base):
+    """Per-(month, ip) run count - the real free-tier cost ceiling.
+
+    DailyQuotaUsage alone let a single free IP accumulate unbounded
+    monthly spend (10/day forever, no total). This is the same shape one
+    level up: a calendar-month key instead of a day key, checked
+    alongside the daily cap in server.main::_check_quota
+    (CASTIA_MONTHLY_LIMIT), same atomic-UPSERT reasoning as
+    DailyQuotaUsage above.
+    """
+
+    __tablename__ = "monthly_quota_usage"
+
+    month: Mapped[str] = mapped_column(String, primary_key=True)  # e.g. "2026-08"
     ip: Mapped[str] = mapped_column(String, primary_key=True)
     count: Mapped[int] = mapped_column(Integer, default=0)
 

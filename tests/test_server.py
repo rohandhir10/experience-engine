@@ -47,6 +47,7 @@ def _isolated_cache(monkeypatch, tmp_path):
 @pytest.fixture(autouse=True)
 def _no_quota_limit(monkeypatch):
     monkeypatch.setattr(main, "DAILY_LIMIT", 0)
+    monkeypatch.setattr(main, "MONTHLY_LIMIT", 0)
 
 
 def _patch_engine(monkeypatch, engine_result, captured: dict):
@@ -682,6 +683,73 @@ def test_comics_adapt_endpoint_rejects_all_empty_panels():
         main.comics_adapt_endpoint(request, _FakeRequest())
 
     assert exc_info.value.status_code == 400
+
+
+def test_comics_adapt_endpoint_rejects_a_chapter_over_the_panel_cap(monkeypatch):
+    """Comics had no per-request size ceiling at all before MAX_COMICS_PANELS -
+    unlike songs (MAX_INPUT_CHARS), a chapter's cost scales directly with
+    panel count and nothing bounded it: a 100-panel chapter and a 3-panel
+    one both cost "1" against the daily/monthly quota."""
+    monkeypatch.setattr(main, "MAX_COMICS_PANELS", 2)
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="a"),
+            main.ComicsPanelText(id="panel-2", text="b"),
+            main.ComicsPanelText(id="panel-3", text="c"),
+        ],
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_adapt_endpoint(request, _FakeRequest())
+
+    assert exc_info.value.status_code == 413
+
+
+def test_comics_adapt_endpoint_enforces_ip_quota(monkeypatch):
+    """The browser-facing comics endpoint had NO quota enforcement at all
+    before this - _check_quota was only ever called from the song
+    endpoints. Comics is the more expensive path per request (an OCR
+    pass plus a full Writers' Room run per panel), so this gap mattered
+    more here, not less."""
+    _patch_comics_adapt(monkeypatch)
+    monkeypatch.setattr(main, "DAILY_LIMIT", 1)
+    monkeypatch.setattr(main, "MONTHLY_LIMIT", 5)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+    main.comics_adapt_endpoint(request, _FakeRequest())  # first call: allowed
+
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_adapt_endpoint(
+            main.ComicsAdaptRequest(
+                source_language="Korean",
+                panels=[main.ComicsPanelText(id="panel-2", text="different text")],
+            ),
+            _FakeRequest(),
+        )
+
+    assert exc_info.value.status_code == 429
+    assert "chapters" in exc_info.value.detail
+
+
+def test_v1_comics_adapt_does_not_enforce_ip_quota(monkeypatch):
+    """The public API path is gated by its own per-key limit
+    (_require_api_key -> API_DAILY_LIMIT), not the browser's per-IP one -
+    same split songs already have between /api/adapt and /v1/adapt."""
+    _patch_comics_adapt(monkeypatch)
+    monkeypatch.setattr(main, "DAILY_LIMIT", 1)
+    monkeypatch.setattr(main, "MONTHLY_LIMIT", 1)
+    monkeypatch.setattr(
+        main, "_require_api_key", lambda request: {"user_id": "u1", "key_id": "k1"}
+    )
+
+    for i in range(3):
+        request = main.ComicsAdaptRequest(
+            source_language="Korean",
+            panels=[main.ComicsPanelText(id=f"panel-{i}", text=f"text {i}")],
+        )
+        main.v1_comics_adapt(request, _FakeRequest())  # must not raise 429
 
 
 def test_comics_adapt_endpoint_returns_a_persisted_id(monkeypatch):
