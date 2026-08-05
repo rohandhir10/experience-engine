@@ -1,4 +1,4 @@
-"""Hindi/Punjabi syllable counting for Devanagari.
+"""Hindi/Marathi syllable counting for Devanagari.
 
 The production language has had no source grounding at all until now —
 `rhythm.source_syllable_estimate` returns None for any non-Latin script,
@@ -24,9 +24,10 @@ worse than no grounding, because it looks authoritative.
 Implemented here: word-final deletion (near-universal in Hindi, and the
 dominant error term) plus the standard medial VC_CV rule. Schwa deletion
 in Hindi is genuinely not fully regular, so the result carries a caveat
-rather than claiming exactness. Note also that Punjabi and Marathi
-delete schwas differently from Hindi; this counter is tuned for Hindi
-and says so.
+rather than claiming exactness. Note also that Marathi deletes schwas
+somewhat differently from Hindi; this counter is tuned for Hindi and
+says so in its result (`language="Hindi"` even when registered for
+"mr"). Punjabi is NOT handled here — see engine/grounding/gurmukhi.py.
 """
 from __future__ import annotations
 
@@ -189,5 +190,9 @@ def count_hindi(text: str) -> GroundingResult | None:
 
 
 register_counter("hi", count_hindi)
-register_counter("pa", count_hindi)  # Gurmukhi-written Punjabi differs; see docs
 register_counter("mr", count_hindi)
+# Punjabi ("pa") is NOT registered here. Punjabi is written in Gurmukhi
+# (U+0A00-0A7F), a different Unicode block entirely, so pointing it at
+# this Devanagari-only counter meant `_has_devanagari` always failed and
+# "pa" always silently declined. See engine/grounding/gurmukhi.py, which
+# is what "pa" is actually registered to now.

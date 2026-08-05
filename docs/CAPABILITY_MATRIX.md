@@ -3613,6 +3613,63 @@ gap in each: a real linguistic unit silently miscounted or dropped.
   reverting each one individually reproduces the exact wrong number shown
   above, restoring it fixes it. Full suite green: 799 pytest.
 
+### Punjabi grounding was never reachable — new Gurmukhi counter
+
+`register_counter("pa", ...)` pointed Punjabi at `count_hindi`
+(`devanagari.py`), which only recognizes the Devanagari Unicode block
+(U+0900–097F). Real Punjabi is written in **Gurmukhi** (U+0A00–0A7F), a
+different block entirely — this codebase already knew that, since
+`youtube_ingest.py`'s own script-detection table has a separate Gurmukhi
+range for `"pa"`. So `_has_devanagari` was false on every real Punjabi
+input and the counter always returned `None`. Punjabi source grounding
+has never actually produced a number; it looked registered and wasn't.
+
+Fixed with a new module, `engine/grounding/gurmukhi.py`, mirroring
+`devanagari.py`'s architecture (independent vowels, matras, virama,
+nukta, schwa deletion) against the real Gurmukhi letter inventory:
+
+- **Confirmed via `unicodedata.decomposition()`, not assumed,** which of
+  the six Gurmukhi nukta-form letters (ਲ਼ਸ਼ਖ਼ਗ਼ਜ਼ਫ਼) are Unicode
+  composition exclusions (they are, same as Devanagari's ड़/ढ़/...) —
+  and separately confirmed that ੜ (RRA), which *looks* like a nukta
+  form, has no decomposition at all and is a plain atomic letter. Getting
+  this wrong would have reintroduced the exact double-counting/dropping
+  bug already fixed once for Devanagari, this time on day one instead of
+  found later. NFD-normalizes for the same reason: NFC leaves the
+  composition exclusions precomposed, so only NFD makes both input
+  encodings agree.
+- **Addak (ੱ, gemination of the *following* consonant) and
+  bindi/tippi (nasalization) both hand-traced before shipping**, not
+  assumed to fall through correctly: `ਪੱਕਾ` (pakka) still counts as 2
+  (pak-ka) not 3, confirming addak adds no syllable of its own.
+- **Schwa deletion reuses Hindi's exact rule** (word-final +one medial
+  VC_CV), disclosed as a deliberate approximation shared across the
+  Indo-Aryan pattern rather than a claim that Punjabi and Hindi delete
+  schwas identically — carries the same "close, not exact" caveat.
+- **Digit decline extended to Gurmukhi's own digit block** (੦–੯,
+  U+0A66–0A6F) in addition to ASCII digits, same suppletive-numeral
+  reasoning as Hindi.
+- **Code-switched Latin counted, not dropped**, via the same CMU-backed
+  helper Hindi and Korean already use.
+- **Named, not solved:** ੲ/ੳ (IRI/URA), the traditional vowel-bearer
+  letters used in some older/religious orthography to spell vowel
+  sequences the precomposed independent-vowel letters don't cover, are
+  treated as plain consonants — correct when a matra follows, wrong if
+  one is ever used bare. Rare enough in contemporary lyrics to name
+  rather than chase.
+
+`devanagari.py` no longer registers `"pa"` at all (previously registered
+to `count_hindi`, now removed so there's no ambiguity about which module
+owns Punjabi), and its docstring/title updated from "Hindi/Punjabi" to
+"Hindi/Marathi" to match what it actually counts.
+
+- **Benchmark coverage:** 11 new tests, including one asserting the old
+  bug (`count_hindi("ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ") is None`) so it can't silently come
+  back, plus one confirming the nukta-encoding fix the same way it was
+  confirmed for Devanagari. Falsified: re-registering `"pa"` to
+  `count_hindi` reproduces `None` on real Gurmukhi text exactly as
+  before. Full suite green: 810 pytest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

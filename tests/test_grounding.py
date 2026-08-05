@@ -11,6 +11,7 @@ import pytest
 from engine.grounding import count_source_units
 from engine.grounding.base import supported_languages
 from engine.grounding.devanagari import count_hindi
+from engine.grounding.gurmukhi import count_punjabi
 from engine.grounding.hangul import count_korean, sino_korean_syllables
 from engine.grounding.japanese import count_japanese, count_morae_in_kana
 from engine.grounding.spanish import _count_line, _count_word, count_spanish
@@ -345,7 +346,7 @@ def test_unknown_language_returns_none_rather_than_guessing():
 
 
 def test_registered_languages_include_every_shipped_language():
-    assert {"hi", "ko", "es", "ja", "ur"}.issubset(set(supported_languages()))
+    assert {"hi", "ko", "es", "ja", "ur", "pa", "mr"}.issubset(set(supported_languages()))
 
 
 def test_counters_register_on_package_import_alone():
@@ -598,3 +599,80 @@ def test_japanese_counts_latin_words_even_without_kanji():
         pytest.skip("SudachiPy not installed — Latin readings unavailable")
     # らーめん(4) + ハッピー(4)
     assert result.value == 8
+
+
+# ---------------------------------------------------------------------------
+# Punjabi — Gurmukhi, previously routed at the Devanagari counter and
+# always declining since Gurmukhi is a different Unicode block entirely
+# ---------------------------------------------------------------------------
+
+
+def test_punjabi_was_never_reachable_through_the_hindi_counter():
+    """The bug this module fixes: 'pa' used to be registered to
+    count_hindi, which only recognizes Devanagari (U+0900-097F). Real
+    Gurmukhi-script Punjabi (U+0A00-0A7F) always returned None.
+    """
+    assert count_hindi("ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ") is None
+
+
+@pytest.mark.parametrize(
+    "word,expected,why",
+    [
+        ("ਕਮਲ", 2, "kamal (lotus): word-final schwa deletion, ka-mal"),
+        ("ਦਿਲ", 1, "dil (heart): matra di + word-final schwa deletion"),
+        ("ਪੰਜਾਬ", 2, "panjab: tippi nasalizes but adds no syllable"),
+        ("ਪੱਕਾ", 2, "pakka (ripe): addak geminates but adds no syllable"),
+    ],
+)
+def test_punjabi_word_counts(word: str, expected: int, why: str):
+    result = count_punjabi(word)
+    assert result is not None
+    assert result.value == expected, f"{word}: {why}"
+
+
+def test_punjabi_conjunct_via_virama():
+    # ਸ੍ਰੀ (srī): ਸ+virama forms a conjunct with ਰ, one syllable not two
+    result = count_punjabi("ਸ੍ਰੀ")
+    assert result is not None
+    assert result.value == 1
+
+
+def test_punjabi_counts_the_same_in_both_nukta_unicode_encodings():
+    """ਜ਼ (ZA, /z/) is a Unicode composition exclusion, like Devanagari's
+    ड़/ढ़/...: it can arrive as one precomposed codepoint or as ਜ + a
+    combining nukta. Both must count the same, the same bug class fixed
+    for Devanagari (test_hindi_nukta_counts_the_same_in_both_unicode_encodings).
+    """
+    import unicodedata
+
+    precomposed = chr(0xA5B) + chr(0xA3F) + chr(0xA70) + chr(0xA26) + chr(0xA17) + chr(0xA40)
+    decomposed = unicodedata.normalize("NFD", precomposed)
+    assert len(decomposed) > len(precomposed), "the test input must actually decompose"
+    assert count_punjabi(precomposed).value == count_punjabi(decomposed).value == 2
+
+
+def test_punjabi_counts_code_switched_english():
+    result = count_punjabi("ਦਿਲ baby doll")
+    assert result is not None
+    # ਦਿਲ(1) + baby(2) + doll(1)
+    assert result.value == 4
+    assert result.caveat and "Latin" in result.caveat
+
+
+def test_punjabi_declines_when_digits_are_present():
+    # ASCII and native Gurmukhi digits both decline, same reasoning as
+    # Hindi: Punjabi numerals are suppletive, not a place-value system.
+    assert count_punjabi("ਦਿਲ 24 ਵਾਰ") is None
+    assert count_punjabi("ਦਿਲ ੨੪ ਵਾਰ") is None
+
+
+def test_punjabi_returns_none_for_non_gurmukhi_text():
+    assert count_punjabi("just english") is None
+    assert count_punjabi("   ") is None
+
+
+def test_punjabi_registered_under_pa_not_hindi():
+    result = count_source_units("ਕਮਲ", "pa")
+    assert result is not None
+    assert result.language == "Punjabi"
+    assert result.value == 2
