@@ -15,6 +15,7 @@ import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
 import { RedrawRequestError, redrawPanel, resolveRedrawRegionText } from "@/lib/comicsRedraw";
 import { writeMediumPreference } from "@/lib/mediumPreference";
 import { ComicsPipelineDiagram } from "@/components/ComicsPipelineDiagram";
+import { Footer } from "@/components/Footer";
 import { ScrollReveal } from "@/components/ScrollReveal";
 
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
@@ -355,6 +356,8 @@ export default function ComicsPage() {
             </>
           )}
         </div>
+
+        <Footer />
       </div>
     </main>
   );

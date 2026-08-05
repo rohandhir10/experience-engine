@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Footer } from "@/components/Footer";
 import { readMediumPreference } from "@/lib/mediumPreference";
 
 // "/" is now a neutral medium chooser, not the music workflow directly.
@@ -109,6 +110,8 @@ export default function Home() {
           </div>
         </MediumTile>
       </div>
+
+      <Footer dark />
     </main>
   );
 }

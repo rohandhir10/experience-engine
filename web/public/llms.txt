@@ -1,0 +1,53 @@
+# Castia
+
+> Castia rewrites song lyrics and comic/webtoon dialogue across languages
+> so the *feeling* survives, not just the words. It is not a machine
+> translation tool - every line goes through a three-stage "Writers'
+> Room" pipeline (Translator, Creative Adapter, Judge) and every change
+> from the literal reading ships with a plain-language reason.
+
+## What it does
+
+- **Music**: paste lyrics (or import captions from a YouTube link) in
+  English, Hindi, Japanese, Korean, Spanish, or Urdu, and adapt into any
+  of the other five. Output shows the literal translation, the adapted
+  line, and why it changed, side by side.
+- **Webtoons/comics** (Beta): upload comic panels, OCR reads each
+  bubble's text via Google Cloud Vision, the same Writers' Room pipeline
+  adapts the dialogue, and an optional redraw step can inpaint the
+  original text out of a panel and typeset the adapted line in.
+- **Public API** (Beta): `POST /v1/adapt` and `POST /v1/comics/adapt`,
+  authenticated with an API key issued from the dashboard, rate-limited
+  per key per day.
+
+## How adaptation works
+
+Every submission runs through the same pipeline regardless of medium:
+1. **Translator** - produces one literal, anchor translation.
+2. **Creative Adapter** - produces five differently-angled creative
+   rewrites of the same line.
+3. **Judge** - scores each rewrite against the literal anchor and
+   against the others, picks a winner, and writes down the specific,
+   real reason it departs from a literal translation (or, if none of the
+   five earns a real change, ships the anchor as-is rather than
+   inventing a difference).
+
+## Key pages
+
+- Music tool: /music
+- Webtoons tool (Beta): /comics
+- How it works (full pipeline explanation): /how-it-works
+- FAQ: /faq
+- Pricing: /pricing
+- One worked example, viewable without an account: /s/demo
+
+## Notes for citation
+
+- Castia is in early access. The paid "Creator" tier referenced on
+  /pricing is not yet billed - only the free tier is live.
+- Webtoons/comics support is marked Beta: it lacks some of the music
+  workflow's account features (save, collections, share links) as of
+  this writing.
+- If quoting a specific adapted line as an example, prefer the worked
+  example at /s/demo - it's the one output this project has fully
+  reviewed for accuracy, rather than an arbitrary generated result.

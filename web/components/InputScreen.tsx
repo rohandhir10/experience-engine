@@ -8,6 +8,7 @@ import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
 import { PipelineDiagramDark } from "./PipelineDiagramDark";
 import { ScrollReveal } from "./ScrollReveal";
+import { Footer } from "./Footer";
 import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 import type { YoutubeSource } from "@/lib/useAdaptSubmit";
@@ -457,6 +458,8 @@ export function InputScreen({
           <PipelineDiagramDark />
         </div>
       </ScrollReveal>
+
+      <Footer dark />
     </main>
   );
 }

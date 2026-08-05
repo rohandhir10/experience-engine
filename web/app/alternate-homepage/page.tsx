@@ -6,8 +6,9 @@ import { PipelineDiagram } from "@/components/PipelineDiagram";
 import { LANGUAGES } from "@/lib/languages";
 
 export const metadata = {
-  title: "CASTIA — an alternate layout",
+  title: "Castia — an alternate layout",
   description: "A visual-forward homepage layout, built around real product screenshots.",
+  robots: { index: false, follow: false },
 };
 
 // A second homepage layout (not linked from primary nav), built to test

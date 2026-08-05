@@ -3,8 +3,9 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { auth, signIn, signOut } from "@/auth";
 
 export const metadata = {
-  title: "CASTIA — Sign In",
+  title: "Sign In",
   description: "Sign in with Google to keep your adaptation history.",
+  robots: { index: false, follow: true },
 };
 
 // Server component: session comes from the Auth.js JWT cookie and the

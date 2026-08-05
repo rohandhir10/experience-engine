@@ -1,8 +1,10 @@
 import { SiteHeader } from "@/components/SiteHeader";
+import { Footer } from "@/components/Footer";
 
 export const metadata = {
-  title: "CASTIA — Pricing",
-  description: "Plans for CASTIA. Billing isn't live yet.",
+  title: "Pricing",
+  description: "Plans for Castia. Billing isn't live yet — the Free tier is.",
+  alternates: { canonical: "/pricing" },
 };
 
 const TIERS = [
@@ -73,6 +75,8 @@ export default function PricingPage() {
             </div>
           ))}
         </div>
+
+        <Footer />
       </div>
     </main>
   );

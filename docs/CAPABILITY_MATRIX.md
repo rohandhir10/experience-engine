@@ -2988,6 +2988,73 @@ previous two entries said so explicitly).
   keyed by two string literals, with the actual click behavior confirmed
   live above.
 
+### SEO + GEO foundation (marketing pages, metadata, structured data)
+
+- **What this builds:**
+  - `lib/seo.ts` — `SITE_URL` (`https://usecastia.com`, decided domain,
+    wired in ahead of DNS/deploy the same way you address an envelope
+    before the recipient moves in), `absoluteUrl`.
+  - Root `layout.tsx`: `metadataBase`, a title template (`%s | Castia`)
+    so every page gets a unique, non-duplicate `<title>` instead of all
+    inheriting one generic string, default OG/Twitter card metadata, and
+    two site-wide JSON-LD blocks — `Organization` (name, url, logo) and
+    `SoftwareApplication` (real category/description, an `Offer` for the
+    Free tier's actual $0 price). Deliberately no `aggregateRating` (no
+    real reviews exist) and no priced `Offer` for the Creator tier
+    (billing isn't live per `/pricing`) — schema states only what's true.
+  - `app/opengraph-image.tsx` — a real image rendered via `next/og`
+    `ImageResponse` at request time from the site's own brand colors
+    (`tailwind.config.ts`), not a fabricated mockup or AI-generated
+    graphic. `app/apple-icon.tsx` and `app/logo/route.tsx` (512×512, for
+    the Organization schema's `logo` field) follow the same pattern.
+    `app/icon.tsx`'s mark was fixed from a stale "A" to "C" — a rename
+    leftover.
+  - `app/robots.ts` — allows `*` plus explicit rules for GPTBot,
+    ChatGPT-User, Google-Extended, PerplexityBot, ClaudeBot, anthropic-ai,
+    CCBot (the actual mechanism behind being citable by AI answer
+    engines is these crawlers being able to fetch the site at all);
+    disallows `/dashboard`, `/api`, `/sign-in`. `app/sitemap.ts` lists
+    only real indexable routes.
+  - `public/llms.txt` — a plain-markdown site summary per the emerging
+    llms.txt convention, written for LLM/answer-engine consumption:
+    what Castia is, the real pipeline, key pages, and explicit
+    "notes for citation" disclosing Beta/early-access status honestly
+    rather than letting a citing model overstate maturity.
+  - Per-route metadata: `app/music/layout.tsx`, `app/comics/layout.tsx`
+    (real descriptions, canonical URLs), `app/dashboard/layout.tsx`
+    (`noindex` — private, personalized, no SEO value), `/sign-in` and
+    `/alternate-homepage` (`noindex`), `/pricing` (canonical added).
+  - Two new real content pages: `/faq` (real Q&A, `FAQPage` JSON-LD
+    whose entries are copied verbatim from the visible text — no hidden
+    markup) and `/how-it-works` (long-form Translator → Creative Adapter
+    → Judge explanation for both music and comics, reusing the existing
+    `PipelineDiagramDark`/`ComicsPipelineDiagram` components).
+  - `components/Footer.tsx` — real internal links only (Music, Webtoons,
+    How it works, FAQ, Pricing, API), added to every marketing page
+    (`/`, `/music`, `/comics`, `/pricing`, `/faq`, `/how-it-works`) but
+    not `/dashboard/*` or `/sign-in`.
+- **What this does NOT do:** no fabricated reviews/ratings, no priced
+  offer for a tier that isn't billed yet, no invented traffic/ranking
+  claims anywhere in this round's content or schema. No blog, no
+  location/local-business schema (not applicable), no hreflang
+  (single-locale site today).
+- **Tier 1** — this is discoverability infrastructure, no model-quality
+  claim. **Verified live:** `tsc --noEmit`, `next build` (all new routes
+  compiled: `/faq`, `/how-it-works`, `/robots.txt`, `/sitemap.xml`,
+  `/opengraph-image`, `/logo`, `/apple-icon`), all 58 Vitest and all 588
+  Python tests green. A real Chromium/Playwright pass against the
+  production build confirmed: per-page `<title>`/canonical tags resolve
+  correctly (checked via raw HTML, e.g. `/faq` → `FAQ | Castia` +
+  `canonical href="https://usecastia.com/faq"`), exactly 3 JSON-LD
+  `<script>` tags render on `/faq` (Organization, SoftwareApplication,
+  FAQPage) with content matching the page's visible text, and both new
+  pages plus the Footer on `/`, `/music`, and `/comics` render correctly
+  (screenshots reviewed, not assumed).
+- **Benchmark coverage:** no new automated tests — this is metadata/
+  markup/content with no non-trivial pure logic; correctness was
+  verified live instead (build succeeding + raw-HTML/JSON-LD inspection
+  + rendered screenshots).
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
