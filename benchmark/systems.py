@@ -51,13 +51,42 @@ class System(Protocol):
 
 
 class CastiaSystem:
-    name = "castia"
+    """The engine exactly as production runs it.
 
-    def __init__(self, client_factory: Callable[[], LLMClient]):
+    `apply_corrective_pass` defaults to True because that is what
+    server/main.py::_run_adaptation always passes, and a benchmark that
+    measures a different configuration from the one that ships is not
+    measuring the product. This was previously omitted, so the benchmark
+    would have run the engine with NO verification and NO corrective
+    pass - stripping out the most distinctive part of the system in the
+    one experiment meant to decide whether that part earns its cost, and
+    understating Castia against the single-prompt baseline it is being
+    compared to.
+
+    Kept as a parameter rather than hardcoded so the no-verify
+    configuration can be registered alongside as a deliberate ablation
+    (name it "castia_no_verify"), which would measure what the verifier
+    and corrective pass actually contribute. That is a genuinely useful
+    comparison; it is just not what "castia" means.
+    """
+
+    def __init__(
+        self,
+        client_factory: Callable[[], LLMClient],
+        apply_corrective_pass: bool = True,
+        name: str = "castia",
+    ):
+        self.name = name
         self._client_factory = client_factory
+        self._apply_corrective_pass = apply_corrective_pass
 
     def run(self, song: SongInput) -> list[str] | None:
-        result = run_engine(song, client=self._client_factory(), room_version="v1")
+        result = run_engine(
+            song,
+            client=self._client_factory(),
+            room_version="v1",
+            apply_corrective_pass=self._apply_corrective_pass,
+        )
         return [r.ruling.final_line for r in result.section_results]
 
 

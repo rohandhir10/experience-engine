@@ -3433,6 +3433,51 @@ sitting upstream of every translation decision made from them.
   being trusted: reverting the OCR fix fails 7 tests, removing the
   comics verification fails 2. Full suite green — 760 pytest, 86 Vitest.
 
+### Auditing the song side for the same two defects
+
+After finding both comics defects, the song path was checked for each.
+Result: **clean on both, and a third defect found in the benchmark.**
+
+- **Verification coverage — clean.** Songs have exactly one `run_engine`
+  call site in the server (`_run_adaptation`), with
+  `apply_corrective_pass=True` hardcoded, and every endpoint funnels
+  through it: `/api/adapt`, `/api/adapt/start`'s background worker, and
+  `/v1/adapt`. That single chokepoint is *why* the song side never had
+  the comics bug — comics had a second, independent path
+  (`comics_adapt.py` → `run_section`) that bypassed it entirely. The
+  architectural lesson is that one chokepoint made the guarantee
+  structural; a parallel path made it optional.
+- **Source-text corruption — clean.** The song-side analogue of OCR is
+  YouTube caption ingest. Captions arrive from the transcript API as
+  whole lines (`s.text.strip()`) and are joined with `"\n".join(...)` —
+  never tokenised into sub-words, so the morpheme-splitting failure that
+  broke Korean cannot occur. The one place a space substitution appears
+  (`_is_non_lyric_caption`) writes to a local variable used for
+  placeholder detection only; the original text is what reaches the
+  engine.
+- **Benchmark configuration — a real defect, now fixed.**
+  `benchmark/systems.py::CastiaSystem` called `run_engine` WITHOUT
+  `apply_corrective_pass`, while production always passes it. The
+  benchmark would therefore have measured an engine with no verification
+  and no corrective pass — stripping out the most distinctive part of
+  the system in the one experiment meant to decide whether that part
+  earns its cost, and understating Castia against the single-prompt
+  baseline it is compared to. The benchmark README already described
+  this system as "the full engine", so the intent was never in doubt.
+  Now defaults to production's configuration, kept as a parameter so a
+  deliberate `castia_no_verify` ablation — which would measure exactly
+  what the verifier contributes — can be registered alongside.
+- **Why this one mattered most:** the standing recommendation is to run
+  that benchmark to decide whether the whole Writers' Room architecture
+  is justified. Run as it stood, it would have measured the wrong thing
+  and understated the answer. It would also have been blind to both
+  adaptation fixes shipped this session, since each lives in the
+  corrective pass it was skipping.
+- **Benchmark coverage:** 3 new tests, including one that asserts
+  production's call site still passes `apply_corrective_pass=True` so
+  the two cannot silently drift apart again. Falsified: restoring the
+  old default fails the test. Full suite green — 763 pytest, 86 Vitest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

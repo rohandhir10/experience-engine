@@ -173,3 +173,62 @@ def test_report_significance_columns_present(run_dir: Path):
     report = analyze(run_dir)
     assert "| Baseline | Dimension | n pairs | Mean diff | p |" in report
     assert "gpt_single" in report
+
+
+# ---------------------------------------------------------------------------
+# The benchmark must measure the engine PRODUCTION runs.
+#
+# CastiaSystem previously called run_engine without apply_corrective_pass,
+# while server/main.py::_run_adaptation always passes it. The benchmark
+# would therefore have measured an engine with no verification and no
+# corrective pass - removing the most distinctive part of the system in
+# the one experiment meant to decide whether that part is worth its cost.
+# ---------------------------------------------------------------------------
+
+
+def test_castia_system_runs_the_corrective_pass_like_production():
+    from benchmark.systems import CastiaSystem
+
+    captured = {}
+
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+        captured["apply_corrective_pass"] = apply_corrective_pass
+        captured["room_version"] = room_version
+
+        class _R:
+            section_results = []
+
+        return _R()
+
+    import benchmark.systems as systems
+
+    original = systems.run_engine
+    systems.run_engine = fake_run_engine
+    try:
+        CastiaSystem(lambda: None).run(object())
+    finally:
+        systems.run_engine = original
+
+    assert captured["apply_corrective_pass"] is True
+    assert captured["room_version"] == "v1"
+
+
+def test_the_production_call_site_and_the_benchmark_agree():
+    """Guards the two from drifting apart again: if production ever stops
+    passing apply_corrective_pass=True, this fails and forces the
+    benchmark to be reconsidered alongside it.
+    """
+    import pathlib
+
+    main_py = pathlib.Path("server/main.py").read_text(encoding="utf-8")
+    assert "apply_corrective_pass=True" in main_py
+
+
+def test_a_no_verify_ablation_can_still_be_registered():
+    """The configuration is a parameter, not a hardcoded value, so the
+    ablation that isolates the verifier's contribution stays available."""
+    from benchmark.systems import CastiaSystem
+
+    ablation = CastiaSystem(lambda: None, apply_corrective_pass=False, name="castia_no_verify")
+    assert ablation.name == "castia_no_verify"
+    assert ablation._apply_corrective_pass is False
