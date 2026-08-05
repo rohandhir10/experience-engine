@@ -102,7 +102,7 @@ def test_adapt_start_runs_engine_in_background_and_job_completes(client, monkeyp
     assert body["result"] is None
 
     settled = _poll_until_settled(client, body["job_id"])
-    assert settled == {"status": "done", "result": canned, "error": None}
+    assert settled == {"status": "done", "result": canned, "error": None, "progress": None}
 
 
 def test_job_reports_llm_error_as_a_friendly_message(client, monkeypatch):
@@ -141,7 +141,12 @@ def test_job_reports_runtime_error_verbatim(client, monkeypatch):
     job_id = response.json()["job_id"]
 
     settled = _poll_until_settled(client, job_id)
-    assert settled == {"status": "error", "result": None, "error": "OPENAI_API_KEY not set"}
+    assert settled == {
+        "status": "error",
+        "result": None,
+        "error": "OPENAI_API_KEY not set",
+        "progress": None,
+    }
 
 
 def test_job_reports_unexpected_exception_without_hanging_forever(client, monkeypatch):

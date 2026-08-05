@@ -83,15 +83,26 @@ def _patch_song_engine(monkeypatch):
     monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
 
 
+def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None):
+    """See tests/test_server.py's identical helper - server/main.py's
+    _run_comics_adaptation now builds each panel's output from
+    adapt_chapter's on_stage/on_bubble_done callbacks, not its return
+    value, so a fake that doesn't invoke them would silently produce
+    zero panels."""
+    results = [_FakeSectionResult(b.id, f"adapted {b.id}") for b in chapter.bubbles]
+    total = len(results)
+    for index, (bubble, result) in enumerate(zip(chapter.bubbles, results), start=1):
+        if on_stage:
+            on_stage(bubble.id, "adapting", index, total)
+            on_stage(bubble.id, "verifying", index, total)
+        if on_bubble_done:
+            on_bubble_done(bubble.id, result, index, total)
+    return results
+
+
 def _patch_comics_engine(monkeypatch):
     monkeypatch.setattr(main, "generate_chapter_dna", lambda chapter, client: _fake_chapter_dna())
-    monkeypatch.setattr(
-        main,
-        "adapt_chapter",
-        lambda chapter, dna, client: [
-            _FakeSectionResult(b.id, f"adapted {b.id}") for b in chapter.bubbles
-        ],
-    )
+    monkeypatch.setattr(main, "adapt_chapter", _fake_adapt_chapter)
     monkeypatch.setattr(main, "_translator_text", lambda result: f"literal {result.section}")
     monkeypatch.setattr(
         main, "_explain_why", lambda client, thesis, literal, adapted, tradeoffs: "why text"

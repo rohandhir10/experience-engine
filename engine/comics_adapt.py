@@ -40,6 +40,7 @@ compensations — no new prompt wiring was needed beyond that field.
 from __future__ import annotations
 
 import logging
+from typing import Callable
 
 from .language_profile import NEUTRAL_PROFILE, LanguageProfile
 from .llm_client import LLMClient
@@ -157,6 +158,8 @@ def adapt_chapter(
     dna: ChapterDNA,
     client: LLMClient,
     profile: LanguageProfile = NEUTRAL_PROFILE,
+    on_stage: Callable[[str, str, int, int], None] | None = None,
+    on_bubble_done: Callable[[str, SectionResultV1, int, int], None] | None = None,
 ) -> list[SectionResultV1]:
     """Runs every bubble in `chapter`, in order, through adapt_bubble —
     the comics-side equivalent of engine/pipeline.py::run_engine's
@@ -170,15 +173,33 @@ def adapt_chapter(
 
     No batching (see this module's docstring): N sequential full
     Writers' Room runs, not one call handling several bubbles at once.
+
+    `on_stage(bubble_id, stage, index, total)` and
+    `on_bubble_done(bubble_id, result, index, total)` are optional
+    progress hooks (index is 1-based) for a caller that wants to report
+    incremental status - server/main.py's /api/comics/adapt/start uses
+    them to update a background job's polled progress as each bubble
+    actually completes, rather than only once the whole chapter is done.
+    Both stages reported here (`"adapting"`, `"verifying"`) are real,
+    already-existing steps in this same loop, not invented labels - there
+    is no finer-grained hook into what run_section itself is doing
+    without reaching into engine/writers_room_v1.py, which this
+    deliberately does not do. Neither callback changes this function's
+    behavior or return value in any way when omitted.
     """
     room_memory = RoomMemory(
         honorific_state={c.name: c.honorific_register for c in dna.characters}
     )
     results: list[SectionResultV1] = []
     known_compensations = {c.source_feature for c in room_memory.compensations}
+    total = len(chapter.bubbles)
 
-    for bubble in chapter.bubbles:
+    for index, bubble in enumerate(chapter.bubbles, start=1):
+        if on_stage:
+            on_stage(bubble.id, "adapting", index, total)
         result = adapt_bubble(chapter, dna, bubble, room_memory, client, profile)
+        if on_stage:
+            on_stage(bubble.id, "verifying", index, total)
         result = _verify_and_correct_bubble(
             result, chapter, dna, bubble, room_memory, client, profile
         )
@@ -190,6 +211,8 @@ def adapt_chapter(
                 known_compensations.add(compensation.source_feature)
         if bubble.voice and result.ruling.honorific_note:
             room_memory.honorific_state[bubble.voice] = result.ruling.honorific_note
+        if on_bubble_done:
+            on_bubble_done(bubble.id, result, index, total)
 
     return results
 

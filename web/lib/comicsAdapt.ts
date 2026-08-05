@@ -13,9 +13,27 @@ export type ChapterAdaptResult = {
   panels: AdaptedPanel[];
 };
 
+/** One snapshot of an in-flight chapter job - server/jobs.py's
+ * progress_json, as reported by server/main.py::_run_comics_adaptation
+ * after every real, already-happening step (not a fabricated "analyzing
+ * tone" style message - see that function's docstring). `panels` grows
+ * with each completed panel, in order, so the UI can render a panel's
+ * real adapted text the moment it's ready rather than waiting for the
+ * whole chapter. */
+export type ChapterAdaptProgress = {
+  completed: number;
+  total: number;
+  message: string;
+  panels: AdaptedPanel[];
+};
+
 export class AdaptRequestError extends Error {}
 
-const POLL_INTERVAL_MS = 2_500;
+// Short enough that per-panel progress feels close to live without
+// hammering the job-status endpoint - each poll is a fast lookup on
+// server/jobs.py's side (in-memory dict or a single-row Postgres read),
+// not a real cost concern at this interval.
+const POLL_INTERVAL_MS = 1_500;
 // A chapter runs one full Writers' Room per panel, sequentially (voice/
 // honorific continuity - see server/main.py::_run_comics_adaptation's
 // docstring on why panels aren't batched or parallelized), so a large
@@ -33,16 +51,25 @@ function toChapterAdaptResult(result: {
 }): ChapterAdaptResult {
   return {
     id: result.id,
-    panels: (result.panels ?? []).map((panel) => ({
-      id: panel.id,
-      literal: panel.literal,
-      adaptedText: panel.adapted_text,
-      why: panel.why,
-    })),
+    panels: toAdaptedPanels(result.panels),
   };
 }
 
-async function pollJob(jobId: string): Promise<ChapterAdaptResult> {
+function toAdaptedPanels(
+  panels: { id: string; literal: string; adapted_text: string; why: string }[] | undefined
+): AdaptedPanel[] {
+  return (panels ?? []).map((panel) => ({
+    id: panel.id,
+    literal: panel.literal,
+    adaptedText: panel.adapted_text,
+    why: panel.why,
+  }));
+}
+
+async function pollJob(
+  jobId: string,
+  onProgress?: (progress: ChapterAdaptProgress) => void
+): Promise<ChapterAdaptResult> {
   const deadline = Date.now() + MAX_POLL_MS;
   while (Date.now() < deadline) {
     await sleep(POLL_INTERVAL_MS);
@@ -54,6 +81,14 @@ async function pollJob(jobId: string): Promise<ChapterAdaptResult> {
     if (body.status === "done") return toChapterAdaptResult(body.result);
     if (body.status === "error") {
       throw new AdaptRequestError(body.error || "Adapting this chapter failed.");
+    }
+    if (body.progress && onProgress) {
+      onProgress({
+        completed: body.progress.completed,
+        total: body.progress.total,
+        message: body.progress.message,
+        panels: toAdaptedPanels(body.progress.panels),
+      });
     }
     // "pending" or "running" - keep polling.
   }
@@ -72,6 +107,13 @@ async function pollJob(jobId: string): Promise<ChapterAdaptResult> {
 // uses for songs, extended here so a large chapter can't hit a request
 // timeout the way the older single-call /api/comics/adapt could.
 //
+// `onProgress`, when given, is called with each panel's real result as
+// soon as it's ready (server/jobs.py's progress_json) - the caller can
+// use this to unlock and render panels one at a time instead of staring
+// at a single spinner for however long the whole chapter takes. Never
+// called for a cache hit (status="done" immediately - nothing was ever
+// "in progress").
+//
 // Each PANEL is sent as one adaptation unit; a panel with several speech
 // bubbles is adapted as one combined block, not split further.
 // `voice`, when set, becomes BubbleInput.voice server-side - the thing
@@ -81,7 +123,8 @@ async function pollJob(jobId: string): Promise<ChapterAdaptResult> {
 export async function adaptChapter(
   panels: { id: string; text: string; voice?: string }[],
   sourceLanguage: string,
-  targetLanguage: string
+  targetLanguage: string,
+  onProgress?: (progress: ChapterAdaptProgress) => void
 ): Promise<ChapterAdaptResult> {
   const res = await fetch("/api/comics/adapt/start", {
     method: "POST",
@@ -99,5 +142,5 @@ export async function adaptChapter(
   }
 
   if (body.status === "done") return toChapterAdaptResult(body.result);
-  return pollJob(body.job_id);
+  return pollJob(body.job_id, onProgress);
 }

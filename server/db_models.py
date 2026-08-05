@@ -181,6 +181,13 @@ class AdaptationJob(Base):
     status: Mapped[str] = mapped_column(String, default="pending")  # pending|running|done|error
     result_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Incremental status while status="running" - {"completed", "total",
+    # "message", "panels"} for a comics chapter job (server/main.py's
+    # /api/comics/adapt/start); null for a song job, which has nothing to
+    # report incrementally today. Overwritten wholesale on each update,
+    # never merged - the writer always has the full current picture, not
+    # a delta to apply.
+    progress_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

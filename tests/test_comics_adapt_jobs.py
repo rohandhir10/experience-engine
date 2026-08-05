@@ -124,7 +124,12 @@ def test_comics_job_reports_runtime_error_verbatim(client, monkeypatch):
     job_id = response.json()["job_id"]
 
     settled = _poll_until_settled(client, job_id)
-    assert settled == {"status": "error", "result": None, "error": "OPENAI_API_KEY not set"}
+    assert settled == {
+        "status": "error",
+        "result": None,
+        "error": "OPENAI_API_KEY not set",
+        "progress": None,
+    }
 
 
 def test_unknown_comics_job_id_is_a_404(client):

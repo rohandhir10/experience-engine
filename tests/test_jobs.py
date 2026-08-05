@@ -24,7 +24,12 @@ def test_unknown_job_returns_none():
 
 def test_create_starts_pending_with_no_result_or_error():
     jobs.create("job-1")
-    assert jobs.get("job-1") == {"status": "pending", "result": None, "error": None}
+    assert jobs.get("job-1") == {
+        "status": "pending",
+        "result": None,
+        "error": None,
+        "progress": None,
+    }
 
 
 def test_set_running_transitions_status():
@@ -41,13 +46,42 @@ def test_set_done_stores_the_result():
         "status": "done",
         "result": {"sections": ["done"]},
         "error": None,
+        "progress": None,
     }
 
 
 def test_set_error_stores_the_message():
     jobs.create("job-1")
     jobs.set_error("job-1", "boom")
-    assert jobs.get("job-1") == {"status": "error", "result": None, "error": "boom"}
+    assert jobs.get("job-1") == {
+        "status": "error",
+        "result": None,
+        "error": "boom",
+        "progress": None,
+    }
+
+
+def test_set_progress_stores_a_snapshot_while_running():
+    jobs.create("job-1")
+    jobs.set_progress("job-1", {"completed": 3, "total": 10, "message": "Panel 4/10: adapting…"})
+    job = jobs.get("job-1")
+    assert job["status"] == "running"
+    assert job["progress"] == {"completed": 3, "total": 10, "message": "Panel 4/10: adapting…"}
+    # result/error are untouched by a progress-only update.
+    assert job["result"] is None
+    assert job["error"] is None
+
+
+def test_set_progress_overwrites_wholesale_not_merges():
+    jobs.create("job-1")
+    jobs.set_progress("job-1", {"completed": 1, "total": 10, "message": "first"})
+    jobs.set_progress("job-1", {"completed": 2, "total": 10, "message": "second"})
+    assert jobs.get("job-1")["progress"] == {"completed": 2, "total": 10, "message": "second"}
+
+
+def test_set_progress_on_an_unknown_job_is_a_noop():
+    jobs.set_progress("never-created", {"completed": 1, "total": 1, "message": "x"})
+    assert jobs.get("never-created") is None
 
 
 def test_updating_an_unknown_job_is_a_noop_not_a_crash():

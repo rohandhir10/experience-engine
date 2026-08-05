@@ -713,6 +713,7 @@ def _run_comics_adaptation(
     result_id: str,
     non_empty_panels: list[ComicsPanelText],
     user_id: str | None,
+    job_id: str | None = None,
 ) -> dict:
     """The actual engine run: Chapter DNA -> per-panel Writers' Room ->
     payload assembly, cache write, and history record. Shared by the
@@ -733,6 +734,16 @@ def _run_comics_adaptation(
     panels themselves — the per-panel dollar cost is identical either
     way, this only removes the request-timeout ceiling on how many
     panels one chapter can have.
+
+    `job_id`, when given (only the background job path passes one — the
+    synchronous /api/comics/adapt endpoint has no job to report against
+    and blocks until this returns anyway), turns on incremental progress
+    reporting: adapt_chapter's on_stage/on_bubble_done hooks update
+    jobs.set_progress after every real, already-happening step, so a
+    poller sees each panel's actual finished text as soon as it's ready
+    instead of only once the whole chapter completes - this is what lets
+    the workspace unlock and render panels one by one rather than sit on
+    a single spinner for however long a large chapter takes.
     """
     chapter = ChapterInput(
         source_language=request.source_language,
@@ -746,18 +757,31 @@ def _run_comics_adaptation(
 
     client = create_default_client()
     dna = generate_chapter_dna(chapter, client)
-    results = adapt_chapter(chapter, dna, client)
 
-    panels_out = []
-    for bubble, result in zip(chapter.bubbles, results):
+    panels_out: list[dict] = []
+
+    def _report_progress(completed: int, total: int, message: str) -> None:
+        if job_id is None:
+            return
+        jobs.set_progress(
+            job_id,
+            {"completed": completed, "total": total, "message": message, "panels": list(panels_out)},
+        )
+
+    def on_stage(bubble_id: str, stage: str, index: int, total: int) -> None:
+        verb = "adapting" if stage == "adapting" else "verifying"
+        _report_progress(index - 1, total, f"Panel {index}/{total}: {verb}…")
+
+    def on_bubble_done(bubble_id: str, result, index: int, total: int) -> None:
         literal = _translator_text(result)
         adapted = result.ruling.final_line
         why = _explain_why(
             client, dna.artistic_thesis, literal, adapted, result.ruling.priority_tradeoffs_made
         )
-        panels_out.append(
-            {"id": bubble.id, "literal": literal, "adapted_text": adapted, "why": why}
-        )
+        panels_out.append({"id": bubble_id, "literal": literal, "adapted_text": adapted, "why": why})
+        _report_progress(index, total, f"Panel {index}/{total}: done")
+
+    adapt_chapter(chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done)
 
     payload = {"chapter_dna": dna.model_dump(), "panels": panels_out}
     cache.set(
@@ -872,7 +896,9 @@ def _run_comics_job(
     with _run_slots:
         jobs.set_running(job_id)
         try:
-            payload = _run_comics_adaptation(request, result_id, non_empty_panels, user_id)
+            payload = _run_comics_adaptation(
+                request, result_id, non_empty_panels, user_id, job_id=job_id
+            )
             jobs.set_done(job_id, {"id": result_id, **payload})
         except ValidationError as exc:
             if debited is not None:

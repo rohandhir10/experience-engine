@@ -60,8 +60,8 @@ describe("adaptChapter", () => {
 
     const promise = adaptChapter([{ id: "p1", text: "hi" }], "Korean", "English");
     // Let both poll iterations' sleeps elapse.
-    await vi.advanceTimersByTimeAsync(2_500);
-    await vi.advanceTimersByTimeAsync(2_500);
+    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(1_500);
 
     const result = await promise;
     expect(result.id).toBe("chapter-2");
@@ -80,8 +80,78 @@ describe("adaptChapter", () => {
 
     const promise = adaptChapter([{ id: "p1", text: "hi" }], "Korean", "English");
     const assertion = expect(promise).rejects.toThrow(AdaptRequestError);
-    await vi.advanceTimersByTimeAsync(2_500);
+    await vi.advanceTimersByTimeAsync(1_500);
     await assertion;
+  });
+
+  it("reports progress with each panel's real result as it arrives, but not on the terminal poll", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(jsonResponse({ status: "pending", job_id: "job-3", result: null }))
+      .mockReturnValueOnce(
+        jsonResponse({
+          status: "running",
+          result: null,
+          error: null,
+          progress: {
+            completed: 0,
+            total: 2,
+            message: "Panel 1/2: adapting…",
+            panels: [],
+          },
+        })
+      )
+      .mockReturnValueOnce(
+        jsonResponse({
+          status: "running",
+          result: null,
+          error: null,
+          progress: {
+            completed: 1,
+            total: 2,
+            message: "Panel 1/2: done",
+            panels: [{ id: "p1", literal: "a", adapted_text: "b", why: "c" }],
+          },
+        })
+      )
+      .mockReturnValueOnce(
+        jsonResponse({
+          status: "done",
+          error: null,
+          result: {
+            id: "chapter-3",
+            panels: [
+              { id: "p1", literal: "a", adapted_text: "b", why: "c" },
+              { id: "p2", literal: "d", adapted_text: "e", why: "f" },
+            ],
+          },
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onProgress = vi.fn();
+    const promise = adaptChapter([{ id: "p1", text: "hi" }], "Korean", "English", onProgress);
+    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(1_500);
+    const result = await promise;
+
+    expect(result.panels).toHaveLength(2);
+    // Called for the two "running" polls, never for the final "done" one -
+    // that result comes back as the resolved promise instead.
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(onProgress).toHaveBeenNthCalledWith(1, {
+      completed: 0,
+      total: 2,
+      message: "Panel 1/2: adapting…",
+      panels: [],
+    });
+    expect(onProgress).toHaveBeenNthCalledWith(2, {
+      completed: 1,
+      total: 2,
+      message: "Panel 1/2: done",
+      panels: [{ id: "p1", literal: "a", adaptedText: "b", why: "c" }],
+    });
   });
 
   it("throws AdaptRequestError immediately when /start itself fails", async () => {

@@ -3916,6 +3916,77 @@ browser and needs the signed-in user's id there too.
   all falsified before being trusted. Full suite green: 899 pytest, 107
   Vitest, clean `tsc`/`npm run build`.
 
+## Incremental per-panel progress for the comics chapter job
+
+- **The follow-up ask ("this will feel dead for 2 minutes") was real,
+  but two of its four proposed fixes weren't the right tool here.** SSE/
+  WebSockets was weighed against enhanced polling and rejected: nothing
+  else in this codebase streams a long-lived connection (Railway/Vercel's
+  proxy layer makes that more fragile than a ~1.5s poll for a job that
+  can run minutes), and a poll returning incremental results gets the
+  same perceived "panels pop in one by one" effect at much lower risk.
+  Scene-chunked concurrency was deferred entirely, on its merits: there
+  is no scene-boundary concept anywhere in the engine today, and
+  chunking on a guessed boundary would silently degrade the exact
+  honorific/voice continuity feature (`RoomMemory.honorific_state`,
+  documented in the previous round's entry) that was the whole reason
+  panels run sequentially - a real fix needs either a human-marked scene
+  break (new UI, not built) or an LLM-guessed one (new cost, new failure
+  mode), neither of which was worth guessing into this round.
+- **What shipped instead: real per-panel progress, not synchronous
+  batch-or-nothing.** `engine/comics_adapt.py::adapt_chapter` takes two
+  optional callbacks - `on_stage(bubble_id, "adapting"|"verifying",
+  index, total)` and `on_bubble_done(bubble_id, result, index, total)` -
+  fired from the loop's own real, already-existing steps (no fabricated
+  "Analyzing tone…" style stage names; the only two hooks available
+  without reaching into `engine/writers_room_v1.py`'s internals, which
+  this deliberately does not do). `server/main.py::_run_comics_adaptation`
+  wires both into `jobs.set_progress` when a `job_id` is given (only the
+  background-job path passes one), building each panel's real
+  literal/adapted_text/why the moment its result is ready rather than
+  after the whole chapter.
+- **`server/jobs.py` gained a `progress` field** (migration
+  `0008_add_job_progress`, `adaptation_jobs.progress_json` -
+  existence-guarded per the 0002-0007 convention, including the
+  table-not-existing-yet case a bare column-check would have hit).
+  Overwritten wholesale on each update, never merged. Unused by a song
+  job - `set_progress` is only ever called from the comics path.
+- **Frontend**: `lib/comicsAdapt.ts`'s `adaptChapter` takes an
+  `onProgress` callback, polling every 1.5s (down from 2.5s - the
+  interval a human actually perceives as "alive," each poll being a
+  cheap lookup, not a real cost concern) and surfacing each poll's
+  partial `panels` array. `app/comics/page.tsx` applies each arriving
+  panel's result against the *current* state via the functional
+  `setPanels` updater (not a closure-captured snapshot from whenever the
+  button was clicked) - the actual optimistic-unlock requirement:
+  editing panel 1 by hand while panels 2-100 are still adapting must see
+  and respect that edit, not a stale "was it empty when the job started"
+  read. The button label itself becomes real progress
+  (`"Adapting… (3/12)"`, mirroring the existing batch-OCR button's own
+  `(n/total)` convention) and a live one-line status
+  (`"Panel 4/12: verifying…"`) appears alongside it.
+- **Verified in a real browser, not just unit tests**: a Playwright run
+  against a real `next start`, mocking the OCR/adapt-start/job-poll
+  endpoints at the network layer (no real engine needed - this exercises
+  real React state and rendering, not a real LLM run), walked the actual
+  sequence a large chapter produces: upload two panels, start adapting,
+  confirm the button shows live `"Adapting… (0/2)"`, confirm panel 1's
+  real adapted text renders while panel 2 is still reported in-flight
+  (`"Panel 2/2: verifying…"` visible at the same time), then confirm
+  the chapter completes with both panels' real results present. All
+  seven steps passed with zero console errors.
+- **Benchmark coverage:** 3 new engine-level tests for `adapt_chapter`'s
+  callbacks (`tests/test_comics_adapt.py`), 2 new tests for
+  `_run_comics_adaptation`'s progress reporting (`tests/test_server.py`,
+  one falsified — removing the final per-panel progress call reproduced
+  exactly the missing report before being restored), 4 new
+  `server/jobs.py` tests for `set_progress`, and 1 new Vitest test for
+  `comicsAdapt.ts`'s `onProgress` callback. Updating `jobs.get()`'s
+  return shape also required updating several pre-existing exact-equality
+  test assertions across `tests/test_jobs.py`, `tests/test_server_jobs.py`,
+  and `tests/test_comics_adapt_jobs.py` to include the new field. Full
+  suite green: 907 pytest, 108 Vitest, clean `tsc`/`npm run build`.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

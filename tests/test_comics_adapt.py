@@ -154,6 +154,56 @@ def test_adapt_chapter_processes_every_bubble_in_order():
     assert results[2].ruling.voice == "Princess"
 
 
+def test_adapt_chapter_reports_on_stage_for_each_bubble_in_order():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="line two", voice="Princess"),
+        ]
+    )
+    client = FakeClientRulesImmediately()
+    events: list[tuple[str, str, int, int]] = []
+
+    adapt_chapter(chapter, CHAPTER_DNA, client, on_stage=lambda *args: events.append(args))
+
+    assert events == [
+        ("b1", "adapting", 1, 2),
+        ("b1", "verifying", 1, 2),
+        ("b2", "adapting", 2, 2),
+        ("b2", "verifying", 2, 2),
+    ]
+
+
+def test_adapt_chapter_reports_on_bubble_done_once_per_bubble_with_the_real_result():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="line two", voice="Princess"),
+        ]
+    )
+    client = FakeClientRulesImmediately()
+    completed: list[tuple[str, int, int]] = []
+
+    def on_bubble_done(bubble_id, result, index, total):
+        assert result.ruling.final_line == client.adapted_line
+        completed.append((bubble_id, index, total))
+
+    results = adapt_chapter(chapter, CHAPTER_DNA, client, on_bubble_done=on_bubble_done)
+
+    assert completed == [("b1", 1, 2), ("b2", 2, 2)]
+    # The callback must not change what the function actually returns.
+    assert [r.section for r in results] == ["b1", "b2"]
+
+
+def test_adapt_chapter_works_unchanged_with_no_callbacks_given():
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain")]
+    )
+    client = FakeClientRulesImmediately()
+    results = adapt_chapter(chapter, CHAPTER_DNA, client)
+    assert [r.section for r in results] == ["b1"]
+
+
 def test_adapt_chapter_carries_room_memory_across_bubbles():
     """The second bubble's Judge call should see the first bubble's
     ruling in its prompt - real cross-bubble continuity, not just N
