@@ -84,7 +84,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
-from engine import comics_align, comics_ocr, comics_vision, config
+from engine import comics_align, comics_ocr, comics_read, comics_vision, config
 from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import adapt_chapter
@@ -359,6 +359,21 @@ def comics_ocr_endpoint(
             status_code=413,
             detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
         )
+
+    # Preferred path when a detector is configured: detect the boxes
+    # first, then read them twice concurrently (engine/comics_read.py).
+    # Keying both readers to the detector's node_ids makes the merge
+    # exact instead of a text-similarity guess. Returns {} if detection
+    # finds nothing or fails, which falls through to the single-step
+    # path below rather than failing the request.
+    if config.TEXT_DETECTOR_URL:
+        two_step = comics_read.read_panel_two_step(
+            image_bytes,
+            mime_type=image.content_type or "image/jpeg",
+            language=language,
+        )
+        if two_step:
+            return two_step
 
     # Both reads are fired at once rather than one after the other. The
     # vision model is not given Cloud Vision's boxes to correct, precisely

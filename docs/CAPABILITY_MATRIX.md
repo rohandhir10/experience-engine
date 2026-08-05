@@ -3251,6 +3251,78 @@ it — each system is asked only for what it is actually good at.
   than it deserved; replaced with Unicode-category filtering. Full suite
   green — 647 pytest, 86 Vitest, `tsc --noEmit` and `next build` clean.
 
+### Two-step comics read: detect, then read twice in parallel
+
+Splits detection from recognition, so the pipeline stops being hostage to
+Cloud Vision doing both at once.
+
+```
+detect boxes  ->  vision-LLM narrative pass  --+
+                  text recogniser             --+ -> align by node_id
+```
+
+- **`engine/comics_detect.py`** — `DetectedBox` (carrying a `node_id`,
+  the join key threaded through every later stage) and a `TextDetector`
+  Protocol. `CloudVisionDetector` derives boxes from the call the
+  pipeline already makes, so the architecture is real before any model
+  swap lands; `RemoteDetector` calls a detector service, which is how a
+  YOLO/comic-text-detector model can be adopted without putting torch in
+  the API image.
+- **`engine/comics_recognize.py`** — a `TextRecognizer` Protocol and a
+  **registry routed by script**, not a global swap. This is the
+  correction to the original plan, and it matters: `manga-ocr` is, by
+  its own package metadata, *"OCR for Japanese manga"* — Japanese only.
+  Swapping it in wholesale would have upgraded one language and reduced
+  the other five in the roster (English, Hindi, Korean, Spanish, Urdu)
+  to nothing. Japanese routes to the specialist; everything else keeps a
+  general recogniser, and adding a Korean specialist later is a
+  registration, not a rewrite. `assign_by_overlap` maps a page-level
+  recogniser's own segmentation onto the detector's boxes by pixel
+  overlap rather than list position, because the two segmentations
+  legitimately differ.
+- **`engine/comics_read.py`** — the orchestrator. Detection runs alone
+  and first; both readers are then handed its ids and run concurrently,
+  so step 2 costs max(vision, recogniser) rather than their sum. Because
+  both are keyed to the same ids, the merge is **exact**
+  (`comics_align`'s new node_id pass) instead of a text-similarity
+  guess. That removes a real failure mode: similarity matching fails
+  precisely on the bubbles that need help most, since a badly-garbled
+  read scores against nothing — and a mis-pairing is not cosmetic, the
+  redraw path erases and re-letters whatever box it is handed.
+- **Reading order** comes from the narrative pass and is returned as a
+  separate `reading_order` list of ids. Regions themselves stay in
+  detector order because downstream code indexes them positionally
+  against their boxes.
+- **Degradation at every stage.** A failed detector returns `{}` and the
+  endpoint falls through to the original single-step path; a failed
+  recogniser still ships whatever the vision pass read; both failing
+  still returns the boxes with an honest warning. Off unless
+  `CASTIA_TEXT_DETECTOR_URL` is set — with it unset the endpoint is
+  byte-for-byte the previous path.
+- **Deployment reality, stated plainly:** `manga-ocr` depends on `torch`
+  and `transformers`, which take this project's `python:3.11-slim` image
+  from a couple of hundred megabytes to several gigabytes, plus resident
+  memory for the model. That is a hosting decision, not a pip install,
+  which is why `RemoteRecognizer` is a first-class option and
+  `CASTIA_MANGA_OCR_URL` takes precedence over the in-process flag.
+- **What is NOT verified here:** `MangaOcrRecognizer` is written against
+  manga-ocr's documented interface and unit-tested against a stub, never
+  against the real model — the package installs, but its weights are
+  fetched from Hugging Face, which this development environment blocks at
+  the network layer (confirmed: `huggingface.co:443` in the proxy's own
+  rejected-connection list). Its accuracy is **Tier 0, unmeasured**,
+  until it has been run on real panels in a deployment that can reach the
+  weights. The same applies to any real local detector. The
+  orchestration, routing, alignment, and payload parsing around them are
+  **Tier 1** and fully tested.
+- **Benchmark coverage:** 48 new tests — 38 for detection/recognition/
+  orchestration (including untrusted-payload parsing from out-of-process
+  components, script routing across the whole language roster, and every
+  degradation path), 7 for node_id alignment, 3 for the endpoint's
+  fallback. The concurrency claim was falsified before being trusted:
+  serializing the two calls breaks the test's barrier rather than merely
+  running slower. Full suite green — 713 pytest, 86 Vitest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a

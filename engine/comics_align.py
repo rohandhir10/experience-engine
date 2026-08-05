@@ -143,6 +143,10 @@ class AlignedRegion:
     similarity: float
     kind: str = "unknown"
     speaker: str | None = None
+    # The full matched Reading, so the narrative fields (tone, emphasis,
+    # speaker_confidence, appearance) reach callers without this class
+    # having to mirror every one of them. None when nothing matched.
+    reading: "Reading | None" = None
 
 
 @dataclass
@@ -163,35 +167,58 @@ def align_readings(
     vision_texts: list[str],
     readings: list[Reading],
     min_similarity: float = DEFAULT_MIN_SIMILARITY,
+    node_ids: list[str] | None = None,
 ) -> AlignmentResult:
-    """Matches each LLM reading to at most one Vision region, and vice
-    versa, by descending similarity.
+    """Matches each reading to at most one region, and vice versa.
 
-    Greedy-by-best-score rather than positional (nth reading -> nth
-    region): reading order in comics is genuinely not a solved problem -
-    manga runs right-to-left, and a panel's bubbles can be laid out in a
-    Z-pattern - so pairing by position would be wrong exactly where this
-    feature matters most. Matching on the text itself sidesteps ordering
-    entirely.
+    Two mechanisms, in strict priority order:
 
-    Greedy rather than globally optimal (Hungarian): with the handful of
-    bubbles a single panel holds, the two agree in practice, and greedy
-    stays readable and obviously correct. Ties are broken by region
-    order so the result is deterministic for identical input.
+    1. **Exact, by node_id.** When a detector supplied ids and the vision
+       model keyed its answer to them (see comics_vision.read_panel's
+       `known_regions`), the pairing is already known and no guessing is
+       involved. This is the whole point of detecting boxes before
+       reading them.
+    2. **Fuzzy, by text similarity.** The fallback for nodes the model
+       did not key - which still happens on a cold read, or when it
+       reports text the detector's list didn't cover. Greedy by best
+       score, and by CONTENT rather than position: comics reading order
+       is genuinely unsolved (manga runs right-to-left, bubbles can sit
+       in a Z), so nth-to-nth pairing would be wrong exactly where this
+       matters most.
+
+    Ties in the fuzzy pass are broken by region then reading index, so
+    identical input always produces an identical result.
     """
+    region_to_reading: dict[int, tuple[int, float]] = {}
+    used_readings: set[int] = set()
+
+    # --- Pass 1: exact id matches, which no similarity score can override.
+    if node_ids:
+        index_by_id = {node_id: i for i, node_id in enumerate(node_ids)}
+        for reading_index, reading in enumerate(readings):
+            if reading.node_id is None:
+                continue
+            region_index = index_by_id.get(reading.node_id)
+            if region_index is None or region_index in region_to_reading:
+                continue
+            # Similarity 1.0 records "certain", not "the strings matched"
+            # - the detector and the model agreed on identity outright.
+            region_to_reading[region_index] = (reading_index, 1.0)
+            used_readings.add(reading_index)
+
+    # --- Pass 2: fuzzy, for whatever pass 1 left unpaired.
     scored: list[tuple[float, int, int]] = []
     for region_index, vision_text in enumerate(vision_texts):
+        if region_index in region_to_reading:
+            continue
         for reading_index, reading in enumerate(readings):
+            if reading_index in used_readings:
+                continue
             score = similarity(vision_text, reading.text)
             if score >= min_similarity:
                 scored.append((score, region_index, reading_index))
 
-    # Highest score first; region then reading index as tie-breakers so
-    # equal scores resolve the same way on every run.
     scored.sort(key=lambda item: (-item[0], item[1], item[2]))
-
-    region_to_reading: dict[int, tuple[int, float]] = {}
-    used_readings: set[int] = set()
     for score, region_index, reading_index in scored:
         if region_index in region_to_reading or reading_index in used_readings:
             continue
@@ -202,9 +229,10 @@ def align_readings(
     for region_index, vision_text in enumerate(vision_texts):
         match = region_to_reading.get(region_index)
         if match is None:
-            # No confident counterpart: keep what OCR actually saw. This
-            # is the honest fallback - the human is reviewing this draft
-            # either way.
+            # No confident counterpart: keep what the recogniser actually
+            # read. The honest fallback - a human reviews this draft
+            # either way, and a wrong pairing would send redraw at the
+            # wrong artwork.
             regions.append(
                 AlignedRegion(
                     index=region_index, text=vision_text, source="vision", similarity=0.0
@@ -221,6 +249,7 @@ def align_readings(
                 similarity=round(score, 3),
                 kind=reading.kind,
                 speaker=reading.speaker,
+                reading=reading,
             )
         )
 

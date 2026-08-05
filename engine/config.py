@@ -58,6 +58,26 @@ VISION_MODEL = os.environ.get(
     "gpt-4o" if PROVIDER == "openai" else ANTHROPIC_MODEL,
 )
 
+# engine/comics_recognize.py — manga-ocr, a Japanese-manga-specific text
+# recogniser. Off by default and deliberately so: it depends on torch and
+# transformers, which take this project's python:3.11-slim image from a
+# couple of hundred megabytes to several gigabytes, and it downloads model
+# weights from Hugging Face on first use. Neither is an assumption to make
+# about a deployment by default.
+MANGA_OCR_ENABLED = os.environ.get("CASTIA_MANGA_OCR", "0") == "1"
+
+# Preferred over the in-process option above when set: the URL of a
+# recogniser running as its own service, so the torch dependency never
+# enters the API container at all. Takes precedence over
+# MANGA_OCR_ENABLED.
+MANGA_OCR_URL = os.environ.get("CASTIA_MANGA_OCR_URL", "")
+
+# engine/comics_detect.py — a text-region detector running as its own
+# service (comic-text-detector, a YOLO bubble model, or similar). Unset
+# means detection falls back to deriving boxes from the Cloud Vision call
+# the pipeline already makes.
+TEXT_DETECTOR_URL = os.environ.get("CASTIA_TEXT_DETECTOR_URL", "")
+
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

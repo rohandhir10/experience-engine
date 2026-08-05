@@ -834,3 +834,63 @@ def test_a_vision_failure_still_returns_the_ocr_result(monkeypatch):
     result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
     assert result["regions"][0]["text"] == "HELL0"
     assert "vision_corrected_count" not in result
+
+
+def test_two_step_read_is_used_when_a_detector_is_configured(monkeypatch):
+    from engine import comics_read, config
+
+    monkeypatch.setattr(config, "TEXT_DETECTOR_URL", "http://detector.internal/detect")
+    monkeypatch.setattr(
+        comics_read,
+        "read_panel_two_step",
+        lambda *a, **k: {"regions": [{"node_id": "r0", "text": "TWO STEP"}], "warning": None},
+    )
+    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    assert result["regions"][0]["text"] == "TWO STEP"
+
+
+def test_a_two_step_failure_falls_back_to_the_single_step_path(monkeypatch):
+    """Detection returning nothing must not fail the request - the old
+    single-step path is still a complete, working read.
+    """
+    from engine import comics_read, comics_vision, config
+
+    monkeypatch.setattr(config, "TEXT_DETECTOR_URL", "http://detector.internal/detect")
+    monkeypatch.setattr(comics_read, "read_panel_two_step", lambda *a, **k: {})
+    monkeypatch.setattr(comics_vision, "read_panel", lambda *a, **k: [])
+    monkeypatch.setattr(
+        main.comics_ocr,
+        "extract_text_regions",
+        lambda image_bytes, language=None: {
+            "regions": [{"text": "FALLBACK", "bbox": {"x": 0, "y": 0, "width": 1, "height": 1},
+                         "confidence": 70.0}],
+            "full_text": "FALLBACK",
+            "warning": None,
+            "image_width": 10,
+            "image_height": 10,
+            "detected_languages": [],
+        },
+    )
+    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    assert result["regions"][0]["text"] == "FALLBACK"
+
+
+def test_no_detector_configured_keeps_the_original_single_step_path(monkeypatch):
+    from engine import comics_read, comics_vision, config
+
+    monkeypatch.setattr(config, "TEXT_DETECTOR_URL", "")
+    monkeypatch.setattr(
+        comics_read,
+        "read_panel_two_step",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("must not run")),
+    )
+    monkeypatch.setattr(comics_vision, "read_panel", lambda *a, **k: [])
+    monkeypatch.setattr(
+        main.comics_ocr,
+        "extract_text_regions",
+        lambda image_bytes, language=None: {
+            "regions": [], "full_text": "", "warning": None,
+            "image_width": 0, "image_height": 0, "detected_languages": [],
+        },
+    )
+    assert main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)["regions"] == []
