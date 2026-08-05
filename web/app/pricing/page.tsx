@@ -4,7 +4,7 @@ import { Footer } from "@/components/Footer";
 export const metadata = {
   title: "Pricing",
   description:
-    "Credit-based pricing for Castia. Billing isn't live yet - the Free tier is.",
+    "Credit-based pricing for Castia - packs, a subscription, and team/enterprise plans. Billing isn't live yet, so trying it today is free.",
   alternates: { canonical: "/pricing" },
 };
 
@@ -65,9 +65,11 @@ export default function PricingPage() {
           </h1>
           <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
             CASTIA is free to try right now, for everyone, with no account
-            needed. What's below is the credit-based pricing we're building
-            toward - checkout will run through Paddle, but it isn't live
-            yet, so nothing here is charged today.
+            needed - that's a limitation of billing not existing yet, not
+            the plan. What's below is the credit-based pricing we're
+            building toward, and every tier in it is paid: checkout will
+            run through Paddle, but until it's live, nothing here is
+            charged today.
           </p>
         </div>
 
@@ -91,22 +93,6 @@ export default function PricingPage() {
             typesetting. At Starter-pack rates, a full page here - translated,
             redrawn, and typeset - costs less than that floor.
           </p>
-        </section>
-
-        <section className="mt-12">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Free
-          </h2>
-          <div className="mt-4 rounded-2xl border border-black/[0.06] px-7 py-8 dark:border-white/[0.07]">
-            <p className="font-serif text-xl text-ink dark:text-ink-dark">
-              A few adaptations every month
-            </p>
-            <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
-              No account needed, no card. Enough to genuinely try Castia on a
-              real song or comic page - not sized for daily or bulk use, since
-              this tier isn't billed for.
-            </p>
-          </div>
         </section>
 
         <section className="mt-12">
