@@ -274,12 +274,14 @@ class AdaptRequest(BaseModel):
     # source, which stopped being true the moment direct pairs like
     # Hindi -> Korean were allowed).
     source_language: str = "unspecified"
-    # Both set together, only when this text came from /api/youtube-draft
-    # and the user didn't restructure the section breaks while reviewing
-    # it (see adapt()'s length check below) — lets the result page sync
-    # playback to a real video instead of just embedding it decoratively.
-    # The engine itself never sees these; timing is server/frontend-only
-    # bookkeeping, matched to sections purely by position.
+    # youtube_section_timings alone (no video_id) is set when this text
+    # came from lib/lyricsImport.ts's .lrc/.srt import - real per-section
+    # timing, no video to sync. Both set together when it came from
+    # /api/youtube-draft instead, letting the result page embed a synced
+    # player. Either way, only kept when the user didn't restructure the
+    # section breaks while reviewing the draft (see adapt()'s length
+    # check below) - the engine itself never sees this, it's server/
+    # frontend-only bookkeeping, matched to sections purely by position.
     youtube_video_id: str | None = None
     youtube_section_timings: list[YoutubeSectionTiming] | None = None
 
@@ -1028,11 +1030,18 @@ def _run_adaptation(
     # "not computed," never as a zero score.
     experience_result["phonemeRepetitionSimilarity"] = report.phoneme_repetition_similarity
 
-    if request.youtube_video_id and request.youtube_section_timings:
+    if request.youtube_section_timings:
+        # Not YouTube-specific despite the field name (kept as-is rather
+        # than renamed - it's the same positional, engine-never-sees-it
+        # timing either way): lib/lyricsImport.ts's .lrc/.srt import
+        # produces this same shape with no video at all, so timing
+        # attachment no longer requires youtube_video_id - only embedding
+        # a sync player (ResultScreen.tsx) does, gated separately below.
         timings = request.youtube_section_timings
         result_sections = experience_result["sections"]
         if len(timings) == len(result_sections):
-            experience_result["videoId"] = request.youtube_video_id
+            if request.youtube_video_id:
+                experience_result["videoId"] = request.youtube_video_id
             for section, timing in zip(result_sections, timings):
                 section["startSeconds"] = timing.start
                 section["endSeconds"] = timing.end

@@ -2,8 +2,12 @@
 
 import { useState } from "react";
 
+// videoId is optional so InputScreen.tsx can reuse this same shape for
+// lib/lyricsImport.ts's .lrc/.srt import, which has real per-section
+// timing but no video to attach - see useAdaptSubmit.ts's YoutubeSource
+// for the same generalization on the submit side.
 export type YoutubeDraft = {
-  videoId: string;
+  videoId?: string;
   draftText: string;
   sections: { start: number; end: number }[];
   warning: string;

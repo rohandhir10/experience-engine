@@ -347,6 +347,29 @@ def test_adapt_attaches_matching_youtube_timing(monkeypatch):
     assert result["sections"][1]["startSeconds"] == 9.5
 
 
+def test_adapt_attaches_section_timing_with_no_video(monkeypatch):
+    """web/lib/lyricsImport.ts's .lrc/.srt import produces real per-section
+    timing with no video at all - this must still attach startSeconds/
+    endSeconds (a real, useful result), just without a videoId key, since
+    there's nothing for ResultScreen.tsx's sync player to embed."""
+    captured: dict = {}
+    _patch_engine_with_two_sections(monkeypatch, captured)
+
+    request = main.AdaptRequest(
+        text="line one\n\nline two",
+        youtube_section_timings=[
+            main.YoutubeSectionTiming(start=0.0, end=4.5),
+            main.YoutubeSectionTiming(start=9.5, end=14.0),
+        ],
+    )
+    result = main.adapt(request, _FakeRequest())
+
+    assert "videoId" not in result
+    assert result["sections"][0]["startSeconds"] == 0.0
+    assert result["sections"][0]["endSeconds"] == 4.5
+    assert result["sections"][1]["startSeconds"] == 9.5
+
+
 def test_adapt_discards_youtube_timing_on_section_count_mismatch(monkeypatch, caplog):
     """The user edited the reviewed draft and changed the number of
     sections - positional timing no longer means anything, so it must be

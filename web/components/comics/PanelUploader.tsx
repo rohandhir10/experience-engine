@@ -2,11 +2,20 @@
 
 import { useRef, useState } from "react";
 import { PdfConversionError, pdfToImageFiles } from "@/lib/pdfToImages";
+import { ZipConversionError, zipToImageFiles } from "@/lib/zipToImages";
 
 const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 function isPdf(file: File): boolean {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+function isZip(file: File): boolean {
+  return (
+    file.type === "application/zip" ||
+    file.type === "application/x-zip-compressed" ||
+    file.name.toLowerCase().endsWith(".zip")
+  );
 }
 
 /** Drag-and-drop (or file-picker) entry point for a chapter's worth of
@@ -20,10 +29,13 @@ function isPdf(file: File): boolean {
  * `onFilesSelected` callback.
  *
  * PDFs are converted client-side (lib/pdfToImages.ts, pdf.js) into one
- * PNG per page before reaching that callback - the rest of the pipeline
- * (detection, OCR, adaptation) only ever deals in per-panel images and
- * has no PDF-parsing step of its own, so conversion has to happen here,
- * not downstream. */
+ * PNG per page, and ZIPs (lib/zipToImages.ts, jszip) are extracted into
+ * their contained images - the standard hand-off for a sliced webtoon
+ * episode, drawn as one tall canvas then chopped into dozens of
+ * platform-sized cuts for delivery - before either reaches this
+ * callback. The rest of the pipeline (detection, OCR, adaptation) only
+ * ever deals in per-panel images and has no PDF- or ZIP-handling step of
+ * its own, so both conversions have to happen here, not downstream. */
 export function PanelUploader({
   onFilesSelected,
 }: {
@@ -35,35 +47,41 @@ export function PanelUploader({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
-  function splitAcceptable(files: FileList | File[]): { images: File[]; pdfs: File[] } {
+  type Convertible = { kind: "pdf" | "zip"; file: File };
+
+  function splitAcceptable(files: FileList | File[]): { images: File[]; convertibles: Convertible[] } {
     const images: File[] = [];
-    const pdfs: File[] = [];
+    const convertibles: Convertible[] = [];
     for (const file of Array.from(files)) {
       if (ACCEPTED_IMAGE_TYPES.includes(file.type)) images.push(file);
-      else if (isPdf(file)) pdfs.push(file);
+      else if (isPdf(file)) convertibles.push({ kind: "pdf", file });
+      else if (isZip(file)) convertibles.push({ kind: "zip", file });
     }
-    return { images, pdfs };
+    return { images, convertibles };
   }
 
   async function handleIncoming(files: FileList | File[]) {
-    const { images, pdfs } = splitAcceptable(files);
+    const { images, convertibles } = splitAcceptable(files);
     if (images.length) onFilesSelected(images);
-    if (!pdfs.length) return;
+    if (!convertibles.length) return;
 
     const errors: string[] = [];
-    for (const pdf of pdfs) {
-      setConverting(pdf.name);
+    for (const { kind, file } of convertibles) {
+      setConverting(file.name);
       try {
-        const pages = await pdfToImageFiles(pdf, (pageNumber, totalPages) =>
-          setConverting(`${pdf.name} (page ${pageNumber} of ${totalPages})`)
-        );
-        onFilesSelected(pages);
+        const extracted =
+          kind === "pdf"
+            ? await pdfToImageFiles(file, (pageNumber, totalPages) =>
+                setConverting(`${file.name} (page ${pageNumber} of ${totalPages})`)
+              )
+            : await zipToImageFiles(file);
+        onFilesSelected(extracted);
       } catch (err) {
-        console.error("PDF conversion failed", pdf.name, err);
+        console.error(`${kind.toUpperCase()} conversion failed`, file.name, err);
         const message =
-          err instanceof PdfConversionError
+          err instanceof PdfConversionError || err instanceof ZipConversionError
             ? `${err.fileName}: ${err.message}`
-            : `${pdf.name}: couldn't be converted`;
+            : `${file.name}: couldn't be converted`;
         errors.push(message);
       }
     }
@@ -90,11 +108,12 @@ export function PanelUploader({
       }`}
     >
       <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
-        Drop chapter images or a PDF here
+        Drop chapter images, a PDF, or a ZIP here
       </p>
       <p className="max-w-sm text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
         JPG, PNG, or WebP panel slices, in any order — they'll be sorted by file name once
-        they're in. A PDF works too: each page becomes its own panel automatically.
+        they're in. A PDF works too: each page becomes its own panel automatically. So does a
+        ZIP of pre-sliced images — the standard hand-off for a webtoon episode.
       </p>
 
       {converting && (
@@ -131,7 +150,7 @@ export function PanelUploader({
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/jpeg,image/png,image/webp,application/pdf,.pdf"
+        accept="image/jpeg,image/png,image/webp,application/pdf,.pdf,application/zip,application/x-zip-compressed,.zip"
         className="hidden"
         onChange={(e) => {
           if (e.target.files) void handleIncoming(e.target.files);

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
+import { LyricsFileImportField } from "./LyricsFileImportField";
 import { PipelineDiagramDark } from "./PipelineDiagramDark";
 import { ScrollReveal } from "./ScrollReveal";
 import { Footer } from "./Footer";
@@ -64,15 +65,19 @@ export function InputScreen({
   // auto-detection stops overwriting it — a wrong guess should cost one
   // click, not a fight with the box every time they type.
   const [sourceLanguageTouched, setSourceLanguageTouched] = useState(false);
-  const [mode, setMode] = useState<"paste" | "youtube">("paste");
+  const [mode, setMode] = useState<"paste" | "youtube" | "file">("paste");
   const [persona, setPersona] = useState<Persona>("fan");
-  const [youtubeDraft, setYoutubeDraft] = useState<YoutubeDraft | null>(null);
+  // Holds either a real YouTube draft (videoId set, syncs a video player
+  // on the result page) or a .lrc/.srt draft (no video, just per-section
+  // timing) - YoutubeDraft's videoId is optional for exactly this reason,
+  // see that type's doc comment.
+  const [timedDraft, setTimedDraft] = useState<YoutubeDraft | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function submit() {
     if (!text.trim() || loading) return;
-    const youtube: YoutubeSource | undefined = youtubeDraft
-      ? { videoId: youtubeDraft.videoId, sectionTimings: youtubeDraft.sections }
+    const youtube: YoutubeSource | undefined = timedDraft
+      ? { videoId: timedDraft.videoId, sectionTimings: timedDraft.sections }
       : undefined;
     onSubmit(
       text,
@@ -83,7 +88,7 @@ export function InputScreen({
   }
 
   function handleImported(draft: YoutubeDraft) {
-    setYoutubeDraft(draft);
+    setTimedDraft(draft);
     setText(draft.draftText);
     if (!sourceLanguageTouched) {
       const detected = detectSourceLanguage(draft.draftText);
@@ -219,14 +224,34 @@ export function InputScreen({
             >
               From YouTube
             </button>
+            <button
+              type="button"
+              onClick={() => setMode("file")}
+              className={`rounded-full px-4 py-1.5 transition ${
+                mode === "file" ? "bg-white text-black" : "text-white/50 hover:text-white/80"
+              }`}
+            >
+              Import .lrc/.srt
+            </button>
           </div>
 
           {mode === "youtube" && (
             <div className="w-full max-w-md">
               <YoutubeImportField dark onImported={handleImported} />
-              {youtubeDraft && (
+              {timedDraft && (
                 <p className="mt-3 text-[12px] leading-relaxed text-white/35">
-                  {youtubeDraft.warning} Review the text below before adapting it.
+                  {timedDraft.warning} Review the text below before adapting it.
+                </p>
+              )}
+            </div>
+          )}
+
+          {mode === "file" && (
+            <div className="w-full max-w-md">
+              <LyricsFileImportField dark onImported={handleImported} />
+              {timedDraft && (
+                <p className="mt-3 text-[12px] leading-relaxed text-white/35">
+                  {timedDraft.warning} Review the text below before adapting it.
                 </p>
               )}
             </div>
@@ -251,11 +276,11 @@ export function InputScreen({
             onChange={(e) => {
               setText(e.target.value);
               autoGrow(e.target);
-              if (youtubeDraft && countBlocks(e.target.value) !== youtubeDraft.sections.length) {
+              if (timedDraft && countBlocks(e.target.value) !== timedDraft.sections.length) {
                 // The edit changed how many sections this splits into -
                 // the draft's positional timing no longer means anything,
                 // so drop it rather than sync to the wrong lyric line.
-                setYoutubeDraft(null);
+                setTimedDraft(null);
               }
               if (!sourceLanguageTouched) {
                 const detected = detectSourceLanguage(e.target.value);

@@ -3,8 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+// `videoId` is optional despite the name predating that: this same
+// per-section timing (positional, matched by index, never seen by the
+// engine itself) is now also produced by lib/lyricsImport.ts's .lrc/.srt
+// import, which has no video to sync playback to. videoId is set only
+// when there's a real video for ResultScreen.tsx's sync player to embed.
 export type YoutubeSource = {
-  videoId: string;
+  videoId?: string;
   sectionTimings: { start: number; end: number }[];
 };
 
@@ -79,7 +84,10 @@ export function useAdaptSubmit() {
           // anything real, and server/main.py drops it rather than guess.
           ...(youtube
             ? {
-                youtube_video_id: youtube.videoId,
+                // Omitted entirely (not sent as null/undefined) when
+                // there's no video - server/main.py only attaches a
+                // videoId to the result when this key is present at all.
+                ...(youtube.videoId ? { youtube_video_id: youtube.videoId } : {}),
                 youtube_section_timings: youtube.sectionTimings,
               }
             : {}),
