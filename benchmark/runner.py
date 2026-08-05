@@ -25,10 +25,51 @@ logger = logging.getLogger(__name__)
 RUNS_DIR = Path(__file__).parent / "runs"
 
 
+EXCLUDE_FILE = ".benchmarkignore"
+
+
+def load_exclusions(corpus_dir: Path) -> set[str]:
+    """Stems listed in the corpus directory's .benchmarkignore, one per
+    line, blank lines and #-comments skipped.
+
+    Lives in the repo rather than in a --exclude flag on purpose: a flag
+    is something the next person has to remember, and a corpus that
+    silently includes the wrong songs produces a confidently wrong
+    number. The file travels with the corpus and is reviewable in a diff.
+    """
+    path = corpus_dir / EXCLUDE_FILE
+    if not path.exists():
+        return set()
+    stems = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            stems.add(line.removesuffix(".json"))
+    return stems
+
+
 def load_corpus(corpus_dir: Path) -> list[SongInput]:
+    """Every song JSON in `corpus_dir`, minus anything .benchmarkignore
+    excludes.
+
+    Not every file that is useful to have around belongs in a quality
+    measurement: a synthetic fixture used by the CLI docs, or a
+    single-section fragment kept for a repro, would both dilute every
+    mean they touched while looking like real evidence in the report.
+    """
+    excluded = load_exclusions(corpus_dir)
     songs = []
+    skipped = []
     for path in sorted(corpus_dir.glob("*.json")):
+        if path.stem in excluded:
+            skipped.append(path.stem)
+            continue
         songs.append(SongInput.model_validate(json.loads(path.read_text())))
+    if skipped:
+        logger.info(
+            "Corpus %s: excluded %d file(s) per %s - %s",
+            corpus_dir, len(skipped), EXCLUDE_FILE, ", ".join(skipped),
+        )
     if not songs:
         raise ValueError(f"No song JSON files found in {corpus_dir}")
     return songs

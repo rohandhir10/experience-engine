@@ -1,0 +1,13 @@
+# Files in this directory that must NOT be treated as benchmark corpus
+# material (benchmark/runner.py::load_corpus). They stay here because
+# other things genuinely use them - they just aren't evidence.
+
+# The CLI's documented example fixture (README.md, engine/cli.py's help
+# text, docs/ENGINE.md). Synthetic English, self-described as "not a real
+# production input" - it would dilute every mean in the report.
+sample_song
+
+# A single-section Punjabi fragment, kept for reproducing a specific
+# case. One section is too little to rate a system on, and it would carry
+# the same weight as a full ten-section song in the paired tests.
+sadda_haq_single_line

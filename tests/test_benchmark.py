@@ -232,3 +232,78 @@ def test_a_no_verify_ablation_can_still_be_registered():
     ablation = CastiaSystem(lambda: None, apply_corrective_pass=False, name="castia_no_verify")
     assert ablation.name == "castia_no_verify"
     assert ablation._apply_corrective_pass is False
+
+
+# ---------------------------------------------------------------------------
+# Corpus exclusions.
+#
+# examples/ holds more than benchmark material: a synthetic fixture the
+# CLI docs depend on, and a one-section fragment. Both would have been
+# swept into a paid run and weighted like real ten-section songs.
+# ---------------------------------------------------------------------------
+
+
+def test_the_examples_corpus_excludes_the_fixture_and_the_fragment():
+    from pathlib import Path
+
+    from benchmark.runner import load_corpus
+
+    titles = {s.title for s in load_corpus(Path("examples"))}
+    assert not any("synthetic" in t.lower() for t in titles)
+    assert not any("single line" in t.lower() for t in titles)
+    assert len(titles) == 4
+
+
+def test_the_excluded_files_still_exist_for_their_other_uses(tmp_path):
+    """Excluding from the corpus must not delete them - sample_song.json
+    is the CLI example referenced from README.md and docs/ENGINE.md."""
+    from pathlib import Path
+
+    assert Path("examples/sample_song.json").exists()
+    assert Path("examples/sadda_haq_single_line.json").exists()
+
+
+def test_exclusions_are_read_from_the_corpus_directory(tmp_path):
+    import json
+
+    from benchmark.runner import load_corpus
+
+    song = {"title": "Keep Me", "source_language": "Hindi",
+            "sections": [{"name": "verse_1", "source_text": "a line"}]}
+    drop = {"title": "Drop Me", "source_language": "Hindi",
+            "sections": [{"name": "verse_1", "source_text": "a line"}]}
+    (tmp_path / "keep.json").write_text(json.dumps(song))
+    (tmp_path / "drop.json").write_text(json.dumps(drop))
+    (tmp_path / ".benchmarkignore").write_text("# a comment\n\ndrop.json\n")
+
+    titles = [s.title for s in load_corpus(tmp_path)]
+    assert titles == ["Keep Me"]
+
+
+def test_a_corpus_with_no_ignore_file_loads_everything(tmp_path):
+    import json
+
+    from benchmark.runner import load_corpus
+
+    (tmp_path / "a.json").write_text(json.dumps(
+        {"title": "A", "source_language": "Hindi",
+         "sections": [{"name": "v", "source_text": "x"}]}
+    ))
+    assert len(load_corpus(tmp_path)) == 1
+
+
+def test_excluding_everything_is_an_error_not_an_empty_run(tmp_path):
+    """Better to fail loudly than to produce a report from zero songs."""
+    import json
+
+    import pytest as _pytest
+
+    from benchmark.runner import load_corpus
+
+    (tmp_path / "a.json").write_text(json.dumps(
+        {"title": "A", "source_language": "Hindi",
+         "sections": [{"name": "v", "source_text": "x"}]}
+    ))
+    (tmp_path / ".benchmarkignore").write_text("a\n")
+    with _pytest.raises(ValueError):
+        load_corpus(tmp_path)

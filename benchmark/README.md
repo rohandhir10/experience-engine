@@ -15,6 +15,25 @@ engine — imports it, never modifies it.
 | `google_translate` | Machine-translation floor via deep-translator's free endpoint; falls back to a manual file if the endpoint is unavailable |
 | `bollynook`, `filmyquotes` | No APIs exist; paste their published translations into `benchmark/manual/<song_id>/<system>.txt` (sections separated by blank lines). Missing file = skipped for that song, never faked |
 
+## What counts as corpus material
+
+`load_corpus` reads every `*.json` in the corpus directory except the
+stems listed in that directory's `.benchmarkignore`. Not everything
+useful to keep around is evidence:
+
+| Excluded from `examples/` | Why |
+|---|---|
+| `sample_song` | The CLI's documented example fixture (README.md, `engine/cli.py`, docs/ENGINE.md). Synthetic English, self-described as "not a real production input" — it would dilute every mean in the report. |
+| `sadda_haq_single_line` | A one-section fragment. Too little to rate a system on, and the paired tests would weight it the same as a full ten-section song. |
+
+Both files stay where they are; only their corpus membership changed.
+
+**Known limitation of the current corpus:** the four remaining songs are
+all Hindi/Urdu/Punjabi. A result from `examples/` is evidence about that
+language family, not about the six-language roster. Japanese, Korean and
+Spanish songs are needed before any claim can be made about them — see
+`corpora/KOREAN.md` for the collection spec.
+
 ## The three stages
 
 ```bash
