@@ -73,16 +73,60 @@ def similarity(a: str, b: str) -> float:
 
 @dataclass
 class Reading:
-    """One piece of text the vision LLM says it can see in the panel."""
+    """One text node the vision model reports seeing in the panel.
+
+    Field names mirror the JSON schema in engine/comics_vision.py
+    (_SCHEMA_DOC) one-for-one, so the prompt contract and this dataclass
+    can be read side by side.
+    """
 
     text: str
-    # "dialogue" | "sfx" | "narration" | "background" | "unknown" - what
-    # the LLM says this is. Used to keep sound effects and background
-    # signage out of the adapted dialogue script.
+    # See comics_vision._VALID_KINDS. Finer-grained than a plain
+    # dialogue/not-dialogue split because the distinctions are real
+    # localization decisions, not decoration: a thought bubble is
+    # typeset in a different face from speech, and signage often
+    # shouldn't be touched at all.
     kind: str = "unknown"
-    # Who the LLM believes is speaking, or None when it won't commit.
-    # Never invented downstream - a None stays None.
+    # PANEL-LOCAL label ("Character_A"), not a chapter-wide identity.
+    # The model sees one panel and cannot know that its Character_A is
+    # the Character_A of six panels ago; reconciling those into real
+    # cast members is a separate step (see comics_vision's docstring).
     speaker: str | None = None
+    # The model's own 0-1 confidence in that attribution. Carried so a
+    # low-confidence guess can be shown differently from a bubble whose
+    # tail plainly points at someone, instead of both arriving as bare
+    # text that looks equally certain.
+    speaker_confidence: float = 0.0
+    # What the speaker physically looks like in this panel ("tall, dark
+    # bob, red jacket"). This is the join key for cross-panel identity:
+    # panel-local labels are meaningless across panels, appearance is not.
+    speaker_appearance: str | None = None
+    # False when the line is spoken from outside the frame (off-panel
+    # tail, or none at all) - a real case where no visible figure can be
+    # the speaker and guessing one would be wrong.
+    speaker_visible: bool = True
+    # Bounded vocabulary (comics_vision._VALID_TONES). Bounded on
+    # purpose: free-text emotion can't be compared across panels, so it
+    # could never drive consistency, only decorate a UI.
+    tone: str = "neutral"
+    # Free text for whatever the bounded tone can't carry. The escape
+    # hatch that lets `tone` stay small enough to be useful.
+    tone_note: str | None = None
+    # Visual weight of the lettering ("normal" | "bold" | "large" |
+    # "small" | "trembling"). Captured now because it is the input
+    # typesetting needs later to match the original's emphasis, and it
+    # is only recoverable while looking at the artwork.
+    emphasis: str = "normal"
+    # 1-based position in this panel's reading order, as the model reads
+    # it. Genuinely useful because reading order is script-dependent
+    # (right-to-left manga, Z-pattern spreads) and geometry alone
+    # guesses it badly.
+    reading_index: int = 0
+    # The detector's node id when the model was given one to key against
+    # (see comics_vision.read_panel's `known_regions`). None when the
+    # model read the panel cold, in which case alignment falls back to
+    # matching on text similarity.
+    node_id: str | None = None
 
 
 @dataclass

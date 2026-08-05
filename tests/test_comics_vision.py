@@ -37,41 +37,157 @@ def _ocr_result(*texts: str) -> dict:
 # --- _parse_readings: never trust the shape of model output ---------------
 
 
-def test_parse_readings_reads_a_well_formed_reply():
+def test_parse_reads_a_well_formed_narrative_node():
     readings = comics_vision._parse_readings(
-        {"readings": [{"text": "HOLD ON", "kind": "dialogue", "speaker": "Mira"}]}
+        {
+            "text_nodes": [
+                {
+                    "node_id": "r1",
+                    "text": "HOLD ON",
+                    "kind": "shout",
+                    "reading_index": 2,
+                    "speaker": "Character_A",
+                    "speaker_confidence": 0.9,
+                    "speaker_appearance": "tall, dark bob, red jacket",
+                    "speaker_visible": True,
+                    "tone": "urgent",
+                    "tone_note": "shouted across a gap",
+                    "emphasis": "large",
+                }
+            ]
+        }
     )
-    assert readings == [Reading(text="HOLD ON", kind="dialogue", speaker="Mira")]
+    node = readings[0]
+    assert node.text == "HOLD ON"
+    assert node.kind == "shout"
+    assert node.speaker == "Character_A"
+    assert node.speaker_confidence == 0.9
+    assert node.speaker_appearance == "tall, dark bob, red jacket"
+    assert node.tone == "urgent"
+    assert node.tone_note == "shouted across a gap"
+    assert node.emphasis == "large"
+    assert node.reading_index == 2
+    assert node.node_id == "r1"
 
 
-def test_parse_readings_downgrades_an_unrecognised_kind():
-    # Downstream filtering (e.g. "leave sfx out of the script") can only
-    # rely on the vocabulary if unknown values never pass through.
+@pytest.mark.parametrize(
+    "field,bad_value,attr,expected",
+    [
+        ("kind", "shouting-in-a-cave", "kind", "unknown"),
+        ("tone", "wistful-but-hungry", "tone", "neutral"),
+        ("emphasis", "sparkly", "emphasis", "normal"),
+    ],
+)
+def test_values_outside_the_vocabulary_are_downgraded(field, bad_value, attr, expected):
+    """Downstream code groups and filters on these, so it can only rely
+    on the vocabulary if out-of-set values never pass through.
+    """
     readings = comics_vision._parse_readings(
-        {"readings": [{"text": "HI", "kind": "shouting-in-a-cave"}]}
+        {"text_nodes": [{"text": "HI", field: bad_value}]}
     )
-    assert readings[0].kind == "unknown"
+    assert getattr(readings[0], attr) == expected
 
 
-def test_parse_readings_treats_a_blank_speaker_as_no_speaker():
+@pytest.mark.parametrize(
+    "bad", ["high", None, True, float("nan"), float("inf"), float("-inf"), {}, []]
+)
+def test_a_malformed_confidence_never_reads_as_certain(bad):
+    """The field exists to let a guess be distrusted. A broken value
+    must land at 0, never at something a threshold would wave through.
+    """
     readings = comics_vision._parse_readings(
-        {"readings": [{"text": "HI", "kind": "dialogue", "speaker": "   "}]}
+        {"text_nodes": [{"text": "HI", "speaker": "Character_A", "speaker_confidence": bad}]}
+    )
+    # Asserting only the RANGE here was not enough: NaN slipped through
+    # min/max clamping as 1.0 and the weaker assertion passed. Every
+    # malformed value must land at exactly 0.
+    assert readings[0].speaker_confidence == 0.0
+
+
+def test_an_out_of_range_numeric_confidence_is_clamped_not_zeroed():
+    """A real number outside 0-1 is a scale mistake, not corruption -
+    clamp it. Distinct from the malformed cases above, which must zero.
+    """
+    high = comics_vision._parse_readings(
+        {"text_nodes": [{"text": "HI", "speaker": "Character_A", "speaker_confidence": 42}]}
+    )
+    assert high[0].speaker_confidence == 1.0
+    low = comics_vision._parse_readings(
+        {"text_nodes": [{"text": "HI", "speaker": "Character_A", "speaker_confidence": -5}]}
+    )
+    assert low[0].speaker_confidence == 0.0
+
+
+def test_no_speaker_forces_confidence_to_zero():
+    readings = comics_vision._parse_readings(
+        {"text_nodes": [{"text": "KRAKOOM", "kind": "sfx", "speaker_confidence": 0.99}]}
+    )
+    assert readings[0].speaker is None
+    assert readings[0].speaker_confidence == 0.0
+
+
+def test_a_blank_speaker_is_no_speaker():
+    readings = comics_vision._parse_readings(
+        {"text_nodes": [{"text": "HI", "kind": "speech", "speaker": "   "}]}
     )
     assert readings[0].speaker is None
 
 
-def test_parse_readings_drops_entries_with_no_usable_text():
+def test_speaker_visible_defaults_true_and_honours_an_explicit_false():
+    off_panel = comics_vision._parse_readings(
+        {"text_nodes": [{"text": "HI", "speaker_visible": False}]}
+    )
+    assert off_panel[0].speaker_visible is False
+    default = comics_vision._parse_readings({"text_nodes": [{"text": "HI"}]})
+    assert default[0].speaker_visible is True
+
+
+def test_a_missing_reading_index_falls_back_to_listed_order():
     readings = comics_vision._parse_readings(
-        {"readings": [{"text": ""}, {"text": "   "}, {"kind": "sfx"}, {"text": "REAL"}]}
+        {"text_nodes": [{"text": "FIRST"}, {"text": "SECOND"}]}
+    )
+    assert [r.reading_index for r in readings] == [1, 2]
+
+
+def test_nodes_with_no_usable_text_are_dropped():
+    readings = comics_vision._parse_readings(
+        {"text_nodes": [{"text": ""}, {"text": "   "}, {"kind": "sfx"}, {"text": "REAL"}]}
     )
     assert [r.text for r in readings] == ["REAL"]
 
 
 @pytest.mark.parametrize(
-    "payload", [{}, {"readings": None}, {"readings": "not a list"}, {"readings": [1, 2]}]
+    "payload",
+    [{}, {"text_nodes": None}, {"text_nodes": "not a list"}, {"text_nodes": [1, 2]},
+     {"readings": [{"text": "old schema key"}]}],
 )
-def test_parse_readings_survives_malformed_replies(payload):
+def test_malformed_replies_yield_nothing(payload):
     assert comics_vision._parse_readings(payload) == []
+
+
+# --- grounding: the optional node_id path --------------------------------
+
+
+def test_known_regions_are_offered_to_the_model_with_their_ids():
+    block = comics_vision._known_regions_block(
+        [{"node_id": "r0", "text": "H0LD 0N"}, {"node_id": "r1", "text": ""}]
+    )
+    assert "r0: H0LD 0N" in block
+    assert "r1: (no OCR text)" in block
+    # The OCR text is a hint to correct, never an answer to trust.
+    assert "do not trust it" in block
+
+
+def test_no_known_regions_adds_nothing_to_the_prompt():
+    assert comics_vision._known_regions_block(None) == ""
+    assert comics_vision._known_regions_block([]) == ""
+
+
+def test_a_grounded_reply_keeps_the_node_id_for_exact_alignment():
+    readings = comics_vision._parse_readings(
+        {"text_nodes": [{"node_id": "r7", "text": "HI"}]}
+    )
+    assert readings[0].node_id == "r7"
 
 
 # --- read_panel: every failure degrades to OCR-only, never raises ---------
@@ -112,7 +228,7 @@ def test_read_panel_sends_the_image_as_a_data_url(monkeypatch, vision_enabled):
         def complete_json_with_image(self, system, user, image_data_url, **kwargs):
             captured["url"] = image_data_url
             captured["stage"] = kwargs.get("stage")
-            return {"readings": [{"text": "HI", "kind": "dialogue"}]}
+            return {"text_nodes": [{"text": "HI", "kind": "speech"}]}
 
     monkeypatch.setattr("engine.llm_client.create_vision_client", lambda: _Recording())
     readings = comics_vision.read_panel(b"abc", mime_type="image/png")
