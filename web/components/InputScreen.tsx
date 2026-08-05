@@ -15,6 +15,17 @@ import type { YoutubeSource } from "@/lib/useAdaptSubmit";
 const MIN_ROWS = 6;
 const MAX_TEXTAREA_HEIGHT_PX = 380;
 
+// The tool itself is identical for both personas - same pipeline, same
+// languages, no gated features - so this only swaps the headline (the one
+// piece of copy that's actually about *why* someone's here). The language-
+// aware line below it (sourceHintFor) stays untouched for both, since it's
+// real functional information, not persona framing.
+type Persona = "fan" | "creator";
+const PERSONA_HEADLINES: Record<Persona, [string, string]> = {
+  fan: ["Adapt the feeling.", "Not just the words."],
+  creator: ["Adapt your lyrics.", "Keep what makes them yours."],
+};
+
 // Mirrors engine/text_ingest.py's split_into_sections exactly - used only
 // to notice when an edit has changed the section *count* a YouTube draft
 // came with, so its per-section timing (positional, not content-matched)
@@ -53,6 +64,7 @@ export function InputScreen({
   // click, not a fight with the box every time they type.
   const [sourceLanguageTouched, setSourceLanguageTouched] = useState(false);
   const [mode, setMode] = useState<"paste" | "youtube">("paste");
+  const [persona, setPersona] = useState<Persona>("fan");
   const [youtubeDraft, setYoutubeDraft] = useState<YoutubeDraft | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -115,10 +127,38 @@ export function InputScreen({
         data-screenshot="hero"
         className="mx-auto flex w-full max-w-2xl flex-col items-center text-center lg:mx-0 lg:items-start lg:text-left"
       >
-        <h1 className="animate-fade-up text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-white sm:text-[2.9rem]">
-          Adapt the feeling.
+        {/* Same tool, same pipeline, no gated features either side - this
+            only swaps the headline to speak to why someone's actually
+            here, since a fan adapting a favorite song and a songwriter
+            adapting their own lyrics want to hear a different promise
+            first even though what happens next is identical. */}
+        <div className="animate-fade-up flex items-center gap-1 rounded-full border border-white/10 p-1 text-[12px]">
+          <button
+            type="button"
+            onClick={() => setPersona("fan")}
+            aria-pressed={persona === "fan"}
+            className={`rounded-full px-3.5 py-1.5 transition ${
+              persona === "fan" ? "bg-white text-black" : "text-white/45 hover:text-white/75"
+            }`}
+          >
+            Adapting a song I love
+          </button>
+          <button
+            type="button"
+            onClick={() => setPersona("creator")}
+            aria-pressed={persona === "creator"}
+            className={`rounded-full px-3.5 py-1.5 transition ${
+              persona === "creator" ? "bg-white text-black" : "text-white/45 hover:text-white/75"
+            }`}
+          >
+            Adapting my own lyrics
+          </button>
+        </div>
+
+        <h1 className="animate-fade-up mt-5 text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-white sm:text-[2.9rem]">
+          {PERSONA_HEADLINES[persona][0]}
           <br />
-          Not just the words.
+          {PERSONA_HEADLINES[persona][1]}
         </h1>
         <p
           className="animate-fade-up mt-4 text-[14px] text-white/40"

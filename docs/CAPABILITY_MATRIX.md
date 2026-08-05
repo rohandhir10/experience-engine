@@ -2942,9 +2942,9 @@ previous two entries said so explicitly).
   `dashboard-workspace.png` — the previous `comparison-card.png` still
   had "AURA" baked into its pixels from before the rename, which the
   hero rework made far more visually prominent.
-- **What this does NOT do:** no glassmorphism/blur pass, no persona-split
-  toggle, no value-anchoring/ROI section, no API code-sample section —
-  same deferred brief pieces as before, still not started.
+- **What this does NOT do:** no glassmorphism/blur pass, no
+  value-anchoring/ROI section, no API code-sample section — still
+  deferred (persona-split toggle below is now done).
 - **Tier 1** — presentation only, no model-quality claim.
   **Verified live:** `tsc --noEmit`, `next build` (clean, `/music` at
   5.31 kB), and all 58 Vitest tests stayed green. A real Chromium/
@@ -2955,6 +2955,38 @@ previous two entries said so explicitly).
   "CASTIA" instead of the stale "AURA."
 - **Benchmark coverage:** no new automated tests — this is presentation
   layout with no non-trivial pure logic to unit test.
+
+### Persona-split toggle (`/music`)
+
+- **What this builds:** a two-option pill toggle ("Adapting a song I love" /
+  "Adapting my own lyrics") above the hero headline in `InputScreen.tsx`,
+  swapping only the headline copy between a fan framing ("Adapt the
+  feeling. Not just the words.") and a creator/songwriter framing ("Adapt
+  your lyrics. Keep what makes them yours."). Chosen deliberately over
+  "Individual vs. Team/Label," which would have implied seat management or
+  catalog features that don't exist in this product yet — Fans vs.
+  Creators is the one split that's true of what's already shipped, since
+  the tool already serves both identically with no gating.
+- **What stays untouched:** the language-aware line below the headline
+  (`sourceHintFor`, real functional copy about which languages/direction
+  are supported) does not change with persona — it's information, not
+  framing. The pipeline, form, submit flow, and everything below the hero
+  are identical regardless of which persona is selected; nothing is
+  gated or reordered.
+- **What this does NOT do:** the choice isn't persisted (no localStorage,
+  no cookie) — it's presentation state for this page view only, since
+  there's no real per-persona backend behavior to remember yet. No
+  A/B measurement is wired up; this is copy, not an experiment.
+- **Tier 1** — presentation only, no model-quality claim.
+  **Verified live:** `tsc --noEmit`, `next build`, all 58 Vitest tests
+  green. A real Chromium/Playwright pass against the production build
+  clicked both toggle states and confirmed (via `innerText`, then via
+  rendered screenshots) that the headline actually swaps and swaps back,
+  and that the longer creator headline doesn't clip or overlap the
+  language hint below it.
+- **Benchmark coverage:** no new automated tests — a static copy lookup
+  keyed by two string literals, with the actual click behavior confirmed
+  live above.
 
 ## Deliberately deferred out of Phase 3
 
