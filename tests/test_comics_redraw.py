@@ -13,16 +13,20 @@ import pytest
 from PIL import Image, ImageDraw, ImageFont
 
 from engine.comics_redraw import (
-    _FONT_REGULAR,
+    DEFAULT_FONT,
+    FONTS,
     RedrawError,
     _clamp_bbox,
     _estimate_text_color,
     _fit_text,
     _merge_overlapping_regions,
+    _resolve_font_path,
     _wrap_text,
     redraw_panel,
     redraw_panel_detailed,
 )
+
+_FONT_REGULAR = FONTS[DEFAULT_FONT]
 
 
 def _png_bytes(image: Image.Image) -> bytes:
@@ -107,6 +111,7 @@ def test_fit_text_shrinks_font_to_fit_a_small_box():
         box_width=100,
         box_height=60,
         draw=draw,
+        font_path=_FONT_REGULAR,
     )
     assert font.size < 72  # did not stay at the max size
     assert len(lines) >= 1
@@ -123,6 +128,7 @@ def test_fit_text_never_raises_even_when_nothing_fits():
         box_width=15,
         box_height=10,
         draw=draw,
+        font_path=_FONT_REGULAR,
     )
     assert font.size == 8  # bottomed out at the minimum
     assert lines
@@ -371,3 +377,124 @@ def test_redraw_panel_composites_a_transparent_panel_onto_white_not_raw_black():
         f"expected the transparent panel to composite onto white, got {corner.tolist()} "
         "(a bare convert(\"RGB\") would have leaked the raw black through instead)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Font selection - a small curated set of bundled OFL comic fonts (Comic
+# Neue by default) replacing the single fixed Liberation Sans, with
+# per-region/default overrides.
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_font_path_returns_the_named_font():
+    assert _resolve_font_path("patrick-hand") == FONTS["patrick-hand"]
+
+
+def test_resolve_font_path_falls_back_to_default_for_none():
+    assert _resolve_font_path(None) == FONTS[DEFAULT_FONT]
+
+
+def test_resolve_font_path_falls_back_to_default_for_an_unknown_name():
+    """A typo or a stale saved value degrades to the default rather than
+    raising - a wrong font is cosmetic, not worth failing the redraw."""
+    assert _resolve_font_path("not-a-real-font") == FONTS[DEFAULT_FONT]
+
+
+def test_resolve_font_path_falls_back_to_default_for_an_empty_string():
+    assert _resolve_font_path("") == FONTS[DEFAULT_FONT]
+
+
+def test_every_registered_font_actually_loads():
+    for name, path in FONTS.items():
+        font = ImageFont.truetype(str(path), 24)
+        assert font.getbbox("Ag") is not None, f"{name} failed to load a usable font"
+
+
+def test_redraw_panel_uses_the_requested_default_font(monkeypatch):
+    import engine.comics_redraw as comics_redraw
+
+    used_font_paths = []
+    real_draw = comics_redraw._draw_text_in_region
+
+    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT]):
+        used_font_paths.append(font_path)
+        return real_draw(image, bbox, text, color, font_path)
+
+    monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
+
+    image = _bubble_image()
+    redraw_panel(
+        _png_bytes(image),
+        [{"bbox": {"x": 40, "y": 30, "width": 100, "height": 40}, "adapted_text": "hi"}],
+        default_font="patrick-hand",
+    )
+
+    assert used_font_paths == [FONTS["patrick-hand"]]
+
+
+def test_redraw_panel_a_per_region_font_overrides_the_default(monkeypatch):
+    import engine.comics_redraw as comics_redraw
+
+    used_font_paths = []
+    real_draw = comics_redraw._draw_text_in_region
+
+    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT]):
+        used_font_paths.append(font_path)
+        return real_draw(image, bbox, text, color, font_path)
+
+    monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
+
+    image = _bubble_image(400, 200)
+    redraw_panel(
+        _png_bytes(image),
+        [
+            {
+                "bbox": {"x": 20, "y": 20, "width": 100, "height": 40},
+                "adapted_text": "one",
+                "font": "liberation-sans",
+            },
+            {"bbox": {"x": 220, "y": 120, "width": 100, "height": 40}, "adapted_text": "two"},
+        ],
+        default_font="patrick-hand",
+    )
+
+    assert used_font_paths == [FONTS["liberation-sans"], FONTS["patrick-hand"]]
+
+
+def test_redraw_panel_defaults_to_comic_neue_with_no_font_specified(monkeypatch):
+    import engine.comics_redraw as comics_redraw
+
+    used_font_paths = []
+    real_draw = comics_redraw._draw_text_in_region
+
+    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT]):
+        used_font_paths.append(font_path)
+        return real_draw(image, bbox, text, color, font_path)
+
+    monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
+
+    image = _bubble_image()
+    redraw_panel(
+        _png_bytes(image),
+        [{"bbox": {"x": 40, "y": 30, "width": 100, "height": 40}, "adapted_text": "hi"}],
+    )
+
+    assert used_font_paths == [FONTS["comic-neue"]]
+
+
+def test_merge_preserves_the_first_regions_font():
+    regions = [
+        {
+            "bbox": {"x": 0, "y": 0, "width": 100, "height": 50},
+            "adapted_text": "one",
+            "font": "patrick-hand",
+        },
+        {
+            "bbox": {"x": 20, "y": 10, "width": 200, "height": 80},
+            "adapted_text": "two",
+            "font": "liberation-sans",
+        },
+    ]
+    merged = _merge_overlapping_regions(regions)
+    assert len(merged) == 1
+    assert merged[0]["font"] == "patrick-hand"

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ComicPanel } from "@/lib/comics-types";
-import { resolveRedrawRegionText } from "@/lib/comicsRedraw";
+import { FONT_OPTIONS, resolveRedrawRegionText } from "@/lib/comicsRedraw";
 
 /** Panel-by-panel review: a thumbnail rail to jump between panels, the
  * active panel's real image (with a real OCR pass's bounding boxes
@@ -80,6 +80,14 @@ export function PanelWorkspace({
     const next = [...(active.redrawRegionTexts ?? new Array(regions.length).fill(null))];
     next[index] = value;
     onUpdatePanel(active.id, { redrawRegionTexts: next });
+  }
+
+  function setRedrawRegionFont(index: number, value: string) {
+    const regions = active.ocrRegions;
+    if (!regions) return;
+    const next = [...(active.redrawRegionFonts ?? new Array(regions.length).fill(null))];
+    next[index] = value || null;
+    onUpdatePanel(active.id, { redrawRegionFonts: next });
   }
 
   function setRegionAdaptedText(index: number, value: string) {
@@ -279,12 +287,29 @@ export function PanelWorkspace({
 
             {active.ocrRegions && active.ocrRegions.length > 0 && (
               <div className="mt-4">
-                <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Redraw</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Redraw</p>
+                  <label className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-ink/40 dark:text-ink-dark/40">Font</span>
+                    <select
+                      value={active.redrawFont ?? ""}
+                      onChange={(e) => onUpdatePanel(active.id, { redrawFont: e.target.value || null })}
+                      className="rounded-md border border-black/[0.08] bg-white/70 px-1.5 py-1 text-[11px] text-ink dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark"
+                    >
+                      {FONT_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
                   Erases the original text out of a bubble and draws the line below back in
-                  its place — speech bubbles only, one fixed font (won't match the original
-                  lettering), a best-guess text color. Only regions with text below get
-                  redrawn; leave one blank to skip it.
+                  its place — speech bubbles only, a small set of bundled comic fonts (never
+                  an exact match for the original lettering), a best-guess text color. Only
+                  regions with text below get redrawn; leave one blank to skip it. Each
+                  region can override the panel's default font above.
                 </p>
                 <ol className="mt-2 flex flex-col gap-2">
                   {active.ocrRegions.map((region, i) => (
@@ -292,13 +317,27 @@ export function PanelWorkspace({
                       <span className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
                         {i + 1}
                       </span>
-                      <textarea
-                        value={resolveRedrawRegionText(active, i)}
-                        onChange={(e) => setRedrawRegionText(i, e.target.value)}
-                        rows={2}
-                        placeholder={`Adapted text for region ${i + 1}…`}
-                        className="min-w-0 flex-1 resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
-                      />
+                      <div className="min-w-0 flex-1">
+                        <textarea
+                          value={resolveRedrawRegionText(active, i)}
+                          onChange={(e) => setRedrawRegionText(i, e.target.value)}
+                          rows={2}
+                          placeholder={`Adapted text for region ${i + 1}…`}
+                          className="w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                        />
+                        <select
+                          value={active.redrawRegionFonts?.[i] ?? ""}
+                          onChange={(e) => setRedrawRegionFont(i, e.target.value)}
+                          className="mt-1 rounded-md border border-black/[0.08] bg-white/70 px-1.5 py-0.5 text-[11px] text-ink/60 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark/60"
+                        >
+                          <option value="">Use panel default</option>
+                          {FONT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </li>
                   ))}
                 </ol>

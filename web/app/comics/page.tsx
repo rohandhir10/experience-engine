@@ -93,6 +93,8 @@ export default function ComicsPage() {
         regionAdaptedTexts: null,
         regionWhys: null,
         redrawRegionTexts: null,
+        redrawFont: null,
+        redrawRegionFonts: null,
         redrawResultUrl: null,
         redrawResultId: null,
         redrawStatus: "idle" as const,
@@ -136,6 +138,7 @@ export default function ComicsPage() {
       regionAdaptedTexts: null,
       regionWhys: null,
       redrawRegionTexts: null,
+      redrawRegionFonts: null,
       redrawResultUrl: null,
       redrawResultId: null,
       redrawStatus: "idle",
@@ -196,6 +199,7 @@ export default function ComicsPage() {
       .map((region, i) => ({
         bbox: region.bbox,
         adaptedText: resolveRedrawRegionText(panel, i).trim(),
+        font: panel.redrawRegionFonts?.[i] ?? undefined,
       }))
       .filter((r) => r.adaptedText);
 
@@ -209,7 +213,11 @@ export default function ComicsPage() {
 
     updatePanel(id, { redrawStatus: "running", redrawMessage: null });
     try {
-      const { dataUrl, id: redrawResultId } = await redrawPanel(panel.file, regionsToSend);
+      const { dataUrl, id: redrawResultId } = await redrawPanel(
+        panel.file,
+        regionsToSend,
+        panel.redrawFont ?? undefined
+      );
       updatePanel(id, {
         redrawStatus: "idle",
         redrawResultUrl: dataUrl,

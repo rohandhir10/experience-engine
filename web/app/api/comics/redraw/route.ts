@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
   const incoming = await request.formData().catch(() => null);
   const image = incoming?.get("image");
   const regions = incoming?.get("regions");
+  const defaultFont = incoming?.get("default_font");
   if (!(image instanceof Blob)) {
     return NextResponse.json({ error: "An image file is required." }, { status: 400 });
   }
@@ -24,6 +25,7 @@ export async function POST(request: NextRequest) {
   const upstreamForm = new FormData();
   upstreamForm.append("image", image, image instanceof File ? image.name : "panel.png");
   upstreamForm.append("regions", regions);
+  if (typeof defaultFont === "string") upstreamForm.append("default_font", defaultFont);
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 25_000);

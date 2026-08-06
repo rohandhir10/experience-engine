@@ -96,6 +96,7 @@ from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import adapt_chapter
 from engine.comics_ocr import OcrError
+from engine import comics_redraw
 from engine.comics_redraw import RedrawError, redraw_panel_detailed
 from engine.llm_client import LLMError, create_default_client
 from engine.models import SUPPORTED_LANGUAGES, BubbleInput, ChapterInput, SectionInput, SongInput
@@ -545,33 +546,47 @@ class RedrawBbox(BaseModel):
 class RedrawRegion(BaseModel):
     bbox: RedrawBbox
     adapted_text: str
+    # A key into engine/comics_redraw.py's FONTS, or None to fall back to
+    # `default_font` below (and from there to comics_redraw.DEFAULT_FONT)
+    # - lets one panel mix fonts (a softer default, a bolder override on
+    # one shout) without every region having to name one.
+    font: str | None = None
 
 
 @app.post("/api/comics/redraw")
 def comics_redraw_endpoint(
     image: UploadFile = File(...),
     regions: str = Form(...),
+    default_font: str | None = Form(None),
 ) -> dict:
     """Erases the original text out of each given bubble region and
     draws the adapted line back in its place (engine/comics_redraw.py) -
     see that module's docstring for the honest, disclosed scope: speech
-    bubbles only (not SFX), one fixed bundled font (never a match for
-    the original lettering), and a heuristic text-color guess.
+    bubbles only (not SFX), a small curated set of bundled OFL comic
+    fonts rather than a match for the original lettering, and a
+    heuristic text-color guess.
 
     `regions` is a JSON-encoded string (multipart can't carry nested
-    JSON directly) - `[{"bbox": {"x","y","width","height"}, "adapted_text"}, ...]`,
+    JSON directly) - `[{"bbox": {"x","y","width","height"}, "adapted_text", "font"}, ...]`,
     the same bbox shape /api/comics/ocr already returns per detected
     region, paired with whatever adapted text the caller wants drawn
-    there. Returns the composited PNG as base64, plus `id` - a real,
+    there. `font` (per region) and `default_font` (this request's
+    fallback for any region that omits one) must each be a key in
+    engine/comics_redraw.py's FONTS or omitted entirely - an unrecognized
+    name is rejected with a 400 rather than silently drawing in the
+    wrong font, even though comics_redraw.py's own resolution would
+    quietly fall back to the default for the same input; the API
+    boundary is where a caller's typo should be surfaced, not swallowed.
+    Returns the composited PNG as base64, plus `id` - a real,
     content-addressed id (server/cache.py::comics_redraw_content_id),
-    the same idea as /api/adapt's result_id. An identical (image, regions)
-    request is served straight from cache.get() rather than re-running
-    the inpainting pipeline (OpenCV or LaMa, whichever this image needed -
-    both are pure functions of their input, so a cache hit is exactly the
-    same output as a recompute) - this is what keeps a page reload, a
-    retried request, or several browser tabs on the same panel from each
-    paying for their own redraw. Fetch a past result later via
-    GET /api/comics/redraw/{id}.
+    the same idea as /api/adapt's result_id. An identical (image, regions,
+    fonts) request is served straight from cache.get() rather than
+    re-running the inpainting pipeline (OpenCV or LaMa, whichever this
+    image needed - both are pure functions of their input, so a cache
+    hit is exactly the same output as a recompute) - this is what keeps
+    a page reload, a retried request, or several browser tabs on the
+    same panel from each paying for their own redraw. Fetch a past
+    result later via GET /api/comics/redraw/{id}.
     """
     image_bytes = image.file.read()
     if len(image_bytes) > MAX_IMAGE_BYTES:
@@ -590,17 +605,32 @@ def comics_redraw_endpoint(
     if not validated:
         raise HTTPException(status_code=400, detail="At least one region is required.")
 
+    unknown_fonts = sorted(
+        {f for f in [default_font, *(r.font for r in validated)] if f and f not in comics_redraw.FONTS}
+    )
+    if unknown_fonts:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unknown font(s) {unknown_fonts} - must be one of "
+                f"{sorted(comics_redraw.FONTS)}."
+            ),
+        )
+
     region_dicts = [
-        {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text} for r in validated
+        {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text, "font": r.font}
+        for r in validated
     ]
 
-    result_id = cache.comics_redraw_content_id(image_bytes, region_dicts)
+    result_id = cache.comics_redraw_content_id(image_bytes, region_dicts, default_font)
     cached = cache.get(result_id)
     if cached is not None:
         return {**cached, "id": result_id}
 
     try:
-        result_bytes, inpaint_method = redraw_panel_detailed(image_bytes, region_dicts)
+        result_bytes, inpaint_method = redraw_panel_detailed(
+            image_bytes, region_dicts, default_font
+        )
     except RedrawError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

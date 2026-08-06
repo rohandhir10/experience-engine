@@ -27,6 +27,8 @@ function panel(overrides: Partial<ComicPanel> = {}): ComicPanel {
     regionAdaptedTexts: null,
     regionWhys: null,
     redrawRegionTexts: null,
+    redrawFont: null,
+    redrawRegionFonts: null,
     redrawResultUrl: null,
     redrawResultId: null,
     redrawStatus: "idle",

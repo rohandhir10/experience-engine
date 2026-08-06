@@ -3,7 +3,22 @@ import type { ComicPanel, OcrRegion } from "./comics-types";
 export type RedrawRegionInput = {
   bbox: OcrRegion["bbox"];
   adaptedText: string;
+  // A key into FONT_OPTIONS below, or undefined to fall back to the
+  // request's defaultFont (redrawPanel's third argument) - lets one
+  // bubble override the panel's default (a bolder font for one shout).
+  font?: string;
 };
+
+// Must match engine/comics_redraw.py's FONTS keys exactly - server/main.py's
+// comics_redraw_endpoint rejects any name not in that registry with a 400,
+// so a mismatch here would surface as a real redraw failure, not a silent
+// no-op. Every entry was fetched from Google Fonts' OFL-licensed source and
+// its license checked before being bundled (engine/assets/fonts/*-OFL.txt).
+export const FONT_OPTIONS: { value: string; label: string }[] = [
+  { value: "comic-neue", label: "Comic Neue (default)" },
+  { value: "patrick-hand", label: "Patrick Hand (casual/handwritten)" },
+  { value: "liberation-sans", label: "Liberation Sans (plain)" },
+];
 
 export class RedrawRequestError extends Error {}
 
@@ -43,27 +58,33 @@ export type RedrawResult = {
 // Calls app/api/comics/redraw/route.ts, which proxies to
 // server/main.py's /api/comics/redraw (engine/comics_redraw.py) - see
 // that module's docstring for the honest scope: speech bubbles only
-// (not SFX), one fixed bundled font that never matches the original
-// lettering, a heuristic text-color guess. `regions` is only ever the
-// subset the human has actually filled in (resolveRedrawRegionText
-// above, now real per-bubble adaptation results by default, not a
-// guess). Returns a data: URI, ready to drop into an <img> src or a
-// download link, plus the real id this result is cached under
-// server-side - re-requesting the same (image, regions) pair (a retry,
-// clicking "Redraw panel" again unchanged) is a cache hit, not a second
-// inpainting run.
+// (not SFX), a small curated set of bundled OFL comic fonts (FONT_OPTIONS
+// above) rather than a match for the original lettering, a heuristic
+// text-color guess. `regions` is only ever the subset the human has
+// actually filled in (resolveRedrawRegionText above, now real per-bubble
+// adaptation results by default, not a guess). `defaultFont` applies to
+// any region that doesn't set its own `font`; omit both for the
+// server's own default (Comic Neue). Returns a data: URI, ready to drop
+// into an <img> src or a download link, plus the real id this result is
+// cached under server-side - re-requesting the same (image, regions,
+// fonts) is a cache hit, not a second inpainting run; changing only the
+// font is correctly a cache MISS (server/cache.py::comics_redraw_content_id
+// folds font choice into the id specifically so a font change can never
+// silently serve back the old font's image).
 export async function redrawPanel(
   file: File,
-  regions: RedrawRegionInput[]
+  regions: RedrawRegionInput[],
+  defaultFont?: string
 ): Promise<RedrawResult> {
   const form = new FormData();
   form.append("image", file, file.name);
   form.append(
     "regions",
     JSON.stringify(
-      regions.map((r) => ({ bbox: r.bbox, adapted_text: r.adaptedText }))
+      regions.map((r) => ({ bbox: r.bbox, adapted_text: r.adaptedText, font: r.font ?? null }))
     )
   );
+  if (defaultFont) form.append("default_font", defaultFont);
 
   const res = await fetch("/api/comics/redraw", { method: "POST", body: form });
   const body = await res.json().catch(() => ({}));

@@ -198,3 +198,37 @@ def test_comics_content_id_never_collides_with_a_song_content_id():
         [same_text], target_language="English", source_language="Korean"
     )
     assert song_id != comics_id
+
+
+_REDRAW_REGION = {"bbox": {"x": 1, "y": 2, "width": 3, "height": 4}, "adapted_text": "hi"}
+
+
+def test_comics_redraw_content_id_is_deterministic():
+    first = cache.comics_redraw_content_id(b"fake-image", [_REDRAW_REGION])
+    second = cache.comics_redraw_content_id(b"fake-image", [_REDRAW_REGION])
+    assert first == second
+
+
+def test_comics_redraw_content_id_differs_by_default_font():
+    """A font change on an otherwise-identical (image, regions) request
+    must be a cache MISS, not a hit - the request asked for a real
+    re-render in a different font, and a stale cache hit would silently
+    serve back the old font's image instead, which is exactly as wrong
+    as serving a completely different image."""
+    no_font = cache.comics_redraw_content_id(b"fake-image", [_REDRAW_REGION], None)
+    with_font = cache.comics_redraw_content_id(b"fake-image", [_REDRAW_REGION], "patrick-hand")
+    assert no_font != with_font
+
+
+def test_comics_redraw_content_id_differs_by_two_different_default_fonts():
+    comic_neue = cache.comics_redraw_content_id(b"fake-image", [_REDRAW_REGION], "comic-neue")
+    patrick_hand = cache.comics_redraw_content_id(b"fake-image", [_REDRAW_REGION], "patrick-hand")
+    assert comic_neue != patrick_hand
+
+
+def test_comics_redraw_content_id_differs_by_a_per_region_font():
+    region_no_font = {**_REDRAW_REGION, "font": None}
+    region_with_font = {**_REDRAW_REGION, "font": "liberation-sans"}
+    no_font = cache.comics_redraw_content_id(b"fake-image", [region_no_font])
+    with_font = cache.comics_redraw_content_id(b"fake-image", [region_with_font])
+    assert no_font != with_font

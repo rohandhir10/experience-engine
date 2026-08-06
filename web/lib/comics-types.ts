@@ -75,6 +75,20 @@ export type ComicPanel = {
   // count) whenever OCR reruns, same "a stale box never lingers" rule
   // ocrRegions itself already follows.
   redrawRegionTexts: (string | null)[] | null;
+  // This panel's default font for "Redraw panel" - a key into
+  // lib/comicsRedraw.ts::FONT_OPTIONS, or null to use the server's own
+  // default (Comic Neue). Applies to every region except ones with their
+  // own override in redrawRegionFonts below. Not reset when OCR reruns -
+  // unlike region-indexed state, a font preference isn't tied to which
+  // regions were detected.
+  redrawFont: string | null;
+  // Per-region font override, parallel to ocrRegions - index i overrides
+  // redrawFont for that one region (a bolder font for one shout), or
+  // null to use the panel's default. Null (the whole array) until OCR
+  // has run; reset to an all-null array whenever OCR reruns, same
+  // "a stale box never lingers" rule ocrRegions/redrawRegionTexts
+  // already follow.
+  redrawRegionFonts: (string | null)[] | null;
   // The composited PNG (as a data: URI) from the most recent successful
   // /api/comics/redraw call - null until one has run. This tab holds
   // only the data: URI, not persisted here across a reload, but the

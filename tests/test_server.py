@@ -760,7 +760,9 @@ def test_comics_redraw_endpoint_returns_a_base64_image():
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
 
-    result = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+    result = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    )
 
     import base64 as _base64
 
@@ -771,7 +773,7 @@ def test_comics_redraw_endpoint_returns_a_base64_image():
 def test_comics_redraw_endpoint_rejects_malformed_regions_json():
     with pytest.raises(main.HTTPException) as exc_info:
         main.comics_redraw_endpoint(
-            image=_FakeUploadFile(_real_png_bytes()), regions="not valid json"
+            image=_FakeUploadFile(_real_png_bytes()), regions="not valid json", default_font=None
         )
     assert exc_info.value.status_code == 400
 
@@ -779,13 +781,13 @@ def test_comics_redraw_endpoint_rejects_malformed_regions_json():
 def test_comics_redraw_endpoint_rejects_a_region_missing_required_fields():
     regions = json.dumps([{"bbox": {"x": 10, "y": 10}, "adapted_text": "hello"}])  # no width/height
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions=regions)
+        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None)
     assert exc_info.value.status_code == 400
 
 
 def test_comics_redraw_endpoint_rejects_an_empty_region_list():
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions="[]")
+        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions="[]", default_font=None)
     assert exc_info.value.status_code == 400
 
 
@@ -794,15 +796,87 @@ def test_comics_redraw_endpoint_reports_a_redraw_failure_as_a_400():
         [{"bbox": {"x": 10, "y": 10, "width": 20, "height": 20}, "adapted_text": "x"}]
     )
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(b"not a real image"), regions=regions)
+        main.comics_redraw_endpoint(image=_FakeUploadFile(b"not a real image"), regions=regions, default_font=None)
     assert exc_info.value.status_code == 400
 
 
 def test_comics_redraw_endpoint_rejects_an_oversized_image():
     oversized = b"x" * (main.MAX_IMAGE_BYTES + 1)
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(oversized), regions="[]")
+        main.comics_redraw_endpoint(image=_FakeUploadFile(oversized), regions="[]", default_font=None)
     assert exc_info.value.status_code == 413
+
+
+def test_comics_redraw_endpoint_rejects_an_unknown_default_font():
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(
+            image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font="not-a-real-font"
+        )
+    assert exc_info.value.status_code == 400
+    assert "not-a-real-font" in exc_info.value.detail
+
+
+def test_comics_redraw_endpoint_rejects_an_unknown_per_region_font():
+    regions = json.dumps(
+        [
+            {
+                "bbox": {"x": 10, "y": 10, "width": 100, "height": 40},
+                "adapted_text": "hello",
+                "font": "totally-made-up",
+            }
+        ]
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(
+            image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
+        )
+    assert exc_info.value.status_code == 400
+    assert "totally-made-up" in exc_info.value.detail
+
+
+def test_comics_redraw_endpoint_accepts_a_real_default_font():
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+    result = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font="patrick-hand"
+    )
+    import base64 as _base64
+
+    decoded = _base64.b64decode(result["image_base64"])
+    assert decoded[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+def test_comics_redraw_endpoint_recomputes_for_a_different_font(monkeypatch):
+    """Same image, same regions, different font: must be a real recompute,
+    not a cache hit that silently serves the old font's image back."""
+    image_bytes = _real_png_bytes()
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+
+    call_count = 0
+    real_redraw = main.redraw_panel_detailed
+
+    def counting_redraw(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return real_redraw(*args, **kwargs)
+
+    monkeypatch.setattr(main, "redraw_panel_detailed", counting_redraw)
+
+    first = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font="comic-neue"
+    )
+    second = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font="patrick-hand"
+    )
+
+    assert call_count == 2
+    assert first["id"] != second["id"]
 
 
 def test_comics_redraw_endpoint_returns_a_real_content_addressed_id():
@@ -811,10 +885,14 @@ def test_comics_redraw_endpoint_returns_a_real_content_addressed_id():
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
 
-    result = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+    result = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    )
 
     assert result["id"] == main.cache.comics_redraw_content_id(
-        image_bytes, [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+        image_bytes,
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello", "font": None}],
+        None,
     )
 
 
@@ -834,8 +912,12 @@ def test_comics_redraw_endpoint_serves_an_identical_request_from_cache(monkeypat
 
     monkeypatch.setattr(main, "redraw_panel_detailed", counting_redraw)
 
-    first = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
-    second = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+    first = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    )
+    second = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    )
 
     assert call_count == 1  # the inpainting pipeline only actually ran once
     assert second["id"] == first["id"]
@@ -863,8 +945,12 @@ def test_comics_redraw_endpoint_recomputes_for_different_adapted_text(monkeypatc
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "goodbye"}]
     )
 
-    first = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=first_regions)
-    second = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=second_regions)
+    first = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=first_regions, default_font=None
+    )
+    second = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=second_regions, default_font=None
+    )
 
     assert call_count == 2  # different text is a different result, not a cache hit
     assert first["id"] != second["id"]
@@ -875,7 +961,9 @@ def test_get_comics_redraw_returns_a_previously_cached_result():
     regions = json.dumps(
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
-    created = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+    created = main.comics_redraw_endpoint(
+        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    )
 
     fetched = main.get_comics_redraw(created["id"])
 

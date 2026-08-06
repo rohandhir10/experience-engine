@@ -17,11 +17,16 @@ module in this project:
   SFX. Nothing here rejects an SFX-shaped region; the caller is
   responsible for only sending genuine bubble regions (this module has
   no way to tell the difference from a bounding box alone).
-- ONE fixed bundled font (Liberation Sans, SIL-OFL-licensed, shipped in
-  engine/assets/fonts/) for every redrawn line, always. This does NOT
-  match the original comic's lettering style, weight, or size — "exact
-  font weight match" was flagged as aspirational marketing copy, not a
-  real capability, when this was scoped, and it still isn't one here.
+- A small, curated set of bundled OFL-licensed fonts (FONTS below,
+  engine/assets/fonts/) - Comic Neue by default, with Patrick Hand and
+  the original Liberation Sans available as per-region/per-panel
+  overrides. NONE of these match any specific original comic's actual
+  lettering style, weight, or size — "exact font weight match" was
+  flagged as aspirational marketing copy, not a real capability, when
+  this was scoped, and it still isn't one here. A font picker choosing
+  among a few genuinely comic-appropriate typefaces is a real
+  improvement over a single plain document font; it is not the same
+  claim as matching this specific comic's lettering.
 - The inpainting step (OpenCV's classical Telea algorithm — see
   _inpaint_regions) reconstructs a background by extrapolating from
   surrounding pixels. It has no understanding of what a speech bubble
@@ -48,7 +53,37 @@ from PIL import Image, ImageDraw, ImageFont
 from . import comics_inpaint
 
 _FONT_DIR = Path(__file__).parent / "assets" / "fonts"
-_FONT_REGULAR = _FONT_DIR / "LiberationSans-Regular.ttf"
+
+# A small, deliberately curated set - every entry here was fetched
+# straight from Google Fonts' own OFL-licensed source repo and its
+# license file checked before being bundled (engine/assets/fonts/*-OFL.txt),
+# same discipline the original single Liberation Sans default was picked
+# under. Adding a font means adding it here AND verifying its actual
+# upstream license first - "reportedly open-source" is not good enough
+# (Komika Text, floated as an option in product discussion, was excluded
+# for exactly this reason: no confirmed OFL/similar license found for it).
+FONTS: dict[str, Path] = {
+    # Purpose-built for comic lettering (not just "not Comic Sans") -
+    # the default for exactly that reason.
+    "comic-neue": _FONT_DIR / "ComicNeue-Regular.ttf",
+    # A softer, hand-written feel - closer to a typical webtoon's
+    # casual register than manga/action lettering.
+    "patrick-hand": _FONT_DIR / "PatrickHand-Regular.ttf",
+    # The original default, kept available rather than removed - a
+    # plain, neutral document font, no comic styling at all.
+    "liberation-sans": _FONT_DIR / "LiberationSans-Regular.ttf",
+}
+DEFAULT_FONT = "comic-neue"
+
+
+def _resolve_font_path(font: str | None) -> Path:
+    """Falls back to DEFAULT_FONT for None, empty, or an unrecognized
+    name (a typo, a stale value saved before a font was renamed/removed)
+    rather than raising - a wrong font choice is a cosmetic problem, not
+    a reason to fail the whole redraw the user actually asked for."""
+    if font and font in FONTS:
+        return FONTS[font]
+    return FONTS[DEFAULT_FONT]
 
 # How far past a text region's own bounding box to inpaint, in pixels -
 # OCR boxes tend to hug the glyphs tightly, and a zero-padding erase
@@ -183,7 +218,7 @@ def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int, draw: Im
 
 
 def _fit_text(
-    text: str, box_width: int, box_height: int, draw: ImageDraw.ImageDraw
+    text: str, box_width: int, box_height: int, draw: ImageDraw.ImageDraw, font_path: Path
 ) -> tuple[ImageFont.FreeTypeFont, list[str]]:
     """Finds the largest font size (within _MIN/_MAX_FONT_SIZE) whose
     word-wrapped lines fit inside the box, searching downward from the
@@ -194,7 +229,7 @@ def _fit_text(
     source line can genuinely produce.
     """
     for size in range(_MAX_FONT_SIZE, _MIN_FONT_SIZE - 1, -2):
-        font = ImageFont.truetype(str(_FONT_REGULAR), size)
+        font = ImageFont.truetype(str(font_path), size)
         lines = _wrap_text(text, font, box_width, draw)
         line_height = font.getbbox("Ag")[3] - font.getbbox("Ag")[1]
         total_height = line_height * len(lines) * 1.2  # 1.2x for line spacing
@@ -202,12 +237,16 @@ def _fit_text(
         if total_height <= box_height and widest_line <= box_width:
             return font, lines
 
-    font = ImageFont.truetype(str(_FONT_REGULAR), _MIN_FONT_SIZE)
+    font = ImageFont.truetype(str(font_path), _MIN_FONT_SIZE)
     return font, _wrap_text(text, font, box_width, draw)
 
 
 def _draw_text_in_region(
-    image: Image.Image, bbox: dict, text: str, color: tuple[int, int, int]
+    image: Image.Image,
+    bbox: dict,
+    text: str,
+    color: tuple[int, int, int],
+    font_path: Path = FONTS[DEFAULT_FONT],
 ) -> None:
     """Mutates `image` in place - draws centered, word-wrapped text into
     the (already-inpainted) region."""
@@ -215,7 +254,7 @@ def _draw_text_in_region(
     box_width, box_height = right - left, bottom - top
     draw = ImageDraw.Draw(image)
 
-    font, lines = _fit_text(text, box_width, box_height, draw)
+    font, lines = _fit_text(text, box_width, box_height, draw, font_path)
     line_height = font.getbbox("Ag")[3] - font.getbbox("Ag")[1]
     total_height = line_height * len(lines) * 1.2
     y = top + max(0, (box_height - total_height) / 2)
@@ -270,7 +309,10 @@ def _merge_overlapping_regions(regions: list[dict]) -> list[dict]:
     and concatenates each merged region's texts in list order - a
     best-effort reading order, not a guaranteed correct one, same
     "human reviews and reorders" caveat comics_ocr.py's own reading
-    order already carries.
+    order already carries. Any other key a region carries (e.g. a
+    per-region "font" override) survives the merge from whichever region
+    was first in the pair - same "list order wins" convention as the
+    text concatenation, not a deeper judgment about which one is right.
     """
     merged = [dict(r) for r in regions]
     changed = True
@@ -280,6 +322,7 @@ def _merge_overlapping_regions(regions: list[dict]) -> list[dict]:
             for j in range(i + 1, len(merged)):
                 if _rects_overlap(merged[i]["bbox"], merged[j]["bbox"]):
                     merged[i] = {
+                        **merged[i],
                         "bbox": _union_bbox(merged[i]["bbox"], merged[j]["bbox"]),
                         "adapted_text": (
                             f"{merged[i]['adapted_text']} {merged[j]['adapted_text']}"
@@ -293,18 +336,24 @@ def _merge_overlapping_regions(regions: list[dict]) -> list[dict]:
     return merged
 
 
-def redraw_panel(image_bytes: bytes, regions: list[dict]) -> bytes:
+def redraw_panel(image_bytes: bytes, regions: list[dict], default_font: str | None = None) -> bytes:
     """The full pipeline: estimate each region's text color from the
     original pixels, inpaint every region's text away, draw each
     region's adapted text back in its own estimated color. Returns a
     new PNG's raw bytes.
 
-    `regions` is `[{"bbox": {"x", "y", "width", "height"}, "adapted_text": str}, ...]`
+    `regions` is `[{"bbox": {"x", "y", "width", "height"}, "adapted_text": str, "font": str | None}, ...]`
     - the same bbox shape engine/comics_ocr.py already produces per
     detected region, paired with whatever adapted line the caller wants
     drawn there (this module has no opinion on where that text came
     from - it could be engine/comics_adapt.py's output, or anything
-    else the caller supplies).
+    else the caller supplies). `font` is optional per region - a key
+    into FONTS, falling back to `default_font` (also a FONTS key, or the
+    module default if that's unset/unrecognized too) when the region
+    doesn't specify its own. This is what lets one panel mix fonts (a
+    softer one for most dialogue, a bolder override for one shout) while
+    still having a single sensible choice apply to every region that
+    doesn't ask for something different.
 
     Raises RedrawError for an unreadable image, an empty regions list,
     or a region with no area after clamping to the image bounds.
@@ -321,14 +370,17 @@ def redraw_panel(image_bytes: bytes, regions: list[dict]) -> bytes:
     inpainted, _method = _inpaint_regions(image, bboxes)
 
     for region, color in zip(regions, text_colors):
-        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color)
+        font_path = _resolve_font_path(region.get("font") or default_font)
+        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color, font_path)
 
     buffer = io.BytesIO()
     inpainted.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
-def redraw_panel_detailed(image_bytes: bytes, regions: list[dict]) -> tuple[bytes, str]:
+def redraw_panel_detailed(
+    image_bytes: bytes, regions: list[dict], default_font: str | None = None
+) -> tuple[bytes, str]:
     """redraw_panel, plus which inpainter actually produced the result
     ("remote" | "local" | "none").
 
@@ -349,7 +401,8 @@ def redraw_panel_detailed(image_bytes: bytes, regions: list[dict]) -> tuple[byte
     inpainted, method = _inpaint_regions(image, bboxes)
 
     for region, color in zip(regions, text_colors):
-        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color)
+        font_path = _resolve_font_path(region.get("font") or default_font)
+        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color, font_path)
 
     buffer = io.BytesIO()
     inpainted.save(buffer, format="PNG")
