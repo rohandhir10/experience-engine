@@ -101,12 +101,12 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
         />
       ))}
       {/* server/main.py's /v1/* routes are real now (keys managed on the
-          Settings page below) - "Beta" discloses the actual gap
-          honestly: no async job/poll pattern for a long chapter, no
-          published docs page yet, same convention as Webtoons' own
-          "Beta" badge elsewhere in this app. Links to Settings since
-          that's where a key is actually issued - there's no separate
-          docs page to send this to yet. */}
+          Settings page below, documented at /docs/api) - "Beta"
+          discloses the actual remaining gap honestly: no async job/poll
+          pattern for a long chapter yet, same convention as Webtoons'
+          own "Beta" badge elsewhere in this app. Still links to Settings
+          rather than the docs page - a sidebar nav row is for account
+          management, not documentation. */}
       <Link
         href="/dashboard/settings"
         className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px] text-ink/30 transition hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"

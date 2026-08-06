@@ -347,46 +347,58 @@ export default function ComicsPage() {
         <SiteHeader active="webtoons" />
 
         <div className="mt-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-accent">
-            CASTIA Comics — early scaffold
-          </p>
-          <h1 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
-            Panel-by-panel script workspace
-          </h1>
-          <p className="mt-3 max-w-2xl text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
-            Upload a chapter's worth of panel images. "Run OCR" pulls real text out of a panel
-            with Google Cloud Vision — it auto-detects the script and language, but it's still
-            genuinely imperfect on stylized comic lettering, so treat it as a starting draft.
-            "Adapt chapter" runs every panel's text through the same Reasoning Engine the music
-            side uses — each detected speech bubble is adapted on its own, and naming a speaker
-            keeps their voice consistent from panel to panel across the whole chapter.
-          </p>
-
-          {panels.length === 0 ? (
-            <>
-              <div className="mt-8">
-                <PanelUploader onFilesSelected={addFiles} />
+          {panels.length === 0 && (
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
+                    Give every character their own voice.
+                  </h1>
+                  <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/35 dark:bg-white/10 dark:text-ink-dark/40">
+                    Beta
+                  </span>
+                </div>
+                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+                  Upload a chapter's panels and Castia reads every speech
+                  bubble, keeps each character's voice consistent from the
+                  first page to the last, and shows the literal reading
+                  next to the adapted line for every change — the same
+                  Writers' Room pipeline the music side runs on, not a
+                  separate, lesser engine.
+                </p>
+                <div className="mt-5">
+                  <PanelUploader onFilesSelected={addFiles} />
+                </div>
               </div>
 
-              <ScrollReveal className="mx-auto mt-20 w-full max-w-4xl rounded-2xl bg-[#141a2b] p-8 sm:p-10">
+              <div className="rounded-2xl bg-[#141a2b] p-6 sm:p-8">
                 <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
-                  Under the hood
+                  What happens to a panel
                 </p>
-                <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
-                  Real OCR, then the same Writers' Room as music.
-                </h2>
-                <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
-                  A chapter's panels go through Google Cloud Vision, then Chapter DNA (the
-                  cast/tone profile for the whole chapter), then the identical
-                  Translator → Creative Adapter → Judge pipeline the music side uses — not
-                  a separate, lesser engine.
-                </p>
-                <div className="mt-8">
-                  <ComicsPipelineDiagram />
-                </div>
-              </ScrollReveal>
-            </>
-          ) : (
+                <ComicsPipelineDiagram />
+              </div>
+            </div>
+          )}
+
+          {panels.length === 0 && (
+            <ScrollReveal className="mx-auto mt-16 w-full max-w-2xl text-center">
+              <p className="text-[12px] uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
+                Six languages, any direction
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                {LANGUAGES.map((lang) => (
+                  <span
+                    key={lang}
+                    className="rounded-full border border-black/10 px-3 py-1 text-[13px] text-ink/60 dark:border-white/10 dark:text-ink-dark/60"
+                  >
+                    {lang}
+                  </span>
+                ))}
+              </div>
+            </ScrollReveal>
+          )}
+
+          {panels.length > 0 && (
             <>
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
