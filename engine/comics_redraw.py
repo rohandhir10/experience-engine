@@ -33,14 +33,16 @@ module in this project:
   "should" look like; on a shaded, gradient, or textured bubble this can
   still look wrong, just less wrong than leaving the original text in
   place.
-- Text color is a heuristic (see _estimate_text_color): it assumes dark
-  text on a lighter bubble, the overwhelmingly common case, and will
-  guess backwards on the rarer light-text-on-dark-bubble panel.
-- No persistence, no caching, no share link — this is a synchronous
-  request/response transform (server/main.py's /api/comics/redraw),
-  unlike engine/comics_adapt.py's results, which are cached and
-  recorded in history. Redrawing the same panel twice re-runs the whole
-  pipeline both times.
+- Text color is a heuristic (see _estimate_text_color): it picks
+  whichever luminance cluster is the region's minority - dark text on a
+  light bubble or light text on a dark bubble both resolve correctly,
+  but a region with no real minority cluster (a blank/uniform bubble, or
+  text occupying close to half the region) can still guess wrong.
+- No share link (unlike engine/comics_adapt.py's results, which are
+  recorded in user history) - but redraw results ARE cached now
+  (server/cache.py::comics_redraw_content_id, server/main.py's cache-
+  first /api/comics/redraw), keyed on image bytes + regions + font
+  choice, so an identical redraw request is a cache hit, not a re-run.
 """
 from __future__ import annotations
 
@@ -120,10 +122,9 @@ _INPAINT_RADIUS = 3
 _MIN_FONT_SIZE = 8
 _MAX_FONT_SIZE = 72
 
-# Text darker than this normalized luminance (0=black, 1=white) is what
-# _estimate_text_color treats as "probably the text, not the bubble
-# background" - see that function's docstring for the dark-on-light
-# assumption this encodes.
+# Splits a region's pixels into a "dark" and a "light" cluster by
+# normalized luminance (0=black, 1=white) - see _estimate_text_color's
+# docstring for how the two clusters decide which one is the text.
 _DARK_LUMINANCE_THRESHOLD = 0.5
 
 
@@ -164,14 +165,20 @@ def _clamp_bbox(bbox: dict, image_size: tuple[int, int], padding: int = 0) -> tu
 
 
 def _estimate_text_color(image: Image.Image, bbox: dict) -> tuple[int, int, int]:
-    """Guesses the original text's color by sampling the darkest cluster
-    of pixels inside the (un-inpainted) region - assumes dark text on a
-    lighter bubble, the common case for comic lettering. Must be called
-    BEFORE _inpaint_regions erases the very pixels this reads. Falls
-    back to plain black if the region turns out to have no meaningfully
-    dark pixels at all (a blank/empty region), rather than raising -
-    color is a cosmetic guess, not something worth failing the whole
-    redraw over.
+    """Guesses the original text's color by sampling the MINORITY
+    luminance cluster inside the (un-inpainted) region, not simply the
+    darker one. A bubble's interior fill dominates the region's pixel
+    count; the text is whatever smaller cluster sits on top of it -
+    dark text on a light bubble (the common case, minority = dark) or
+    light text on a dark bubble (minority = light). Picking "darkest"
+    unconditionally, as this used to, guessed backwards on exactly the
+    second case: it would sample the dark BUBBLE as "the text".
+
+    Must be called BEFORE _inpaint_regions erases the very pixels this
+    reads. Falls back to plain black if the region is a single uniform
+    tone (no second cluster at all - a blank region with no text),
+    rather than raising - color is a cosmetic guess, not something
+    worth failing the whole redraw over.
     """
     left, top, right, bottom = _clamp_bbox(bbox, image.size)
     crop = np.asarray(image.crop((left, top, right, bottom)), dtype=np.float64)
@@ -180,11 +187,14 @@ def _estimate_text_color(image: Image.Image, bbox: dict) -> tuple[int, int, int]
 
     luminance = (0.299 * crop[..., 0] + 0.587 * crop[..., 1] + 0.114 * crop[..., 2]) / 255.0
     dark_mask = luminance < _DARK_LUMINANCE_THRESHOLD
-    if not dark_mask.any():
+    light_mask = ~dark_mask
+    dark_count = int(dark_mask.sum())
+    light_count = int(light_mask.sum())
+    if dark_count == 0 or light_count == 0:
         return (0, 0, 0)
 
-    dark_pixels = crop[dark_mask]
-    r, g, b = dark_pixels.mean(axis=0)
+    text_mask = dark_mask if dark_count <= light_count else light_mask
+    r, g, b = crop[text_mask].mean(axis=0)
     return (int(r), int(g), int(b))
 
 

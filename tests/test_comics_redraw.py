@@ -54,6 +54,12 @@ def _draw_black_text(image: Image.Image, bbox: dict, text: str) -> Image.Image:
     return image
 
 
+def _draw_white_text(image: Image.Image, bbox: dict, text: str) -> Image.Image:
+    draw = ImageDraw.Draw(image)
+    draw.text((bbox["x"] + 5, bbox["y"] + 5), text, fill=(245, 245, 245))
+    return image
+
+
 # ---------------------------------------------------------------------------
 # _clamp_bbox
 # ---------------------------------------------------------------------------
@@ -154,6 +160,30 @@ def test_estimate_text_color_finds_dark_text_on_a_light_bubble():
 
 def test_estimate_text_color_falls_back_to_black_for_a_blank_region():
     image = _bubble_image(bubble_color=(255, 255, 255))
+    bbox = {"x": 60, "y": 50, "width": 180, "height": 60}  # no text drawn
+    assert _estimate_text_color(image, bbox) == (0, 0, 0)
+
+
+def test_estimate_text_color_finds_light_text_on_a_dark_bubble():
+    """The bug this session fixed: picking the darkest cluster
+    unconditionally used to sample the dark BUBBLE itself as "the text"
+    on an inverted panel. The real signal is which cluster is the
+    minority, not which one is darker."""
+    image = _bubble_image(bubble_color=(20, 20, 20))
+    bbox = {"x": 60, "y": 50, "width": 180, "height": 60}
+    _draw_white_text(image, bbox, "HELLO")
+
+    r, g, b = _estimate_text_color(image, bbox)
+    # Should land near white (the minority, actual text), not near the
+    # dark bubble background that dominates the region's pixel count.
+    assert r > 150 and g > 150 and b > 150
+
+
+def test_estimate_text_color_falls_back_to_black_for_a_blank_dark_region():
+    """A uniformly dark bubble with no text has no minority cluster
+    either - same "nothing to sample" case as the light-bubble blank
+    region above, just on the other side of the threshold."""
+    image = _bubble_image(bubble_color=(20, 20, 20))
     bbox = {"x": 60, "y": 50, "width": 180, "height": 60}  # no text drawn
     assert _estimate_text_color(image, bbox) == (0, 0, 0)
 
