@@ -160,7 +160,7 @@ def test_recognition_and_the_vision_pass_run_concurrently(no_vision, monkeypatch
     """
     both_started = threading.Barrier(2, timeout=5)
 
-    def fake_read_panel(image_bytes, mime_type="image/jpeg", known_regions=None):
+    def fake_read_panel(image_bytes, mime_type="image/jpeg", known_regions=None, client=None):
         both_started.wait()
         return [Reading(text="READ", node_id="r0")]
 
@@ -179,7 +179,7 @@ def test_recognition_and_the_vision_pass_run_concurrently(no_vision, monkeypatch
 def test_the_vision_pass_is_given_the_detector_ids_to_key_against(no_vision, monkeypatch):
     captured = {}
 
-    def fake_read_panel(image_bytes, mime_type="image/jpeg", known_regions=None):
+    def fake_read_panel(image_bytes, mime_type="image/jpeg", known_regions=None, client=None):
         captured["ids"] = [r["node_id"] for r in (known_regions or [])]
         return []
 

@@ -274,6 +274,7 @@ def read_panel(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
     known_regions: list[dict] | None = None,
+    client=None,
 ) -> list[Reading]:
     """Asks a vision-capable model to read and direct this panel.
 
@@ -292,19 +293,28 @@ def read_panel(
         it didn't key. The cost is that this call can no longer start
         until the detector has finished.
 
+    `client`, when given, is used instead of building a fresh one - the
+    caller's own LLMClient, so its `call_log` (real measured token usage,
+    engine/llm_client.py::LLMCallRecord) accumulates on an object the
+    caller can still inspect after this returns, the same way
+    server/main.py already logs real token usage for the adaptation
+    path. Omitted, this builds and discards its own client exactly as
+    before, for callers that don't need cost visibility.
+
     Returns [] on any failure - see this module's docstring for why that
     is the correct behavior rather than raising.
     """
     if not config.VISION_READING_ENABLED:
         return []
 
-    try:
-        from .llm_client import create_vision_client
+    if client is None:
+        try:
+            from .llm_client import create_vision_client
 
-        client = create_vision_client()
-    except Exception as exc:  # noqa: BLE001 - deliberately broad; see docstring
-        logger.warning("Vision reading unavailable, falling back to OCR only: %s", exc)
-        return []
+            client = create_vision_client()
+        except Exception as exc:  # noqa: BLE001 - deliberately broad; see docstring
+            logger.warning("Vision reading unavailable, falling back to OCR only: %s", exc)
+            return []
 
     encoded = base64.b64encode(image_bytes).decode("ascii")
     try:

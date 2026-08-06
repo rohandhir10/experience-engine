@@ -98,7 +98,7 @@ from engine.comics_adapt import adapt_chapter
 from engine.comics_ocr import OcrError
 from engine import comics_redraw
 from engine.comics_redraw import RedrawError, redraw_panel_detailed
-from engine.llm_client import LLMError, create_default_client
+from engine.llm_client import LLMError, create_default_client, create_vision_client
 from engine.models import SUPPORTED_LANGUAGES, BubbleInput, ChapterInput, SectionInput, SongInput
 from engine.pipeline import run_engine
 from engine.text_ingest import split_into_sections
@@ -458,6 +458,20 @@ def comics_ocr_endpoint(
             detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
         )
 
+    # Built once, up front, so real usage (its call_log) can be logged no
+    # matter which path below actually uses it - previously this cost was
+    # entirely invisible: comics_vision.read_panel built and discarded its
+    # own client internally, so nothing survived for the caller to
+    # inspect. None when reading is disabled (config.VISION_READING_ENABLED)
+    # or the client can't be built - both paths below already degrade to
+    # OCR-only on None/failure, same as before this change.
+    vision_client = None
+    if config.VISION_READING_ENABLED:
+        try:
+            vision_client = create_vision_client()
+        except Exception as exc:  # noqa: BLE001 - reading is opt-in enrichment, not the request
+            logger.warning("Vision reading unavailable, falling back to OCR only: %s", exc)
+
     # Preferred path when a detector is configured: detect the boxes
     # first, then read them twice concurrently (engine/comics_read.py).
     # Keying both readers to the detector's node_ids makes the merge
@@ -469,8 +483,10 @@ def comics_ocr_endpoint(
             image_bytes,
             mime_type=image.content_type or "image/jpeg",
             language=language,
+            vision_client=vision_client,
         )
         if two_step:
+            _log_vision_reading_cost(vision_client, getattr(image, "filename", None))
             return two_step
 
     # Both reads are fired at once rather than one after the other. The
@@ -488,7 +504,11 @@ def comics_ocr_endpoint(
             comics_ocr.extract_text_regions, image_bytes, language=language
         )
         vision_future = pool.submit(
-            comics_vision.read_panel, image_bytes, image.content_type or "image/jpeg"
+            comics_vision.read_panel,
+            image_bytes,
+            image.content_type or "image/jpeg",
+            None,
+            vision_client,
         )
         try:
             result = ocr_future.result()
@@ -499,7 +519,29 @@ def comics_ocr_endpoint(
         # the user actually asked for.
         readings = vision_future.result()
 
+    _log_vision_reading_cost(vision_client, getattr(image, "filename", None))
     return _merge_vision_readings(result, readings)
+
+
+def _log_vision_reading_cost(vision_client, image_name: str | None) -> None:
+    """Measured, not estimated (engine/models.py::LLMCallRecord) - real
+    token usage from the vision-LLM reading pass, the same gap flagged
+    for the comics adaptation path above: this cost previously never
+    reached a log line at all. No-op when reading is off/unavailable
+    (vision_client is None) or made no calls (VISION_READING_ENABLED off,
+    or the call itself failed and read_panel degraded to []).
+    """
+    calls = getattr(vision_client, "call_log", [])
+    if not calls:
+        return
+    total_prompt = sum(r.prompt_tokens for r in calls)
+    total_completion = sum(r.completion_tokens for r in calls)
+    llm_latency = sum(r.latency_seconds for r in calls)
+    logger.info(
+        "comics_ocr_vision image=%s llm_calls=%d llm_latency=%.2fs "
+        "prompt_tokens=%d completion_tokens=%d",
+        image_name, len(calls), llm_latency, total_prompt, total_completion,
+    )
 
 
 def _merge_vision_readings(ocr_result: dict, readings: list) -> dict:

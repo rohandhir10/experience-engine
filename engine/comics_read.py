@@ -59,6 +59,7 @@ def read_panel_two_step(
     script_code: str | None = None,
     detector: TextDetector | None = None,
     recognizer: TextRecognizer | None = None,
+    vision_client=None,
 ) -> dict:
     """Runs the full two-step read and returns the same result shape
     engine/comics_ocr.extract_text_regions produces, enriched.
@@ -69,6 +70,10 @@ def read_panel_two_step(
 
     Returns {} when detection found nothing, letting the caller fall
     back to the single-step path rather than inventing an empty result.
+
+    `vision_client`, when given, is forwarded to comics_vision.read_panel
+    so the caller can inspect its real call_log (measured token usage)
+    afterward instead of it being built and discarded internally.
     """
     detector = detector or build_detector(language)
 
@@ -93,7 +98,7 @@ def read_panel_two_step(
     with ThreadPoolExecutor(max_workers=2) as pool:
         recognize_future = pool.submit(recognizer.recognize, image_bytes, boxes)
         vision_future = pool.submit(
-            comics_vision.read_panel, image_bytes, mime_type, known_regions
+            comics_vision.read_panel, image_bytes, mime_type, known_regions, vision_client
         )
         try:
             texts = recognize_future.result()

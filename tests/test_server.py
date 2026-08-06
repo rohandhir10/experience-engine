@@ -1523,7 +1523,7 @@ def test_ocr_and_vision_reading_run_concurrently(monkeypatch):
             "detected_languages": [],
         }
 
-    def fake_read_panel(image_bytes, mime_type="image/jpeg"):
+    def fake_read_panel(image_bytes, mime_type="image/jpeg", known_regions=None, client=None):
         both_started.wait()
         return [comics_align.Reading(text="HELLO", kind="dialogue", speaker="Mira")]
 
@@ -1560,6 +1560,81 @@ def test_a_vision_failure_still_returns_the_ocr_result(monkeypatch):
     result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
     assert result["regions"][0]["text"] == "HELL0"
     assert "vision_corrected_count" not in result
+
+
+def test_comics_ocr_endpoint_logs_real_measured_vision_reading_cost(monkeypatch, caplog):
+    """The vision-LLM reading pass had no cost visibility at all - unlike
+    comics_adapt's tokens_by_stage line, this cost was previously
+    invisible because comics_vision.read_panel built and discarded its
+    own client internally. Now the endpoint builds the client up front
+    and can log its real call_log after read_panel uses it."""
+    from engine import comics_vision, config
+    from engine.models import LLMCallRecord
+
+    monkeypatch.setattr(config, "VISION_READING_ENABLED", True)
+    monkeypatch.setattr(
+        main.comics_ocr,
+        "extract_text_regions",
+        lambda image_bytes, language=None: {
+            "regions": [{"text": "HELL0", "bbox": {"x": 0, "y": 0, "width": 1, "height": 1},
+                         "confidence": 70.0}],
+            "full_text": "HELL0",
+            "warning": None,
+            "image_width": 10,
+            "image_height": 10,
+            "detected_languages": [],
+        },
+    )
+
+    def fake_create_vision_client():
+        class _RecordingClient:
+            def __init__(self):
+                self.call_log = []
+
+        return _RecordingClient()
+
+    def fake_read_panel(image_bytes, mime_type="image/jpeg", known_regions=None, client=None):
+        # Simulates what the real read_panel does: records a real call on
+        # the client it was handed, so the caller can inspect it after.
+        client.call_log.append(
+            LLMCallRecord(
+                stage="comics_vision_read", model="gpt-4o", prompt_tokens=500,
+                completion_tokens=150, latency_seconds=0.8,
+            )
+        )
+        return []
+
+    monkeypatch.setattr(main, "create_vision_client", fake_create_vision_client)
+    monkeypatch.setattr(comics_vision, "read_panel", fake_read_panel)
+
+    with caplog.at_level("INFO", logger="castia.server"):
+        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+
+    cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
+    assert len(cost_lines) == 1
+    assert "llm_calls=1" in cost_lines[0]
+    assert "prompt_tokens=500" in cost_lines[0]
+    assert "completion_tokens=150" in cost_lines[0]
+
+
+def test_comics_ocr_endpoint_logs_nothing_when_vision_reading_is_disabled(monkeypatch, caplog):
+    from engine import comics_vision, config
+
+    monkeypatch.setattr(config, "VISION_READING_ENABLED", False)
+    monkeypatch.setattr(
+        main.comics_ocr,
+        "extract_text_regions",
+        lambda image_bytes, language=None: {
+            "regions": [], "full_text": "", "warning": None,
+            "image_width": 10, "image_height": 10, "detected_languages": [],
+        },
+    )
+    monkeypatch.setattr(comics_vision, "read_panel", lambda *a, **k: [])
+
+    with caplog.at_level("INFO", logger="castia.server"):
+        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+
+    assert not [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
 
 
 def test_two_step_read_is_used_when_a_detector_is_configured(monkeypatch):
