@@ -486,8 +486,14 @@ def comics_ocr_endpoint(
             vision_client=vision_client,
         )
         if two_step:
-            _log_vision_reading_cost(vision_client, getattr(image, "filename", None))
+            _log_vision_reading_cost(vision_client, getattr(image, "filename", None), read_path="two_step")
             return two_step
+        # A configured detector that found nothing is otherwise silent -
+        # worth a log line, since it means this request fell all the way
+        # back to the naive single-step path below despite a detector
+        # being configured, which is easy to mistake for "no detector
+        # configured at all" from the outside.
+        logger.info("comics_ocr read_path=two_step_fallback image=%s", getattr(image, "filename", None))
 
     # Both reads are fired at once rather than one after the other. The
     # vision model is not given Cloud Vision's boxes to correct, precisely
@@ -519,28 +525,36 @@ def comics_ocr_endpoint(
         # the user actually asked for.
         readings = vision_future.result()
 
-    _log_vision_reading_cost(vision_client, getattr(image, "filename", None))
+    _log_vision_reading_cost(vision_client, getattr(image, "filename", None), read_path="single_step")
     return _merge_vision_readings(result, readings)
 
 
-def _log_vision_reading_cost(vision_client, image_name: str | None) -> None:
+def _log_vision_reading_cost(vision_client, image_name: str | None, read_path: str) -> None:
     """Measured, not estimated (engine/models.py::LLMCallRecord) - real
     token usage from the vision-LLM reading pass, the same gap flagged
     for the comics adaptation path above: this cost previously never
-    reached a log line at all. No-op when reading is off/unavailable
-    (vision_client is None) or made no calls (VISION_READING_ENABLED off,
-    or the call itself failed and read_panel degraded to []).
+    reached a log line at all.
+
+    `read_path` ("two_step" or "single_step") makes which OCR path a
+    real request actually took diagnosable from logs alone - previously
+    both paths call Cloud Vision identically (a configured detector
+    falls back to CloudVisionDetector's own DOCUMENT_TEXT_DETECTION when
+    no dedicated detector service is set), so nothing in a log line told
+    you whether CASTIA_TEXT_DETECTOR_URL was actually taking effect.
+
+    Still logs even with zero vision-LLM calls (CASTIA_VISION_READING
+    off) so read_path is visible on every request, not only when reading
+    is enabled - cost fields are simply zero in that case, never
+    estimated.
     """
     calls = getattr(vision_client, "call_log", [])
-    if not calls:
-        return
     total_prompt = sum(r.prompt_tokens for r in calls)
     total_completion = sum(r.completion_tokens for r in calls)
     llm_latency = sum(r.latency_seconds for r in calls)
     logger.info(
-        "comics_ocr_vision image=%s llm_calls=%d llm_latency=%.2fs "
+        "comics_ocr_vision read_path=%s image=%s llm_calls=%d llm_latency=%.2fs "
         "prompt_tokens=%d completion_tokens=%d",
-        image_name, len(calls), llm_latency, total_prompt, total_completion,
+        read_path, image_name, len(calls), llm_latency, total_prompt, total_completion,
     )
 
 

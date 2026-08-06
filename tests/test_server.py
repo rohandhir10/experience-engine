@@ -1612,12 +1612,19 @@ def test_comics_ocr_endpoint_logs_real_measured_vision_reading_cost(monkeypatch,
 
     cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
     assert len(cost_lines) == 1
+    assert "read_path=single_step" in cost_lines[0]
     assert "llm_calls=1" in cost_lines[0]
     assert "prompt_tokens=500" in cost_lines[0]
     assert "completion_tokens=150" in cost_lines[0]
 
 
-def test_comics_ocr_endpoint_logs_nothing_when_vision_reading_is_disabled(monkeypatch, caplog):
+def test_comics_ocr_endpoint_logs_the_read_path_even_when_vision_reading_is_disabled(monkeypatch, caplog):
+    """Which OCR path a request actually took (single_step vs two_step)
+    must be diagnosable from logs on every request, not only when
+    CASTIA_VISION_READING happens to be on - both paths call Cloud
+    Vision identically, so this read_path field is otherwise the only
+    way to tell CASTIA_TEXT_DETECTOR_URL is (or isn't) taking effect in
+    a real deployment without checking Railway's env vars directly."""
     from engine import comics_vision, config
 
     monkeypatch.setattr(config, "VISION_READING_ENABLED", False)
@@ -1634,7 +1641,56 @@ def test_comics_ocr_endpoint_logs_nothing_when_vision_reading_is_disabled(monkey
     with caplog.at_level("INFO", logger="castia.server"):
         main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
 
-    assert not [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
+    cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
+    assert len(cost_lines) == 1
+    assert "read_path=single_step" in cost_lines[0]
+    assert "llm_calls=0" in cost_lines[0]
+
+
+def test_comics_ocr_endpoint_logs_read_path_two_step_when_a_detector_finds_regions(monkeypatch, caplog):
+    from engine import comics_read, config
+
+    monkeypatch.setattr(config, "TEXT_DETECTOR_URL", "http://detector.internal/detect")
+    monkeypatch.setattr(
+        comics_read,
+        "read_panel_two_step",
+        lambda *a, **k: {"regions": [{"node_id": "r0", "text": "TWO STEP"}], "warning": None},
+    )
+
+    with caplog.at_level("INFO", logger="castia.server"):
+        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+
+    cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
+    assert len(cost_lines) == 1
+    assert "read_path=two_step" in cost_lines[0]
+
+
+def test_comics_ocr_endpoint_logs_two_step_fallback_when_the_detector_finds_nothing(monkeypatch, caplog):
+    from engine import comics_read, config
+
+    monkeypatch.setattr(config, "TEXT_DETECTOR_URL", "http://detector.internal/detect")
+    monkeypatch.setattr(comics_read, "read_panel_two_step", lambda *a, **k: {})
+    monkeypatch.setattr(
+        main.comics_ocr,
+        "extract_text_regions",
+        lambda image_bytes, language=None: {
+            "regions": [], "full_text": "", "warning": None,
+            "image_width": 10, "image_height": 10, "detected_languages": [],
+        },
+    )
+
+    with caplog.at_level("INFO", logger="castia.server"):
+        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+
+    assert any(
+        "read_path=two_step_fallback" in r.message for r in caplog.records
+    )
+    # Falls all the way through to the single-step path afterward, which
+    # logs its own read_path too - both lines matter for diagnosing why a
+    # configured detector isn't actually taking effect on this request.
+    assert any(
+        "comics_ocr_vision read_path=single_step" in r.message for r in caplog.records
+    )
 
 
 def test_two_step_read_is_used_when_a_detector_is_configured(monkeypatch):
