@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Logo } from "./Logo";
 import { MediumSwitcher } from "./MediumSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
+import { UseCasesMenu } from "./UseCasesMenu";
+import { MobileNavMenu } from "./MobileNavMenu";
 
 /** Sign In / Get Started render everywhere (consistent global chrome, like
  * ChatGPT). Sign In is now real (Auth.js + Google, see web/auth.ts) and
@@ -11,14 +13,17 @@ import { ThemeToggle } from "./ThemeToggle";
  * this component is rendered from BOTH server and client trees
  * (InputScreen.tsx is "use client"), so it can't read the session here
  * without a broader refactor. Pricing/Get Started are still cosmetic:
- * there's no Stripe.
+ * checkout runs through Paddle once a live account exists, but nothing
+ * is charged today (see /pricing's own disclosure).
  *
  * active="music"/"webtoons" (set by /music and /comics respectively)
  * additionally renders MediumSwitcher - a small extracted client
  * component, for the same reason Sign In can't branch on session here:
  * SiteHeader itself stays server-renderable everywhere else, and only
  * the two pages that need an interactive switch pull in the client
- * bit. "/" and every other page pass neither and get no switcher. */
+ * bit. "/" and every other page pass neither and get no switcher.
+ * UseCasesMenu and MobileNavMenu are the same pattern, for the same
+ * reason - both need open/close state SiteHeader itself can't hold. */
 export function SiteHeader({
   active,
   right,
@@ -46,9 +51,7 @@ export function SiteHeader({
         {(active === "music" || active === "webtoons") && (
           <MediumSwitcher active={active} forceDark={forceDark} />
         )}
-        <Link href="/music#features" className={`hidden sm:inline ${navLink}`}>
-          Use Cases
-        </Link>
+        <UseCasesMenu forceDark={forceDark} />
         {active !== "pricing" && (
           <Link href="/pricing" className={`hidden sm:inline ${navLink}`}>
             Pricing
@@ -84,8 +87,15 @@ export function SiteHeader({
         <Link href="/sign-in" className={`hidden sm:inline ${navLink}`}>
           Sign In
         </Link>
+        <MobileNavMenu active={active} forceDark={forceDark} />
         <Link
-          href="/music#lyrics"
+          // Real bug this fixes: this used to hardcode /music#lyrics
+          // everywhere, including on /comics (active="webtoons") - a
+          // webtoons visitor clicking "Get Started" was silently sent
+          // to the music tool instead. On webtoons, the upload area is
+          // already the first thing on the page, so this just points
+          // back at it rather than away from it.
+          href={active === "webtoons" ? "/comics" : "/music#lyrics"}
           className={
             forceDark
               ? "whitespace-nowrap rounded-full bg-white px-4 py-1.5 text-[13px] font-medium text-black transition active:scale-[0.97]"

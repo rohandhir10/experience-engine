@@ -21,6 +21,12 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
         <Link href="/comics" className={`transition ${dim}`}>
           Webtoons
         </Link>
+        <Link href="/lyrics-translation" className={`transition ${dim}`}>
+          Lyric translation
+        </Link>
+        <Link href="/manga-webtoon-translation" className={`transition ${dim}`}>
+          Manga &amp; webtoon translation
+        </Link>
         <Link href="/how-it-works" className={`transition ${dim}`}>
           How it works
         </Link>
@@ -55,7 +61,7 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
         </Link>
       </nav>
       <p className={`mt-4 text-[12px] ${dark ? "text-white/25" : "text-ink/30 dark:text-ink-dark/30"}`}>
-        Castia
+        © {new Date().getFullYear()} Castia
       </p>
     </footer>
   );
