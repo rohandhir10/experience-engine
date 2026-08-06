@@ -3987,6 +3987,28 @@ browser and needs the signed-in user's id there too.
   and `tests/test_comics_adapt_jobs.py` to include the new field. Full
   suite green: 907 pytest, 108 Vitest, clean `tsc`/`npm run build`.
 
+## Real transactional email via Resend
+
+Line 3827's original entry described `server/emailing.py` degrading to
+logging the verification link because no provider was configured yet.
+That's now wired for real: `send_verification_email` sends through
+Resend's API when `RESEND_API_KEY` is set (gated the same way
+`PADDLE_WEBHOOK_SECRET` gates `server/paddle.py`), still degrading to
+logging when it isn't - local dev/CI/an unconfigured deployment keep
+working exactly as before. `CASTIA_EMAIL_FROM` overrides the sender
+address (defaults to Resend's own shared testing sender,
+`onboarding@resend.dev`, which needs no domain verification but only
+delivers to the account owner under Resend's sandbox mode - a verified
+custom domain is a real action in the Resend dashboard, not something
+this change can do on its own). On a Resend API failure, the raw
+verification link is still logged as a fallback rather than stranding
+the user with no way to verify; on success, the link is deliberately
+NOT logged, since logging it was only ever a stand-in for delivery, not
+something that should persist in server logs once delivery is real.
+6 new tests (`tests/test_emailing.py`): no-key fallback, a real send's
+request shape, custom `EMAIL_FROM`, and that neither a network failure
+nor a non-2xx response ever raises. Full suite green: 1011 pytest.
+
 ## Deliberately deferred out of Phase 3
 
 - **Genre-aware calibration (originally "Phase 3C").** Building a
