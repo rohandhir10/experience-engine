@@ -160,7 +160,16 @@ export default function Home() {
           </table>
         </div>
 
-        <p className="mt-5 text-center text-[12.5px] leading-relaxed text-white/35">
+        <p className="mt-6 text-center">
+          <Link
+            href="/s/demo"
+            className="text-[13px] text-white/70 underline decoration-white/25 underline-offset-4 transition hover:text-white"
+          >
+            See a real result, line by line →
+          </Link>
+        </p>
+
+        <p className="mt-3 text-center text-[12.5px] leading-relaxed text-white/35">
           The full mechanism, sourced:{" "}
           <Link href="/compare/google-translate" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
             vs. Google Translate
