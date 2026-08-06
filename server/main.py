@@ -536,15 +536,22 @@ def comics_redraw_endpoint(
     draws the adapted line back in its place (engine/comics_redraw.py) -
     see that module's docstring for the honest, disclosed scope: speech
     bubbles only (not SFX), one fixed bundled font (never a match for
-    the original lettering), a heuristic text-color guess, and no
-    persistence/caching/share-link, unlike /api/comics/adapt's results.
+    the original lettering), and a heuristic text-color guess.
 
     `regions` is a JSON-encoded string (multipart can't carry nested
     JSON directly) - `[{"bbox": {"x","y","width","height"}, "adapted_text"}, ...]`,
     the same bbox shape /api/comics/ocr already returns per detected
     region, paired with whatever adapted text the caller wants drawn
-    there. Returns the composited PNG as base64 - there is no stored id
-    to fetch it by later, unlike an adapt result.
+    there. Returns the composited PNG as base64, plus `id` - a real,
+    content-addressed id (server/cache.py::comics_redraw_content_id),
+    the same idea as /api/adapt's result_id. An identical (image, regions)
+    request is served straight from cache.get() rather than re-running
+    the inpainting pipeline (OpenCV or LaMa, whichever this image needed -
+    both are pure functions of their input, so a cache hit is exactly the
+    same output as a recompute) - this is what keeps a page reload, a
+    retried request, or several browser tabs on the same panel from each
+    paying for their own redraw. Fetch a past result later via
+    GET /api/comics/redraw/{id}.
     """
     image_bytes = image.file.read()
     if len(image_bytes) > MAX_IMAGE_BYTES:
@@ -566,6 +573,12 @@ def comics_redraw_endpoint(
     region_dicts = [
         {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text} for r in validated
     ]
+
+    result_id = cache.comics_redraw_content_id(image_bytes, region_dicts)
+    cached = cache.get(result_id)
+    if cached is not None:
+        return {**cached, "id": result_id}
+
     try:
         result_bytes, inpaint_method = redraw_panel_detailed(image_bytes, region_dicts)
     except RedrawError as exc:
@@ -575,10 +588,20 @@ def comics_redraw_endpoint(
     # OpenCV smear look very different on drawn artwork, and a UI that
     # showed both without distinction would be implying a quality this
     # panel may not actually have.
-    return {
+    result = {
         "image_base64": base64.b64encode(result_bytes).decode("ascii"),
         "inpaint_method": inpaint_method,
     }
+    cache.set(result_id, result)
+    return {**result, "id": result_id}
+
+
+@app.get("/api/comics/redraw/{result_id}")
+def get_comics_redraw(result_id: str) -> dict:
+    cached = cache.get(result_id)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="No result found for this link.")
+    return {**cached, "id": result_id}
 
 
 class ComicsPanelText(BaseModel):

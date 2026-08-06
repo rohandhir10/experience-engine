@@ -76,11 +76,17 @@ export type ComicPanel = {
   // ocrRegions itself already follows.
   redrawRegionTexts: (string | null)[] | null;
   // The composited PNG (as a data: URI) from the most recent successful
-  // /api/comics/redraw call - null until one has run. Not persisted
-  // server-side (server/main.py's endpoint returns it, doesn't cache
-  // it), not included in CSV export - purely this tab's in-memory
-  // result, same as everything else about this workspace.
+  // /api/comics/redraw call - null until one has run. This tab holds
+  // only the data: URI, not persisted here across a reload, but the
+  // underlying result IS cached server-side under redrawResultId below
+  // (server/cache.py::comics_redraw_content_id) - re-running "Redraw
+  // panel" with the same regions is a cache hit, not a second inpaint.
+  // Not included in CSV export.
   redrawResultUrl: string | null;
+  // The real, content-addressed id server/main.py cached this result
+  // under (lib/comicsRedraw.ts::RedrawResult) - null until a redraw has
+  // run. Fetchable later via GET /api/comics/redraw/{id}.
+  redrawResultId: string | null;
   redrawStatus: "idle" | "running" | "error";
   redrawMessage: string | null;
 };

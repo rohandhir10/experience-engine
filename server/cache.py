@@ -117,6 +117,36 @@ def comics_content_id(
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
 
 
+def comics_redraw_content_id(image_bytes: bytes, regions: list[dict]) -> str:
+    """Same storage (get()/set() below) and same content-addressing idea as
+    content_id()/comics_content_id(), for a single redraw request - this is
+    what lets /api/comics/redraw skip re-running the expensive inpainting
+    pipeline (OpenCV or LaMa - engine/comics_redraw.py) for a request it's
+    already computed, instead of doing that work over on every page reload
+    or retry, and gives a redrawn panel a real id to fetch by, the same way
+    a song or chapter already has one.
+
+    Hashes the raw image bytes directly (not a lighter-weight perceptual
+    hash) plus each region's bbox and adapted_text, in the order given -
+    deliberately exact rather than fuzzy, unlike find_similar()'s text
+    matching: a false cache hit here would silently return a different
+    image's redraw, which is a correctness bug, not just a wasted lookup.
+    Image bytes are already bounded by MAX_IMAGE_BYTES before this is ever
+    called, so hashing the full payload is cheap in practice.
+    """
+    hasher = hashlib.sha256()
+    hasher.update(b"comics_redraw::")
+    hasher.update(image_bytes)
+    for region in regions:
+        bbox = region["bbox"]
+        hasher.update(
+            f"::{bbox['x']},{bbox['y']},{bbox['width']},{bbox['height']}::{region['adapted_text']}".encode(
+                "utf-8"
+            )
+        )
+    return hasher.hexdigest()[:16]
+
+
 def fuzzy_key(text: str) -> str:
     """Case-folded, punctuation-stripped, whitespace-collapsed — deliberately
     more aggressive than normalize_text, since this is for *comparing*

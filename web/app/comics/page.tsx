@@ -94,6 +94,7 @@ export default function ComicsPage() {
         regionWhys: null,
         redrawRegionTexts: null,
         redrawResultUrl: null,
+        redrawResultId: null,
         redrawStatus: "idle" as const,
         redrawMessage: null,
       }))
@@ -136,6 +137,7 @@ export default function ComicsPage() {
       regionWhys: null,
       redrawRegionTexts: null,
       redrawResultUrl: null,
+      redrawResultId: null,
       redrawStatus: "idle",
       redrawMessage: null,
     });
@@ -207,8 +209,13 @@ export default function ComicsPage() {
 
     updatePanel(id, { redrawStatus: "running", redrawMessage: null });
     try {
-      const dataUrl = await redrawPanel(panel.file, regionsToSend);
-      updatePanel(id, { redrawStatus: "idle", redrawResultUrl: dataUrl, redrawMessage: null });
+      const { dataUrl, id: redrawResultId } = await redrawPanel(panel.file, regionsToSend);
+      updatePanel(id, {
+        redrawStatus: "idle",
+        redrawResultUrl: dataUrl,
+        redrawResultId,
+        redrawMessage: null,
+      });
     } catch (err) {
       updatePanel(id, {
         redrawStatus: "error",

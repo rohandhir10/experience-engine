@@ -23,6 +23,7 @@ function panel(
     regionWhys: null,
     redrawRegionTexts: null,
     redrawResultUrl: null,
+    redrawResultId: null,
     redrawStatus: "idle",
     redrawMessage: null,
     ...overrides,

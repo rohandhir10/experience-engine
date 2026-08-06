@@ -670,6 +670,89 @@ def test_comics_redraw_endpoint_rejects_an_oversized_image():
     assert exc_info.value.status_code == 413
 
 
+def test_comics_redraw_endpoint_returns_a_real_content_addressed_id():
+    image_bytes = _real_png_bytes()
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+
+    result = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+
+    assert result["id"] == main.cache.comics_redraw_content_id(
+        image_bytes, [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+
+
+def test_comics_redraw_endpoint_serves_an_identical_request_from_cache(monkeypatch):
+    image_bytes = _real_png_bytes()
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+
+    call_count = 0
+    real_redraw = main.redraw_panel_detailed
+
+    def counting_redraw(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return real_redraw(*args, **kwargs)
+
+    monkeypatch.setattr(main, "redraw_panel_detailed", counting_redraw)
+
+    first = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+    second = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+
+    assert call_count == 1  # the inpainting pipeline only actually ran once
+    assert second["id"] == first["id"]
+    assert second["image_base64"] == first["image_base64"]
+    assert second["inpaint_method"] == first["inpaint_method"]
+
+
+def test_comics_redraw_endpoint_recomputes_for_different_adapted_text(monkeypatch):
+    image_bytes = _real_png_bytes()
+
+    call_count = 0
+    real_redraw = main.redraw_panel_detailed
+
+    def counting_redraw(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return real_redraw(*args, **kwargs)
+
+    monkeypatch.setattr(main, "redraw_panel_detailed", counting_redraw)
+
+    first_regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+    second_regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "goodbye"}]
+    )
+
+    first = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=first_regions)
+    second = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=second_regions)
+
+    assert call_count == 2  # different text is a different result, not a cache hit
+    assert first["id"] != second["id"]
+
+
+def test_get_comics_redraw_returns_a_previously_cached_result():
+    image_bytes = _real_png_bytes()
+    regions = json.dumps(
+        [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
+    )
+    created = main.comics_redraw_endpoint(image=_FakeUploadFile(image_bytes), regions=regions)
+
+    fetched = main.get_comics_redraw(created["id"])
+
+    assert fetched == created
+
+
+def test_get_comics_redraw_404s_for_an_unknown_id():
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.get_comics_redraw("not-a-real-id")
+    assert exc_info.value.status_code == 404
+
+
 class _FakeRuling:
     def __init__(self, final_line, priority_tradeoffs_made="test tradeoff"):
         self.final_line = final_line
