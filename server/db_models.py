@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -371,4 +371,59 @@ class EmailVerificationToken(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class CharacterBibleEntry(Base):
+    """One character's persisted voice, in one user's one comics series -
+    the cross-chapter memory engine/comics_adapt.py's CharacterVoice
+    never had on its own: Chapter DNA re-derives voice_description/
+    honorific_register/relationships from scratch every chapter, with
+    nothing carrying forward. This table is what server/character_bibles.py
+    reads before a chapter starts (merged in via
+    engine/comics_adapt.py::merge_character_bible) and writes back to
+    after it finishes (character_bible_updates), so a character's
+    established voice and current honorific register actually persist
+    chapter to chapter instead of resetting blind every time.
+
+    Keyed to a real account, not anonymous - a persisted bible needs an
+    owner, so this only ever gets read/written for a signed-in user_id
+    (server/main.py gates it the same way credits/history already are).
+
+    `series_name` is free text the user supplies per adaptation request,
+    matched case-insensitively (see the unique constraint below) - there
+    is no separate "series" entity anywhere else in this product yet,
+    so this is intentionally the simplest thing that could work: no
+    dedicated series table, no id to create ahead of time, just a name
+    that has to match next time for the same series' memory to resume.
+
+    `character_name` matching is the same real, disclosed limitation
+    merge_character_bible's own docstring states: exact name (case-
+    insensitive) only. A name that drifts between chapters won't merge.
+    """
+
+    __tablename__ = "character_bible_entries"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "series_name_key", "character_name_key",
+            name="uq_character_bible_entry",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    # The display-cased name the user/DNA actually used, alongside a
+    # lowercased/stripped lookup key - stored as its own column (not
+    # computed at query time) so the unique constraint above can key on
+    # it directly, matching the same case-insensitive matching
+    # merge_character_bible does in Python.
+    series_name: Mapped[str] = mapped_column(String, nullable=False)
+    series_name_key: Mapped[str] = mapped_column(String, nullable=False)
+    character_name: Mapped[str] = mapped_column(String, nullable=False)
+    character_name_key: Mapped[str] = mapped_column(String, nullable=False)
+    voice_description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    honorific_register: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # list[str], same shape as engine/models.py::CharacterVoice.relationships.
+    relationships: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

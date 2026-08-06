@@ -29,7 +29,7 @@ def test_migrate_to_head_succeeds_on_a_fresh_database(tmp_path, monkeypatch):
     tables = set(insp.get_table_names())
     assert {
         "adaptations", "api_keys", "api_key_usage", "monthly_quota_usage",
-        "credit_transactions", "paddle_processed_events",
+        "credit_transactions", "paddle_processed_events", "character_bible_entries",
     } <= tables
     assert "medium" in {c["name"] for c in insp.get_columns("adaptations")}
     assert "credits" in {c["name"] for c in insp.get_columns("users")}
@@ -94,4 +94,12 @@ def test_migrate_to_head_succeeds_on_a_preexisting_pre_migration_database(tmp_pa
     assert {c["name"] for c in insp.get_columns("paddle_processed_events")} == {
         "event_id",
         "created_at",
+    }
+    # 0009 runs in this same chain too - the real "stuck before this table
+    # ever existed" scenario, distinct from the fresh-database case above.
+    assert "character_bible_entries" in insp.get_table_names()
+    assert {c["name"] for c in insp.get_columns("character_bible_entries")} == {
+        "id", "user_id", "series_name", "series_name_key", "character_name",
+        "character_name_key", "voice_description", "honorific_register",
+        "relationships", "updated_at", "created_at",
     }

@@ -1002,13 +1002,18 @@ def _fake_chapter_dna(**overrides):
     return ChapterDNA(**defaults)
 
 
-def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None, deadline=None):
+def _fake_adapt_chapter(
+    chapter, dna, client, on_stage=None, on_bubble_done=None, on_room_memory_done=None, deadline=None
+):
     """Stands in for engine/comics_adapt.py's real adapt_chapter, but
-    still invokes on_stage/on_bubble_done the way the real one does -
-    server/main.py::_run_comics_adaptation now builds each panel's
-    output (and reports job progress) from those callbacks rather than
-    from adapt_chapter's return value, so a fake that only returns a
-    list without calling them would silently produce zero panels."""
+    still invokes on_stage/on_bubble_done/on_room_memory_done the way the
+    real one does - server/main.py::_run_comics_adaptation now builds
+    each panel's output (and reports job progress, and persists a
+    character bible) from those callbacks rather than from adapt_chapter's
+    return value, so a fake that only returns a list without calling them
+    would silently produce zero panels / never persist a bible."""
+    from engine.models import RoomMemory
+
     results = [_FakeSectionResult(b.id, f"adapted {b.id}") for b in chapter.bubbles]
     total = len(results)
     for index, (bubble, result) in enumerate(zip(chapter.bubbles, results), start=1):
@@ -1017,6 +1022,8 @@ def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None
             on_stage(bubble.id, "verifying", index, total)
         if on_bubble_done:
             on_bubble_done(bubble.id, result, index, total)
+    if on_room_memory_done:
+        on_room_memory_done(RoomMemory())
     return results
 
 
@@ -1189,13 +1196,120 @@ def test_run_comics_adaptation_logs_real_measured_token_usage(monkeypatch, caplo
     assert "judge_triage[gpt-4o]=300p/80c" in cost_lines[0]
 
 
+# ---------------------------------------------------------------------------
+# Persistent character bibles: _run_comics_adaptation wiring server/
+# character_bibles.py (real DB access, mocked out here) into
+# merge_character_bible/character_bible_updates (engine/comics_adapt.py,
+# tested standalone in tests/test_comics_adapt.py). These tests are about
+# the WIRING - is the bible loaded, merged, and saved at the right time -
+# not the merge logic itself.
+# ---------------------------------------------------------------------------
+
+
+def _character_voice(**overrides):
+    from engine.models import CharacterVoice
+
+    defaults = dict(name="Guard Captain", voice_description="fresh guess", honorific_register="fresh")
+    defaults.update(overrides)
+    return CharacterVoice(**defaults)
+
+
+def test_run_comics_adaptation_loads_and_saves_a_bible_when_series_and_user_are_given(monkeypatch):
+    _patch_comics_adapt(
+        monkeypatch, dna=_fake_chapter_dna(characters=[_character_voice()])
+    )
+    get_calls = []
+    save_calls = []
+    monkeypatch.setattr(
+        main.character_bibles, "get_bible",
+        lambda user_id, series_name: (get_calls.append((user_id, series_name)) or {
+            "guard captain": {
+                "voice_description": "persisted, established voice",
+                "honorific_register": "persisted register",
+                "relationships": ["reports to the Princess"],
+            }
+        }),
+    )
+    monkeypatch.setattr(
+        main.character_bibles, "save_bible",
+        lambda user_id, series_name, updates: save_calls.append((user_id, series_name, updates)),
+    )
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        series_name="Guard Captain Saga",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello", voice="Guard Captain")],
+    )
+    main._run_comics_adaptation(request, "result-1", request.panels, user_id="user-1")
+
+    assert get_calls == [("user-1", "Guard Captain Saga")]
+    assert len(save_calls) == 1
+    saved_user_id, saved_series, updates = save_calls[0]
+    assert saved_user_id == "user-1"
+    assert saved_series == "Guard Captain Saga"
+    # The bible's persisted value actually reached dna.characters before
+    # the chapter ran, and what gets saved back reflects that merge -
+    # not silently re-derived from Chapter DNA's own fresh (unmerged) guess.
+    assert updates["guard captain"]["voice_description"] == "persisted, established voice"
+    assert updates["guard captain"]["relationships"] == ["reports to the Princess"]
+
+
+def test_run_comics_adaptation_skips_the_bible_for_an_anonymous_request(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    calls = []
+    monkeypatch.setattr(main.character_bibles, "get_bible", lambda *a: calls.append(a))
+    monkeypatch.setattr(main.character_bibles, "save_bible", lambda *a: calls.append(a))
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", series_name="A Series",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    main._run_comics_adaptation(request, "result-1", request.panels, user_id=None)
+
+    assert calls == []
+
+
+def test_run_comics_adaptation_skips_the_bible_when_no_series_name_given(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    calls = []
+    monkeypatch.setattr(main.character_bibles, "get_bible", lambda *a: calls.append(a))
+    monkeypatch.setattr(main.character_bibles, "save_bible", lambda *a: calls.append(a))
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+    main._run_comics_adaptation(request, "result-1", request.panels, user_id="user-1")
+
+    assert calls == []
+
+
+def test_run_comics_adaptation_skips_the_bible_for_a_blank_series_name(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    calls = []
+    monkeypatch.setattr(main.character_bibles, "get_bible", lambda *a: calls.append(a))
+    monkeypatch.setattr(main.character_bibles, "save_bible", lambda *a: calls.append(a))
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", series_name="   ",
+        panels=[main.ComicsPanelText(id="panel-1", text="hello")],
+    )
+    main._run_comics_adaptation(request, "result-1", request.panels, user_id="user-1")
+
+    assert calls == []
+
+
 def test_comics_adapt_endpoint_threads_voice_into_bubble_input(monkeypatch):
     _patch_comics_adapt(monkeypatch)
     captured_chapters = []
 
-    def capturing_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None, deadline=None):
+    def capturing_adapt_chapter(
+        chapter, dna, client, on_stage=None, on_bubble_done=None, on_room_memory_done=None, deadline=None
+    ):
         captured_chapters.append(chapter)
-        return _fake_adapt_chapter(chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done)
+        return _fake_adapt_chapter(
+            chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done,
+            on_room_memory_done=on_room_memory_done,
+        )
 
     monkeypatch.setattr(main, "adapt_chapter", capturing_adapt_chapter)
 

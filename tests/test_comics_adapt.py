@@ -11,7 +11,14 @@ import time
 
 import pytest
 
-from engine.comics_adapt import ChapterTimeoutError, _bubble_song_dna, adapt_bubble, adapt_chapter
+from engine.comics_adapt import (
+    ChapterTimeoutError,
+    _bubble_song_dna,
+    adapt_bubble,
+    adapt_chapter,
+    character_bible_updates,
+    merge_character_bible,
+)
 from engine.models import BubbleInput, ChapterDNA, ChapterInput, CharacterVoice, RoomMemory
 
 CHAPTER_DNA = ChapterDNA(
@@ -632,3 +639,144 @@ def test_adapt_bubble_enables_emphasis_markup_for_the_judge():
     judge_system = next(system for stage, system in client.systems if stage == "judge_triage")
     assert "lettered into a comic speech bubble" in judge_system
     assert "double asterisks" in judge_system
+
+
+# ---------------------------------------------------------------------------
+# Persistent character bibles: merge_character_bible (read side) and
+# character_bible_updates (write side) - engine/comics_adapt.py's half of
+# cross-chapter character voice memory. server/character_bibles.py owns
+# the actual persistence; these two functions are pure and fully testable
+# without a database.
+# ---------------------------------------------------------------------------
+
+
+def test_merge_character_bible_overrides_a_matching_character():
+    characters = [
+        CharacterVoice(
+            name="Guard Captain",
+            voice_description="freshly guessed, thin",
+            honorific_register="unknown",
+            relationships=[],
+        )
+    ]
+    bible = {
+        "guard captain": {
+            "voice_description": "Terse, deferential, clipped under stress.",
+            "honorific_register": "casual banmal (post-shift)",
+            "relationships": ["reports to the Princess"],
+        }
+    }
+
+    merged = merge_character_bible(characters, bible)
+
+    assert merged[0].name == "Guard Captain"  # display casing preserved
+    assert merged[0].voice_description == "Terse, deferential, clipped under stress."
+    assert merged[0].honorific_register == "casual banmal (post-shift)"
+    assert merged[0].relationships == ["reports to the Princess"]
+
+
+def test_merge_character_bible_matches_names_case_insensitively_and_stripped():
+    characters = [CharacterVoice(name=" Guard Captain ", voice_description="x", honorific_register="x")]
+    bible = {"guard captain": {"voice_description": "persisted", "honorific_register": "persisted"}}
+
+    merged = merge_character_bible(characters, bible)
+
+    assert merged[0].voice_description == "persisted"
+
+
+def test_merge_character_bible_leaves_an_unknown_character_unchanged():
+    characters = [
+        CharacterVoice(name="New Character", voice_description="fresh", honorific_register="fresh")
+    ]
+    bible = {"guard captain": {"voice_description": "persisted", "honorific_register": "persisted"}}
+
+    merged = merge_character_bible(characters, bible)
+
+    assert merged[0].voice_description == "fresh"
+    assert merged[0].honorific_register == "fresh"
+
+
+def test_merge_character_bible_is_a_noop_for_an_empty_or_missing_bible():
+    characters = [CharacterVoice(name="Guard Captain", voice_description="x", honorific_register="x")]
+
+    assert merge_character_bible(characters, None) == characters
+    assert merge_character_bible(characters, {}) == characters
+
+
+def test_merge_character_bible_falls_back_to_the_chapters_own_value_for_a_blank_bible_field():
+    """A bible entry with an empty string for a field (never actually
+    written, or a genuinely blank one) must not blank out this chapter's
+    own real analysis - only a real, non-empty bible value should win."""
+    characters = [
+        CharacterVoice(name="Guard Captain", voice_description="fresh guess", honorific_register="fresh")
+    ]
+    bible = {"guard captain": {"voice_description": "", "honorific_register": ""}}
+
+    merged = merge_character_bible(characters, bible)
+
+    assert merged[0].voice_description == "fresh guess"
+    assert merged[0].honorific_register == "fresh"
+
+
+def test_character_bible_updates_uses_the_final_honorific_state_not_the_starting_snapshot():
+    """The whole point of persisting honorific_register across chapters
+    is catching a register SHIFT mid-chapter - this must read from
+    room_memory.honorific_state (the running tracker the Judge actually
+    updates), not dna.characters' own honorific_register, which is only
+    ever the chapter's starting point."""
+    dna = ChapterDNA(
+        artistic_thesis="x", genre_feel="x", tone="x", ongoing_plot_context="x",
+        characters=[
+            CharacterVoice(
+                name="Guard Captain",
+                voice_description="Terse, deferential.",
+                honorific_register="formal (start of chapter)",
+                relationships=["reports to the Princess"],
+            )
+        ],
+    )
+    room_memory = RoomMemory(honorific_state={"Guard Captain": "casual banmal (shifted mid-chapter)"})
+
+    updates = character_bible_updates(dna, room_memory)
+
+    assert updates["guard captain"] == {
+        "name": "Guard Captain",
+        "voice_description": "Terse, deferential.",
+        "honorific_register": "casual banmal (shifted mid-chapter)",
+        "relationships": ["reports to the Princess"],
+    }
+
+
+def test_character_bible_updates_falls_back_to_the_snapshot_when_nothing_shifted():
+    dna = ChapterDNA(
+        artistic_thesis="x", genre_feel="x", tone="x", ongoing_plot_context="x",
+        characters=[
+            CharacterVoice(name="Guard Captain", voice_description="x", honorific_register="formal")
+        ],
+    )
+    room_memory = RoomMemory()  # nothing recorded - character never spoke, or nothing shifted
+
+    updates = character_bible_updates(dna, room_memory)
+
+    assert updates["guard captain"]["honorific_register"] == "formal"
+
+
+def test_adapt_chapter_calls_on_room_memory_done_once_with_the_final_state():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="line two", voice="Guard Captain"),
+        ]
+    )
+    client = FakeClientRulesImmediately()
+    captured: list[RoomMemory] = []
+
+    adapt_chapter(chapter, CHAPTER_DNA, client, on_room_memory_done=captured.append)
+
+    assert len(captured) == 1
+    assert len(captured[0].prior_rulings) == 2  # the chapter's actual finished state
+
+
+def test_adapt_chapter_works_unchanged_with_no_on_room_memory_done_given():
+    results = adapt_chapter(_chapter(), CHAPTER_DNA, FakeClientRulesImmediately())
+    assert len(results) == 1

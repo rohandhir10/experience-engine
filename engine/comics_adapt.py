@@ -183,6 +183,79 @@ def adapt_bubble(
     )
 
 
+def merge_character_bible(
+    characters: list[CharacterVoice], bible: dict[str, dict] | None
+) -> list[CharacterVoice]:
+    """Overrides a character's persisted-stable fields (voice_description,
+    relationships) and starting honorific_register with a PRIOR chapter's
+    saved bible entry, when this series has one for that name - so a
+    chapter starts from what an earlier chapter of the same series
+    already established instead of Chapter DNA re-deriving a character's
+    voice from a blind read of this chapter's dialogue alone every time.
+
+    Matched by exact name, stripped and case-insensitive (same key
+    server/character_bibles.py stores under) - a real, disclosed
+    limitation: a name that drifts between chapters ("Mira" vs "Mirai")
+    will not merge, and is treated as a new, unrelated character.
+
+    `bible` is server/character_bibles.py::get_bible's return shape
+    ({character_key: {voice_description, honorific_register,
+    relationships}}); None or {} (no series given, or a brand-new
+    series) leaves `characters` completely unchanged. A character this
+    bible has never seen also passes through unchanged - only a name
+    that actually matches an existing entry gets overridden.
+    """
+    if not bible:
+        return characters
+    merged = []
+    for character in characters:
+        entry = bible.get(character.name.strip().lower())
+        if not entry:
+            merged.append(character)
+            continue
+        merged.append(
+            CharacterVoice(
+                name=character.name,
+                voice_description=entry.get("voice_description") or character.voice_description,
+                honorific_register=entry.get("honorific_register") or character.honorific_register,
+                relationships=entry.get("relationships") or character.relationships,
+            )
+        )
+    return merged
+
+
+def character_bible_updates(dna: ChapterDNA, room_memory: RoomMemory) -> dict[str, dict]:
+    """The per-character record worth persisting once a chapter finishes,
+    keyed the same way merge_character_bible looks entries up (stripped,
+    lowercased name) - server/character_bibles.py::save_bible's expected
+    input shape.
+
+    honorific_register is read from room_memory.honorific_state, the
+    RUNNING tracker this chapter actually updated via the Judge's own
+    honorific_note after every attributed bubble - not dna.characters'
+    own honorific_register, which is only ever a chapter's STARTING
+    snapshot (see CharacterVoice's docstring) and would silently discard
+    any register shift this chapter's dialogue actually earned.
+
+    voice_description/relationships carry forward from dna.characters
+    as already merged with any prior bible entry by merge_character_bible
+    (called before adapt_chapter runs) - so a character whose description
+    didn't need to change this chapter doesn't regress to nothing on the
+    next save.
+    """
+    return {
+        character.name.strip().lower(): {
+            "name": character.name,
+            "voice_description": character.voice_description,
+            "honorific_register": room_memory.honorific_state.get(
+                character.name, character.honorific_register
+            ),
+            "relationships": character.relationships,
+        }
+        for character in dna.characters
+    }
+
+
 def adapt_chapter(
     chapter: ChapterInput,
     dna: ChapterDNA,
@@ -190,6 +263,7 @@ def adapt_chapter(
     profile: LanguageProfile = NEUTRAL_PROFILE,
     on_stage: Callable[[str, str, int, int], None] | None = None,
     on_bubble_done: Callable[[str, SectionResultV1, int, int], None] | None = None,
+    on_room_memory_done: Callable[[RoomMemory], None] | None = None,
     deadline: float | None = None,
 ) -> list[SectionResultV1]:
     """Runs every bubble in `chapter`, in order, through adapt_bubble —
@@ -217,6 +291,15 @@ def adapt_chapter(
     without reaching into engine/writers_room_v1.py, which this
     deliberately does not do. Neither callback changes this function's
     behavior or return value in any way when omitted.
+
+    `on_room_memory_done(room_memory)` fires once, after the last bubble,
+    with the chapter's final RoomMemory - the only way a caller can reach
+    the finished honorific_state (a character's speech register may have
+    shifted mid-chapter) to persist it, since this function's own return
+    value is only ever the list of per-bubble results. server/main.py
+    uses this to call engine/comics_adapt.py::character_bible_updates and
+    write the result to server/character_bibles.py when a series_name was
+    given. Omitted, this changes nothing else about this function.
 
     `deadline` (a time.monotonic() cutoff, not a duration) is an overall
     safety ceiling for the whole chapter, checked between bubbles - not
@@ -264,6 +347,9 @@ def adapt_chapter(
             room_memory.honorific_state[bubble.voice] = result.ruling.honorific_note
         if on_bubble_done:
             on_bubble_done(bubble.id, result, index, total)
+
+    if on_room_memory_done:
+        on_room_memory_done(room_memory)
 
     return results
 

@@ -83,12 +83,16 @@ def _patch_song_engine(monkeypatch):
     monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
 
 
-def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None, deadline=None):
+def _fake_adapt_chapter(
+    chapter, dna, client, on_stage=None, on_bubble_done=None, on_room_memory_done=None, deadline=None
+):
     """See tests/test_server.py's identical helper - server/main.py's
     _run_comics_adaptation now builds each panel's output from
     adapt_chapter's on_stage/on_bubble_done callbacks, not its return
     value, so a fake that doesn't invoke them would silently produce
     zero panels."""
+    from engine.models import RoomMemory
+
     results = [_FakeSectionResult(b.id, f"adapted {b.id}") for b in chapter.bubbles]
     total = len(results)
     for index, (bubble, result) in enumerate(zip(chapter.bubbles, results), start=1):
@@ -97,6 +101,8 @@ def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None
             on_stage(bubble.id, "verifying", index, total)
         if on_bubble_done:
             on_bubble_done(bubble.id, result, index, total)
+    if on_room_memory_done:
+        on_room_memory_done(RoomMemory())
     return results
 
 

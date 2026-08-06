@@ -94,7 +94,7 @@ from pydantic import BaseModel, ValidationError
 from engine import comics_align, comics_ocr, comics_read, comics_vision, config
 from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
-from engine.comics_adapt import adapt_chapter
+from engine.comics_adapt import adapt_chapter, character_bible_updates, merge_character_bible
 from engine.comics_ocr import OcrError
 from engine import comics_redraw
 from engine.comics_redraw import RedrawError, redraw_panel_detailed
@@ -105,7 +105,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, credits, db, jobs, paddle, password_auth, quota
+from . import accounts, api_keys, cache, character_bibles, credits, db, jobs, paddle, password_auth, quota
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -725,6 +725,15 @@ class ComicsAdaptRequest(BaseModel):
     target_language: str = "English"
     context_note: str | None = None
     panels: list[ComicsPanelText]
+    # Free-text series name (server/character_bibles.py) that ties this
+    # chapter's characters to any previously-persisted voice/honorific
+    # data for the SAME signed-in user's series of that name - see
+    # engine/comics_adapt.py::merge_character_bible/character_bible_updates.
+    # None/blank means no cross-chapter memory for this request, same as
+    # every request behaved before this field existed. Anonymous requests
+    # (user_id is None) never persist or read a bible even if this is
+    # set - a bible needs a real owner.
+    series_name: str | None = None
 
 
 @app.post("/api/comics/adapt")
@@ -917,6 +926,20 @@ def _run_comics_adaptation(
     dna = generate_chapter_dna(chapter, client)
     deadline = time.monotonic() + JOB_TIMEOUT_SECONDS
 
+    # Persistent character bibles: a real owner (user_id) and a series
+    # name are both required - a bible for an anonymous request or with
+    # no series given would have nothing to key future lookups on, so
+    # this is silently skipped rather than half-working. See
+    # engine/comics_adapt.py::merge_character_bible's own docstring for
+    # what "merge" actually does (override only a name this series has
+    # seen before; leave every other character untouched).
+    series_name = request.series_name
+    bible_active = bool(user_id and series_name and series_name.strip())
+    if bible_active:
+        dna.characters = merge_character_bible(
+            dna.characters, character_bibles.get_bible(user_id, series_name)
+        )
+
     def on_stage(bubble_id: str, stage: str, index: int, total: int) -> None:
         verb = "adapting" if stage == "adapting" else "verifying"
         _report_progress(index - 1, total, f"Panel {index}/{total}: {verb}…")
@@ -930,9 +953,24 @@ def _run_comics_adaptation(
         panels_out.append({"id": bubble_id, "literal": literal, "adapted_text": adapted, "why": why})
         _report_progress(index, total, f"Panel {index}/{total}: done")
 
+    final_room_memory = None
+
+    def on_room_memory_done(room_memory) -> None:
+        nonlocal final_room_memory
+        final_room_memory = room_memory
+
     adapt_chapter(
-        chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done, deadline=deadline
+        chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done,
+        on_room_memory_done=on_room_memory_done, deadline=deadline,
     )
+
+    # Written back only for characters dna.characters actually has after
+    # merge_character_bible above - a character who didn't appear this
+    # chapter keeps whatever the bible already had, untouched.
+    if bible_active and final_room_memory is not None:
+        character_bibles.save_bible(
+            user_id, series_name, character_bible_updates(dna, final_room_memory)
+        )
 
     payload = {"chapter_dna": dna.model_dump(), "panels": panels_out}
     cache.set(
