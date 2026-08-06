@@ -67,7 +67,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     description:
       "What Google Translate is actually built to do, where that's the right tool, and where a literal neural MT pass isn't the same job as adapting a lyric or a character's voice.",
     publishedDate: "2026-08-05",
-    updatedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
   },
   {
     slug: "deepl",
@@ -77,7 +77,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     description:
       "DeepL's neural MT is genuinely strong at document and sentence-level accuracy. Here's the specific, real gap between that and adapting a song or a comic panel.",
     publishedDate: "2026-08-05",
-    updatedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
   },
   {
     slug: "chatgpt-prompt",
@@ -87,7 +87,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     description:
       "\"Just ask ChatGPT to translate it creatively\" skips the part that makes a rewrite trustworthy: a verifiable anchor and a stated reason for every change.",
     publishedDate: "2026-08-05",
-    updatedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
   },
   {
     slug: "lyrics-translation",

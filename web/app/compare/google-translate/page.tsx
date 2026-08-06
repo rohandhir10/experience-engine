@@ -171,11 +171,11 @@ export default function CompareGoogleTranslatePage() {
 
         <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center sm:p-10">
           <p className="font-serif text-xl text-white sm:text-2xl">
-            See it on a real lyric.
+            See the tradeoff BLEU can't score.
           </p>
           <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/50">
-            Paste a verse and get the literal anchor, five rewrites, and the
-            Judge's reasoning side by side.
+            Paste a verse and see the literal anchor, all five rewrites, and
+            the Judge's stated reasoning for the one it picked.
           </p>
           <Link
             href="/music"
