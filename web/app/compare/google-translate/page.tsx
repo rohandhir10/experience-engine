@@ -3,6 +3,7 @@ import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
+import { ScreenshotSlot } from "@/components/ScreenshotSlot";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
 import { breadcrumbJsonLd, articleJsonLd } from "@/lib/schema";
@@ -151,6 +152,20 @@ export default function CompareGoogleTranslatePage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section className="mt-14">
+          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
+            Same line, run through both
+          </h2>
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+            One source line, the same input, run through Google Translate and
+            through Castia. Unedited output, side by side.
+          </p>
+          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <ScreenshotSlot label="Google Translate" path="/screenshots/compare/google-translate.png" />
+            <ScreenshotSlot label="Castia" path="/screenshots/compare/google-translate-castia.png" />
           </div>
         </section>
 
