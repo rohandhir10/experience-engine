@@ -42,7 +42,7 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
         <Link href="/glossary" className={`transition ${dim}`}>
           Glossary
         </Link>
-        <Link href="/dashboard/settings" className={`transition ${dim}`}>
+        <Link href="/docs/api" className={`transition ${dim}`}>
           API
         </Link>
       </nav>

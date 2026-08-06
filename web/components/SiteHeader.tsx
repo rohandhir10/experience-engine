@@ -66,13 +66,15 @@ export function SiteHeader({
           </Link>
         )}
         {/* server/main.py's /v1/* routes are real now (keys managed on
-            /dashboard/settings) - "Beta" replaces "Soon" for the same
-            reason DashboardSidebar's matching row does: no async
-            job/poll pattern yet, no published docs page yet, same
-            disclosure convention as Webtoons' own "Beta" badge. */}
+            /dashboard/settings, documented at /docs/api) - "Beta" stays
+            for the same reason DashboardSidebar's matching row does: no
+            async job/poll pattern yet for API callers, same disclosure
+            convention as Webtoons' own "Beta" badge. Points at the docs
+            page rather than straight to key management - a visitor
+            clicking "API" wants to know what it does first. */}
         {!minimal && (
           <Link
-            href="/dashboard/settings"
+            href="/docs/api"
             className={`hidden items-center gap-1.5 text-[13px] transition sm:inline-flex ${
               forceDark ? "text-white/25 hover:text-white/50" : "text-ink/30 hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"
             }`}

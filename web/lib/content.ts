@@ -130,6 +130,16 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     updatedDate: "2026-08-06",
   },
   {
+    slug: "api",
+    path: "/docs/api",
+    kind: "guide",
+    title: "Castia API reference",
+    description:
+      "POST /v1/adapt and /v1/comics/adapt: authenticate with an API key, request/response shapes, rate limits, and real curl examples for adapting song lyrics or comic dialogue programmatically.",
+    publishedDate: "2026-08-06",
+    updatedDate: "2026-08-06",
+  },
+  {
     slug: "glossary",
     path: "/glossary",
     kind: "glossary",

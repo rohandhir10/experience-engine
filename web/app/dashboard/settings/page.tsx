@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ApiKeysManager } from "@/components/ApiKeysManager";
@@ -29,6 +30,11 @@ export default function SettingsPage() {
               or <code className="rounded bg-black/[0.05] px-1 py-0.5 dark:bg-white/10">/v1/comics/adapt</code>.
               Same engine, same request/response shape as the dashboard's own
               adapt flow — just gated by a key instead of a signed-in session.
+              Full request/response shapes, rate limits, and examples on the{" "}
+              <Link href="/docs/api" className="underline decoration-ink/20 underline-offset-4">
+                API reference
+              </Link>
+              .
             </p>
             <ApiKeysManager />
           </div>
