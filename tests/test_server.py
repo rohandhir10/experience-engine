@@ -779,7 +779,7 @@ def _fake_chapter_dna(**overrides):
     return ChapterDNA(**defaults)
 
 
-def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None):
+def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None, deadline=None):
     """Stands in for engine/comics_adapt.py's real adapt_chapter, but
     still invokes on_stage/on_bubble_done the way the real one does -
     server/main.py::_run_comics_adaptation now builds each panel's
@@ -850,10 +850,12 @@ def test_run_comics_adaptation_reports_incremental_progress_when_given_a_job_id(
         request, "result-1", non_empty_panels, user_id=None, job_id="job-1"
     )
 
-    # One "adapting" + one "verifying" + one "done" report per panel = 6.
-    assert len(progress_calls) == 6
+    # One initial "Reading chapter..." report before anything runs, then
+    # one "adapting" + one "verifying" + one "done" report per panel = 7.
+    assert len(progress_calls) == 7
     messages = [c["message"] for c in progress_calls]
     assert messages == [
+        "Reading chapter…",
         "Panel 1/2: adapting…",
         "Panel 1/2: verifying…",
         "Panel 1/2: done",
@@ -864,13 +866,49 @@ def test_run_comics_adaptation_reports_incremental_progress_when_given_a_job_id(
     # The first panel's real result is visible in progress well before
     # the second panel starts - the whole point of reporting per-panel
     # rather than only at the very end.
-    assert progress_calls[2]["panels"] == [
+    assert progress_calls[3]["panels"] == [
         {"id": "panel-1", "literal": "literal panel-1", "adapted_text": "adapted panel-1", "why": "why text"}
     ]
-    assert progress_calls[3]["panels"] == progress_calls[2]["panels"]  # unchanged mid-panel-2
+    assert progress_calls[4]["panels"] == progress_calls[3]["panels"]  # unchanged mid-panel-2
     assert progress_calls[-1]["panels"] == payload["panels"]
     assert progress_calls[-1]["completed"] == 2
     assert progress_calls[-1]["total"] == 2
+
+
+def test_run_comics_adaptation_reports_progress_before_chapter_dna_generation(monkeypatch):
+    """The very first progress write must land BEFORE generate_chapter_dna
+    runs, not just before the bubble loop - Chapter DNA generation is
+    itself a real LLM call that can be slow (rate-limited, etc.), and a
+    poller should never see zero feedback while it's in flight. Proven by
+    making generate_chapter_dna itself check that a report already
+    happened, rather than by ordering assertions after the fact."""
+    progress_calls: list[dict] = []
+    monkeypatch.setattr(
+        main.jobs, "set_progress", lambda job_id, progress: progress_calls.append(progress)
+    )
+
+    def dna_checks_progress_already_reported(chapter, client):
+        assert len(progress_calls) == 1
+        assert progress_calls[0]["message"] == "Reading chapter…"
+        assert progress_calls[0]["completed"] == 0
+        assert progress_calls[0]["total"] == 1
+        return _fake_chapter_dna()
+
+    monkeypatch.setattr(main, "generate_chapter_dna", dna_checks_progress_already_reported)
+    monkeypatch.setattr(main, "adapt_chapter", _fake_adapt_chapter)
+    monkeypatch.setattr(main, "_translator_text", lambda result: f"literal {result.section}")
+    monkeypatch.setattr(
+        main, "_explain_why", lambda client, thesis, literal, adapted, tradeoffs: "why text"
+    )
+    monkeypatch.setattr(main, "create_default_client", lambda: object())
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+
+    main._run_comics_adaptation(request, "result-1", request.panels, user_id=None, job_id="job-1")
+
+    assert progress_calls[0]["message"] == "Reading chapter…"
 
 
 def test_run_comics_adaptation_reports_nothing_without_a_job_id(monkeypatch):
@@ -892,7 +930,7 @@ def test_comics_adapt_endpoint_threads_voice_into_bubble_input(monkeypatch):
     _patch_comics_adapt(monkeypatch)
     captured_chapters = []
 
-    def capturing_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None):
+    def capturing_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None, deadline=None):
         captured_chapters.append(chapter)
         return _fake_adapt_chapter(chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done)
 

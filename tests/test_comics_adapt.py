@@ -7,7 +7,11 @@ already passes; no real API call is made.
 """
 from __future__ import annotations
 
-from engine.comics_adapt import _bubble_song_dna, adapt_bubble, adapt_chapter
+import time
+
+import pytest
+
+from engine.comics_adapt import ChapterTimeoutError, _bubble_song_dna, adapt_bubble, adapt_chapter
 from engine.models import BubbleInput, ChapterDNA, ChapterInput, CharacterVoice, RoomMemory
 
 CHAPTER_DNA = ChapterDNA(
@@ -202,6 +206,67 @@ def test_adapt_chapter_works_unchanged_with_no_callbacks_given():
     client = FakeClientRulesImmediately()
     results = adapt_chapter(chapter, CHAPTER_DNA, client)
     assert [r.section for r in results] == ["b1"]
+
+
+def test_adapt_chapter_completes_normally_with_a_deadline_far_in_the_future():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="line two", voice="Princess"),
+        ]
+    )
+    client = FakeClientRulesImmediately()
+
+    results = adapt_chapter(chapter, CHAPTER_DNA, client, deadline=time.monotonic() + 3600)
+
+    assert [r.section for r in results] == ["b1", "b2"]
+
+
+def test_adapt_chapter_deadline_check_runs_between_bubbles_not_mid_flight():
+    """A deadline that passes DURING b1's own processing must not cut b1
+    short, and must let b1 finish for real before stopping the chapter -
+    the check only runs between bubbles (see adapt_chapter's docstring on
+    why: engine/llm_client.py's own per-call timeout is what bounds a
+    single stuck request; this deadline is a coarser, chapter-wide
+    ceiling on top of that, not a replacement for it)."""
+
+    class SlowFakeClient(FakeClientRulesImmediately):
+        def complete_json(self, system, user, max_tokens=None, stage="unknown") -> dict:
+            time.sleep(0.05)
+            return super().complete_json(system, user, max_tokens, stage)
+
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="line two", voice="Princess"),
+            BubbleInput(id="b3", source_text="line three", voice="Princess"),
+        ]
+    )
+    client = SlowFakeClient()
+
+    # b1 alone takes >0.1s (several 0.05s calls); this deadline is
+    # already gone by the time b1 finishes, but still in the future when
+    # adapt_chapter starts - so b1 must complete intact and only b2 must
+    # never start.
+    deadline = time.monotonic() + 0.1
+
+    with pytest.raises(ChapterTimeoutError) as exc_info:
+        adapt_chapter(chapter, CHAPTER_DNA, client, deadline=deadline)
+
+    assert "1/3" in str(exc_info.value)
+
+
+def test_adapt_chapter_raises_immediately_if_the_deadline_has_already_passed():
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain")]
+    )
+    client = FakeClientRulesImmediately()
+
+    with pytest.raises(ChapterTimeoutError) as exc_info:
+        adapt_chapter(chapter, CHAPTER_DNA, client, deadline=time.monotonic() - 1)
+
+    assert "0/1" in str(exc_info.value)
+    assert client.calls == []  # no work started at all, not even for b1
 
 
 def test_adapt_chapter_carries_room_memory_across_bubbles():

@@ -145,6 +145,20 @@ MAX_IMAGE_BYTES = int(os.environ.get("CASTIA_MAX_IMAGE_BYTES", str(15 * 1024 * 1
 # genuinely abusive single request (a script submitting a whole bound
 # volume as one "chapter"), not a stand-in for a timeout workaround.
 MAX_COMICS_PANELS = int(os.environ.get("CASTIA_MAX_COMICS_PANELS", "100"))
+# Overall safety ceiling for one chapter's adapt_chapter run (engine/
+# comics_adapt.py's `deadline` param) - not a normal-case limit (a
+# reasonably sized chapter finishes in a fraction of this even under
+# real rate-limiting), a backstop against a chapter that keeps eating
+# 429 retries bubble after bubble until the total run time becomes
+# unreasonable to keep a user waiting on, or to keep occupying a
+# _run_slots concurrency slot other users' jobs are waiting on.
+# Deliberately shorter than the frontend's own 15-minute poll ceiling
+# (web/lib/comicsAdapt.ts's MAX_POLL_MS), not longer - the backend must
+# give up and report a clean "error" status before the frontend's own
+# deadline passes, or the frontend times out first with a generic
+# message while this job is technically still going to fail moments
+# later anyway.
+JOB_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_JOB_TIMEOUT_SECONDS", str(12 * 60)))
 # Per-unit credit prices, matching web/app/pricing/page.tsx's advertised
 # averages exactly (SONG_CREDITS=30 for "~6 sections" => 5/section;
 # PAGE_CREDITS=50 for "~5 panels" => 10/panel) - charged per actual
@@ -771,7 +785,19 @@ def _run_comics_adaptation(
     poller sees each panel's actual finished text as soon as it's ready
     instead of only once the whole chapter completes - this is what lets
     the workspace unlock and render panels one by one rather than sit on
-    a single spinner for however long a large chapter takes.
+    a single spinner for however long a large chapter takes. The very
+    first progress write happens below, before Chapter DNA generation
+    even starts - without it, a poller sees nothing at all (not even a
+    bubble count) until the first bubble begins, and Chapter DNA
+    generation is itself a real LLM call that can be slow under the same
+    rate-limiting a chapter's bubbles can hit, so that silent gap could
+    otherwise be the single worst part of the wait to have zero
+    feedback during.
+
+    `deadline` bounds the whole run (engine/comics_adapt.py's
+    ChapterTimeoutError, JOB_TIMEOUT_SECONDS below) - see that module's
+    docstring for why this exists on top of every individual LLM call
+    already having its own timeout.
     """
     chapter = ChapterInput(
         source_language=request.source_language,
@@ -783,9 +809,6 @@ def _run_comics_adaptation(
         ],
     )
 
-    client = create_default_client()
-    dna = generate_chapter_dna(chapter, client)
-
     panels_out: list[dict] = []
 
     def _report_progress(completed: int, total: int, message: str) -> None:
@@ -795,6 +818,12 @@ def _run_comics_adaptation(
             job_id,
             {"completed": completed, "total": total, "message": message, "panels": list(panels_out)},
         )
+
+    _report_progress(0, len(non_empty_panels), "Reading chapter…")
+
+    client = create_default_client()
+    dna = generate_chapter_dna(chapter, client)
+    deadline = time.monotonic() + JOB_TIMEOUT_SECONDS
 
     def on_stage(bubble_id: str, stage: str, index: int, total: int) -> None:
         verb = "adapting" if stage == "adapting" else "verifying"
@@ -809,7 +838,9 @@ def _run_comics_adaptation(
         panels_out.append({"id": bubble_id, "literal": literal, "adapted_text": adapted, "why": why})
         _report_progress(index, total, f"Panel {index}/{total}: done")
 
-    adapt_chapter(chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done)
+    adapt_chapter(
+        chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done, deadline=deadline
+    )
 
     payload = {"chapter_dna": dna.model_dump(), "panels": panels_out}
     cache.set(

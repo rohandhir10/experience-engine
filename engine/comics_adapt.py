@@ -40,6 +40,7 @@ compensations — no new prompt wiring was needed beyond that field.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Callable
 
 from .language_profile import NEUTRAL_PROFILE, LanguageProfile
@@ -61,6 +62,15 @@ from .verify import verify_section
 from .writers_room_v1 import retry_section_with_finding, run_section
 
 logger = logging.getLogger(__name__)
+
+
+class ChapterTimeoutError(RuntimeError):
+    """Raised by adapt_chapter when `deadline` passes mid-chapter. A
+    RuntimeError subclass so it's caught, reported to the caller, and
+    (for the background job path) refunded by server/main.py's existing
+    `except RuntimeError` handling in _run_comics_job /
+    _comics_adapt_or_serve_cached - no new except clause needed there.
+    """
 
 
 def _bubble_song_dna(dna: ChapterDNA, bubble: BubbleInput) -> SongDNA:
@@ -160,6 +170,7 @@ def adapt_chapter(
     profile: LanguageProfile = NEUTRAL_PROFILE,
     on_stage: Callable[[str, str, int, int], None] | None = None,
     on_bubble_done: Callable[[str, SectionResultV1, int, int], None] | None = None,
+    deadline: float | None = None,
 ) -> list[SectionResultV1]:
     """Runs every bubble in `chapter`, in order, through adapt_bubble —
     the comics-side equivalent of engine/pipeline.py::run_engine's
@@ -186,6 +197,20 @@ def adapt_chapter(
     without reaching into engine/writers_room_v1.py, which this
     deliberately does not do. Neither callback changes this function's
     behavior or return value in any way when omitted.
+
+    `deadline` (a time.monotonic() cutoff, not a duration) is an overall
+    safety ceiling for the whole chapter, checked between bubbles - not
+    a replacement for engine/llm_client.py's per-call timeout, which
+    already bounds any single stuck request. This covers what that
+    per-call bound doesn't: sustained OpenAI rate-limiting, where each
+    individual call eventually succeeds after its own retries, but a
+    chapter with many bubbles can still add those delays up to an
+    unreasonable total. Checked before starting each bubble, so it can
+    only ever stop a chapter *between* bubbles, never abort one
+    mid-flight - raises ChapterTimeoutError, reporting how many bubbles
+    already finished, rather than silently truncating the result. None
+    (the default) means no ceiling, for callers (tests, the CLI) that
+    don't need one.
     """
     room_memory = RoomMemory(
         honorific_state={c.name: c.honorific_register for c in dna.characters}
@@ -195,6 +220,11 @@ def adapt_chapter(
     total = len(chapter.bubbles)
 
     for index, bubble in enumerate(chapter.bubbles, start=1):
+        if deadline is not None and time.monotonic() > deadline:
+            raise ChapterTimeoutError(
+                f"This chapter is taking longer than the configured time limit "
+                f"({index - 1}/{total} bubbles finished). Try again, or with fewer panels."
+            )
         if on_stage:
             on_stage(bubble.id, "adapting", index, total)
         result = adapt_bubble(chapter, dna, bubble, room_memory, client, profile)

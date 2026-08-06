@@ -132,6 +132,30 @@ def test_comics_job_reports_runtime_error_verbatim(client, monkeypatch):
     }
 
 
+def test_comics_job_reports_a_chapter_timeout_as_a_clean_error(client, monkeypatch):
+    """ChapterTimeoutError (engine/comics_adapt.py's JOB_TIMEOUT_SECONDS
+    safety ceiling) is a RuntimeError subclass specifically so it's
+    caught by the same `except RuntimeError` branch test above already
+    proves works, with no new handling needed in server/main.py - this
+    confirms that's actually true for the real exception type, not just
+    for a plain RuntimeError standing in for it."""
+    from engine.comics_adapt import ChapterTimeoutError
+
+    monkeypatch.setattr(main.cache, "get", lambda result_id: None)
+
+    def _raise(*a, **k):
+        raise ChapterTimeoutError("This chapter is taking longer than the configured time limit (1/2 bubbles finished). Try again, or with fewer panels.")
+
+    monkeypatch.setattr(main, "_run_comics_adaptation", _raise)
+
+    response = client.post("/api/comics/adapt/start", json=VALID_BODY)
+    job_id = response.json()["job_id"]
+
+    settled = _poll_until_settled(client, job_id)
+    assert settled["status"] == "error"
+    assert "1/2 bubbles finished" in settled["error"]
+
+
 def test_unknown_comics_job_id_is_a_404(client):
     response = client.get("/api/comics/adapt/jobs/does-not-exist")
     assert response.status_code == 404

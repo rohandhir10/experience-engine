@@ -83,7 +83,7 @@ def _patch_song_engine(monkeypatch):
     monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
 
 
-def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None):
+def _fake_adapt_chapter(chapter, dna, client, on_stage=None, on_bubble_done=None, deadline=None):
     """See tests/test_server.py's identical helper - server/main.py's
     _run_comics_adaptation now builds each panel's output from
     adapt_chapter's on_stage/on_bubble_done callbacks, not its return
