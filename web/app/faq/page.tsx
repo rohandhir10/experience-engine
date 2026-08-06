@@ -36,7 +36,7 @@ const FAQS: { question: string; answer: string }[] = [
   {
     question: "Does this work for comics and webtoons too?",
     answer:
-      "Yes, currently in Beta. Upload comic panels, and Google Cloud Vision OCRs each speech bubble's text and position; the same Writers' Room pipeline adapts the dialogue. An optional redraw step can inpaint the original lettering out of a panel and typeset the adapted line back in. Beta means it doesn't yet have the music tool's save/collections/share-link features.",
+      "Yes, currently in Beta. Upload comic panels, and Google Cloud Vision OCRs each speech bubble's text and position; the same Writers' Room pipeline adapts the dialogue. An optional redraw step can inpaint the original lettering out of a panel and typeset the adapted line back in. Beta means real remaining rough edges — sound-effect text over drawn artwork isn't redrawn (speech bubbles only), and OCR reading order is a plain top-to-bottom guess unless a dedicated text-detector service is configured — not a lack of save/collections/share-link, which now work the same way they do for music.",
   },
   {
     question: "Do I need an account?",

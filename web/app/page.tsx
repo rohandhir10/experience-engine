@@ -23,10 +23,13 @@ import { readMediumPreference } from "@/lib/mediumPreference";
 //
 // Webtoons carries a "Beta" pill (DashboardSidebar.tsx's "Soon" pill is
 // the precedent - same honesty convention, different word because this
-// one IS reachable and working, just not yet at feature parity: no
-// save/collections/share-link, and the adapt call is still synchronous).
-// Remove the pill only once that parity gap actually closes - see
-// docs/CAPABILITY_MATRIX.md for what's tracked as done.
+// one IS reachable and working, just not yet at full parity: save/
+// collections/share-link and the background-job adapt call all work
+// the same way music's do now, but sound-effect text over artwork
+// isn't redrawn (speech bubbles only) and OCR reading order is a plain
+// guess without a configured text detector. Remove the pill only once
+// those actually close - see docs/CAPABILITY_MATRIX.md for what's
+// tracked as done.
 //
 // Skips the chooser entirely for a returning visitor: if
 // lib/mediumPreference.ts has a remembered medium (written by /music,

@@ -40,6 +40,20 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
           API
         </Link>
       </nav>
+      <nav className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
+        <Link href="/terms" className={`transition ${dim}`}>
+          Terms
+        </Link>
+        <Link href="/privacy" className={`transition ${dim}`}>
+          Privacy
+        </Link>
+        <Link href="/refunds" className={`transition ${dim}`}>
+          Refunds
+        </Link>
+        <Link href="/dmca" className={`transition ${dim}`}>
+          DMCA
+        </Link>
+      </nav>
       <p className={`mt-4 text-[12px] ${dark ? "text-white/25" : "text-ink/30 dark:text-ink-dark/30"}`}>
         Castia
       </p>

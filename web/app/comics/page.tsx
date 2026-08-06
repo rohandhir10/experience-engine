@@ -23,9 +23,17 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
 // screen) with a "Beta" badge, rather than reachable only by URL - it
 // earned that entry point once OCR + a real adapt call both existed,
-// per the project's non-fabrication discipline. Still genuinely behind
-// music on feature parity (no save/collections/share-link), which is
-// exactly what the badge discloses. "Adapt chapter" runs via
+// per the project's non-fabrication discipline. Save/collections/
+// share-link DO now work the same way they do for music (results are
+// recorded to the same adaptations history with medium="webtoons",
+// RecentAdaptations links per-medium, and this page's CopyLinkButton
+// below is real) - "Beta" now discloses different, still-real gaps
+// instead: SFX text over textured artwork isn't redrawn (speech
+// bubbles only, see engine/comics_redraw.py), OCR reading order is a
+// plain top-to-bottom guess unless a text detector service is
+// configured, and cross-chapter character memory (the Series field
+// below) matches characters by exact name only, not visually.
+// "Adapt chapter" runs via
 // /api/comics/adapt/start + jobs/[jobId] (lib/comicsAdapt.ts) - the
 // same background-job/poll pattern music's /api/adapt/start already
 // used, extended here so a large chapter can't hit a request timeout,
