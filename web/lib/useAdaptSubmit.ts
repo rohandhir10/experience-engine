@@ -13,6 +13,18 @@ export type YoutubeSource = {
   sectionTimings: { start: number; end: number }[];
 };
 
+// One snapshot of an in-flight song job - server/jobs.py's progress_json,
+// as reported by server/main.py::_run_adaptation after every real,
+// already-happening step (Song DNA generation, then each section as it
+// starts/finishes) - the song-side equivalent of lib/comicsAdapt.ts's
+// ChapterAdaptProgress. Never populated for a cache hit (status="done"
+// immediately - nothing was ever "in progress").
+export type SongAdaptProgress = {
+  completed: number;
+  total: number;
+  message: string;
+};
+
 const POLL_INTERVAL_MS = 2_500;
 // A full multi-section song can run several minutes (server/main.py's
 // module docstring: each section is 3-7 sequential LLM calls) - generous
@@ -38,6 +50,7 @@ export function useAdaptSubmit() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<SongAdaptProgress | null>(null);
 
   async function pollJob(jobId: string): Promise<Record<string, unknown>> {
     const deadline = Date.now() + MAX_POLL_MS;
@@ -51,6 +64,13 @@ export function useAdaptSubmit() {
       if (body.status === "done") return body.result;
       if (body.status === "error") {
         throw new Error(body.error || "Something went wrong.");
+      }
+      if (body.progress) {
+        setProgress({
+          completed: body.progress.completed,
+          total: body.progress.total,
+          message: body.progress.message,
+        });
       }
       // "pending" or "running" - keep polling.
     }
@@ -67,6 +87,7 @@ export function useAdaptSubmit() {
   ) {
     setLoading(true);
     setError(null);
+    setProgress(null);
     try {
       const startRes = await fetch("/api/adapt/start", {
         method: "POST",
@@ -113,5 +134,5 @@ export function useAdaptSubmit() {
     }
   }
 
-  return { submit, loading, error };
+  return { submit, loading, error, progress };
 }

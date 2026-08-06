@@ -11,7 +11,7 @@ import { writeMediumPreference } from "@/lib/mediumPreference";
 // being the music workflow directly - see app/page.tsx's comment for
 // why. Nothing about InputScreen/useAdaptSubmit itself changed.
 export default function MusicPage() {
-  const { submit, loading, error } = useAdaptSubmit();
+  const { submit, loading, error, progress } = useAdaptSubmit();
 
   // Written on every real arrival here - a tile click from "/", the
   // header's MediumSwitcher (which also writes this, redundantly but
@@ -23,7 +23,7 @@ export default function MusicPage() {
   }, []);
 
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen progress={progress} />;
   }
 
   return <InputScreen onSubmit={submit} loading={loading} error={error} />;

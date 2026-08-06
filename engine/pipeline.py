@@ -17,7 +17,8 @@ zero extra LLM cost instead of re-running the whole room on identical text.
 from __future__ import annotations
 
 import logging
-from typing import Literal
+import time
+from typing import Callable, Literal
 
 from .language_profile import LanguageProfile, resolve_profile
 from .llm_client import LLMClient, create_default_client
@@ -55,6 +56,16 @@ _LINE_COLLAPSE_LAW = "Law 3 — Compression Floor"
 RoomVersion = Literal["v1", "full"]
 
 logger = logging.getLogger(__name__)
+
+
+class EngineTimeoutError(RuntimeError):
+    """Raised by run_engine when `deadline` passes mid-song. A
+    RuntimeError subclass so it's caught, reported to the caller, and
+    (for the background job path) refunded by server/main.py's existing
+    `except RuntimeError` handling in _run_job / _adapt_or_serve_cached -
+    no new except clause needed there. Same idea as engine/comics_adapt.py's
+    ChapterTimeoutError, for the song pipeline.
+    """
 
 
 class EngineResult:
@@ -362,7 +373,34 @@ def run_engine(
     client: LLMClient | None = None,
     room_version: RoomVersion = "v1",
     apply_corrective_pass: bool = False,
+    on_stage: Callable[[str, int, int], None] | None = None,
+    on_section_done: Callable[[str, "SectionResult | SectionResultV1", int, int], None] | None = None,
+    deadline: float | None = None,
 ) -> EngineResult:
+    """`on_stage(section_name, index, total)` fires right before a
+    section starts (index is 1-based) and `on_section_done(section_name,
+    result, index, total)` right after it finishes - real, already-
+    happening progress, the song-side equivalent of engine/
+    comics_adapt.py::adapt_chapter's on_stage/on_bubble_done. Unlike that
+    function, there is only one stage reported per section here (no
+    separate "verifying" step in this loop) - a v1-room section already
+    runs Translator -> Creative Adapter -> Judge as one `run_section`
+    call, and per-song verification/correction happens once, after this
+    whole loop, via `apply_corrective_pass` below, not interleaved
+    section by section. A repeated section (`section.repeats`) still
+    fires both callbacks despite doing no LLM call - it's real, instant
+    progress, not a call worth hiding from a poller. Neither callback
+    changes this function's behavior or return value when omitted.
+
+    `deadline` (a time.monotonic() cutoff, not a duration) is an overall
+    safety ceiling for the whole song, checked between sections - not a
+    replacement for engine/llm_client.py's per-call timeout, which
+    already bounds any single stuck request. This covers what that
+    doesn't: sustained rate-limiting whose per-call retries each
+    individually succeed but whose delays add up past a reasonable total
+    for the whole song. Raises EngineTimeoutError; None (the default)
+    means no ceiling.
+    """
     client = client or create_default_client()
     # Resolved once per song. Neutral (pre-V2 behavior) unless the song
     # names a language with a profile — docs/MULTILINGUAL_V2.md §7.
@@ -373,8 +411,16 @@ def run_engine(
     results_by_name: dict[str, SectionResult | SectionResultV1] = {}
 
     run_section = run_section_v1 if room_version == "v1" else run_section_full
+    total = len(song.sections)
 
-    for section in song.sections:
+    for index, section in enumerate(song.sections, start=1):
+        if deadline is not None and time.monotonic() > deadline:
+            raise EngineTimeoutError(
+                f"This song is taking longer than the configured time limit "
+                f"({index - 1}/{total} sections finished). Try again, or with fewer sections."
+            )
+        if on_stage:
+            on_stage(section.name, index, total)
         if section.repeats:
             result = _reuse_repeated_section(section.name, section.repeats, results_by_name)
         elif room_version == "v1":
@@ -404,6 +450,8 @@ def run_engine(
 
         section_results.append(result)
         results_by_name[section.name] = result
+        if on_section_done:
+            on_section_done(section.name, result, index, total)
         room_memory.prior_rulings.append(result.ruling)
         # A compensation is decided once and binds the rest of the song —
         # the speaker's register cannot change between verses. First

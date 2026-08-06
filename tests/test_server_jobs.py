@@ -149,6 +149,35 @@ def test_job_reports_runtime_error_verbatim(client, monkeypatch):
     }
 
 
+def test_job_reports_an_engine_timeout_as_a_clean_error(client, monkeypatch):
+    """EngineTimeoutError (engine/pipeline.py's SONG_JOB_TIMEOUT_SECONDS
+    safety ceiling) is a RuntimeError subclass specifically so it's
+    caught by the same `except RuntimeError` branch the test above
+    already proves works, with no new handling needed in server/main.py -
+    this confirms that's actually true for the real exception type, not
+    just for a plain RuntimeError standing in for it. Same idea as
+    tests/test_comics_adapt_jobs.py's ChapterTimeoutError test."""
+    from engine.pipeline import EngineTimeoutError
+
+    monkeypatch.setattr(main.cache, "get", lambda result_id: None)
+    monkeypatch.setattr(main.cache, "find_similar", lambda *a, **k: None)
+
+    def _raise(*a, **k):
+        raise EngineTimeoutError(
+            "This song is taking longer than the configured time limit "
+            "(1/2 sections finished). Try again, or with fewer sections."
+        )
+
+    monkeypatch.setattr(main, "_run_adaptation", _raise)
+
+    response = client.post("/api/adapt/start", json=VALID_BODY)
+    job_id = response.json()["job_id"]
+
+    settled = _poll_until_settled(client, job_id)
+    assert settled["status"] == "error"
+    assert "1/2 sections finished" in settled["error"]
+
+
 def test_job_reports_unexpected_exception_without_hanging_forever(client, monkeypatch):
     """A background thread's uncaught exception is otherwise invisible to
     whoever's polling - this is the catch-all that turns it into an

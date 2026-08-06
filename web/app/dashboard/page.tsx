@@ -14,7 +14,7 @@ const MIN_ROWS = 5;
 const MAX_TEXTAREA_HEIGHT_PX = 320;
 
 export default function DashboardPage() {
-  const { submit, loading, error } = useAdaptSubmit();
+  const { submit, loading, error, progress } = useAdaptSubmit();
   const [text, setText] = useState("");
   const [targetLanguage, setTargetLanguage] = useState("English");
   const [sourceLanguage, setSourceLanguage] = useState("English");
@@ -26,7 +26,7 @@ export default function DashboardPage() {
   const effectiveSourceLanguage = targetLanguage === "English" ? undefined : sourceLanguage;
 
   if (loading) {
-    return <LoadingScreen />;
+    return <LoadingScreen progress={progress} />;
   }
 
   function autoGrow(el: HTMLTextAreaElement) {

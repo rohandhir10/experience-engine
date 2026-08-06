@@ -159,6 +159,12 @@ MAX_COMICS_PANELS = int(os.environ.get("CASTIA_MAX_COMICS_PANELS", "100"))
 # message while this job is technically still going to fail moments
 # later anyway.
 JOB_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_JOB_TIMEOUT_SECONDS", str(12 * 60)))
+# Same idea as JOB_TIMEOUT_SECONDS above, for run_engine's `deadline`
+# param (engine/pipeline.py's EngineTimeoutError) - a separate constant,
+# not a shared one, because it has to stay under a different frontend
+# ceiling: web/lib/useAdaptSubmit.ts's own MAX_POLL_MS for songs is 10
+# minutes, not comics' 15.
+SONG_JOB_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_SONG_JOB_TIMEOUT_SECONDS", str(8 * 60)))
 # Per-unit credit prices, matching web/app/pricing/page.tsx's advertised
 # averages exactly (SONG_CREDITS=30 for "~6 sections" => 5/section;
 # PAGE_CREDITS=50 for "~5 panels" => 10/panel) - charged per actual
@@ -1413,6 +1419,7 @@ def _run_adaptation(
     started: float,
     log_prefix: str = "adapt",
     user_id: str | None = None,
+    job_id: str | None = None,
 ) -> dict:
     """The actual engine run: Song DNA -> Writers' Room -> Judge, then
     verification and cache write. Shared by the blocking /api/adapt
@@ -1420,19 +1427,55 @@ def _run_adaptation(
     differ only in how they turn an LLMError/RuntimeError into a response
     (an HTTPException here, a job's stored `error` string there), so
     those propagate uncaught rather than being translated in here.
+
+    `job_id`, when given (only the background job path passes one - the
+    synchronous /api/adapt endpoint has no job to report against and
+    blocks until this returns anyway), turns on incremental progress
+    reporting via jobs.set_progress - the song-side equivalent of
+    server/main.py's _run_comics_adaptation. The very first write happens
+    below, before run_engine (and the Song DNA generation inside it) even
+    starts: without it, a poller sees nothing at all - not even a
+    section count - until the first section begins, and Song DNA
+    generation is itself a real LLM call that can be slow under the same
+    rate-limiting a song's sections can hit.
+
+    `deadline` bounds the whole run (engine/pipeline.py's
+    EngineTimeoutError, SONG_JOB_TIMEOUT_SECONDS above) - see that
+    module's docstring for why this exists on top of every individual
+    LLM call already having its own timeout.
     """
     logger.info(
         "%s id=%s ip=%s source=%s target=%s cache=miss sections=%d chars=%d starting engine run",
         log_prefix, result_id, ip, source_language, target_language, len(sections), len(text),
     )
 
+    def _report_progress(completed: int, total: int, message: str) -> None:
+        if job_id is None:
+            return
+        jobs.set_progress(job_id, {"completed": completed, "total": total, "message": message})
+
+    _report_progress(0, len(sections), "Reading song…")
+
+    def on_stage(section_name: str, index: int, total: int) -> None:
+        _report_progress(index - 1, total, f"Section {index}/{total}: adapting…")
+
+    def on_section_done(section_name: str, result, index: int, total: int) -> None:
+        _report_progress(index, total, f"Section {index}/{total}: done")
+
     client = create_default_client()
+    deadline = time.monotonic() + SONG_JOB_TIMEOUT_SECONDS
     # apply_corrective_pass: verify.py runs once against the raw output,
     # and any error-severity finding gets one bounded re-judge
     # (engine/pipeline.py's Phase 2 corrective pass) before this ships to
     # a real user — not just logged after the fact.
     engine_result = run_engine(
-        song, client=client, room_version="v1", apply_corrective_pass=True
+        song,
+        client=client,
+        room_version="v1",
+        apply_corrective_pass=True,
+        on_stage=on_stage,
+        on_section_done=on_section_done,
+        deadline=deadline,
     )
     # explain_why is presentation text, not adaptation reasoning — the one
     # call in this request that's a legitimate candidate for a cheaper
@@ -1685,7 +1728,7 @@ def _run_job(
         try:
             experience_result = _run_adaptation(
                 request, result_id, text, target_language, source_language, sections, song, ip, started,
-                log_prefix="job", user_id=user_id,
+                log_prefix="job", user_id=user_id, job_id=job_id,
             )
             jobs.set_done(job_id, experience_result)
         except LLMError as exc:

@@ -66,7 +66,7 @@ def _fake_chapter_dna(**overrides):
 
 
 def _patch_song_engine(monkeypatch):
-    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False, on_stage=None, on_section_done=None, deadline=None):
         return _FakeEngineResult()
 
     def fake_to_experience_result(client, result, result_id, explain_why_client=None):

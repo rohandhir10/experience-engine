@@ -64,7 +64,7 @@ def _unlimited_credits(monkeypatch):
 
 
 def _patch_engine(monkeypatch, engine_result, captured: dict):
-    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False, on_stage=None, on_section_done=None, deadline=None):
         captured["apply_corrective_pass"] = apply_corrective_pass
         captured["room_version"] = room_version
         return engine_result
@@ -203,7 +203,7 @@ def test_adapt_accepts_a_direct_non_english_pair(monkeypatch):
 def test_adapt_threads_source_and_target_language_into_the_song_input(monkeypatch):
     captured: dict = {}
 
-    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False, on_stage=None, on_section_done=None, deadline=None):
         captured["source_language"] = song.source_language
         captured["target_language"] = song.target_language
         return _FakeEngineResult()
@@ -321,7 +321,7 @@ def _patch_engine_with_two_sections(monkeypatch, captured: dict):
     result — needed to test youtube timing attachment, which only makes
     sense against more than a single, always-empty section list."""
 
-    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False):
+    def fake_run_engine(song, client=None, room_version="v1", apply_corrective_pass=False, on_stage=None, on_section_done=None, deadline=None):
         return _FakeEngineResult()
 
     def fake_to_experience_result(client, result, result_id, explain_why_client=None):
@@ -388,7 +388,7 @@ def test_adapt_refunds_credits_when_the_engine_fails(monkeypatch):
     charged for a run that produced nothing."""
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "test-secret")
 
-    def raise_llm_error(song, client=None, room_version="v1", apply_corrective_pass=False):
+    def raise_llm_error(song, client=None, room_version="v1", apply_corrective_pass=False, on_stage=None, on_section_done=None, deadline=None):
         raise main.LLMError("provider is down")
 
     monkeypatch.setattr(main, "run_engine", raise_llm_error)
@@ -516,6 +516,141 @@ def test_adapt_leaves_phoneme_repetition_similarity_none_when_unmeasured(monkeyp
     result = main.adapt(main.AdaptRequest(text="line one\n\nline two"), _FakeRequest())
 
     assert result["phonemeRepetitionSimilarity"] is None
+
+
+def _fake_run_engine_reporting_progress(
+    song, client=None, room_version="v1", apply_corrective_pass=False,
+    on_stage=None, on_section_done=None, deadline=None,
+):
+    """Stands in for engine/pipeline.py's real run_engine, but still
+    invokes on_stage/on_section_done the way the real one does - proves
+    server/main.py::_run_adaptation's progress reporting is wired
+    correctly without a real engine run. Downstream of run_engine,
+    _run_adaptation only ever calls to_experience_result (mocked
+    separately, ignores engine_result's actual content) and
+    engine_result.to_dict() (verify_result) - _FakeEngineResult already
+    covers both, same as _patch_engine's tests rely on elsewhere in this
+    file."""
+    total = len(song.sections)
+    for index, section in enumerate(song.sections, start=1):
+        if on_stage:
+            on_stage(section.name, index, total)
+        if on_section_done:
+            on_section_done(section.name, None, index, total)
+    return _FakeEngineResult()
+
+
+def _patch_song_progress_engine(monkeypatch):
+    monkeypatch.setattr(main, "run_engine", _fake_run_engine_reporting_progress)
+    monkeypatch.setattr(
+        main,
+        "to_experience_result",
+        lambda client, result, result_id, explain_why_client=None: {
+            "id": result_id,
+            "hook": "test hook",
+            "sourceLanguage": "unspecified",
+            "sections": [],
+            "original": [],
+        },
+    )
+    monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+
+
+def test_run_adaptation_reports_incremental_progress_when_given_a_job_id(monkeypatch):
+    """_run_adaptation is what /api/adapt/start's background job actually
+    calls with a real job_id - the song-side equivalent of
+    test_run_comics_adaptation_reports_incremental_progress_when_given_a_job_id."""
+    _patch_song_progress_engine(monkeypatch)
+    progress_calls: list[dict] = []
+    monkeypatch.setattr(
+        main.jobs, "set_progress", lambda job_id, progress: progress_calls.append(progress)
+    )
+
+    sections, song = main._build_song("line one\n\nline two", "English", "unspecified")
+
+    main._run_adaptation(
+        main.AdaptRequest(text="line one\n\nline two"),
+        "result-1", "line one\n\nline two", "English", "unspecified",
+        sections, song, "127.0.0.1", 0.0, job_id="job-1",
+    )
+
+    # One initial "Reading song..." report before anything runs, then one
+    # "adapting" + one "done" report per section = 5.
+    assert len(progress_calls) == 5
+    messages = [c["message"] for c in progress_calls]
+    assert messages == [
+        "Reading song…",
+        "Section 1/2: adapting…",
+        "Section 1/2: done",
+        "Section 2/2: adapting…",
+        "Section 2/2: done",
+    ]
+    assert progress_calls[0]["completed"] == 0
+    assert progress_calls[0]["total"] == 2
+    assert progress_calls[-1]["completed"] == 2
+    assert progress_calls[-1]["total"] == 2
+
+
+def test_run_adaptation_reports_progress_before_song_dna_generation(monkeypatch):
+    """The very first progress write must land BEFORE run_engine (and the
+    Song DNA generation inside it) even starts - proven by making the
+    fake run_engine itself check that a report already happened, rather
+    than by ordering assertions after the fact."""
+    progress_calls: list[dict] = []
+    monkeypatch.setattr(
+        main.jobs, "set_progress", lambda job_id, progress: progress_calls.append(progress)
+    )
+
+    def run_engine_checks_progress_already_reported(
+        song, client=None, room_version="v1", apply_corrective_pass=False,
+        on_stage=None, on_section_done=None, deadline=None,
+    ):
+        assert len(progress_calls) == 1
+        assert progress_calls[0]["message"] == "Reading song…"
+        assert progress_calls[0]["completed"] == 0
+        assert progress_calls[0]["total"] == 1
+        return _FakeEngineResult()
+
+    monkeypatch.setattr(main, "run_engine", run_engine_checks_progress_already_reported)
+    monkeypatch.setattr(
+        main,
+        "to_experience_result",
+        lambda client, result, result_id, explain_why_client=None: {
+            "id": result_id,
+            "hook": "test hook",
+            "sourceLanguage": "unspecified",
+            "sections": [],
+            "original": [],
+        },
+    )
+    monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+
+    sections, song = main._build_song("line one", "English", "unspecified")
+
+    main._run_adaptation(
+        main.AdaptRequest(text="line one"),
+        "result-1", "line one", "English", "unspecified",
+        sections, song, "127.0.0.1", 0.0, job_id="job-1",
+    )
+
+    assert progress_calls[0]["message"] == "Reading song…"
+
+
+def test_run_adaptation_reports_nothing_without_a_job_id(monkeypatch):
+    _patch_song_progress_engine(monkeypatch)
+    progress_calls: list[dict] = []
+    monkeypatch.setattr(
+        main.jobs, "set_progress", lambda job_id, progress: progress_calls.append(progress)
+    )
+
+    sections, song = main._build_song("line one", "English", "unspecified")
+    main._run_adaptation(
+        main.AdaptRequest(text="line one"),
+        "result-1", "line one", "English", "unspecified",
+        sections, song, "127.0.0.1", 0.0,
+    )
+
+    assert progress_calls == []
 
 
 def test_youtube_draft_returns_build_web_draft_result(monkeypatch):
