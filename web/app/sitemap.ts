@@ -32,6 +32,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const priorityByKind: Record<string, number> = {
     landing: 0.8,
+    guide: 0.75,
     glossary: 0.7,
     blog: 0.6,
     compare: 0.6,

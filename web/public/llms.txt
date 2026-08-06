@@ -44,6 +44,7 @@ Every submission runs through the same pipeline regardless of medium:
 - Blog (research-grounded writing on translation/localization): /blog
 - Glossary (definitions of terms used throughout this site): /glossary
 - Comparisons: /compare/google-translate, /compare/deepl, /compare/chatgpt-prompt
+- API reference (auth, endpoints, request/response shapes): /docs/api
 - One worked example, viewable without an account: /s/demo
 
 ## Notes for citation
