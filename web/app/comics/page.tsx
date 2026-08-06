@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
@@ -42,10 +43,21 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 // detected regions (hand-typed dialogue) still adapts as one unit, since
 // there's no per-bubble structure to split against.
 export default function ComicsPage() {
+  const { data: session } = useSession();
+  // Persistent character bibles (server/character_bibles.py) need a real
+  // owner - server/main.py silently ignores series_name for an anonymous
+  // request, so the input is only shown once signed in rather than
+  // offering something that would quietly do nothing.
+  const signedIn = Boolean(session?.castiaUserId);
   const [panels, setPanels] = useState<ComicPanel[]>([]);
   const [sourceLanguage, setSourceLanguage] = useState("English");
   const [sourceLanguageTouched, setSourceLanguageTouched] = useState(false);
   const [targetLanguage, setTargetLanguage] = useState("English");
+  // Ties this chapter's characters to any earlier chapter's saved voice/
+  // honorific data for a series of this name under this account
+  // (engine/comics_adapt.py::merge_character_bible). Blank means no
+  // cross-chapter character memory, same as before this field existed.
+  const [seriesName, setSeriesName] = useState("");
   const [batchOcrRunning, setBatchOcrRunning] = useState(false);
   const [adaptStatus, setAdaptStatus] = useState<"idle" | "running" | "error">("idle");
   const [adaptError, setAdaptError] = useState<string | null>(null);
@@ -295,7 +307,8 @@ export default function ComicsPage() {
         (progress) => {
           setAdaptProgress({ completed: progress.completed, total: progress.total, message: progress.message });
           for (const panelResult of progress.panels) applyPanelResult(panelResult);
-        }
+        },
+        signedIn ? seriesName : undefined
       );
       for (const panelResult of result.panels) applyPanelResult(panelResult);
       setAdaptStatus("idle");
@@ -424,6 +437,21 @@ export default function ComicsPage() {
                     }
                   }}
                 />
+                {signedIn && (
+                  <label
+                    className="inline-flex items-center gap-2 text-[13px]"
+                    title="Same name as a previous chapter reuses that series' saved character voices/honorifics instead of guessing them fresh. Leave blank for no cross-chapter memory."
+                  >
+                    <span className="text-ink/40 dark:text-ink-dark/40">Series</span>
+                    <input
+                      type="text"
+                      value={seriesName}
+                      onChange={(e) => setSeriesName(e.target.value)}
+                      placeholder="e.g. Solo Leveling (optional)"
+                      className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-1.5 text-[13px] text-ink placeholder:text-ink/30 outline-none transition focus:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                    />
+                  </label>
+                )}
                 {/* Reading a chapter one panel at a time meant one click
                     and one full round trip per panel; this runs the
                     unread ones a few at a time (lib/concurrency.ts).

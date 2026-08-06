@@ -121,12 +121,22 @@ async function pollJob(
 // server-side - the thing that actually drives per-character voice
 // consistency and honorific-register tracking (engine/comics_adapt.py);
 // omitted, a bubble is adapted unattributed.
+// `seriesName`, when given (and the caller is signed in - server/main.py
+// silently ignores it otherwise, since a persisted character bible needs
+// a real owner), ties this chapter's characters to any previously-saved
+// voice/honorific data from an earlier chapter of the SAME series under
+// this account (engine/comics_adapt.py::merge_character_bible /
+// character_bible_updates). Blank/omitted means no cross-chapter
+// character memory for this request, same as every request behaved
+// before this existed.
 export async function adaptChapter(
   panels: { id: string; text: string; voice?: string }[],
   sourceLanguage: string,
   targetLanguage: string,
-  onProgress?: (progress: ChapterAdaptProgress) => void
+  onProgress?: (progress: ChapterAdaptProgress) => void,
+  seriesName?: string
 ): Promise<ChapterAdaptResult> {
+  const trimmedSeriesName = seriesName?.trim();
   const res = await fetch("/api/comics/adapt/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -134,6 +144,7 @@ export async function adaptChapter(
       source_language: sourceLanguage,
       target_language: targetLanguage,
       panels,
+      ...(trimmedSeriesName ? { series_name: trimmedSeriesName } : {}),
     }),
   });
   const body = await res.json().catch(() => ({}));

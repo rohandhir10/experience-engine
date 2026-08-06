@@ -162,4 +162,42 @@ describe("adaptChapter", () => {
       "Too many chapters today."
     );
   });
+
+  it("omits series_name from the request body when not given", async () => {
+    const fetchMock = vi.fn().mockReturnValue(
+      jsonResponse({ status: "done", job_id: null, result: { id: "c1", panels: [] } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await adaptChapter([{ id: "p1", text: "hi" }], "Korean", "English");
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).not.toHaveProperty("series_name");
+  });
+
+  it("includes a trimmed series_name in the request body when given", async () => {
+    const fetchMock = vi.fn().mockReturnValue(
+      jsonResponse({ status: "done", job_id: null, result: { id: "c1", panels: [] } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await adaptChapter(
+      [{ id: "p1", text: "hi" }], "Korean", "English", undefined, "  Solo Leveling  "
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.series_name).toBe("Solo Leveling");
+  });
+
+  it("omits series_name for a blank/whitespace-only value", async () => {
+    const fetchMock = vi.fn().mockReturnValue(
+      jsonResponse({ status: "done", job_id: null, result: { id: "c1", panels: [] } })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await adaptChapter([{ id: "p1", text: "hi" }], "Korean", "English", undefined, "   ");
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body).not.toHaveProperty("series_name");
+  });
 });
