@@ -81,21 +81,43 @@ export default function LyricsTranslationPage() {
 
         <section className="mt-14">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            How Castia adapts a lyric
+            Six languages, six different rulebooks
           </h2>
-          <div className="mt-5 space-y-5">
-            <Step n="1" title="A literal anchor first" body="The Translator produces one literal reading of the line - not shown as the final output, but the floor every rewrite gets checked against." />
-            <Step n="2" title="Five creative rewrites" body="The Creative Adapter produces five differently-angled versions of the same line, each taking a different liberty with phrasing, idiom, or rhythm." />
-            <Step n="3" title="A Judge that shows its reasoning" body="The Judge scores each rewrite against the literal anchor, picks a winner, and writes down the specific, real reason it departs from a literal translation - or ships the anchor if none of the five earn their keep." />
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+            English, Hindi, Japanese, Korean, Spanish, and Urdu don't share
+            one notion of what makes a lyric work — each has its own
+            language profile encoding what actually carries structure and
+            register in that tradition, so the same generic checklist
+            isn't applied to all six. A few real examples of what that
+            means in practice:
+          </p>
+          <div className="mt-6 space-y-5">
+            <LangNote
+              lang="Japanese"
+              body='Traditional verse doesn’t rhyme at all — structure comes from mora count against the melody instead, and rhyme in J-pop reads as a consciously borrowed device. The first-person pronoun a singer chooses (僕/boku, 俺/ore, 私/watashi) characterizes their gender and self-presentation before a single image appears, and even script choice is tonal: the same word in hiragana softens it, in katakana it can read as cold or emphatic.'
+            />
+            <LangNote
+              lang="Hindi & Urdu"
+              body="Both sit on the same Sanskritized-versus-Persianized axis from opposite sides: choosing prem or ishq for “love,” pyaar or mohabbat, places a line socially and emotionally in a way a single English word for “love” can't distinguish. The ghazal's radif — a whole phrase repeated verbatim at the end of each couplet — is structural, not incidental, and has to survive adaptation the way a chorus hook does."
+            />
+            <LangNote
+              lang="Korean"
+              body="Korean grammatically encodes how the speaker regards the listener in the verb ending itself — plain, polite, formal, or written/declarative — and switching mid-song is a real, deliberate event, not a grammar error to normalize away. End rhyme carries little information here since Korean's agglutinative verb endings rhyme almost automatically; meter and repetition do the real structural work instead."
+            />
+            <LangNote
+              lang="Spanish"
+              body="Assonant rhyme — matching only the vowels from the last stressed syllable on, ignoring consonants — is a full traditional rhyme form and the backbone of the romance ballad tradition, not a near-miss to be corrected into full rhyme. Diminutives like -ito/-ita are hugely productive and carry affection or condescension, not literal smallness."
+            />
           </div>
-          <p className="mt-5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
-            See the full pipeline on{" "}
+          <p className="mt-6 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+            Every one of these is a real check applied during the Creative
+            Adapter and Judge stages of the{" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
-              how it works
-            </Link>
-            , or a worked example on the{" "}
+              same three-stage pipeline
+            </Link>{" "}
+            — see it run on a real lyric in the{" "}
             <Link href="/s/demo" className="underline decoration-ink/20 underline-offset-4">
-              demo result
+              worked example
             </Link>
             .
           </p>
@@ -143,18 +165,13 @@ export default function LyricsTranslationPage() {
   );
 }
 
-function Step({ n, title, body }: { n: string; title: string; body: string }) {
+function LangNote({ lang, body }: { lang: string; body: string }) {
   return (
-    <div className="flex gap-5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 font-serif text-[13px] text-ink/50 dark:border-white/10 dark:text-ink-dark/50">
-        {n}
-      </div>
-      <div>
-        <h3 className="font-serif text-lg text-ink dark:text-ink-dark">{title}</h3>
-        <p className="mt-1.5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
-          {body}
-        </p>
-      </div>
+    <div className="border-l-2 border-black/10 pl-5 dark:border-white/10">
+      <h3 className="font-serif text-[15px] text-ink dark:text-ink-dark">{lang}</h3>
+      <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+        {body}
+      </p>
     </div>
   );
 }

@@ -97,7 +97,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     description:
       "Translate or adapt song lyrics across six languages without flattening rhyme, rhythm, or idiom into a literal crib sheet.",
     publishedDate: "2026-08-05",
-    updatedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
   },
   {
     slug: "manga-webtoon-translation",
@@ -107,7 +107,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     description:
       "Upload panels, get dialogue adapted per character with a stated reason for every creative choice, plus optional lettering redraw and typeset.",
     publishedDate: "2026-08-05",
-    updatedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
   },
   {
     slug: "how-it-works",
