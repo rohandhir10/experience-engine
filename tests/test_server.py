@@ -1149,6 +1149,46 @@ def test_run_comics_adaptation_reports_nothing_without_a_job_id(monkeypatch):
     assert progress_calls == []
 
 
+def test_run_comics_adaptation_logs_real_measured_token_usage(monkeypatch, caplog):
+    """The comics job path had no cost visibility at all (unlike the song
+    path's tokens_by_stage log line) - this is the real, measured
+    (never estimated) per-chapter token/cost log server/main.py now emits,
+    mirroring _adapt_or_serve_cached's existing pattern for songs."""
+    _patch_comics_adapt(monkeypatch)
+
+    from engine.models import LLMCallRecord
+
+    class _RecordingClient:
+        def __init__(self):
+            self.call_log = [
+                LLMCallRecord(
+                    stage="translator", model="gpt-4o", prompt_tokens=100,
+                    completion_tokens=20, latency_seconds=0.5,
+                ),
+                LLMCallRecord(
+                    stage="judge_triage", model="gpt-4o", prompt_tokens=300,
+                    completion_tokens=80, latency_seconds=1.2,
+                ),
+            ]
+
+    monkeypatch.setattr(main, "create_default_client", lambda: _RecordingClient())
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean", panels=[main.ComicsPanelText(id="panel-1", text="hello")]
+    )
+
+    with caplog.at_level("INFO", logger="castia.server"):
+        main._run_comics_adaptation(request, "result-1", request.panels, user_id=None)
+
+    cost_lines = [r.message for r in caplog.records if "comics_adapt id=" in r.message]
+    assert len(cost_lines) == 1
+    assert "prompt_tokens=400" in cost_lines[0]
+    assert "completion_tokens=100" in cost_lines[0]
+    assert "llm_calls=2" in cost_lines[0]
+    assert "translator[gpt-4o]=100p/20c" in cost_lines[0]
+    assert "judge_triage[gpt-4o]=300p/80c" in cost_lines[0]
+
+
 def test_comics_adapt_endpoint_threads_voice_into_bubble_input(monkeypatch):
     _patch_comics_adapt(monkeypatch)
     captured_chapters = []

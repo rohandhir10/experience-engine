@@ -886,6 +886,31 @@ def _run_comics_adaptation(
         source_language=request.source_language,
     )
     _record_history(user_id, result_id, request.source_language, medium="webtoons")
+    # Measured, not estimated (engine/models.py::LLMCallRecord) - same
+    # pattern _adapt_or_serve_cached already logs for songs
+    # (server/main.py's tokens_by_stage block above). Comics has only one
+    # client (Chapter DNA, every panel's Writers' Room, and _explain_why
+    # all share `client`, unlike the song path's separate cheap-model
+    # explain_why_client), so there's nothing else to sum in here.
+    calls = getattr(client, "call_log", [])
+    tokens_by_stage: dict[tuple[str, str], list[int]] = {}
+    for record in calls:
+        counts = tokens_by_stage.setdefault((record.stage, record.model), [0, 0])
+        counts[0] += record.prompt_tokens
+        counts[1] += record.completion_tokens
+    stage_summary = ", ".join(
+        f"{stage}[{model}]={prompt}p/{completion}c"
+        for (stage, model), (prompt, completion) in sorted(tokens_by_stage.items())
+    )
+    total_prompt = sum(r.prompt_tokens for r in calls)
+    total_completion = sum(r.completion_tokens for r in calls)
+    llm_latency = sum(r.latency_seconds for r in calls)
+    logger.info(
+        "comics_adapt id=%s panels=%d llm_calls=%d llm_latency=%.2fs "
+        "prompt_tokens=%d completion_tokens=%d by_stage=[%s]",
+        result_id, len(non_empty_panels), len(calls), llm_latency,
+        total_prompt, total_completion, stage_summary,
+    )
     return payload
 
 
