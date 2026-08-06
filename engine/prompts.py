@@ -913,6 +913,25 @@ _HONORIFIC_FIELD = (
 )
 
 
+# Comics-only (a letterer's job, not a song's) - see judge_triage_prompt's
+# `emphasis_markup` param for why this is opt-in rather than always on:
+# a song's final_line is never rendered through anything that would strip
+# these markers back out, so leaving this off by default for songs is
+# what keeps every existing song prompt/output byte-identical.
+_EMPHASIS_INSTRUCTION = (
+    "\n\nThis line will be lettered into a comic speech bubble, not read "
+    "aloud or sung — a letterer conveys vocal stress, sarcasm, or a raised "
+    "voice through bold type, the way punctuation alone can't. In "
+    "final_line, wrap the word or short phrase (rarely more than one or "
+    'two words) that genuinely carries that stress in double asterisks — '
+    'e.g. "Why would I **betray** you?" — only where the source\'s own '
+    "emphasis, punctuation, or delivery actually calls for it, never "
+    "decoratively and never for a whole line. Most lines need none at "
+    "all; a line with emphasis on every clause has failed this, not "
+    "succeeded at it."
+)
+
+
 def _ruling_schema(profile: LanguageProfile | None = None, voice: str | None = None) -> str:
     """The ruling schema, plus:
       - the cultural-anchor field only when the source language actually
@@ -946,6 +965,7 @@ def judge_triage_prompt(
     source_syllables: int | None = None,
     voice: str | None = None,
     profile: LanguageProfile | None = None,
+    emphasis_markup: bool = False,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge, running the minimal V1 room. You have a "
@@ -985,6 +1005,7 @@ def judge_triage_prompt(
         '["cultural_historian"|"native_speaker"|"psychologist", ...], "why": '
         'str}. If ready_to_rule is false, ruling must be null and '
         "specialists_needed must be non-empty."
+        + (_EMPHASIS_INSTRUCTION if emphasis_markup else "")
     )
     candidates_text = "\n".join(
         f"[{c.id}] ({c.agent}"
@@ -1028,6 +1049,7 @@ def judge_final_prompt(
     source_syllables: int | None = None,
     voice: str | None = None,
     profile: LanguageProfile | None = None,
+    emphasis_markup: bool = False,
 ) -> tuple[str, str]:
     system = (
         "You are the Judge. You previously requested specialist input before "
@@ -1054,6 +1076,7 @@ def judge_final_prompt(
         "shrug — and either way, the deviation ledger for whatever you ship "
         "must still hold up.\n\n"
         f"Respond with ONLY a JSON object: {_ruling_schema(profile, voice)}."
+        + (_EMPHASIS_INSTRUCTION if emphasis_markup else "")
     )
     candidates_text = "\n".join(
         f"[{c.id}] ({c.agent}"

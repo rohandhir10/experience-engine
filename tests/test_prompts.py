@@ -148,3 +148,52 @@ def test_room_memory_surfaces_honorific_state_to_every_prompt():
     memory = RoomMemory(honorific_state={"Guard Captain": "formal, deferential"})
     _, user = creative_adapter_prompt("source text", MINIMAL_DNA, "verse_1", memory)
     assert "Guard Captain: formal, deferential" in user
+
+
+def test_room_memory_surfaces_character_voices_to_every_prompt():
+    """Same mechanism as honorific_state above, for RoomMemory.
+    character_voices (CharacterVoice.voice_description/relationships,
+    comics-motivated) - engine/comics_adapt.py seeds this from Chapter
+    DNA; before this field existed, that analysis was computed and then
+    never read by anything downstream."""
+    memory = RoomMemory(
+        character_voices={"Guard Captain": "Terse, deferential, speaks in clipped sentences."}
+    )
+    _, user = creative_adapter_prompt("source text", MINIMAL_DNA, "verse_1", memory)
+    assert "Guard Captain: Terse, deferential, speaks in clipped sentences." in user
+
+
+def test_room_memory_character_voice_block_absent_when_no_characters_known():
+    """No RoomMemory.character_voices at all (a plain song with no
+    ChapterDNA-style character roster) must not add an empty/misleading
+    block to the prompt - same "byte-identical when unused" discipline
+    every other optional RoomMemory field already follows."""
+    memory = RoomMemory()
+    _, user = creative_adapter_prompt("source text", MINIMAL_DNA, "verse_1", memory)
+    assert "How each character actually talks" not in user
+
+
+# ---------------------------------------------------------------------------
+# emphasis_markup - comics-only Judge instruction to mark real vocal
+# stress with **double asterisks** for engine/comics_redraw.py to render
+# bold, since a letterer conveys stress typographically. Default False
+# keeps every existing song prompt byte-identical.
+# ---------------------------------------------------------------------------
+
+
+def test_judge_triage_prompt_omits_emphasis_instruction_by_default():
+    system, _ = judge_triage_prompt(
+        [], RoutingSignals(culturally_specific_symbol_count=0, suggested_specialists=[], reasons=[]),
+        "source", MINIMAL_DNA, "verse_1", RoomMemory(),
+    )
+    assert "lettered into a comic speech bubble" not in system
+
+
+def test_judge_triage_prompt_includes_emphasis_instruction_when_requested():
+    system, _ = judge_triage_prompt(
+        [], RoutingSignals(culturally_specific_symbol_count=0, suggested_specialists=[], reasons=[]),
+        "source", MINIMAL_DNA, "verse_1", RoomMemory(),
+        emphasis_markup=True,
+    )
+    assert "lettered into a comic speech bubble" in system
+    assert "double asterisks" in system

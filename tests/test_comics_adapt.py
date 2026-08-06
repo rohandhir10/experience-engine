@@ -359,6 +359,52 @@ def test_adapt_chapter_seeds_honorific_state_from_chapter_dna():
     assert "Guard Captain: formal, deferential (하십시오체)" in judge_calls[0]
 
 
+def test_adapt_chapter_seeds_character_voices_from_chapter_dna():
+    """Chapter DNA's per-character voice_description/relationships must
+    actually reach the prompt, not just get computed and discarded (the
+    bug this field was added to fix - see RoomMemory.character_voices'
+    docstring)."""
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain")]
+    )
+    client = FakeClientRulesImmediately()
+
+    adapt_chapter(chapter, CHAPTER_DNA_WITH_CHARACTER, client)
+
+    judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
+    assert (
+        "Guard Captain: Terse, deferential, speaks in short clipped sentences under stress."
+        in judge_calls[0]
+    )
+
+
+def test_adapt_chapter_includes_relationships_in_the_character_voice_summary():
+    dna = ChapterDNA(
+        artistic_thesis=CHAPTER_DNA.artistic_thesis,
+        genre_feel=CHAPTER_DNA.genre_feel,
+        tone=CHAPTER_DNA.tone,
+        ongoing_plot_context=CHAPTER_DNA.ongoing_plot_context,
+        characters=[
+            CharacterVoice(
+                name="Guard Captain",
+                voice_description="Terse, deferential.",
+                honorific_register="formal",
+                relationships=["reports to the Princess", "distrusts the Advisor"],
+            )
+        ],
+    )
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain")]
+    )
+    client = FakeClientRulesImmediately()
+
+    adapt_chapter(chapter, dna, client)
+
+    judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
+    assert "reports to the Princess" in judge_calls[0]
+    assert "distrusts the Advisor" in judge_calls[0]
+
+
 def test_adapt_chapter_updates_honorific_state_after_a_reported_shift():
     class FakeClientReportsShift(FakeClientRulesImmediately):
         def complete_json(self, system, user, max_tokens=None, stage="unknown") -> dict:
@@ -396,9 +442,12 @@ def test_adapt_chapter_updates_honorific_state_after_a_reported_shift():
     judge_calls = [user for stage, user in client.calls if stage == "judge_triage"]
     assert "Guard Captain: formal, deferential (하십시오체)" in judge_calls[0]
     assert "Guard Captain: shifted to casual banmal" in judge_calls[1]
-    # The dict entry is overwritten, not appended - only the latest
-    # register should appear in bubble 2's prompt.
-    assert judge_calls[1].count("Guard Captain:") == 1
+    # The honorific dict entry is overwritten, not appended - the OLD
+    # register must not still be lingering anywhere in bubble 2's prompt
+    # (a second "Guard Captain:" line from RoomMemory.character_voices'
+    # separate, fixed-for-the-chapter voice-description block is
+    # expected and correct - that's not what this assertion is about).
+    assert "formal, deferential (하십시오체)" not in judge_calls[1]
 
 
 def test_adapt_chapter_does_not_update_honorific_state_for_an_unattributed_bubble():
@@ -554,3 +603,32 @@ def test_a_failing_retry_keeps_the_original_ruling(monkeypatch):
     results = adapt_chapter(_chapter(), CHAPTER_DNA, FakeClientRulesImmediately())
     assert len(results) == 1
     assert results[0].ruling.final_line
+
+
+def test_adapt_bubble_enables_emphasis_markup_for_the_judge():
+    """Comics-only Judge instruction (engine/prompts.py's
+    _EMPHASIS_INSTRUCTION) - adapt_bubble must actually pass
+    emphasis_markup=True through to the Judge's real prompt, not just
+    accept it as a parameter nobody reads. FakeClientRulesImmediately
+    only records (stage, user); this captures `system` too since the
+    instruction lives there."""
+
+    class SystemCapturingClient(FakeClientRulesImmediately):
+        def __init__(self):
+            super().__init__()
+            self.systems: list[tuple[str, str]] = []
+
+        def complete_json(self, system, user, max_tokens=None, stage="unknown"):
+            self.systems.append((stage, system))
+            return super().complete_json(system, user, max_tokens, stage)
+
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain")]
+    )
+    client = SystemCapturingClient()
+
+    adapt_chapter(chapter, CHAPTER_DNA, client)
+
+    judge_system = next(system for stage, system in client.systems if stage == "judge_triage")
+    assert "lettered into a comic speech bubble" in judge_system
+    assert "double asterisks" in judge_system

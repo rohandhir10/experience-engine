@@ -220,6 +220,7 @@ def run_section(
     target_language: str = "English",
     voice: str | None = None,
     profile: LanguageProfile = NEUTRAL_PROFILE,
+    emphasis_markup: bool = False,
 ) -> SectionResultV1:
     candidates, compensations = _generate(
         client, source_text, dna, section_name, room_memory, target_language, voice, profile
@@ -235,6 +236,7 @@ def run_section(
         target_language,
         voice,
         profile,
+        emphasis_markup,
     )
 
 
@@ -249,6 +251,7 @@ def judge_candidates(
     target_language: str = "English",
     voice: str | None = None,
     profile: LanguageProfile = NEUTRAL_PROFILE,
+    emphasis_markup: bool = False,
 ) -> SectionResultV1:
     """The triage/specialist/final-ruling half of run_section, taking an
     already-built candidate pool instead of generating one itself.
@@ -258,6 +261,13 @@ def judge_candidates(
     needed when every existing candidate already dropped a source
     repeat and re-judging the same pool (retry_section_with_finding)
     cannot recover it.
+
+    `emphasis_markup`, comics-only (engine/comics_adapt.py passes True;
+    every song call site leaves it False), tells the Judge it may wrap a
+    word/short phrase in **double asterisks** within final_line to mark
+    real vocal stress for a letterer to render bold - see prompts.py's
+    _EMPHASIS_INSTRUCTION for the actual instruction text. False keeps
+    every existing prompt byte-identical.
     """
     routing_signals = compute_routing_signals(dna, section_name, candidates)
     # Per-language source grounding first (Devanagari, Hangul, ...);
@@ -277,6 +287,7 @@ def judge_candidates(
         source_syllables,
         voice,
         profile,
+        emphasis_markup,
     )
     judge_tokens = _judge_max_tokens(source_text, len(candidates))
     triage_data = client.complete_json(
@@ -324,6 +335,7 @@ def judge_candidates(
             source_syllables,
             voice,
             profile,
+            emphasis_markup,
         )
         final_data = client.complete_json(
             system, user, max_tokens=judge_tokens, stage="judge_final"
@@ -358,6 +370,7 @@ def retry_section_with_finding(
     target_language: str = "English",
     voice: str | None = None,
     profile: LanguageProfile = NEUTRAL_PROFILE,
+    emphasis_markup: bool = False,
 ) -> SectionResultV1:
     """Re-runs only the Judge step for one already-ruled section, informed
     by a specific verify.py finding, and returns a new SectionResultV1 with
@@ -372,6 +385,8 @@ def retry_section_with_finding(
     isn't theirs. Bounded to exactly one call per flagged section by the
     caller (engine/pipeline.py); this function does not loop, retry
     itself, or re-verify — that discipline lives in the caller.
+
+    `emphasis_markup` - see judge_candidates' docstring.
     """
     system, user = prompts.judge_final_prompt(
         result.candidates,
@@ -385,6 +400,7 @@ def retry_section_with_finding(
         result.source_syllable_count,
         voice,
         profile,
+        emphasis_markup,
     )
     corrective_user = (
         user

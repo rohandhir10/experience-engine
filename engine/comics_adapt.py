@@ -49,6 +49,7 @@ from .models import (
     BubbleInput,
     ChapterDNA,
     ChapterInput,
+    CharacterVoice,
     DensityItem,
     EmotionalArcPoint,
     NarrativeFunctionItem,
@@ -136,6 +137,16 @@ def _bubble_song_dna(dna: ChapterDNA, bubble: BubbleInput) -> SongDNA:
     )
 
 
+def _character_voice_summary(character: CharacterVoice) -> str:
+    """Combines voice_description and relationships into one line for
+    RoomMemory.character_voices - see that field's docstring for why
+    this exists (Chapter DNA was already computing both and nothing
+    downstream ever read them)."""
+    if not character.relationships:
+        return character.voice_description
+    return f"{character.voice_description} (relationships: {', '.join(character.relationships)})"
+
+
 def adapt_bubble(
     chapter: ChapterInput,
     dna: ChapterDNA,
@@ -149,6 +160,14 @@ def adapt_bubble(
     through to `run_section` exactly the way `SectionInput.voice` does,
     so voice consistency across bubbles attributed to the same
     character works via the existing machinery, unmodified.
+
+    `emphasis_markup=True` (comics-only - see run_section's docstring)
+    lets the Judge mark real vocal stress in final_line with
+    **double-asterisk** markup for engine/comics_redraw.py to render
+    bold, the way a letterer actually conveys emphasis. A song never
+    passes this - engine/pipeline.py's run_engine has no
+    emphasis_markup argument at all, so every song prompt/output stays
+    byte-identical to before this existed.
     """
     wrapped_dna = _bubble_song_dna(dna, bubble)
     return run_section(
@@ -160,6 +179,7 @@ def adapt_bubble(
         chapter.target_language,
         bubble.voice,
         profile,
+        emphasis_markup=True,
     )
 
 
@@ -213,7 +233,8 @@ def adapt_chapter(
     don't need one.
     """
     room_memory = RoomMemory(
-        honorific_state={c.name: c.honorific_register for c in dna.characters}
+        honorific_state={c.name: c.honorific_register for c in dna.characters},
+        character_voices={c.name: _character_voice_summary(c) for c in dna.characters},
     )
     results: list[SectionResultV1] = []
     known_compensations = {c.source_feature for c in room_memory.compensations}
@@ -304,6 +325,7 @@ def _verify_and_correct_bubble(
             chapter.target_language,
             bubble.voice,
             profile,
+            emphasis_markup=True,
         )
     except Exception as exc:  # noqa: BLE001 - keep the original ruling
         logger.warning("Corrective retry failed for bubble %s: %s", bubble.id, exc)

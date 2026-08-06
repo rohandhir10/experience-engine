@@ -154,3 +154,27 @@ def test_run_engine_deadline_check_runs_between_sections_not_mid_flight():
         run_engine(song, client=client, room_version="v1", deadline=deadline)
 
     assert "1/2" in str(exc_info.value)
+
+
+def test_run_engine_never_enables_emphasis_markup_for_a_song():
+    """run_engine has no emphasis_markup argument at all - comics-only
+    typographic markup (engine/comics_adapt.py passes it to
+    writers_room_v1.run_section directly) must never reach a song's
+    Judge prompt. Captures the real system text (unlike
+    FakeClientForRepeats.calls, which only keeps a 60-char prefix)."""
+
+    class SystemCapturingClient(FakeClientForRepeats):
+        def __init__(self):
+            super().__init__()
+            self.systems: list[str] = []
+
+        def complete_json(self, system, user, max_tokens=None, stage="unknown"):
+            self.systems.append(system)
+            return super().complete_json(system, user, max_tokens, stage)
+
+    song = _song([SectionInput(name="verse_1", source_text="line one")])
+    client = SystemCapturingClient()
+
+    run_engine(song, client=client, room_version="v1")
+
+    assert not any("lettered into a comic speech bubble" in s for s in client.systems)

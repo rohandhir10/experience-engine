@@ -656,6 +656,18 @@ class RoomMemory(BaseModel):
     # the CURRENT state, meant to change when a real shift happens, not a
     # decision fixed for the rest of the work.
     honorific_state: dict[str, str] = Field(default_factory=dict)
+    # Character name -> a plain-text summary of how they actually talk
+    # (CharacterVoice.voice_description/relationships, comics-motivated
+    # exactly like honorific_state above - engine/comics_adapt.py seeds
+    # this from ChapterDNA.characters once, at the same point it seeds
+    # honorific_state). Unlike honorific_state this is fixed for the
+    # whole chapter, not a running/updated state - a character's
+    # underlying personality doesn't shift bubble to bubble the way
+    # their speech FORMALITY can. Before this field existed,
+    # voice_description/relationships were computed by Chapter DNA and
+    # then never read again anywhere downstream - real cost paid for
+    # analysis no prompt ever saw.
+    character_voices: dict[str, str] = Field(default_factory=dict)
 
     def summary_for_prompt(self) -> str:
         compensation_block = ""
@@ -691,11 +703,27 @@ class RoomMemory(BaseModel):
                 "register just because it's listed here):\n" + entries + "\n"
             )
 
+        character_voice_block = ""
+        if self.character_voices:
+            entries = "\n".join(
+                f"- {character}: {description}"
+                for character, description in self.character_voices.items()
+            )
+            character_voice_block = (
+                "\nHow each character actually talks, from this chapter's "
+                "overall analysis — write attributed dialogue consistent with "
+                "the SPEAKING character's own voice, not a generic register; "
+                "when another character is only being talked about (not "
+                "speaking), this is background, not an instruction to imitate "
+                "them:\n" + entries + "\n"
+            )
+
         if not self.prior_rulings:
             return (
                 "No prior sections yet — this is the first section of the song."
                 + compensation_block
                 + honorific_block
+                + character_voice_block
             )
         lines = ["Decisions already made earlier in this song:"]
         for r in self.prior_rulings:
@@ -707,4 +735,6 @@ class RoomMemory(BaseModel):
             lines.append("Motif renderings established so far:")
             for motif, rendering in self.motif_decisions.items():
                 lines.append(f"- {motif}: {rendering}")
-        return "\n".join(lines) + compensation_block + honorific_block
+        return (
+            "\n".join(lines) + compensation_block + honorific_block + character_voice_block
+        )

@@ -15,11 +15,14 @@ from PIL import Image, ImageDraw, ImageFont
 from engine.comics_redraw import (
     DEFAULT_FONT,
     FONTS,
+    FONTS_BOLD,
     RedrawError,
     _clamp_bbox,
     _estimate_text_color,
     _fit_text,
     _merge_overlapping_regions,
+    _parse_emphasis,
+    _resolve_bold_font_path,
     _resolve_font_path,
     _wrap_text,
     redraw_panel,
@@ -416,9 +419,9 @@ def test_redraw_panel_uses_the_requested_default_font(monkeypatch):
     used_font_paths = []
     real_draw = comics_redraw._draw_text_in_region
 
-    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT]):
+    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT], bold_font_path=None):
         used_font_paths.append(font_path)
-        return real_draw(image, bbox, text, color, font_path)
+        return real_draw(image, bbox, text, color, font_path, bold_font_path)
 
     monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
 
@@ -438,9 +441,9 @@ def test_redraw_panel_a_per_region_font_overrides_the_default(monkeypatch):
     used_font_paths = []
     real_draw = comics_redraw._draw_text_in_region
 
-    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT]):
+    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT], bold_font_path=None):
         used_font_paths.append(font_path)
-        return real_draw(image, bbox, text, color, font_path)
+        return real_draw(image, bbox, text, color, font_path, bold_font_path)
 
     monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
 
@@ -467,9 +470,9 @@ def test_redraw_panel_defaults_to_comic_neue_with_no_font_specified(monkeypatch)
     used_font_paths = []
     real_draw = comics_redraw._draw_text_in_region
 
-    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT]):
+    def spy_draw(image, bbox, text, color, font_path=FONTS[DEFAULT_FONT], bold_font_path=None):
         used_font_paths.append(font_path)
-        return real_draw(image, bbox, text, color, font_path)
+        return real_draw(image, bbox, text, color, font_path, bold_font_path)
 
     monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
 
@@ -498,3 +501,130 @@ def test_merge_preserves_the_first_regions_font():
     merged = _merge_overlapping_regions(regions)
     assert len(merged) == 1
     assert merged[0]["font"] == "patrick-hand"
+
+
+# ---------------------------------------------------------------------------
+# Dynamic typography: **emphasis** markers (engine/prompts.py's
+# _EMPHASIS_INSTRUCTION, comics-only) rendered as bold words - a
+# letterer's actual tool for conveying vocal stress.
+# ---------------------------------------------------------------------------
+
+
+def test_parse_emphasis_returns_every_word_unemphasized_when_there_are_no_markers():
+    assert _parse_emphasis("why would I betray you") == [
+        ("why", False),
+        ("would", False),
+        ("I", False),
+        ("betray", False),
+        ("you", False),
+    ]
+
+
+def test_parse_emphasis_marks_a_single_emphasized_word():
+    tokens = _parse_emphasis("why would I **betray** you")
+    assert tokens == [
+        ("why", False),
+        ("would", False),
+        ("I", False),
+        ("betray", True),
+        ("you", False),
+    ]
+
+
+def test_parse_emphasis_marks_every_word_in_a_multi_word_phrase():
+    tokens = _parse_emphasis("**never going back** now")
+    assert tokens == [
+        ("never", True),
+        ("going", True),
+        ("back", True),
+        ("now", False),
+    ]
+
+
+def test_parse_emphasis_handles_two_separate_emphasized_spans():
+    tokens = _parse_emphasis("**why** would I **betray** you")
+    assert tokens == [
+        ("why", True),
+        ("would", False),
+        ("I", False),
+        ("betray", True),
+        ("you", False),
+    ]
+
+
+def test_parse_emphasis_reconstructs_the_same_plain_words_as_the_original():
+    """The lockstep-consumption trick in _draw_text_in_region depends on
+    this holding for any input, not just the hand-picked examples above."""
+    text = "**why** would I **betray** you now"
+    tokens = _parse_emphasis(text)
+    assert " ".join(word for word, _ in tokens) == "why would I betray you now"
+
+
+def test_draw_text_in_region_renders_emphasized_words_in_the_bold_font(monkeypatch):
+    calls: list[tuple[str, object]] = []
+    original_text = ImageDraw.ImageDraw.text
+
+    def spy_text(self, xy, text, font=None, fill=None, **kwargs):
+        calls.append((text, font))
+        return original_text(self, xy, text, font=font, fill=fill, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy_text)
+
+    from engine.comics_redraw import FONTS_BOLD, _draw_text_in_region
+
+    image = _bubble_image(400, 150)
+    _draw_text_in_region(
+        image,
+        {"x": 20, "y": 20, "width": 300, "height": 80},
+        "why would I **betray** you",
+        (0, 0, 0),
+        FONTS["comic-neue"],
+        FONTS_BOLD["comic-neue"],
+    )
+
+    drawn = {text: font.path for text, font in calls}
+    assert drawn["betray"] == str(FONTS_BOLD["comic-neue"])
+    for word in ("why", "would", "I", "you"):
+        assert drawn[word] == str(FONTS["comic-neue"])
+
+
+def test_draw_text_in_region_falls_back_to_regular_weight_when_no_bold_font_given(monkeypatch):
+    """patrick-hand has no bundled bold file - _resolve_bold_font_path
+    already falls back to the regular font, and _draw_text_in_region
+    itself must not crash or silently drop the emphasized word when
+    bold_font_path is None (the default)."""
+    calls: list[tuple[str, object]] = []
+    original_text = ImageDraw.ImageDraw.text
+
+    def spy_text(self, xy, text, font=None, fill=None, **kwargs):
+        calls.append((text, font))
+        return original_text(self, xy, text, font=font, fill=fill, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy_text)
+
+    from engine.comics_redraw import _draw_text_in_region
+
+    image = _bubble_image(400, 150)
+    _draw_text_in_region(
+        image,
+        {"x": 20, "y": 20, "width": 300, "height": 80},
+        "why would I **betray** you",
+        (0, 0, 0),
+        FONTS["patrick-hand"],
+    )
+
+    drawn = {text: font.path for text, font in calls}
+    assert drawn["betray"] == str(FONTS["patrick-hand"])
+
+
+def test_resolve_bold_font_path_uses_the_real_bold_file_when_available():
+    assert _resolve_bold_font_path("comic-neue") == FONTS_BOLD["comic-neue"]
+    assert _resolve_bold_font_path("liberation-sans") == FONTS_BOLD["liberation-sans"]
+
+
+def test_resolve_bold_font_path_falls_back_to_regular_for_a_font_with_no_bold_file():
+    assert _resolve_bold_font_path("patrick-hand") == FONTS["patrick-hand"]
+
+
+def test_resolve_bold_font_path_falls_back_to_default_for_an_unknown_font():
+    assert _resolve_bold_font_path("not-a-real-font") == FONTS_BOLD[DEFAULT_FONT]

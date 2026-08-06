@@ -45,6 +45,7 @@ module in this project:
 from __future__ import annotations
 
 import io
+import re
 from pathlib import Path
 
 import numpy as np
@@ -80,10 +81,27 @@ def _resolve_font_path(font: str | None) -> Path:
     """Falls back to DEFAULT_FONT for None, empty, or an unrecognized
     name (a typo, a stale value saved before a font was renamed/removed)
     rather than raising - a wrong font choice is a cosmetic problem, not
-    a reason to fail the whole redraw the user actually asked for."""
+    a reason to fail the whole redraw the user asked for."""
     if font and font in FONTS:
         return FONTS[font]
     return FONTS[DEFAULT_FONT]
+
+
+# Bold weight for words the Judge marks with **emphasis** (engine/prompts.py's
+# _EMPHASIS_INSTRUCTION, comics-only). Only fonts with a real bundled bold
+# file are listed - patrick-hand has none, so an emphasized word in that
+# font falls back to the regular weight (see _resolve_bold_font_path)
+# rather than fabricating a fake bold by re-stroking the regular glyphs,
+# which tends to look smudged rather than bold.
+FONTS_BOLD: dict[str, Path] = {
+    "comic-neue": _FONT_DIR / "ComicNeue-Bold.ttf",
+    "liberation-sans": _FONT_DIR / "LiberationSans-Bold.ttf",
+}
+
+
+def _resolve_bold_font_path(font: str | None) -> Path:
+    key = font if font in FONTS else DEFAULT_FONT
+    return FONTS_BOLD.get(key, FONTS[key])
 
 # How far past a text region's own bounding box to inpaint, in pixels -
 # OCR boxes tend to hug the glyphs tightly, and a zero-padding erase
@@ -200,6 +218,36 @@ def _inpaint_regions(image: Image.Image, bboxes: list[dict]) -> tuple[Image.Imag
     return comics_inpaint.inpaint_with_fallback(image, mask)
 
 
+_EMPHASIS_RE = re.compile(r"\*\*(.+?)\*\*")
+
+
+def _parse_emphasis(text: str) -> list[tuple[str, bool]]:
+    """Splits `text` into (word, emphasized) pairs, stripping the
+    **double-asterisk** markers a comics-adaptation Judge ruling may
+    contain (engine/prompts.py's _EMPHASIS_INSTRUCTION) - a
+    `**multi word phrase**` marks every word inside it emphasized.
+    Plain text with no markers at all (every song, and most comics
+    lines) returns every word unemphasized, unchanged from before this
+    existed.
+
+    The plain-word sequence this returns (ignoring the flag) is exactly
+    what `" ".join(word for word, _ in tokens)` reconstructs, which is
+    what `_draw_text_in_region` hands to the existing, unmodified
+    `_wrap_text`/`_fit_text` for sizing - it then walks the wrapped
+    lines' words back against this token list in lockstep to know which
+    ones to draw bold, rather than teaching the wrapping/fitting search
+    itself about mixed-weight text.
+    """
+    tokens: list[tuple[str, bool]] = []
+    pos = 0
+    for match in _EMPHASIS_RE.finditer(text):
+        tokens.extend((w, False) for w in text[pos : match.start()].split())
+        tokens.extend((w, True) for w in match.group(1).split())
+        pos = match.end()
+    tokens.extend((w, False) for w in text[pos:].split())
+    return tokens
+
+
 def _wrap_text(text: str, font: ImageFont.FreeTypeFont, max_width: int, draw: ImageDraw.ImageDraw) -> list[str]:
     words = text.split()
     if not words:
@@ -247,22 +295,46 @@ def _draw_text_in_region(
     text: str,
     color: tuple[int, int, int],
     font_path: Path = FONTS[DEFAULT_FONT],
+    bold_font_path: Path | None = None,
 ) -> None:
     """Mutates `image` in place - draws centered, word-wrapped text into
-    the (already-inpainted) region."""
+    the (already-inpainted) region.
+
+    `text` may contain **double-asterisk** emphasis markers (a comics
+    Judge ruling's final_line, engine/prompts.py's _EMPHASIS_INSTRUCTION)
+    - those words are drawn in `bold_font_path` (falls back to the same
+    regular `font_path` when not given, e.g. a font with no bundled bold
+    weight - see FONTS_BOLD), every other word in the regular font.
+    Sizing/wrapping still runs on the plain, marker-stripped text via
+    the unmodified _fit_text - bold glyphs are usually only marginally
+    wider than regular at the same size, so measuring with the regular
+    font is a disclosed, deliberate approximation, not exact.
+    """
     left, top, right, bottom = _clamp_bbox(bbox, image.size)
     box_width, box_height = right - left, bottom - top
     draw = ImageDraw.Draw(image)
 
-    font, lines = _fit_text(text, box_width, box_height, draw, font_path)
+    tokens = _parse_emphasis(text)
+    plain_text = " ".join(word for word, _ in tokens)
+
+    font, lines = _fit_text(plain_text, box_width, box_height, draw, font_path)
+    bold_font = ImageFont.truetype(str(bold_font_path or font_path), font.size)
     line_height = font.getbbox("Ag")[3] - font.getbbox("Ag")[1]
     total_height = line_height * len(lines) * 1.2
     y = top + max(0, (box_height - total_height) / 2)
 
+    token_iter = iter(tokens)
+    space_width = draw.textlength(" ", font=font)
     for line in lines:
-        line_width = draw.textlength(line, font=font)
+        line_tokens = [next(token_iter) for _ in line.split()]
+        fonts = [bold_font if emphasized else font for _, emphasized in line_tokens]
+        line_width = sum(
+            draw.textlength(word, font=f) for (word, _), f in zip(line_tokens, fonts)
+        ) + space_width * max(0, len(line_tokens) - 1)
         x = left + max(0, (box_width - line_width) / 2)
-        draw.text((x, y), line, font=font, fill=color)
+        for (word, _), f in zip(line_tokens, fonts):
+            draw.text((x, y), word, font=f, fill=color)
+            x += draw.textlength(word, font=f) + space_width
         y += line_height * 1.2
 
 
@@ -370,8 +442,12 @@ def redraw_panel(image_bytes: bytes, regions: list[dict], default_font: str | No
     inpainted, _method = _inpaint_regions(image, bboxes)
 
     for region, color in zip(regions, text_colors):
-        font_path = _resolve_font_path(region.get("font") or default_font)
-        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color, font_path)
+        chosen_font = region.get("font") or default_font
+        font_path = _resolve_font_path(chosen_font)
+        bold_font_path = _resolve_bold_font_path(chosen_font)
+        _draw_text_in_region(
+            inpainted, region["bbox"], region["adapted_text"], color, font_path, bold_font_path
+        )
 
     buffer = io.BytesIO()
     inpainted.save(buffer, format="PNG")
@@ -401,8 +477,12 @@ def redraw_panel_detailed(
     inpainted, method = _inpaint_regions(image, bboxes)
 
     for region, color in zip(regions, text_colors):
-        font_path = _resolve_font_path(region.get("font") or default_font)
-        _draw_text_in_region(inpainted, region["bbox"], region["adapted_text"], color, font_path)
+        chosen_font = region.get("font") or default_font
+        font_path = _resolve_font_path(chosen_font)
+        bold_font_path = _resolve_bold_font_path(chosen_font)
+        _draw_text_in_region(
+            inpainted, region["bbox"], region["adapted_text"], color, font_path, bold_font_path
+        )
 
     buffer = io.BytesIO()
     inpainted.save(buffer, format="PNG")
