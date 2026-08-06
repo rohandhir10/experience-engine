@@ -18,8 +18,10 @@ from engine.comics_redraw import (
     _clamp_bbox,
     _estimate_text_color,
     _fit_text,
+    _merge_overlapping_regions,
     _wrap_text,
     redraw_panel,
+    redraw_panel_detailed,
 )
 
 
@@ -212,6 +214,115 @@ def test_redraw_panel_handles_multiple_regions_independently():
     )
     result = Image.open(io.BytesIO(result_bytes))
     assert result.size == (400, 200)
+
+
+# ---------------------------------------------------------------------------
+# _merge_overlapping_regions - the real bug report: Cloud Vision splits one
+# physical bubble's sentence into 2+ "blocks", each got typeset
+# independently, producing overlapping garbled text.
+# ---------------------------------------------------------------------------
+
+
+def test_merge_leaves_non_overlapping_regions_untouched():
+    regions = [
+        {"bbox": {"x": 0, "y": 0, "width": 50, "height": 50}, "adapted_text": "one"},
+        {"bbox": {"x": 200, "y": 200, "width": 50, "height": 50}, "adapted_text": "two"},
+    ]
+    merged = _merge_overlapping_regions(regions)
+    assert merged == regions
+
+
+def test_merge_combines_two_overlapping_regions_into_one():
+    regions = [
+        {"bbox": {"x": 0, "y": 0, "width": 100, "height": 50}, "adapted_text": "Isn't that right?"},
+        {"bbox": {"x": 20, "y": 10, "width": 200, "height": 80}, "adapted_text": "But why would I betray you?"},
+    ]
+    merged = _merge_overlapping_regions(regions)
+
+    assert len(merged) == 1
+    assert merged[0]["adapted_text"] == "Isn't that right? But why would I betray you?"
+    # Union bbox - covers both original boxes exactly.
+    assert merged[0]["bbox"] == {"x": 0, "y": 0, "width": 220, "height": 90}
+
+
+def test_merge_is_transitive_across_a_chain_of_three():
+    """A overlaps B, B overlaps C, A does not directly overlap C - all
+    three must still collapse into one region, not two."""
+    regions = [
+        {"bbox": {"x": 0, "y": 0, "width": 30, "height": 30}, "adapted_text": "a"},
+        {"bbox": {"x": 20, "y": 0, "width": 30, "height": 30}, "adapted_text": "b"},
+        {"bbox": {"x": 40, "y": 0, "width": 30, "height": 30}, "adapted_text": "c"},
+    ]
+    merged = _merge_overlapping_regions(regions)
+    assert len(merged) == 1
+    assert merged[0]["adapted_text"] == "a b c"
+
+
+def test_merge_only_combines_the_overlapping_pair_leaving_others_alone():
+    regions = [
+        {"bbox": {"x": 0, "y": 0, "width": 50, "height": 50}, "adapted_text": "one"},
+        {"bbox": {"x": 10, "y": 10, "width": 50, "height": 50}, "adapted_text": "two"},
+        {"bbox": {"x": 500, "y": 500, "width": 50, "height": 50}, "adapted_text": "three"},
+    ]
+    merged = _merge_overlapping_regions(regions)
+    assert len(merged) == 2
+    texts = {r["adapted_text"] for r in merged}
+    assert texts == {"one two", "three"}
+
+
+def test_redraw_panel_merges_overlapping_regions_before_typesetting():
+    """End-to-end: two overlapping regions passed to redraw_panel produce
+    one legible combined block instead of two independently-drawn,
+    overlapping text blocks - proven by confirming it doesn't raise and
+    a same-sized image comes back (the merge happens transparently
+    inside redraw_panel, so there's no separate "regions used" output to
+    assert against directly here - see the _merge_overlapping_regions
+    unit tests above for the actual merge logic coverage)."""
+    image = _bubble_image(400, 200)
+    bbox_a = {"x": 40, "y": 40, "width": 150, "height": 60}
+    bbox_b = {"x": 60, "y": 50, "width": 200, "height": 80}
+    _draw_black_text(image, bbox_a, "first")
+
+    result_bytes = redraw_panel(
+        _png_bytes(image),
+        [
+            {"bbox": bbox_a, "adapted_text": "Isn't that right?"},
+            {"bbox": bbox_b, "adapted_text": "But why would I betray you?"},
+        ],
+    )
+    result = Image.open(io.BytesIO(result_bytes))
+    assert result.size == (400, 200)
+
+
+def test_redraw_panel_detailed_also_merges_overlapping_regions(monkeypatch):
+    """redraw_panel_detailed must apply the same merge redraw_panel does -
+    it's a near-duplicate implementation, easy for the two to drift."""
+    import engine.comics_redraw as comics_redraw
+
+    captured: list[list[dict]] = []
+    real_merge = comics_redraw._merge_overlapping_regions
+
+    def spy_merge(regions):
+        result = real_merge(regions)
+        captured.append(result)
+        return result
+
+    monkeypatch.setattr(comics_redraw, "_merge_overlapping_regions", spy_merge)
+
+    image = _bubble_image(400, 200)
+    bbox_a = {"x": 40, "y": 40, "width": 150, "height": 60}
+    bbox_b = {"x": 60, "y": 50, "width": 200, "height": 80}
+
+    redraw_panel_detailed(
+        _png_bytes(image),
+        [
+            {"bbox": bbox_a, "adapted_text": "Isn't that right?"},
+            {"bbox": bbox_b, "adapted_text": "But why would I betray you?"},
+        ],
+    )
+
+    assert len(captured) == 1
+    assert len(captured[0]) == 1  # the two overlapping regions became one
 
 
 def test_redraw_panel_rejects_an_empty_region_list():

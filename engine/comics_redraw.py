@@ -227,6 +227,72 @@ def _draw_text_in_region(
         y += line_height * 1.2
 
 
+def _rects_overlap(a: dict, b: dict) -> bool:
+    ax1, ay1 = a["x"], a["y"]
+    ax2, ay2 = ax1 + a["width"], ay1 + a["height"]
+    bx1, by1 = b["x"], b["y"]
+    bx2, by2 = bx1 + b["width"], by1 + b["height"]
+    return ax1 < bx2 and bx1 < ax2 and ay1 < by2 and by1 < ay2
+
+
+def _union_bbox(a: dict, b: dict) -> dict:
+    ax1, ay1 = a["x"], a["y"]
+    ax2, ay2 = ax1 + a["width"], ay1 + a["height"]
+    bx1, by1 = b["x"], b["y"]
+    bx2, by2 = bx1 + b["width"], by1 + b["height"]
+    left, top = min(ax1, bx1), min(ay1, by1)
+    right, bottom = max(ax2, bx2), max(ay2, by2)
+    return {"x": left, "y": top, "width": right - left, "height": bottom - top}
+
+
+def _merge_overlapping_regions(regions: list[dict]) -> list[dict]:
+    """Real bug this exists for: Cloud Vision's DOCUMENT_TEXT_DETECTION
+    groups text into "blocks" by its own general-document layout
+    heuristic (engine/comics_ocr.py's module docstring), not by physical
+    speech-bubble boundary - one bubble's single sentence can come back
+    as two separate, adjacent/overlapping "regions". Nothing upstream of
+    here catches that, and drawing each region's adapted text into its
+    own independently-sized, independently-positioned box then produces
+    exactly the garbled result a real bug report showed: two different
+    font sizes' worth of text stacked on top of each other in what a
+    reader sees as one bubble.
+
+    A region's bbox alone can't say WHY it overlaps another one (same
+    bubble Vision over-split, vs. two genuinely different bubbles that
+    happen to sit close together) - but drawing two independently-fit
+    text blocks into overlapping pixel space is guaranteed illegible
+    either way, so merging on overlap alone is a strict improvement over
+    today's always-broken result in the common case, and only a rare,
+    still-legible misattribution (two real adjacent bubbles' text
+    combined into one) in the uncommon one.
+
+    Merges transitively (A overlaps B overlaps C all become one region)
+    and concatenates each merged region's texts in list order - a
+    best-effort reading order, not a guaranteed correct one, same
+    "human reviews and reorders" caveat comics_ocr.py's own reading
+    order already carries.
+    """
+    merged = [dict(r) for r in regions]
+    changed = True
+    while changed:
+        changed = False
+        for i in range(len(merged)):
+            for j in range(i + 1, len(merged)):
+                if _rects_overlap(merged[i]["bbox"], merged[j]["bbox"]):
+                    merged[i] = {
+                        "bbox": _union_bbox(merged[i]["bbox"], merged[j]["bbox"]),
+                        "adapted_text": (
+                            f"{merged[i]['adapted_text']} {merged[j]['adapted_text']}"
+                        ).strip(),
+                    }
+                    del merged[j]
+                    changed = True
+                    break
+            if changed:
+                break
+    return merged
+
+
 def redraw_panel(image_bytes: bytes, regions: list[dict]) -> bytes:
     """The full pipeline: estimate each region's text color from the
     original pixels, inpaint every region's text away, draw each
@@ -246,6 +312,7 @@ def redraw_panel(image_bytes: bytes, regions: list[dict]) -> bytes:
     if not regions:
         raise RedrawError("At least one region is required to redraw a panel.")
 
+    regions = _merge_overlapping_regions(regions)
     image = _load_image(image_bytes)
     bboxes = [r["bbox"] for r in regions]
 
@@ -274,6 +341,7 @@ def redraw_panel_detailed(image_bytes: bytes, regions: list[dict]) -> tuple[byte
     if not regions:
         raise RedrawError("At least one region is required to redraw a panel.")
 
+    regions = _merge_overlapping_regions(regions)
     image = _load_image(image_bytes)
     bboxes = [r["bbox"] for r in regions]
     text_colors = [_estimate_text_color(image, bbox) for bbox in bboxes]
