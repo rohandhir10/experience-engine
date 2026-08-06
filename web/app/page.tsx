@@ -55,7 +55,26 @@ export default function Home() {
 
       <div className="mx-auto mt-16 flex w-full max-w-3xl flex-col items-center text-center sm:mt-20">
         <h1 className="animate-fade-up text-[2.1rem] font-semibold leading-[1.15] tracking-tight text-white sm:text-[2.6rem]">
-          The words are the easy part.
+          The words are the{" "}
+          <span className="relative inline-block whitespace-nowrap">
+            easy part
+            <svg
+              viewBox="0 0 200 20"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-1.5 left-0 h-3 w-full"
+            >
+              <path
+                d="M2 11 Q 50 2, 100 9 T 198 7"
+                fill="none"
+                strokeWidth="3"
+                strokeLinecap="round"
+                pathLength="200"
+                className="stroke-accent animate-draw-underline"
+              />
+            </svg>
+          </span>
+          .
         </h1>
         <p
           className="animate-fade-up mt-4 max-w-md text-[14px] text-white/40"
@@ -77,11 +96,21 @@ export default function Home() {
           continuing={lastMedium === "music"}
         >
           <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-5">
+            {/* Hovering crossfades the literal reading into the adapted
+                line - a real, small demonstration of the mechanism
+                itself, not decoration for its own sake. */}
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
                 <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" fill="none" stroke="currentColor" strokeWidth="1.6" />
               </svg>
-              <span className="truncate text-[11px] text-white/35">Tera hone laga hoon…</span>
+              <span className="relative flex-1 overflow-hidden">
+                <span className="block truncate text-[11px] text-white/35 transition-opacity duration-300 group-hover:opacity-0">
+                  Tera hone laga hoon…
+                </span>
+                <span className="absolute inset-0 block truncate text-[11px] text-accent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  Slowly, I'm becoming yours
+                </span>
+              </span>
             </div>
             <p className="text-[12px] leading-relaxed text-white/40">
               Paste a lyric or import a YouTube link — see the literal
@@ -102,7 +131,14 @@ export default function Home() {
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
                 <path d="M4 4h16v12H7l-3 3V4z" />
               </svg>
-              <span className="truncate text-[11px] text-white/35">panel-07.png</span>
+              <span className="relative flex-1 overflow-hidden">
+                <span className="block truncate text-[11px] text-white/35 transition-opacity duration-300 group-hover:opacity-0">
+                  panel-07.png
+                </span>
+                <span className="absolute inset-0 block truncate text-[11px] text-accent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  "You're late. Again."
+                </span>
+              </span>
             </div>
             <p className="text-[12px] leading-relaxed text-white/40">
               Upload panel images, review the extracted dialogue, then adapt it —
@@ -263,7 +299,7 @@ function MediumTile({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition hover:border-white/20 hover:bg-white/[0.05]"
+      className="group flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
     >
       <div className="overflow-hidden rounded-lg">{children}</div>
       <div className="mt-4 flex items-center gap-2">

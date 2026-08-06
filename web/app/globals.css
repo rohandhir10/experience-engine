@@ -77,10 +77,33 @@
   animation: travel-dot 3.2s linear infinite;
 }
 
+/* A hand-drawn underline stroke that draws itself in once, under a
+   single emphasized word/phrase (homepage H1) - real, crafted motion
+   tied to a specific piece of type, not a generic entrance effect.
+   Paired with an SVG `pathLength="200"` on the path itself so this
+   works regardless of the path's actual on-screen geometry. */
+@keyframes draw-underline {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-draw-underline {
+  stroke-dasharray: 200;
+  animation: draw-underline 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.55s both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-drift-a,
   .animate-drift-b,
   .animate-travel-dot {
     animation: none;
+  }
+  .animate-draw-underline {
+    animation: none;
+    stroke-dashoffset: 0;
   }
 }
