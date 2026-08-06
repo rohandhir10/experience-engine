@@ -163,9 +163,12 @@ JOB_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_JOB_TIMEOUT_SECONDS", str(12 * 
 # Same idea as JOB_TIMEOUT_SECONDS above, for run_engine's `deadline`
 # param (engine/pipeline.py's EngineTimeoutError) - a separate constant,
 # not a shared one, because it has to stay under a different frontend
-# ceiling: web/lib/useAdaptSubmit.ts's own MAX_POLL_MS for songs is 10
-# minutes, not comics' 15.
-SONG_JOB_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_SONG_JOB_TIMEOUT_SECONDS", str(8 * 60)))
+# ceiling: web/lib/useAdaptSubmit.ts's own MAX_POLL_MS for songs.
+# Raised from 8 to 15 minutes (matching comics' JOB_TIMEOUT_SECONDS) -
+# real full multi-section songs (several sections, each 3-7 sequential
+# LLM calls) were routinely hitting the old 8-minute ceiling and erroring
+# out with "N/M sections finished" partway through, not a rare edge case.
+SONG_JOB_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_SONG_JOB_TIMEOUT_SECONDS", str(15 * 60)))
 # Per-unit credit prices, matching web/app/pricing/page.tsx's advertised
 # averages exactly (SONG_CREDITS=30 for "~6 sections" => 5/section;
 # PAGE_CREDITS=50 for "~5 panels" => 10/panel) - charged per actual

@@ -4028,3 +4028,24 @@ nor a non-2xx response ever raises. Full suite green: 1011 pytest.
   requires bilingual NLI/back-translation (Tier 2 at best) or a
   fundamentally different verification approach, not a deterministic fix
   in the shape of Phases 1-3.
+
+## Song job timeout raised: real full songs were hitting the 8-minute ceiling
+
+Real, reported bug, not a hypothetical: full multi-section songs weren't
+finishing - `run_engine`'s `deadline` param (`SONG_JOB_TIMEOUT_SECONDS`,
+`server/main.py`) checked before each section and raised
+`EngineTimeoutError` once 8 minutes had passed, which a song with enough
+sections at 3-7 sequential LLM calls each could genuinely exceed. The job
+correctly surfaced a clean "N/M sections finished" error rather than
+hanging or silently failing, but the song still didn't complete.
+
+Raised `SONG_JOB_TIMEOUT_SECONDS`'s default from 8 to 15 minutes,
+matching comics' own `JOB_TIMEOUT_SECONDS` - no reason songs should have
+a tighter ceiling than chapters when both run comparable per-unit LLM
+call volume. `web/lib/useAdaptSubmit.ts`'s `MAX_POLL_MS` raised from 10
+to 18 minutes to match, keeping the same few-minutes buffer over the
+backend deadline that comics' own `MAX_POLL_MS` already keeps - so the
+backend's specific timeout message still surfaces before the frontend's
+generic give-up message would. Both remain env-configurable
+(`CASTIA_SONG_JOB_TIMEOUT_SECONDS`) for a deployment that needs to tune
+further.

@@ -29,8 +29,12 @@ const POLL_INTERVAL_MS = 2_500;
 // A full multi-section song can run several minutes (server/main.py's
 // module docstring: each section is 3-7 sequential LLM calls) - generous
 // on purpose, since the alternative to waiting is the exact serverless
-// timeout /api/adapt/start exists to avoid.
-const MAX_POLL_MS = 10 * 60 * 1000;
+// timeout /api/adapt/start exists to avoid. Kept a few minutes above
+// server/main.py's own SONG_JOB_TIMEOUT_SECONDS (15 min) - same buffer
+// comics' MAX_POLL_MS (lib/comicsAdapt.ts) keeps over its own backend
+// deadline, so the backend's specific "N/M sections finished" error
+// surfaces instead of this file's generic give-up message.
+const MAX_POLL_MS = 18 * 60 * 1000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
