@@ -95,6 +95,30 @@ def test_comics_adapt_start_runs_engine_in_background_and_job_completes(client, 
     assert settled["result"]["id"]
 
 
+def test_comics_job_reports_capacity_error_when_no_run_slot_frees_up_in_time(client, monkeypatch):
+    """Same real bug as test_server_jobs.py's identical test, for the
+    comics job path, which shares the same _run_slots semaphore: the old
+    `with _run_slots:` blocked forever if a slot never came free - one
+    leaked by an earlier hung thread on EITHER the song or comics path
+    is permanent for the process's life, and a trivially small chapter
+    would still queue behind it forever."""
+    monkeypatch.setattr(main, "SLOT_ACQUIRE_TIMEOUT_SECONDS", 0.05)
+    acquired = [main._run_slots.acquire(timeout=1) for _ in range(main.MAX_CONCURRENT_RUNS)]
+    assert all(acquired), "test setup itself needs every slot free to start"
+    try:
+        monkeypatch.setattr(main.cache, "get", lambda result_id: None)
+
+        response = client.post("/api/comics/adapt/start", json=VALID_BODY)
+        job_id = response.json()["job_id"]
+
+        settled = _poll_until_settled(client, job_id, timeout=2.0)
+        assert settled["status"] == "error"
+        assert "capacity" in settled["error"]
+    finally:
+        for _ in range(main.MAX_CONCURRENT_RUNS):
+            main._run_slots.release()
+
+
 def test_comics_job_reports_llm_error_as_a_friendly_message(client, monkeypatch):
     monkeypatch.setattr(main.cache, "get", lambda result_id: None)
 

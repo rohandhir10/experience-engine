@@ -1110,7 +1110,15 @@ def _run_comics_job(
     /api/adapt/start's _run_job already uses for songs, reused as-is
     (both are medium-agnostic: a semaphore around "one engine run" and a
     generic pending/running/done/error record)."""
-    with _run_slots:
+    if not _run_slots.acquire(timeout=SLOT_ACQUIRE_TIMEOUT_SECONDS):
+        logger.error(
+            "comics job id=%s timed out waiting %ds for a free run slot", job_id, SLOT_ACQUIRE_TIMEOUT_SECONDS
+        )
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        jobs.set_error(job_id, "Castia is at capacity right now. Please try again in a few minutes.")
+        return
+    try:
         jobs.set_running(job_id)
         try:
             payload = _run_comics_adaptation(
@@ -1138,6 +1146,8 @@ def _run_comics_job(
                 credits.refund(user_id, debited, reference=result_id)
             logger.exception("comics job id=%s unexpected failure", job_id)
             jobs.set_error(job_id, "Something went wrong processing this chapter. Try again.")
+    finally:
+        _run_slots.release()
 
 
 @app.get("/api/comics/adapt/{result_id}")
@@ -1860,6 +1870,18 @@ def get_adapt(result_id: str) -> dict:
 # from.
 MAX_CONCURRENT_RUNS = int(os.environ.get("CASTIA_MAX_CONCURRENT_RUNS", "4"))
 _run_slots = threading.Semaphore(MAX_CONCURRENT_RUNS)
+# `with _run_slots:` blocks forever if a slot never comes free - fine
+# when every job eventually finishes and releases its slot, not fine if
+# one ever doesn't (an upstream call that hangs past its own timeout at
+# the transport level, a bug in a retry path, anything that leaves a
+# thread never reaching its `finally`). One such leaked slot is
+# permanent for the life of the process - MAX_CONCURRENT_RUNS is small
+# (4 by default), so it doesn't take many before every NEW job, however
+# trivial, queues forever behind slots that are never coming back -
+# indistinguishable from the engine itself hanging, from the poller's
+# side. Bounding the wait turns that into a fast, clear "try again"
+# instead of a silent, unbounded queue.
+SLOT_ACQUIRE_TIMEOUT_SECONDS = int(os.environ.get("CASTIA_SLOT_ACQUIRE_TIMEOUT_SECONDS", str(3 * 60)))
 
 
 def _run_job(
@@ -1875,7 +1897,11 @@ def _run_job(
     started: float,
     user_id: str | None = None,
 ) -> None:
-    with _run_slots:
+    if not _run_slots.acquire(timeout=SLOT_ACQUIRE_TIMEOUT_SECONDS):
+        logger.error("job id=%s timed out waiting %ds for a free run slot", job_id, SLOT_ACQUIRE_TIMEOUT_SECONDS)
+        jobs.set_error(job_id, "Castia is at capacity right now. Please try again in a few minutes.")
+        return
+    try:
         jobs.set_running(job_id)
         try:
             experience_result = _run_adaptation(
@@ -1897,6 +1923,8 @@ def _run_job(
             # polling deserves an "error" status, not an indefinite "pending".
             logger.exception("job id=%s unexpected failure", job_id)
             jobs.set_error(job_id, "Something went wrong processing this song. Try again.")
+    finally:
+        _run_slots.release()
 
 
 @app.post("/api/adapt/start")

@@ -4077,3 +4077,36 @@ guaranteed to fail. New test
 (`test_db_backend_find_similar_skips_the_expensive_comparison_for_mismatched_lengths`)
 monkeypatches `SequenceMatcher` to raise if called, proving the skip
 actually happens. Full suite green: 1012 pytest.
+
+## Bounded the run-slot wait: a leaked slot used to hang every future job
+
+Reported after the fuzzy-scan fix above: a single-panel, three-bubble
+Japanese chapter - trivially small, should finish in seconds - hung long
+enough to trip the frontend's give-up warning. That size rules out both
+prior fixes (not a large-song fuzzy scan; not the engine's own per-
+section deadline, which a 3-bubble job would never get near). The
+remaining candidate: `_run_job`/`_run_comics_job` acquired the shared
+`_run_slots` semaphore (`MAX_CONCURRENT_RUNS`, 4 by default) with a bare
+`with _run_slots:` - unbounded. Every individual LLM call already has
+its own timeout (`CASTIA_LLM_TIMEOUT`, 120s) and retries are bounded, so
+no single call hangs forever - but if any thread, ever, exits abnormally
+without its slot being released (a transport-level hang past the
+client's own timeout, any bug that leaves a `with` block never reached),
+that slot is gone for the life of the process. With only 4 slots total,
+it doesn't take many such incidents before every NEW job - regardless of
+size - queues forever behind slots that are never coming back, which is
+indistinguishable from the engine hanging from the poller's side.
+
+Replaced the bare `with _run_slots:` in both job runners with a bounded
+`.acquire(timeout=SLOT_ACQUIRE_TIMEOUT_SECONDS)` (3 minutes by default,
+`CASTIA_SLOT_ACQUIRE_TIMEOUT_SECONDS`) plus an explicit `try/finally:
+_run_slots.release()`. A job that can't get a slot in time now settles
+to a clear "Castia is at capacity right now" error - refunding any
+debited credits first - instead of hanging indefinitely. This directly
+fixes the symptom class (a job that never settles); it's a mitigation
+for slot exhaustion specifically, not a proven root cause of whatever
+first caused a slot to leak, which needs production log access to
+confirm. Two new tests (one per job type) simulate exhaustion by holding
+every slot and shrinking the acquire timeout, proving the job settles to
+the capacity error quickly rather than hanging. Full suite green: 1014
+pytest.

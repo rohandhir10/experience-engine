@@ -125,6 +125,32 @@ def test_job_reports_llm_error_as_a_friendly_message(client, monkeypatch):
     assert "upstream exploded" not in settled["error"]
 
 
+def test_job_reports_capacity_error_when_no_run_slot_frees_up_in_time(client, monkeypatch):
+    """Real bug this guards: the old `with _run_slots:` blocked forever
+    if a slot never came free - one leaked by an earlier hung thread is
+    permanent for the process's life, and every new job, however
+    trivial, would then queue behind it forever, indistinguishable from
+    the engine itself hanging from the poller's side. Simulates
+    exhaustion by holding every slot for the duration of the test and
+    shrinking the acquire timeout so the test itself stays fast."""
+    monkeypatch.setattr(main, "SLOT_ACQUIRE_TIMEOUT_SECONDS", 0.05)
+    acquired = [main._run_slots.acquire(timeout=1) for _ in range(main.MAX_CONCURRENT_RUNS)]
+    assert all(acquired), "test setup itself needs every slot free to start"
+    try:
+        monkeypatch.setattr(main.cache, "get", lambda result_id: None)
+        monkeypatch.setattr(main.cache, "find_similar", lambda *a, **k: None)
+
+        response = client.post("/api/adapt/start", json=VALID_BODY)
+        job_id = response.json()["job_id"]
+
+        settled = _poll_until_settled(client, job_id, timeout=2.0)
+        assert settled["status"] == "error"
+        assert "capacity" in settled["error"]
+    finally:
+        for _ in range(main.MAX_CONCURRENT_RUNS):
+            main._run_slots.release()
+
+
 def test_job_reports_runtime_error_verbatim(client, monkeypatch):
     """RuntimeError is a configuration failure (e.g. a missing API key) -
     /api/adapt surfaces its message directly rather than a generic one,
