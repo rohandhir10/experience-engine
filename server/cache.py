@@ -256,6 +256,24 @@ def find_similar(
     payload is ever actually needed. The first pass fetches only
     (id, normalized_text) for the scan; the second pass fetches the one
     winning row's full result_json, if there is one.
+
+    A second, real scaling problem this used to have entirely unguarded:
+    difflib.SequenceMatcher.ratio() is expensive (worse than linear in
+    the length of the two strings being compared), and this ran it
+    against every single candidate row for the language pair, however
+    long the submitted song and however large the cache had grown - a
+    long song (the case this exists to help, since that's the run most
+    worth not repeating) against a cache with any real history could
+    make a single cache-miss request take minutes before it even
+    reached the point of starting the actual engine job, which read
+    from the frontend as a plain hang, not a slow adaptation.
+
+    Fixed with an exact, not approximate, pre-filter: ratio() is defined
+    as 2*M / (len(a) + len(b)) where M <= min(len(a), len(b)), so the
+    highest ratio two strings of a given length pair could ever produce
+    is 2*min/(min+max). Below `threshold`, no comparison is worth
+    running at all - skipping it can never discard a real match, only
+    candidates that were mathematically incapable of reaching the bar.
     """
     if not _use_db():
         return None
@@ -266,6 +284,10 @@ def find_similar(
     key = fuzzy_key(text)
     if not key:
         return None
+
+    key_len = len(key)
+    # threshold <= 2*min/(min+max)  =>  min/max >= threshold/(2-threshold)
+    min_length_ratio = threshold / (2 - threshold)
 
     with db.session_scope() as session:
         candidates = (
@@ -282,6 +304,11 @@ def find_similar(
         best_ratio = 0.0
         for row_id, normalized_text in candidates:
             if not normalized_text:
+                continue
+            candidate_len = len(normalized_text)
+            shorter_len = key_len if key_len <= candidate_len else candidate_len
+            longer_len = candidate_len if key_len <= candidate_len else key_len
+            if shorter_len / longer_len < min_length_ratio:
                 continue
             ratio = difflib.SequenceMatcher(None, key, normalized_text).ratio()
             if ratio >= threshold and ratio > best_ratio:

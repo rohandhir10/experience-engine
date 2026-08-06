@@ -4049,3 +4049,31 @@ backend's specific timeout message still surfaces before the frontend's
 generic give-up message would. Both remain env-configurable
 (`CASTIA_SONG_JOB_TIMEOUT_SECONDS`) for a deployment that needs to tune
 further.
+
+## The real cause of the frontend "hang": an unguarded fuzzy-match scan
+
+The timeout raise above wasn't the actual fix - it addressed a real but
+secondary problem. The real cause of "large songs hang" (reported after
+that raise shipped and the symptom persisted) was upstream of the
+engine's own deadline entirely: `cache.py`'s `find_similar` - the
+near-duplicate-paste check every `/api/adapt/start` cache-miss runs
+before spawning the background job - scanned every cached row for the
+language pair and ran `difflib.SequenceMatcher.ratio()` (worse than
+linear in string length) against each one, with no filter on how long
+either string was. A long song compared against a cache with any real
+history could take minutes to even return a `job_id`, all inside the
+synchronous request handler - the frontend has nothing to poll yet at
+that point, so it reads as a dead hang, not a slow adaptation, and
+`SONG_JOB_TIMEOUT_SECONDS` never even gets a chance to apply.
+
+Fixed with an exact (not approximate) pre-filter: `ratio()` is defined
+as `2*M / (len(a)+len(b))` where `M <= min(len(a), len(b))`, so the
+highest ratio two strings could ever produce is bounded by their length
+ratio alone - `min/max >= threshold/(2-threshold)` is a hard requirement
+before `SIMILARITY_THRESHOLD` (0.92) is even reachable. Candidates that
+fail that check now skip `SequenceMatcher` entirely - this can never
+discard a real match, only comparisons that were mathematically
+guaranteed to fail. New test
+(`test_db_backend_find_similar_skips_the_expensive_comparison_for_mismatched_lengths`)
+monkeypatches `SequenceMatcher` to raise if called, proving the skip
+actually happens. Full suite green: 1012 pytest.

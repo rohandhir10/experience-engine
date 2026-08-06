@@ -135,6 +135,32 @@ def test_db_backend_find_similar_still_matches_the_current_version(sqlite_db):
     assert match[1] == {"hook": "fresh"}
 
 
+def test_db_backend_find_similar_skips_the_expensive_comparison_for_mismatched_lengths(
+    sqlite_db, monkeypatch
+):
+    """The real bug this guards: without a length pre-filter, find_similar
+    ran the expensive SequenceMatcher.ratio() against every cached row
+    for the language pair regardless of length, so a long song scanned
+    against a cache with real history could take minutes before the
+    actual engine job even started - reading, from the frontend, as a
+    plain hang rather than a slow adaptation. A candidate whose length
+    can't mathematically reach SIMILARITY_THRESHOLD (see find_similar's
+    docstring for the ratio() bound this relies on) must never reach
+    SequenceMatcher at all."""
+    short_id = cache.content_id("short line")
+    cache.set(short_id, {"hook": "short"}, source_text="short line")
+
+    def _fail_if_called(*args, **kwargs):
+        raise AssertionError(
+            "SequenceMatcher should have been skipped by the length pre-filter"
+        )
+
+    monkeypatch.setattr(cache.difflib, "SequenceMatcher", _fail_if_called)
+
+    long_text = "a much longer song with many more words in it " * 20
+    assert cache.find_similar(long_text) is None
+
+
 def test_db_backend_find_similar_respects_source_language(sqlite_db):
     """Hindi -> Korean and Japanese -> Korean of near-identical text must
     not be treated as the same cached result."""
