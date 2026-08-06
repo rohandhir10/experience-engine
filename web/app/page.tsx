@@ -126,28 +126,8 @@ export default function Home() {
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
           Google Translate, DeepL, and a single AI prompt are all built to
-          produce one fluent pass and stop. This is what a real result
-          looks like once something actually checks that pass — a live
-          screenshot of the product, not a mockup:
-        </p>
-
-        <div className="mx-auto mt-8 max-w-lg overflow-hidden rounded-2xl border border-white/10">
-          <Image
-            src="/screenshots/comparison-card.png"
-            alt="A real Castia result: the literal reading next to the adapted line, with a plain-language reason for the change written underneath"
-            width={672}
-            height={637}
-            className="w-full"
-          />
-        </div>
-        <p className="mt-3 text-center text-[12px] text-white/30">
-          A real adaptation, straight from the product — the reasoning
-          underneath is the Judge's own, not decoration.
-        </p>
-
-        <p className="mx-auto mt-10 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
-          What makes that possible, mechanically — real, documented
-          differences, not a marketing claim:
+          produce one fluent pass and stop. Real, documented differences —
+          not a marketing claim:
         </p>
 
         <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
