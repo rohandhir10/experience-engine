@@ -426,15 +426,29 @@ export default function ComicsPage() {
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
-                <TargetLanguageSelect
-                  label="From"
-                  value={sourceLanguage}
-                  onChange={(next) => {
-                    setSourceLanguage(next);
-                    setSourceLanguageTouched(true);
-                  }}
-                  options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
-                />
+                {/* Only shown once a non-English target is picked, same as
+                    InputScreen.tsx's music equivalent - server/main.py
+                    only requires an explicit source_language for that
+                    case. Unconditionally rendering this while both
+                    languages default to "English" used to mean the
+                    options list excluded "English" (it always excludes
+                    whatever's selected as the target) with no matching
+                    option for the value still set to "English" - the
+                    browser silently fell back to selecting whatever
+                    option happened to be first, so the dropdown showed a
+                    language nobody picked while the real state underneath
+                    still read "English". */}
+                {targetLanguage !== "English" && (
+                  <TargetLanguageSelect
+                    label="From"
+                    value={sourceLanguage}
+                    onChange={(next) => {
+                      setSourceLanguage(next);
+                      setSourceLanguageTouched(true);
+                    }}
+                    options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
+                  />
+                )}
                 <TargetLanguageSelect
                   label="Adapt into"
                   value={targetLanguage}

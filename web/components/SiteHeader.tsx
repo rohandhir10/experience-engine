@@ -28,10 +28,18 @@ export function SiteHeader({
   active,
   right,
   forceDark,
+  minimal,
 }: {
   active?: "pricing" | "home" | "music" | "webtoons";
   right?: ReactNode;
   forceDark?: boolean;
+  // Drops Use Cases / Pricing / API from the row for pages that already
+  // pack their own controls into `right` (currently just ResultScreen's
+  // share-result screens) - those pages aren't marketing surfaces
+  // someone's browsing from, and the full nav plus a page's own toolbar
+  // together were enough items to force "Use Cases"/"Sign In" onto two
+  // lines even at a 1280px desktop width, not just on mobile.
+  minimal?: boolean;
 }) {
   const dim = forceDark ? "text-white/45 hover:text-white/75" : "text-ink/45 hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70";
   const navLink = `text-[13px] transition ${dim}`;
@@ -47,12 +55,12 @@ export function SiteHeader({
       <Link href="/">
         <Logo force={forceDark ? "light" : undefined} />
       </Link>
-      <div className="flex items-center gap-4 sm:gap-6">
+      <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-4 sm:gap-x-6">
         {(active === "music" || active === "webtoons") && (
           <MediumSwitcher active={active} forceDark={forceDark} />
         )}
-        <UseCasesMenu forceDark={forceDark} />
-        {active !== "pricing" && (
+        {!minimal && <UseCasesMenu forceDark={forceDark} />}
+        {!minimal && active !== "pricing" && (
           <Link href="/pricing" className={`hidden sm:inline ${navLink}`}>
             Pricing
           </Link>
@@ -62,23 +70,25 @@ export function SiteHeader({
             reason DashboardSidebar's matching row does: no async
             job/poll pattern yet, no published docs page yet, same
             disclosure convention as Webtoons' own "Beta" badge. */}
-        <Link
-          href="/dashboard/settings"
-          className={`hidden items-center gap-1.5 text-[13px] transition sm:inline-flex ${
-            forceDark ? "text-white/25 hover:text-white/50" : "text-ink/30 hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"
-          }`}
-        >
-          API
-          <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-              forceDark
-                ? "bg-white/10 text-white/40"
-                : "bg-black/[0.05] text-ink/35 dark:bg-white/10 dark:text-ink-dark/40"
+        {!minimal && (
+          <Link
+            href="/dashboard/settings"
+            className={`hidden items-center gap-1.5 text-[13px] transition sm:inline-flex ${
+              forceDark ? "text-white/25 hover:text-white/50" : "text-ink/30 hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"
             }`}
           >
-            Beta
-          </span>
-        </Link>
+            API
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
+                forceDark
+                  ? "bg-white/10 text-white/40"
+                  : "bg-black/[0.05] text-ink/35 dark:bg-white/10 dark:text-ink-dark/40"
+              }`}
+            >
+              Beta
+            </span>
+          </Link>
+        )}
 
         {right}
 

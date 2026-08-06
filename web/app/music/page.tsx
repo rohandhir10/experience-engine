@@ -22,9 +22,21 @@ export default function MusicPage() {
     writeMediumPreference("music");
   }, []);
 
-  if (loading) {
-    return <LoadingScreen progress={progress} />;
-  }
-
-  return <InputScreen onSubmit={submit} loading={loading} error={error} />;
+  // InputScreen stays mounted the whole time, even while loading - it
+  // holds the pasted lyrics (and every other input) in its own local
+  // state, so swapping it out for LoadingScreen used to unmount it and
+  // wipe everything typed the moment a submit failed, before the error
+  // even had a chance to render. LoadingScreen overlays on top instead,
+  // the same "don't lose what the user already did" reasoning as
+  // app/comics/page.tsx keeping its panel state above the loading branch.
+  return (
+    <>
+      <InputScreen onSubmit={submit} loading={loading} error={error} />
+      {loading && (
+        <div className="fixed inset-0 z-50 bg-paper-dark">
+          <LoadingScreen progress={progress} />
+        </div>
+      )}
+    </>
+  );
 }

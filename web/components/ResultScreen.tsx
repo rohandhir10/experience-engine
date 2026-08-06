@@ -79,6 +79,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
         </div>
       )}
       <SiteHeader
+        minimal
         right={
           <>
             <button
