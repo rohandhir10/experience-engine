@@ -74,6 +74,67 @@ export function webPageJsonLd({
   };
 }
 
+export function howToJsonLd({
+  path,
+  name,
+  description,
+  steps,
+}: {
+  path: string;
+  name: string;
+  description: string;
+  steps: { name: string; text: string }[];
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "@id": `${absoluteUrl(path)}#howto`,
+    name,
+    description,
+    step: steps.map((s, index) => ({
+      "@type": "HowToStep",
+      position: index + 1,
+      name: s.name,
+      text: s.text,
+    })),
+  };
+}
+
+export function productJsonLd({
+  path,
+  name,
+  description,
+  offers,
+  availability,
+}: {
+  path: string;
+  name: string;
+  description: string;
+  offers: { name: string; price: string; priceCurrency: string; description: string }[];
+  /** "https://schema.org/PreOrder" while checkout isn't live yet - must
+   * match the page's own visible disclosure, never claim InStock ahead
+   * of it actually being purchasable. */
+  availability?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "@id": absoluteUrl(path),
+    name,
+    description,
+    brand: { "@type": "Brand", name: SITE_NAME },
+    offers: offers.map((o) => ({
+      "@type": "Offer",
+      name: o.name,
+      price: o.price,
+      priceCurrency: o.priceCurrency,
+      description: o.description,
+      url: absoluteUrl(path),
+      ...(availability ? { availability } : {}),
+    })),
+  };
+}
+
 export function definedTermSetJsonLd({
   path,
   name,

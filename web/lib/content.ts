@@ -6,7 +6,7 @@
 // see the biweekly refresh Routine (docs/CAPABILITY_MATRIX.md), which is
 // the one process allowed to touch this file on a schedule rather than
 // as a one-off edit.
-export type ContentKind = "blog" | "compare" | "landing" | "glossary";
+export type ContentKind = "blog" | "compare" | "landing" | "glossary" | "guide";
 
 export type ContentEntry = {
   slug: string;
@@ -108,6 +108,26 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
       "Upload panels, get dialogue adapted per character with a stated reason for every creative choice, plus optional lettering redraw and typeset.",
     publishedDate: "2026-08-05",
     updatedDate: "2026-08-05",
+  },
+  {
+    slug: "how-it-works",
+    path: "/how-it-works",
+    kind: "guide",
+    title: "How Castia's Writers' Room pipeline actually works",
+    description:
+      "The real mechanism behind every adaptation: a literal Translator anchor, five Creative Adapter rewrites, an automated verification pass, and a Judge that scores and explains the winner — for both music and comics.",
+    publishedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
+  },
+  {
+    slug: "pricing",
+    path: "/pricing",
+    kind: "guide",
+    title: "Castia pricing",
+    description:
+      "Credit-based pricing for song and comic/webtoon adaptation - pay-as-you-go packs, a Creator subscription, and Studio/Enterprise plans. Billing isn't live yet.",
+    publishedDate: "2026-08-05",
+    updatedDate: "2026-08-06",
   },
   {
     slug: "glossary",

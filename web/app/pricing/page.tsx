@@ -1,12 +1,18 @@
 import { SiteHeader } from "@/components/SiteHeader";
 import { Footer } from "@/components/Footer";
 import { BuyButton } from "@/components/BuyButton";
+import { JsonLd } from "@/components/JsonLd";
+import { BreadcrumbNav } from "@/components/BreadcrumbNav";
+import Link from "next/link";
+import { contentByPath } from "@/lib/content";
+import { breadcrumbJsonLd, productJsonLd } from "@/lib/schema";
+
+const entry = contentByPath("/pricing")!;
 
 export const metadata = {
-  title: "Pricing",
-  description:
-    "Credit-based pricing for Castia - packs, a subscription, and team/enterprise plans. Billing isn't live yet, so trying it today is free.",
-  alternates: { canonical: "/pricing" },
+  title: entry.title,
+  description: entry.description,
+  alternates: { canonical: entry.path },
 };
 
 // One credit unit throughout this page. Keeping these three numbers in
@@ -64,13 +70,37 @@ function perPage(price: number, credits: number): string {
 }
 
 export default function PricingPage() {
+  const breadcrumb = breadcrumbJsonLd([
+    { name: "Home", path: "/" },
+    { name: "Pricing" },
+  ]);
+  // availability: PreOrder, not InStock - matches the page's own visible
+  // disclosure that Paddle checkout isn't live yet. Structured data has
+  // to agree with what a visitor actually sees, same rule the FAQ page's
+  // JSON-LD follows.
+  const product = productJsonLd({
+    path: entry.path,
+    name: "Castia credits",
+    description: entry.description,
+    offers: [
+      { name: "Starter", price: String(PACKS[0].price), priceCurrency: "USD", description: `${PACKS[0].credits} credits, one-time, no expiry` },
+      { name: "Growth", price: String(PACKS[1].price), priceCurrency: "USD", description: `${PACKS[1].credits} credits, one-time, no expiry` },
+      { name: "Bulk", price: String(PACKS[2].price), priceCurrency: "USD", description: `${PACKS[2].credits} credits, one-time, no expiry` },
+      { name: SUBSCRIPTION.name, price: String(SUBSCRIPTION.price), priceCurrency: "USD", description: `${SUBSCRIPTION.credits} credits delivered monthly` },
+    ],
+    availability: "https://schema.org/PreOrder",
+  });
+
   return (
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+      <JsonLd data={breadcrumb} />
+      <JsonLd data={product} />
       <div className="mx-auto max-w-3xl">
         <SiteHeader active="pricing" />
 
         <div className="mt-10">
-          <h1 className="font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
+          <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Pricing" }]} />
+          <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Pricing.
           </h1>
           <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
@@ -226,6 +256,51 @@ export default function PricingPage() {
               </ul>
               <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/30 dark:text-ink-dark/30">
                 Coming soon
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-12 border-t border-black/[0.06] pt-10 dark:border-white/[0.07]">
+          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
+            Credits, in detail
+          </h2>
+          <div className="mt-6 space-y-6">
+            <div>
+              <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
+                What happens if a generation fails?
+              </h3>
+              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+                Credits are debited when a job starts, before the engine
+                runs, so a job can't begin without its cost already locked
+                in. If the underlying model or inpainting call fails after
+                that debit, the credits are refunded automatically — you're
+                never charged for a run that didn't produce a result.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
+                Do credits expire?
+              </h3>
+              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+                Pay-as-you-go pack credits don't expire and aren't charged
+                again on their own. Creator subscription credits are
+                delivered to the same balance every month for as long as
+                the subscription is active.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
+                Refunds, once billing is live
+              </h3>
+              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+                Failed generations are refunded automatically, as above.
+                For everything else — the general refund policy once
+                purchases are actually live — see the{" "}
+                <Link href="/refunds" className="underline decoration-ink/20 underline-offset-4">
+                  refund policy
+                </Link>
+                .
               </p>
             </div>
           </div>
