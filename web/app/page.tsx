@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Footer } from "@/components/Footer";
+import { ScrollReveal } from "@/components/ScrollReveal";
 import { readMediumPreference } from "@/lib/mediumPreference";
 
 // "/" is now a neutral medium chooser, not the music workflow directly.
@@ -114,8 +115,129 @@ export default function Home() {
         </MediumTile>
       </div>
 
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20">
+        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-white/30">
+          Why not just paste it into a translator?
+        </p>
+        <h2 className="mt-3 text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+          One draft, no check, no explanation.
+          <br />
+          That's what everything else ships.
+        </h2>
+        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
+          Google Translate, DeepL, and a single AI prompt are all built to
+          produce one fluent pass and stop. Real, documented differences —
+          not a marketing claim:
+        </p>
+
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+          <table className="w-full min-w-[560px] text-left text-[13px]">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="p-4 font-medium text-white/35"> </th>
+                <th className="p-4 font-medium text-white/50">Google Translate</th>
+                <th className="p-4 font-medium text-white/50">DeepL</th>
+                <th className="p-4 font-medium text-white/50">A single AI prompt</th>
+                <th className="p-4 font-medium text-white">Castia</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/10">
+              {[
+                ["Drafts per line", "One", "One", "One", "Six — one literal anchor + five creative rewrites"],
+                ["Verification step", "Not documented", "Not documented", "No mechanism", "A Judge scores every rewrite against the anchor"],
+                ["Explains its changes", "No", "No", "No", "Every departure ships with a stated reason"],
+                ["Falls back to literal if nothing earns its keep", "No mechanism", "No mechanism", "No mechanism", "Yes"],
+              ].map(([label, gt, dl, gpt, castia]) => (
+                <tr key={label}>
+                  <td className="p-4 align-top text-white/40">{label}</td>
+                  <td className="p-4 align-top text-white/55">{gt}</td>
+                  <td className="p-4 align-top text-white/55">{dl}</td>
+                  <td className="p-4 align-top text-white/55">{gpt}</td>
+                  <td className="p-4 align-top font-medium text-white">{castia}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-5 text-center text-[12.5px] leading-relaxed text-white/35">
+          The full mechanism, sourced:{" "}
+          <Link href="/compare/google-translate" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+            vs. Google Translate
+          </Link>
+          {" · "}
+          <Link href="/compare/deepl" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+            vs. DeepL
+          </Link>
+          {" · "}
+          <Link href="/compare/chatgpt-prompt" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+            vs. a single ChatGPT prompt
+          </Link>
+        </p>
+      </ScrollReveal>
+
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20" delayMs={80}>
+        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-white/30">
+          How it actually works
+        </p>
+        <h2 className="mt-3 text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+          A real Writers' Room, not one prompt.
+        </h2>
+
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <PipelineStep
+            n="1"
+            title="Translator"
+            body="One literal, anchor translation — the floor everything else is checked against."
+          />
+          <PipelineStep
+            n="2"
+            title="Creative Adapter"
+            body="Five differently-angled rewrites, each taking a real liberty with phrasing, idiom, or rhythm."
+          />
+          <PipelineStep
+            n="3"
+            title="Judge"
+            body="Scores every rewrite against the anchor, picks a winner, and writes down the real reason it departs from literal."
+          />
+        </div>
+
+        <p className="mt-6 text-center text-[13px] text-white/40">
+          <Link href="/how-it-works" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+            See the full pipeline, including comics
+          </Link>
+        </p>
+      </ScrollReveal>
+
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl sm:mt-24" delayMs={80}>
+        <div className="rounded-2xl bg-[#181310] p-8 text-center sm:p-12">
+          <p className="font-serif text-[1.35rem] leading-[1.35] text-white sm:text-[1.6rem]">
+            Every AI has an opinion about your lyrics.
+            <br />
+            Only one writes down why.
+          </p>
+          <p className="mx-auto mt-4 max-w-md text-[13px] leading-relaxed text-white/45">
+            No invented details, no unexplained rewrites — a change that
+            can't justify itself against the literal reading gets reverted
+            before it ships, not just flagged.
+          </p>
+        </div>
+      </ScrollReveal>
+
       <Footer dark />
     </main>
+  );
+}
+
+function PipelineStep({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-[11px] text-white/40">
+        {n}
+      </span>
+      <h3 className="mt-3 font-serif text-[1.05rem] text-white">{title}</h3>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-white/45">{body}</p>
+    </div>
   );
 }
 
