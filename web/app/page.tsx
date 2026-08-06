@@ -82,7 +82,7 @@ export default function Home() {
         <MediumTile
           href="/music"
           title="Music"
-          tagline="Adapt song lyrics — not translation, a rewrite that still means it."
+          tagline="Rewrite song lyrics across six languages so they still hit the way the original does."
         >
           <Image
             src="/screenshots/comparison-card.png"
@@ -116,18 +116,13 @@ export default function Home() {
       </div>
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20">
-        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-white/30">
-          Why not just paste it into a translator?
-        </p>
-        <h2 className="mt-3 text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
-          One draft, no check, no explanation.
-          <br />
-          That's what everything else ships.
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+          Every other tool ships whatever its first draft happened to be.
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
           Google Translate, DeepL, and a single AI prompt are all built to
-          produce one fluent pass and stop. Real, documented differences —
-          not a marketing claim:
+          produce one fluent pass and stop there. Real, documented
+          differences, not a marketing claim:
         </p>
 
         <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -186,11 +181,8 @@ export default function Home() {
       </ScrollReveal>
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20" delayMs={80}>
-        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-white/30">
-          How it actually works
-        </p>
-        <h2 className="mt-3 text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
-          A real Writers' Room, not one prompt.
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+          Three roles, one line: a translator, a room of writers, an editor.
         </h2>
 
         <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
