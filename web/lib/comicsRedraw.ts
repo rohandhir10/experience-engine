@@ -7,22 +7,25 @@ export type RedrawRegionInput = {
 
 export class RedrawRequestError extends Error {}
 
-/** What a region's redraw text box actually shows: the human's own
- * override if they've typed one, otherwise - ONLY when there's exactly
- * one detected region - the panel's whole adaptedText, since that's the
- * one case the mapping from "one adapted block" to "which bubble" is
- * unambiguous. A multi-region panel with nothing typed yet shows an
- * empty box, never a guess at how to split adaptedText across bubbles
- * (there's no real per-bubble adaptation to split from - see
- * engine/comics_adapt.py's known limitation). Pure and pulled out of
- * app/comics/page.tsx specifically so this rule has real test coverage
- * instead of only being checked by eye in the browser. */
+/** What a region's redraw text box actually shows, in priority order:
+ * (1) the human's own typed override, (2) that region's real adapted
+ * text from lib/comics-types.ts::panelToChapterBubbles's per-bubble
+ * adaptation (regionAdaptedTexts), (3) - ONLY when there's exactly one
+ * detected region AND it has no per-region result yet (an older run, or
+ * a hand-typed panel that got a single region added after the fact) -
+ * the panel's whole flat adaptedText, the one case that mapping is still
+ * unambiguous. A multi-region panel with neither a per-region result nor
+ * a human override shows an empty box rather than guessing. Pure and
+ * pulled out of app/comics/page.tsx specifically so this rule has real
+ * test coverage instead of only being checked by eye in the browser. */
 export function resolveRedrawRegionText(
-  panel: Pick<ComicPanel, "redrawRegionTexts" | "ocrRegions" | "adaptedText">,
+  panel: Pick<ComicPanel, "redrawRegionTexts" | "ocrRegions" | "adaptedText" | "regionAdaptedTexts">,
   index: number
 ): string {
   const override = panel.redrawRegionTexts?.[index];
   if (override != null) return override;
+  const regionResult = panel.regionAdaptedTexts?.[index];
+  if (regionResult != null) return regionResult;
   if (panel.ocrRegions?.length === 1) return panel.adaptedText;
   return "";
 }
@@ -32,12 +35,11 @@ export function resolveRedrawRegionText(
 // that module's docstring for the honest scope: speech bubbles only
 // (not SFX), one fixed bundled font that never matches the original
 // lettering, a heuristic text-color guess. `regions` is only ever the
-// subset the human has actually filled in (components/comics/
-// PanelWorkspace.tsx never auto-splits one adapted paragraph across
-// several detected bubbles - there's no real per-bubble adaptation to
-// split from yet). Returns a data: URI, ready to drop into an <img> src
-// or a download link - nothing is stored server-side, so there's no id
-// to fetch this result by later.
+// subset the human has actually filled in (resolveRedrawRegionText
+// above, now real per-bubble adaptation results by default, not a
+// guess). Returns a data: URI, ready to drop into an <img> src or a
+// download link - nothing is stored server-side, so there's no id to
+// fetch this result by later.
 export async function redrawPanel(
   file: File,
   regions: RedrawRegionInput[]

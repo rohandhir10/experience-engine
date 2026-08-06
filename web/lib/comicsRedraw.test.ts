@@ -5,11 +5,13 @@ function panel(overrides: {
   redrawRegionTexts?: (string | null)[] | null;
   ocrRegions?: { text: string; bbox: { x: number; y: number; width: number; height: number }; confidence: number }[] | null;
   adaptedText?: string;
+  regionAdaptedTexts?: (string | null)[] | null;
 }) {
   return {
     redrawRegionTexts: overrides.redrawRegionTexts ?? null,
     ocrRegions: overrides.ocrRegions ?? null,
     adaptedText: overrides.adaptedText ?? "",
+    regionAdaptedTexts: overrides.regionAdaptedTexts ?? null,
   };
 }
 
@@ -20,18 +22,36 @@ const region = {
 };
 
 describe("resolveRedrawRegionText", () => {
-  it("defaults a single-region panel's unfilled slot to the whole adaptedText", () => {
+  it("defaults a single-region panel's unfilled slot to the whole adaptedText when there's no real per-region result yet", () => {
     const p = panel({ ocrRegions: [region], adaptedText: "the adapted line" });
     expect(resolveRedrawRegionText(p, 0)).toBe("the adapted line");
   });
 
-  it("never guesses for a multi-region panel with nothing typed yet", () => {
+  it("shows nothing for a multi-region panel with no real result and nothing typed yet", () => {
     const p = panel({ ocrRegions: [region, region], adaptedText: "the adapted line" });
     expect(resolveRedrawRegionText(p, 0)).toBe("");
     expect(resolveRedrawRegionText(p, 1)).toBe("");
   });
 
-  it("prefers a human override over the single-region default", () => {
+  it("uses each region's own real per-bubble adaptation result, not a guess", () => {
+    const p = panel({
+      ocrRegions: [region, region],
+      regionAdaptedTexts: ["first bubble's real result", "second bubble's real result"],
+    });
+    expect(resolveRedrawRegionText(p, 0)).toBe("first bubble's real result");
+    expect(resolveRedrawRegionText(p, 1)).toBe("second bubble's real result");
+  });
+
+  it("prefers a human override over a real per-region result", () => {
+    const p = panel({
+      ocrRegions: [region],
+      regionAdaptedTexts: ["the real result"],
+      redrawRegionTexts: ["a manually typed override"],
+    });
+    expect(resolveRedrawRegionText(p, 0)).toBe("a manually typed override");
+  });
+
+  it("prefers a human override over the single-region flat-text default", () => {
     const p = panel({
       ocrRegions: [region],
       adaptedText: "the adapted line",

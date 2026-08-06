@@ -8,7 +8,7 @@ import { PanelUploader } from "@/components/comics/PanelUploader";
 import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
 import { naturalCompare } from "@/lib/naturalSort";
 import { LANGUAGES } from "@/lib/languages";
-import { panelsToCsv, type ComicPanel } from "@/lib/comics-types";
+import { applyBubbleResult, panelToChapterBubbles, panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, resolvePanelSpeaker, runPanelOcr } from "@/lib/comicsOcr";
 import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
@@ -34,10 +34,13 @@ import { ScrollReveal } from "@/components/ScrollReveal";
 // This page is that tool's functional foundation: file upload, a
 // panel-by-panel review workspace, a real (if imperfect) OCR pass per
 // panel (/api/comics/ocr), and a real adaptation call
-// (engine/chapter_dna.py + engine/comics_adapt.py) - see
-// server/main.py's comics_adapt_start/_run_comics_adaptation for what
-// it does and doesn't do yet (each PANEL is one adaptation unit, not
-// each detected OCR region).
+// (engine/chapter_dna.py + engine/comics_adapt.py). Each detected OCR
+// REGION is its own adaptation unit (lib/comics-types.ts::panelToChapterBubbles),
+// not the whole panel flattened into one block - a panel with two
+// speakers gets two independent rewrites, each keyed back to its own
+// bubble by lib/comics-types.ts::applyBubbleResult. A panel with no
+// detected regions (hand-typed dialogue) still adapts as one unit, since
+// there's no per-bubble structure to split against.
 export default function ComicsPage() {
   const [panels, setPanels] = useState<ComicPanel[]>([]);
   const [sourceLanguage, setSourceLanguage] = useState("English");
@@ -87,6 +90,8 @@ export default function ComicsPage() {
         ocrMessage: null,
         detectedLanguages: null,
         voice: null,
+        regionAdaptedTexts: null,
+        regionWhys: null,
         redrawRegionTexts: null,
         redrawResultUrl: null,
         redrawStatus: "idle" as const,
@@ -124,9 +129,11 @@ export default function ComicsPage() {
       ocrStatus: "running",
       ocrMessage: null,
       ocrRegions: null,
-      // A new OCR run means new region indices - any redraw state tied
-      // to the old ones (per-region text, a composited result image)
-      // no longer corresponds to anything real.
+      // A new OCR run means new region indices - any per-region state
+      // tied to the old ones (adaptation results, redraw text, a
+      // composited result image) no longer corresponds to anything real.
+      regionAdaptedTexts: null,
+      regionWhys: null,
       redrawRegionTexts: null,
       redrawResultUrl: null,
       redrawStatus: "idle",
@@ -237,39 +244,37 @@ export default function ComicsPage() {
     }
   }, [chapterLanguage?.languageName, sourceLanguageTouched]);
 
-  // Applies one panel's real adapted result - called both incrementally,
-  // as each panel finishes while the rest of a large chapter is still
+  // Applies one bubble's real adapted result - called both incrementally,
+  // as each bubble finishes while the rest of a large chapter is still
   // running (adaptChapter's onProgress below), and once more for the
-  // final settled result. Reads/writes against the functional setPanels
-  // updater's own `prev`, not the outer `panels` closure - this runs
-  // across a job that can take minutes, during which the human may have
-  // already edited panel 1 by hand while panels 2-100 are still
-  // adapting (the whole point of not locking the workspace), so the
-  // "only pre-fill if still empty" check has to see the LATEST state at
-  // the moment each result actually arrives, not a stale snapshot from
-  // whenever the button was first clicked.
-  function applyPanelResult(panelResult: { id: string; adaptedText: string; why: string }) {
-    setPanels((prev) =>
-      prev.map((panel) => {
-        if (panel.id !== panelResult.id) return panel;
-        return {
-          ...panel,
-          adaptedText: panel.adaptedText.trim() ? panel.adaptedText : panelResult.adaptedText,
-          why: panel.why.trim() ? panel.why : panelResult.why,
-        };
-      })
-    );
+  // final settled result. A "bubble" is one detected region within a
+  // panel when the panel has any (lib/comics-types.ts::panelToChapterBubbles),
+  // so this can update just ONE region of a multi-speaker panel without
+  // touching the others - the actual fix for panels with more than one
+  // speech bubble, which used to be flattened into a single adapted
+  // block regardless of how many people were talking.
+  //
+  // Reads/writes against the functional setPanels updater's own `prev`,
+  // not the outer `panels` closure - this runs across a job that can
+  // take minutes, during which the human may have already edited a
+  // bubble by hand while the rest of the chapter is still adapting (the
+  // whole point of not locking the workspace), so the "only pre-fill if
+  // still empty" check has to see the LATEST state at the moment each
+  // result actually arrives, not a stale snapshot from whenever the
+  // button was first clicked.
+  function applyPanelResult(bubbleResult: { id: string; adaptedText: string; why: string }) {
+    setPanels((prev) => prev.map((panel) => applyBubbleResult(panel, bubbleResult.id, bubbleResult)));
   }
 
   async function adaptWholeChapter() {
-    const eligiblePanels = panels.filter((p) => p.extractedText.trim());
-    if (!eligiblePanels.length || adaptStatus === "running") return;
+    const bubbles = panels.flatMap(panelToChapterBubbles);
+    if (!bubbles.length || adaptStatus === "running") return;
     setAdaptStatus("running");
     setAdaptError(null);
     setAdaptProgress(null);
     try {
       const result = await adaptChapter(
-        eligiblePanels.map((p) => ({ id: p.id, text: p.extractedText, voice: p.voice || undefined })),
+        bubbles,
         sourceLanguage,
         targetLanguage,
         (progress) => {
@@ -317,8 +322,8 @@ export default function ComicsPage() {
             with Google Cloud Vision — it auto-detects the script and language, but it's still
             genuinely imperfect on stylized comic lettering, so treat it as a starting draft.
             "Adapt chapter" runs every panel's text through the same Reasoning Engine the music
-            side uses — each panel is adapted as one block of dialogue for now, not split per
-            speech bubble, and nothing yet tracks who's speaking from panel to panel.
+            side uses — each detected speech bubble is adapted on its own, and naming a speaker
+            keeps their voice consistent from panel to panel across the whole chapter.
           </p>
 
           {panels.length === 0 ? (
@@ -425,7 +430,7 @@ export default function ComicsPage() {
                 <button
                   type="button"
                   onClick={adaptWholeChapter}
-                  disabled={adaptStatus === "running" || !panels.some((p) => p.extractedText.trim())}
+                  disabled={adaptStatus === "running" || !panels.some((p) => panelToChapterBubbles(p).length > 0)}
                   className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {adaptStatus === "running"

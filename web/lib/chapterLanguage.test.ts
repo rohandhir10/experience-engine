@@ -19,6 +19,8 @@ function panel(
     ocrMessage: null,
     detectedLanguages,
     voice: null,
+    regionAdaptedTexts: null,
+    regionWhys: null,
     redrawRegionTexts: null,
     redrawResultUrl: null,
     redrawStatus: "idle",

@@ -114,12 +114,13 @@ async function pollJob(
 // called for a cache hit (status="done" immediately - nothing was ever
 // "in progress").
 //
-// Each PANEL is sent as one adaptation unit; a panel with several speech
-// bubbles is adapted as one combined block, not split further.
-// `voice`, when set, becomes BubbleInput.voice server-side - the thing
-// that actually drives per-character voice consistency and honorific-
-// register tracking (engine/comics_adapt.py); omitted, a panel is
-// adapted unattributed, same as before this field existed.
+// Callers build `panels` via lib/comics-types.ts::panelToChapterBubbles,
+// which sends one adaptation unit per detected OCR region, not one per
+// whole panel - a panel with several speech bubbles gets each adapted
+// independently. `voice`, when set, becomes BubbleInput.voice
+// server-side - the thing that actually drives per-character voice
+// consistency and honorific-register tracking (engine/comics_adapt.py);
+// omitted, a bubble is adapted unattributed.
 export async function adaptChapter(
   panels: { id: string; text: string; voice?: string }[],
   sourceLanguage: string,

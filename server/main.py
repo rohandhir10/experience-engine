@@ -606,15 +606,20 @@ def comics_adapt_endpoint(request: ComicsAdaptRequest, http_request: Request) ->
     than just extracting or displaying it (see docs/CAPABILITY_MATRIX.md's
     chapter-level-context roadmap).
 
-    Each PANEL is treated as one adaptation unit ("bubble" in engine
-    terms), not each individually-detected OCR region — a panel with
-    several speech bubbles is adapted as one combined block of dialogue
-    for now. `ComicsPanelText.voice`, when the human reviewing a panel
-    names a speaker (components/comics/PanelWorkspace.tsx), threads
-    straight through to BubbleInput.voice — this is what actually
-    drives per-character voice consistency and honorific-register
-    tracking (engine/comics_adapt.py). A panel left unattributed still
-    adapts fine; it just doesn't get either benefit.
+    Each entry in `request.panels` is one adaptation unit ("bubble" in
+    engine terms) — this endpoint has no concept of a "panel" at all,
+    only a flat list of {id, text, voice}. The frontend
+    (lib/comics-types.ts::panelToChapterBubbles) sends one entry per
+    detected OCR region when a panel has them, so a panel with several
+    speech bubbles gets each adapted independently; a panel with no
+    detected regions (hand-typed dialogue) sends one entry for its
+    whole text instead, since there's no per-bubble structure to split
+    against. `ComicsPanelText.voice`, when a speaker is named for a
+    bubble (components/comics/PanelWorkspace.tsx), threads straight
+    through to BubbleInput.voice — this is what actually drives
+    per-character voice consistency and honorific-register tracking
+    (engine/comics_adapt.py). A bubble left unattributed still adapts
+    fine; it just doesn't get either benefit.
 
     Deliberately synchronous, same as /api/adapt still is — fine for a
     short chapter, but many sequential per-panel Writers' Room runs can

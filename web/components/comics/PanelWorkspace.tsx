@@ -82,6 +82,22 @@ export function PanelWorkspace({
     onUpdatePanel(active.id, { redrawRegionTexts: next });
   }
 
+  function setRegionAdaptedText(index: number, value: string) {
+    const regions = active.ocrRegions;
+    if (!regions) return;
+    const next = [...(active.regionAdaptedTexts ?? new Array(regions.length).fill(null))];
+    next[index] = value;
+    onUpdatePanel(active.id, { regionAdaptedTexts: next });
+  }
+
+  function setRegionWhy(index: number, value: string) {
+    const regions = active.ocrRegions;
+    if (!regions) return;
+    const next = [...(active.regionWhys ?? new Array(regions.length).fill(null))];
+    next[index] = value;
+    onUpdatePanel(active.id, { regionWhys: next });
+  }
+
   const knownVoices = Array.from(
     new Set(panels.map((p) => p.voice?.trim()).filter((v): v is string => !!v))
   ).sort((a, b) => a.localeCompare(b));
@@ -357,19 +373,67 @@ export function PanelWorkspace({
               value={active.extractedText}
               onChange={(value) => onUpdatePanel(active.id, { extractedText: value })}
             />
-            <Field
-              label="Adapted text"
-              hint="The rewritten line for this panel."
-              value={active.adaptedText}
-              onChange={(value) => onUpdatePanel(active.id, { adaptedText: value })}
-            />
-            <Field
-              label="Why"
-              hint="A plain-language reason for anything that changed."
-              value={active.why}
-              onChange={(value) => onUpdatePanel(active.id, { why: value })}
-              rows={2}
-            />
+            {active.ocrRegions && active.ocrRegions.length > 0 ? (
+              <div>
+                <span className="text-[13px] font-medium text-ink dark:text-ink-dark">
+                  Adapted text, per bubble
+                </span>
+                <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                  Each detected bubble is adapted on its own — a panel with two speakers
+                  gets two independent rewrites, not one block credited to whoever's line
+                  came first.
+                </p>
+                <ol className="mt-2 flex flex-col gap-3">
+                  {active.ocrRegions.map((region, i) => (
+                    <li
+                      key={i}
+                      className="rounded-lg border border-black/[0.06] p-2.5 dark:border-white/[0.08]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
+                          {i + 1}
+                        </span>
+                        {region.speaker && (
+                          <span className="text-[11px] text-ink/40 dark:text-ink-dark/40">
+                            {region.speaker}
+                          </span>
+                        )}
+                      </div>
+                      <textarea
+                        value={active.regionAdaptedTexts?.[i] ?? ""}
+                        onChange={(e) => setRegionAdaptedText(i, e.target.value)}
+                        rows={2}
+                        placeholder="Adapted text for this bubble…"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                      />
+                      <textarea
+                        value={active.regionWhys?.[i] ?? ""}
+                        onChange={(e) => setRegionWhy(i, e.target.value)}
+                        rows={1}
+                        placeholder="Why (optional)…"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[12px] leading-snug text-ink/60 placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark/60 dark:placeholder:text-ink-dark/30"
+                      />
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            ) : (
+              <>
+                <Field
+                  label="Adapted text"
+                  hint="The rewritten line for this panel."
+                  value={active.adaptedText}
+                  onChange={(value) => onUpdatePanel(active.id, { adaptedText: value })}
+                />
+                <Field
+                  label="Why"
+                  hint="A plain-language reason for anything that changed."
+                  value={active.why}
+                  onChange={(value) => onUpdatePanel(active.id, { why: value })}
+                  rows={2}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
