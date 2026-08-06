@@ -17,6 +17,7 @@ import pytest
 from PIL import Image
 
 from engine import comics_inpaint, comics_redraw
+from engine import config as engine_config
 from engine.comics_inpaint import (
     LocalInpainter,
     RemoteInpainter,
@@ -287,6 +288,96 @@ def test_remote_returns_none_when_the_service_is_unreachable(stub_post):
     assert RemoteInpainter("http://x/i").inpaint(
         _panel(), build_mask((120, 80), [(1, 1, 5, 5)])
     ) is None
+
+
+# --- retrying a TRANSPORT failure (network blip), never a bad reply -------
+
+
+def test_remote_retries_a_transport_failure_then_succeeds(monkeypatch):
+    """A momentary connection error on attempt 1 must not permanently
+    downgrade this redraw's quality when attempt 2 would have worked."""
+    calls = {"count": 0}
+    good_response = _StubResponse(
+        content=_png_bytes(_panel(color=(5, 5, 5))), headers={"content-type": "image/png"}
+    )
+
+    def fake_post(url, json=None, timeout=None):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("connection reset")
+        return good_response
+
+    monkeypatch.setattr("httpx.post", fake_post)
+
+    result = RemoteInpainter("http://x/i", max_retries=1).inpaint(
+        _panel(), build_mask((120, 80), [(1, 1, 5, 5)])
+    )
+
+    assert calls["count"] == 2
+    assert result is not None
+
+
+def test_remote_gives_up_after_exhausting_its_retry_budget(monkeypatch):
+    calls = {"count": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        calls["count"] += 1
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr("httpx.post", fake_post)
+
+    result = RemoteInpainter("http://x/i", max_retries=2).inpaint(
+        _panel(), build_mask((120, 80), [(1, 1, 5, 5)])
+    )
+
+    assert calls["count"] == 3  # 1 initial attempt + 2 retries
+    assert result is None
+
+
+def test_remote_does_not_retry_a_reply_the_service_actually_sent(monkeypatch):
+    """A wrong-size reply or an unreadable body is a real answer from the
+    service, not a transport failure - retrying would just get the same
+    wrong answer again, so it must not be attempted."""
+    calls = {"count": 0}
+    wrong_size_response = _StubResponse(
+        content=_png_bytes(_panel(width=999, height=999)),
+        headers={"content-type": "image/png"},
+    )
+
+    def fake_post(url, json=None, timeout=None):
+        calls["count"] += 1
+        return wrong_size_response
+
+    monkeypatch.setattr("httpx.post", fake_post)
+
+    result = RemoteInpainter("http://x/i", max_retries=2).inpaint(
+        _panel(), build_mask((120, 80), [(1, 1, 5, 5)])
+    )
+
+    assert calls["count"] == 1
+    assert result is None
+
+
+def test_remote_defaults_its_retry_count_from_config(monkeypatch):
+    """max_retries=None (build_inpainter's default construction) reads
+    config.INPAINT_MAX_RETRIES lazily at call time, not at construction -
+    proven by changing the config value and confirming the call count
+    reflects it."""
+    calls = {"count": 0}
+
+    def fake_post(url, json=None, timeout=None):
+        calls["count"] += 1
+        raise RuntimeError("connection refused")
+
+    monkeypatch.setattr("httpx.post", fake_post)
+    monkeypatch.setattr(engine_config, "INPAINT_MAX_RETRIES", 3)
+
+    result = RemoteInpainter("http://x/i").inpaint(
+        _panel(), build_mask((120, 80), [(1, 1, 5, 5)])
+    )
+
+    assert calls["count"] == 4  # 1 initial attempt + 3 retries from config
+    assert result is None
 
 
 # --- the fallback chain: the point of the whole exercise ------------------

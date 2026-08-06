@@ -88,6 +88,14 @@ INPAINT_URL = os.environ.get("CASTIA_INPAINT_URL", "")
 # timeout here costs redraw QUALITY (it falls back to OpenCV), not the
 # request itself.
 INPAINT_TIMEOUT_SECONDS = float(os.environ.get("CASTIA_INPAINT_TIMEOUT", "60"))
+# How many times RemoteInpainter retries a TRANSPORT failure (connection
+# error, timeout) before giving up and falling back to local OpenCV -
+# same idea as LLM_MAX_RETRIES above, for the same reason: a single
+# network blip shouldn't permanently downgrade this redraw's quality
+# when trying again costs nothing but a little time. Does NOT apply to a
+# response the service actually returned (wrong dimensions, unreadable
+# body) - that's not the kind of failure a retry fixes.
+INPAINT_MAX_RETRIES = int(os.environ.get("CASTIA_INPAINT_MAX_RETRIES", "1"))
 
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",

@@ -167,6 +167,14 @@ class RemoteInpainter:
     every bounding box the caller is about to typeset into, so it is
     safer to discard that result than to draw text at the wrong scale.
 
+    A TRANSPORT failure (connection refused, timeout, DNS) gets
+    config.INPAINT_MAX_RETRIES retries before giving up - a momentary
+    network blip shouldn't permanently downgrade one redraw's quality
+    when trying again is nearly free. A response the service actually
+    returned (wrong dimensions, an unreadable body) is NOT retried -
+    that's not the class of failure a retry fixes, and a broken
+    integration would otherwise just retry into the same wrong answer.
+
     NOT VERIFIED AGAINST A REAL LaMa SERVICE in this repository - the
     weights live on Hugging Face, which this development environment
     blocks at the network layer. The adapter is written against
@@ -175,28 +183,47 @@ class RemoteInpainter:
     real service on real artwork.
     """
 
-    def __init__(self, url: str, timeout_seconds: float = 60.0):
+    def __init__(self, url: str, timeout_seconds: float = 60.0, max_retries: int | None = None):
         self._url = url
         self._timeout = timeout_seconds
+        # None (the default) reads config lazily rather than at import
+        # time, same reasoning as build_inpainter() below - tests can
+        # still pass an explicit value to avoid depending on env state.
+        self._max_retries = max_retries
+
+    def _resolved_max_retries(self) -> int:
+        if self._max_retries is not None:
+            return self._max_retries
+        from . import config
+
+        return config.INPAINT_MAX_RETRIES
 
     def inpaint(self, image: Image.Image, mask: Image.Image) -> Image.Image | None:
         import httpx
 
-        try:
-            response = httpx.post(
-                self._url,
-                json={
-                    "image": _encode_png(flatten_to_rgb(image)),
-                    "mask": _encode_png(mask.convert("L")),
-                },
-                timeout=self._timeout,
-            )
-            response.raise_for_status()
-            result = _decode_response(response)
-        except Exception as exc:  # noqa: BLE001 - degrade, never raise
-            logger.warning("Remote inpainting failed, falling back: %s", exc)
-            return None
+        payload = {
+            "image": _encode_png(flatten_to_rgb(image)),
+            "mask": _encode_png(mask.convert("L")),
+        }
+        attempts = 1 + max(0, self._resolved_max_retries())
 
+        response = None
+        for attempt in range(1, attempts + 1):
+            try:
+                response = httpx.post(self._url, json=payload, timeout=self._timeout)
+                response.raise_for_status()
+                break
+            except Exception as exc:  # noqa: BLE001 - degrade, never raise
+                if attempt < attempts:
+                    logger.info(
+                        "Remote inpainting attempt %d/%d failed (%s), retrying.",
+                        attempt, attempts, exc,
+                    )
+                    continue
+                logger.warning("Remote inpainting failed after %d attempt(s): %s", attempts, exc)
+                return None
+
+        result = _decode_response(response)
         if result is None:
             return None
         if result.size != image.size:
