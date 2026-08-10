@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ApiKeysManager } from "@/components/ApiKeysManager";
+import { AccountDataControls } from "@/components/AccountDataControls";
 
 export const metadata = { title: "CASTIA — Settings" };
 
@@ -37,6 +38,7 @@ export default function SettingsPage() {
               .
             </p>
             <ApiKeysManager />
+            <AccountDataControls />
           </div>
         </div>
       </div>

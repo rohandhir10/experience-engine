@@ -1571,6 +1571,40 @@ def me_revoke_api_key(key_id: str, http_request: Request) -> dict:
     return {"id": key_id, "revoked": True}
 
 
+@app.get("/api/me/export")
+def me_export(http_request: Request) -> dict:
+    """The "right of access" web/app/privacy states as real practice -
+    everything this account owns, including the adapted results
+    themselves rather than just ids pointing at them. Excludes credential
+    material (password hash, API key hashes): those aren't the user's
+    data to receive, they're the secrets protecting it, and putting them
+    in a downloadable file would turn an export into a leak vector."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    data = accounts.export_account_data(user_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="No such account.")
+    return data
+
+
+@app.delete("/api/me")
+def me_delete(http_request: Request) -> dict:
+    """The "right of erasure" half. Irreversible: removes the account and
+    every row belonging to it, plus any cached result no remaining
+    adaptation still references (see accounts.delete_account for why
+    shared, content-addressed results are handled that carefully).
+
+    Confirming intent is the caller's job - the Next.js side requires the
+    user to type their email to enable the button. This endpoint does not
+    second-guess a request that arrives with a valid internal secret."""
+    _require_internal_secret(http_request)
+    user_id = _required_user_id(http_request)
+    if not accounts.delete_account(user_id):
+        raise HTTPException(status_code=404, detail="No such account.")
+    logger.info("account deleted user_id=%s", user_id)
+    return {"deleted": True}
+
+
 @app.get("/api/me/collections")
 def me_collections(http_request: Request) -> dict:
     _require_internal_secret(http_request)

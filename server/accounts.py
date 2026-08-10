@@ -501,3 +501,243 @@ def list_adaptations(
             _entry_dict(adaptation, cached, membership.get(adaptation.id, []))
             for adaptation, cached in rows
         ]
+
+
+# --- Account deletion and data export ---------------------------------
+#
+# web/app/privacy states GDPR/CCPA rights (access, erasure) as real
+# practice. Until these existed there was no endpoint behind that claim
+# at all - the promise was the only implementation. These two functions
+# are what make it true.
+
+
+def export_account_data(user_id: str) -> dict | None:
+    """Everything this account owns, as plain JSON - the "right of
+    access" half.
+
+    Includes the adapted RESULTS, not just the history rows pointing at
+    them: a export listing result ids the user can't read would satisfy
+    the letter of an access request and none of its point. Credential
+    material is deliberately excluded - password_hash and api key hashes
+    are not the user's data to receive, they're the secrets protecting
+    it, and reproducing them in a file that gets emailed around would
+    make an export a credential-leak vector. API keys are listed by
+    name/prefix so the user can see what exists without the key itself
+    (which was only ever shown once, at creation - see ApiKey's model
+    docstring).
+
+    Returns None when there's no database (nothing to export) or no such
+    user, which the caller distinguishes from an empty-but-real account.
+    """
+    if not _use_db():
+        return None
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import (
+        Adaptation,
+        ApiKey,
+        CachedResult,
+        CharacterBibleEntry,
+        Collection,
+        CollectionAdaptation,
+        CreditTransaction,
+        User,
+    )
+
+    with db.session_scope() as session:
+        uid = _uuid.UUID(user_id)
+        user = session.get(User, uid)
+        if user is None:
+            return None
+
+        adaptations = session.query(Adaptation).filter_by(user_id=uid).all()
+        result_ids = {a.result_id for a in adaptations}
+        cached = {
+            row.id: row
+            for row in session.query(CachedResult).filter(CachedResult.id.in_(result_ids)).all()
+        } if result_ids else {}
+
+        collections = session.query(Collection).filter_by(user_id=uid).all()
+        collection_ids = [c.id for c in collections]
+        memberships: dict[str, list[str]] = {}
+        if collection_ids:
+            for row in session.query(CollectionAdaptation).filter(
+                CollectionAdaptation.collection_id.in_(collection_ids)
+            ).all():
+                memberships.setdefault(str(row.collection_id), []).append(str(row.adaptation_id))
+
+        return {
+            "account": {
+                "id": str(user.id),
+                "email": user.email,
+                "display_name": user.display_name,
+                "email_verified": user.email_verified,
+                "plan": user.plan,
+                "credits": user.credits,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+            },
+            "adaptations": [
+                {
+                    "id": str(a.id),
+                    "result_id": a.result_id,
+                    "medium": a.medium,
+                    "source_language": a.source_language,
+                    "song_key": a.song_key,
+                    "version": a.version,
+                    "verified": a.verified,
+                    "is_favorite": a.is_favorite,
+                    "created_at": a.created_at.isoformat() if a.created_at else None,
+                    # The actual adapted text, not just a pointer to it.
+                    "result": cached[a.result_id].result_json if a.result_id in cached else None,
+                }
+                for a in adaptations
+            ],
+            "collections": [
+                {
+                    "id": str(c.id),
+                    "name": c.name,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                    "adaptation_ids": memberships.get(str(c.id), []),
+                }
+                for c in collections
+            ],
+            "credit_transactions": [
+                {
+                    "amount": t.amount,
+                    "reason": t.reason,
+                    "reference": t.reference,
+                    "balance_after": t.balance_after,
+                    "created_at": t.created_at.isoformat() if t.created_at else None,
+                }
+                for t in session.query(CreditTransaction).filter_by(user_id=uid).all()
+            ],
+            # Names and prefixes only - never key_hash. See the docstring.
+            "api_keys": [
+                {
+                    "name": k.name,
+                    "key_prefix": k.key_prefix,
+                    "created_at": k.created_at.isoformat() if k.created_at else None,
+                    "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+                    "revoked_at": k.revoked_at.isoformat() if k.revoked_at else None,
+                }
+                for k in session.query(ApiKey).filter_by(user_id=uid).all()
+            ],
+            "character_bibles": [
+                {
+                    "series_name": e.series_name,
+                    "character_name": e.character_name,
+                    "voice_description": e.voice_description,
+                    "honorific_register": e.honorific_register,
+                    "relationships": e.relationships,
+                    "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+                }
+                for e in session.query(CharacterBibleEntry).filter_by(user_id=uid).all()
+            ],
+        }
+
+
+def delete_account(user_id: str) -> bool:
+    """Erases the account and everything belonging to it. Irreversible -
+    the caller is responsible for confirming intent before calling.
+
+    Deletion order is explicit and child-first rather than relying on ORM
+    cascades: several of these relationships have no cascade configured
+    at all, and a foreign key that only fails in production (where a real
+    Postgres enforces it) is exactly the kind of bug a local sqlite test
+    can miss.
+
+    CachedResult needs the care. Those rows are content-addressed and
+    SHARED - two users who adapted the same song point at one row - so
+    deleting every result this user touched would destroy other people's
+    history. But leaving all of them behind would mean an "erasure" that
+    keeps the user's own submitted lyrics forever whenever they were the
+    only person who ever submitted them. So: delete exactly those results
+    that no REMAINING adaptation references. A row still referenced by
+    somebody else survives (it's their data too); a row nobody else ever
+    referenced goes, because at that point it was only ever this user's.
+
+    Returns False when there's no database or no such user - never raises
+    for "already gone", so a retried deletion is safe.
+    """
+    if not _use_db():
+        return False
+
+    import uuid as _uuid
+
+    from . import db
+    from .db_models import (
+        Adaptation,
+        ApiKey,
+        ApiKeyUsage,
+        CachedResult,
+        CharacterBibleEntry,
+        Collection,
+        CollectionAdaptation,
+        CreditTransaction,
+        EmailVerificationToken,
+        User,
+    )
+
+    with db.session_scope() as session:
+        uid = _uuid.UUID(user_id)
+        user = session.get(User, uid)
+        if user is None:
+            return False
+
+        adaptation_ids = [
+            row.id for row in session.query(Adaptation.id).filter_by(user_id=uid).all()
+        ]
+        touched_result_ids = {
+            row.result_id
+            for row in session.query(Adaptation.result_id).filter_by(user_id=uid).all()
+        }
+        collection_ids = [
+            row.id for row in session.query(Collection.id).filter_by(user_id=uid).all()
+        ]
+        api_key_ids = [row.id for row in session.query(ApiKey.id).filter_by(user_id=uid).all()]
+
+        # Join rows first - they reference both collections and
+        # adaptations, so they have to go before either side. Cleared via
+        # BOTH sides: a membership row can point at this user's
+        # adaptation from a collection that is not theirs.
+        if collection_ids:
+            session.query(CollectionAdaptation).filter(
+                CollectionAdaptation.collection_id.in_(collection_ids)
+            ).delete(synchronize_session=False)
+        if adaptation_ids:
+            session.query(CollectionAdaptation).filter(
+                CollectionAdaptation.adaptation_id.in_(adaptation_ids)
+            ).delete(synchronize_session=False)
+
+        if api_key_ids:
+            session.query(ApiKeyUsage).filter(
+                ApiKeyUsage.api_key_id.in_(api_key_ids)
+            ).delete(synchronize_session=False)
+
+        for model in (Adaptation, Collection, ApiKey, CreditTransaction,
+                      EmailVerificationToken, CharacterBibleEntry):
+            session.query(model).filter_by(user_id=uid).delete(synchronize_session=False)
+
+        session.delete(user)
+        # Flush before the orphan scan so the deletes above are visible to
+        # the query below within this transaction - otherwise every result
+        # still looks referenced by the rows we just removed.
+        session.flush()
+
+        if touched_result_ids:
+            still_referenced = {
+                row.result_id
+                for row in session.query(Adaptation.result_id)
+                .filter(Adaptation.result_id.in_(touched_result_ids))
+                .all()
+            }
+            orphaned = touched_result_ids - still_referenced
+            if orphaned:
+                session.query(CachedResult).filter(
+                    CachedResult.id.in_(orphaned)
+                ).delete(synchronize_session=False)
+
+        session.commit()
+        return True
