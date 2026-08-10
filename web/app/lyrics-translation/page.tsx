@@ -16,6 +16,46 @@ export const metadata = {
 
 const LANGUAGES = ["English", "Hindi", "Japanese", "Korean", "Spanish", "Urdu"];
 
+// Original artwork, not a screenshot - grounded in the real Judge
+// behavior described in how-it-works: a literal anchor line, an adapted
+// line, and the Judge's stated reason for the departure. Deliberately a
+// generic English couplet rather than a real lyric in one of the six
+// supported languages, so nothing here claims translation accuracy it
+// hasn't earned.
+function LyricLineDiagram() {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+        Literal
+      </p>
+      <p className="mt-1.5 font-serif text-[15px] leading-snug text-ink/50 line-through decoration-ink/20 dark:text-ink-dark/50 dark:decoration-ink-dark/20">
+        The night doesn't end, it only grows quiet.
+      </p>
+
+      <div className="relative my-5 h-8">
+        <svg className="absolute left-3 h-full w-[calc(100%-24px)] text-accent/50" viewBox="0 0 200 32" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M 4 4 C 60 4, 60 28, 196 28" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 5" />
+        </svg>
+        <span className="absolute right-0 top-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-paper">
+          Judge
+        </span>
+      </div>
+
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+        Adapted
+      </p>
+      <p className="mt-1.5 font-serif text-[16px] leading-snug text-ink dark:text-ink-dark">
+        The night won't end - it just goes quiet.
+      </p>
+
+      <p className="mt-5 border-t border-black/[0.06] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.06] dark:text-ink-dark/50">
+        &ldquo;Kept the near-rhyme on end / quiet, dropped the literal
+        &lsquo;grows&rsquo; to make it singable against the melody.&rdquo;
+      </p>
+    </div>
+  );
+}
+
 export default function LyricsTranslationPage() {
   const breadcrumb = breadcrumbJsonLd([
     { name: "Home", path: "/" },
@@ -35,25 +75,29 @@ export default function LyricsTranslationPage() {
       <div className="mx-auto max-w-3xl">
         <SiteHeader />
 
-        <div className="mt-10">
-          <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Song lyric translation" }]} />
-          <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
-            Translate song lyrics without flattening them.
-          </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
-            A literal translation tells you what a lyric says. It rarely
-            tells you why the line hits the way it does - the rhyme it's
-            chasing, the idiom it's leaning on, the thing left unsaid on
-            purpose. Castia adapts across English, Hindi, Japanese, Korean,
-            Spanish, and Urdu, in any direction, and shows its work on every
-            line.
-          </p>
-          <Link
-            href="/music"
-            className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-[13px] font-medium text-paper transition active:scale-[0.97] dark:bg-ink-dark dark:text-paper-dark"
-          >
-            Adapt a lyric now
-          </Link>
+        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Song lyric translation" }]} />
+            <h1 className="mt-3 font-serif text-3xl leading-[1.15] text-ink dark:text-ink-dark sm:text-4xl">
+              A literal translation tells you what it says.
+              <br />
+              The adapter has to know why it works.
+            </h1>
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              The rhyme a line is chasing, the idiom it's leaning on, the
+              thing left unsaid on purpose - a word-for-word pass drops all
+              of it. Castia adapts across English, Hindi, Japanese, Korean,
+              Spanish, and Urdu, in any direction, and shows its work on
+              every line.
+            </p>
+            <Link
+              href="/music"
+              className="mt-6 inline-block rounded-full bg-ink px-6 py-2.5 text-[13px] font-medium text-paper transition active:scale-[0.97] dark:bg-ink-dark dark:text-paper-dark"
+            >
+              Adapt a lyric now
+            </Link>
+          </div>
+          <LyricLineDiagram />
         </div>
 
         <section className="mt-14">
