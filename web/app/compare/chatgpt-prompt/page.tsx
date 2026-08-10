@@ -4,6 +4,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
 import { ScreenshotSlot } from "@/components/ScreenshotSlot";
+import { CompareDiagram } from "@/components/CompareDiagram";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
 import { breadcrumbJsonLd, articleJsonLd } from "@/lib/schema";
@@ -50,17 +51,20 @@ export default function CompareChatGptPage() {
       <div className="mx-auto max-w-3xl">
         <SiteHeader />
 
-        <div className="mt-10">
-          <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Compare", path: "/compare/chatgpt-prompt" }, { name: "A single ChatGPT prompt" }]} />
-          <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
-            Castia vs. a single ChatGPT prompt.
-          </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
-            "Just ask an LLM to translate it creatively" is a genuinely
-            reasonable instinct - a modern chat model can absolutely
-            produce a creative rewrite of a line. The question is what
-            you're left with once it does.
-          </p>
+        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Compare", path: "/compare/chatgpt-prompt" }, { name: "A single ChatGPT prompt" }]} />
+            <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
+              Castia vs. a single ChatGPT prompt.
+            </h1>
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              "Just ask an LLM to translate it creatively" is a genuinely
+              reasonable instinct - a modern chat model can absolutely
+              produce a creative rewrite of a line. The question is what
+              you're left with once it does.
+            </p>
+          </div>
+          <CompareDiagram competitorName="One ChatGPT prompt" competitorStep="One generation, no check" />
         </div>
 
         <section className="mt-12">
