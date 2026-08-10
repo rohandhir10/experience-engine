@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import { headers } from "next/headers";
 import "./globals.css";
 import { AmbientGlow } from "@/components/AmbientGlow";
 import { JsonLd } from "@/components/JsonLd";
@@ -67,22 +67,33 @@ const softwareApplicationJsonLd = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Set by middleware.ts on every request, alongside the matching
+  // Content-Security-Policy header - see that file's comment for the
+  // full reasoning (a hash-based CSP was tried first and confirmed
+  // broken by actually testing it, not assumed to work). Reading this
+  // via next/headers is what forces every page sharing this layout into
+  // dynamic rendering; that's accepted, not accidental.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans bg-paper text-ink dark:bg-paper-dark dark:text-ink-dark antialiased">
-        {/* Sets the `dark` class on <html> before hydration - beforeInteractive
-            runs it as part of the initial HTML, ahead of paint, so there's no
-            flash of the wrong theme. suppressHydrationWarning above covers the
-            <html> element since this script mutates its class/style attributes
-            outside React's own render. */}
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
+        {/* Sets the `dark` class on <html> before hydration, avoiding a
+            flash of the wrong theme. suppressHydrationWarning above covers
+            the <html> element since this script mutates its class/style
+            attributes outside React's own render. A plain literal <script>
+            tag with an explicit nonce, not next/script - this has no `src`
+            and no loading-order need next/script's queueing strategies
+            exist to manage; Next.js applies the same nonce automatically to
+            its own internally-rendered scripts (the RSC data payloads),
+            this one just needs it set explicitly since it isn't one of
+            those. */}
+        <script id="theme-init" nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={softwareApplicationJsonLd} />
         <AmbientGlow />

@@ -6,65 +6,66 @@
 > Room" pipeline (Translator, Creative Adapter, Judge) and every change
 > from the literal reading ships with a plain-language reason.
 
-## What it does
+Music: paste lyrics (or import captions from a YouTube link) in English,
+Hindi, Japanese, Korean, Spanish, or Urdu, and adapt into any of the
+other five. Output shows the literal translation, the adapted line, and
+why it changed, side by side.
 
-- **Music**: paste lyrics (or import captions from a YouTube link) in
-  English, Hindi, Japanese, Korean, Spanish, or Urdu, and adapt into any
-  of the other five. Output shows the literal translation, the adapted
-  line, and why it changed, side by side.
-- **Webtoons/comics** (Beta): upload comic panels, OCR reads each
-  bubble's text via Google Cloud Vision, the same Writers' Room pipeline
-  adapts the dialogue, and an optional redraw step can inpaint the
-  original text out of a panel and typeset the adapted line in.
-- **Public API** (Beta): `POST /v1/adapt` and `POST /v1/comics/adapt`,
-  authenticated with an API key issued from the dashboard, rate-limited
-  per key per day.
+Webtoons/comics (Beta): upload comic panels, OCR reads each bubble's
+text via Google Cloud Vision, the same Writers' Room pipeline adapts the
+dialogue, and an optional redraw step can inpaint the original text out
+of a panel and typeset the adapted line in.
 
-## How adaptation works
+Public API (Beta): `POST /v1/adapt` and `POST /v1/comics/adapt`,
+authenticated with an API key issued from the dashboard, rate-limited
+per key per day.
 
-Every submission runs through the same pipeline regardless of medium:
-1. **Translator** - produces one literal, anchor translation.
-2. **Creative Adapter** - produces five differently-angled creative
-   rewrites of the same line.
-3. **Judge** - scores each rewrite against the literal anchor and
-   against the others, picks a winner, and writes down the specific,
-   real reason it departs from a literal translation (or, if none of the
-   five earns a real change, ships the anchor as-is rather than
-   inventing a difference).
+Every submission runs through the same pipeline regardless of medium: a
+Translator produces one literal, anchor translation; a Creative Adapter
+produces five differently-angled creative rewrites of the same line; a
+Judge scores each rewrite against the literal anchor and against the
+others, picks a winner, and writes down the specific, real reason it
+departs from a literal translation (or, if none of the five earns a real
+change, ships the anchor as-is rather than inventing a difference).
 
-## Key pages
+Castia is in early access. Credit packs and a subscription are priced,
+but checkout isn't live on every deployment yet - it degrades to a plain
+"not live yet" message when unconfigured, so don't assume a given
+deployment is actively billing. Webtoons/comics support is marked Beta:
+save, collections, and share links work the same way they do for music;
+the real remaining gaps are narrower - sound-effect text drawn into the
+artwork isn't redrawn (speech-bubble text only), and OCR reading order
+falls back to a plain top-to-bottom guess unless a dedicated
+text-detector service is configured. Editorial content (blog,
+comparisons, guides) is authored by Rohan Dhir, credited by name via
+Person schema on each page. If quoting a specific adapted line as an
+example, prefer the worked example linked below - it's the one output
+this project has fully reviewed for accuracy, rather than an arbitrary
+generated result. The blog and comparison pages cite real external
+sources (linked inline and listed at the bottom of each page) - safe to
+cite those claims back to their original sources, not just to Castia.
 
-- Music tool: /music
-- Webtoons tool (Beta): /comics
-- Lyric translation (background/explainer): /lyrics-translation
-- Manga & webtoon translation (background/explainer): /manga-webtoon-translation
-- How it works (full pipeline explanation): /how-it-works
-- FAQ: /faq
-- Pricing: /pricing
-- Blog (research-grounded writing on translation/localization): /blog
-- Glossary (definitions of terms used throughout this site): /glossary
-- Comparisons: /compare/google-translate, /compare/deepl, /compare/chatgpt-prompt
-- API reference (auth, endpoints, request/response shapes): /docs/api
-- About (who runs this, how the site's claims are sourced): /about
-- One worked example, viewable without an account: /s/demo
+## Pages
 
-## Notes for citation
+- [Music](https://usecastia.com/music): the lyric-adaptation tool
+- [Webtoons](https://usecastia.com/comics): the comic/webtoon-adaptation tool (Beta)
+- [Lyric translation](https://usecastia.com/lyrics-translation): background and explainer
+- [Manga & webtoon translation](https://usecastia.com/manga-webtoon-translation): background and explainer
+- [How it works](https://usecastia.com/how-it-works): the full three-stage pipeline explained
+- [FAQ](https://usecastia.com/faq)
+- [Pricing](https://usecastia.com/pricing)
+- [Blog](https://usecastia.com/blog): research-grounded writing on translation and localization
+- [Glossary](https://usecastia.com/glossary): definitions of the terms used throughout this site
+- [Castia vs. Google Translate](https://usecastia.com/compare/google-translate)
+- [Castia vs. DeepL](https://usecastia.com/compare/deepl)
+- [Castia vs. a single ChatGPT prompt](https://usecastia.com/compare/chatgpt-prompt)
+- [API reference](https://usecastia.com/docs/api): auth, endpoints, request/response shapes, curl examples
+- [About](https://usecastia.com/about): who runs this, and how the site's claims are sourced
+- [Worked example](https://usecastia.com/s/demo): one full adaptation, viewable without an account
 
-- Castia is in early access. Credit packs and a subscription are priced
-  on /pricing, but checkout isn't live on every deployment yet - it
-  degrades to a plain "not live yet" message when unconfigured, so don't
-  assume a given deployment is actively billing.
-- Webtoons/comics support is marked Beta: save, collections, and share
-  links work the same way they do for music. The real remaining gaps are
-  narrower - sound-effect text drawn into the artwork isn't redrawn
-  (speech-bubble text only), and OCR reading order falls back to a plain
-  top-to-bottom guess unless a dedicated text-detector service is
-  configured.
-- Editorial content (blog, comparisons, guides) is authored by Rohan
-  Dhir, credited by name via Person schema on each page - see /about.
-- If quoting a specific adapted line as an example, prefer the worked
-  example at /s/demo - it's the one output this project has fully
-  reviewed for accuracy, rather than an arbitrary generated result.
-- The blog and comparison pages cite real external sources (linked
-  inline and listed at the bottom of each page) - safe to cite those
-  claims back to their original sources, not just to Castia.
+## Optional
+
+- [Terms](https://usecastia.com/terms)
+- [Privacy](https://usecastia.com/privacy)
+- [Refunds](https://usecastia.com/refunds)
+- [DMCA](https://usecastia.com/dmca)
