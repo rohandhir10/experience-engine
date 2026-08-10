@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbJsonLd, webApplicationJsonLd } from "@/lib/schema";
 
 export const metadata: Metadata = {
   title: "Adapt webtoon and comic dialogue (Beta)",
@@ -13,6 +15,20 @@ export const metadata: Metadata = {
   },
 };
 
+// Same real gap as app/music/layout.tsx - /comics is the second actual
+// product tool and had no page-specific JSON-LD at all.
 export default function ComicsLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  const breadcrumb = breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Webtoons" }]);
+  const webApplication = webApplicationJsonLd({
+    path: "/comics",
+    name: "Castia — Webtoons (Beta)",
+    description: metadata.description as string,
+  });
+  return (
+    <>
+      <JsonLd data={breadcrumb} />
+      <JsonLd data={webApplication} />
+      {children}
+    </>
+  );
 }

@@ -135,6 +135,41 @@ export function productJsonLd({
   };
 }
 
+// For /music and /comics specifically - the two actual interactive
+// tools, not marketing pages about them. Distinct from the sitewide
+// SoftwareApplication in app/layout.tsx (which describes the product as
+// a whole); this is the real, more specific WebApplication type Google's
+// structured-data docs recommend for a single in-browser tool page, so
+// each carries its own name/description/URL instead of only inheriting
+// the site-level one. Reuses the same real free-tier fact from layout.tsx
+// rather than restating a different, unverified offer.
+export function webApplicationJsonLd({
+  path,
+  name,
+  description,
+}: {
+  path: string;
+  name: string;
+  description: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "@id": absoluteUrl(path),
+    name,
+    url: absoluteUrl(path),
+    description,
+    applicationCategory: "MultimediaApplication",
+    operatingSystem: "Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+      description: "Free tier - a limited number of adaptations per day, no account required.",
+    },
+  };
+}
+
 export function definedTermSetJsonLd({
   path,
   name,

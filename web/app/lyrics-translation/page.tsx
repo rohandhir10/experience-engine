@@ -4,7 +4,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
-import { breadcrumbJsonLd, webPageJsonLd } from "@/lib/schema";
+import { breadcrumbJsonLd, articleJsonLd } from "@/lib/schema";
 
 const entry = contentByPath("/lyrics-translation")!;
 
@@ -61,17 +61,23 @@ export default function LyricsTranslationPage() {
     { name: "Home", path: "/" },
     { name: "Song lyric translation" },
   ]);
-  const webPage = webPageJsonLd({
+  // articleJsonLd, not webPageJsonLd - matches its sibling
+  // manga-webtoon-translation, and is the more accurate type for this
+  // page: real published/updated dates and a real author (see
+  // lib/seo.ts's FOUNDER_NAME), the same shape Google's Article rich
+  // result expects, which a generic WebPage never was.
+  const article = articleJsonLd({
     path: entry.path,
-    name: entry.title,
+    headline: entry.title,
     description: entry.description,
+    publishedDate: entry.publishedDate,
     updatedDate: entry.updatedDate,
   });
 
   return (
     <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
       <JsonLd data={breadcrumb} />
-      <JsonLd data={webPage} />
+      <JsonLd data={article} />
       <div className="mx-auto max-w-3xl">
         <SiteHeader />
 
