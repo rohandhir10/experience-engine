@@ -716,8 +716,7 @@ def test_comics_ocr_endpoint_returns_extract_text_regions_result(monkeypatch):
 
     monkeypatch.setattr(main.comics_ocr, "extract_text_regions", fake_extract)
 
-    result = main.comics_ocr_endpoint(
-        image=_FakeUploadFile(b"fake-image-bytes"), language="English"
+    result = main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"fake-image-bytes"), language="English"
     )
 
     assert result["image_width"] == 10
@@ -730,7 +729,7 @@ def test_comics_ocr_endpoint_reports_ocr_failure_as_a_400(monkeypatch):
     monkeypatch.setattr(main.comics_ocr, "extract_text_regions", fake_extract)
 
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_ocr_endpoint(image=_FakeUploadFile(b"garbage"), language="English")
+        main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"garbage"), language="English")
 
     assert exc_info.value.status_code == 400
     assert "Could not decode" in exc_info.value.detail
@@ -739,7 +738,7 @@ def test_comics_ocr_endpoint_reports_ocr_failure_as_a_400(monkeypatch):
 def test_comics_ocr_endpoint_rejects_an_oversized_image():
     oversized = b"x" * (main.MAX_IMAGE_BYTES + 1)
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_ocr_endpoint(image=_FakeUploadFile(oversized), language="English")
+        main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(oversized), language="English")
 
     assert exc_info.value.status_code == 413
 
@@ -760,8 +759,7 @@ def test_comics_redraw_endpoint_returns_a_base64_image():
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
 
-    result = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    result = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
     )
 
     import base64 as _base64
@@ -772,8 +770,7 @@ def test_comics_redraw_endpoint_returns_a_base64_image():
 
 def test_comics_redraw_endpoint_rejects_malformed_regions_json():
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(
-            image=_FakeUploadFile(_real_png_bytes()), regions="not valid json", default_font=None
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions="not valid json", default_font=None
         )
     assert exc_info.value.status_code == 400
 
@@ -781,13 +778,13 @@ def test_comics_redraw_endpoint_rejects_malformed_regions_json():
 def test_comics_redraw_endpoint_rejects_a_region_missing_required_fields():
     regions = json.dumps([{"bbox": {"x": 10, "y": 10}, "adapted_text": "hello"}])  # no width/height
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None)
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None)
     assert exc_info.value.status_code == 400
 
 
 def test_comics_redraw_endpoint_rejects_an_empty_region_list():
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(_real_png_bytes()), regions="[]", default_font=None)
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions="[]", default_font=None)
     assert exc_info.value.status_code == 400
 
 
@@ -796,14 +793,14 @@ def test_comics_redraw_endpoint_reports_a_redraw_failure_as_a_400():
         [{"bbox": {"x": 10, "y": 10, "width": 20, "height": 20}, "adapted_text": "x"}]
     )
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(b"not a real image"), regions=regions, default_font=None)
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(b"not a real image"), regions=regions, default_font=None)
     assert exc_info.value.status_code == 400
 
 
 def test_comics_redraw_endpoint_rejects_an_oversized_image():
     oversized = b"x" * (main.MAX_IMAGE_BYTES + 1)
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(image=_FakeUploadFile(oversized), regions="[]", default_font=None)
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(oversized), regions="[]", default_font=None)
     assert exc_info.value.status_code == 413
 
 
@@ -812,8 +809,7 @@ def test_comics_redraw_endpoint_rejects_an_unknown_default_font():
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(
-            image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font="not-a-real-font"
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font="not-a-real-font"
         )
     assert exc_info.value.status_code == 400
     assert "not-a-real-font" in exc_info.value.detail
@@ -830,8 +826,7 @@ def test_comics_redraw_endpoint_rejects_an_unknown_per_region_font():
         ]
     )
     with pytest.raises(main.HTTPException) as exc_info:
-        main.comics_redraw_endpoint(
-            image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
+        main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
         )
     assert exc_info.value.status_code == 400
     assert "totally-made-up" in exc_info.value.detail
@@ -841,8 +836,7 @@ def test_comics_redraw_endpoint_accepts_a_real_default_font():
     regions = json.dumps(
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
-    result = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font="patrick-hand"
+    result = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font="patrick-hand"
     )
     import base64 as _base64
 
@@ -868,11 +862,9 @@ def test_comics_redraw_endpoint_recomputes_for_a_different_font(monkeypatch):
 
     monkeypatch.setattr(main, "redraw_panel_detailed", counting_redraw)
 
-    first = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font="comic-neue"
+    first = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font="comic-neue"
     )
-    second = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font="patrick-hand"
+    second = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font="patrick-hand"
     )
 
     assert call_count == 2
@@ -885,8 +877,7 @@ def test_comics_redraw_endpoint_returns_a_real_content_addressed_id():
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
 
-    result = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    result = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
     )
 
     assert result["id"] == main.cache.comics_redraw_content_id(
@@ -912,11 +903,9 @@ def test_comics_redraw_endpoint_serves_an_identical_request_from_cache(monkeypat
 
     monkeypatch.setattr(main, "redraw_panel_detailed", counting_redraw)
 
-    first = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    first = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
     )
-    second = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    second = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
     )
 
     assert call_count == 1  # the inpainting pipeline only actually ran once
@@ -945,11 +934,9 @@ def test_comics_redraw_endpoint_recomputes_for_different_adapted_text(monkeypatc
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "goodbye"}]
     )
 
-    first = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=first_regions, default_font=None
+    first = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=first_regions, default_font=None
     )
-    second = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=second_regions, default_font=None
+    second = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=second_regions, default_font=None
     )
 
     assert call_count == 2  # different text is a different result, not a cache hit
@@ -961,8 +948,7 @@ def test_get_comics_redraw_returns_a_previously_cached_result():
     regions = json.dumps(
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]
     )
-    created = main.comics_redraw_endpoint(
-        image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
+    created = main.comics_redraw_endpoint(_FakeRequest(), image=_FakeUploadFile(image_bytes), regions=regions, default_font=None
     )
 
     fetched = main.get_comics_redraw(created["id"])
@@ -1719,7 +1705,7 @@ def test_ocr_and_vision_reading_run_concurrently(monkeypatch):
     monkeypatch.setattr(main.comics_ocr, "extract_text_regions", fake_ocr)
     monkeypatch.setattr(comics_vision, "read_panel", fake_read_panel)
 
-    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    result = main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
 
     assert result["regions"][0]["text"] == "HELLO"
     assert result["vision_corrected_count"] == 1
@@ -1746,7 +1732,7 @@ def test_a_vision_failure_still_returns_the_ocr_result(monkeypatch):
     # this asserts the endpoint is fine with that empty result.
     monkeypatch.setattr(comics_vision, "read_panel", lambda *a, **k: [])
 
-    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    result = main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
     assert result["regions"][0]["text"] == "HELL0"
     assert "vision_corrected_count" not in result
 
@@ -1797,7 +1783,7 @@ def test_comics_ocr_endpoint_logs_real_measured_vision_reading_cost(monkeypatch,
     monkeypatch.setattr(comics_vision, "read_panel", fake_read_panel)
 
     with caplog.at_level("INFO", logger="castia.server"):
-        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+        main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
 
     cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
     assert len(cost_lines) == 1
@@ -1828,7 +1814,7 @@ def test_comics_ocr_endpoint_logs_the_read_path_even_when_vision_reading_is_disa
     monkeypatch.setattr(comics_vision, "read_panel", lambda *a, **k: [])
 
     with caplog.at_level("INFO", logger="castia.server"):
-        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+        main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
 
     cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
     assert len(cost_lines) == 1
@@ -1847,7 +1833,7 @@ def test_comics_ocr_endpoint_logs_read_path_two_step_when_a_detector_finds_regio
     )
 
     with caplog.at_level("INFO", logger="castia.server"):
-        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+        main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
 
     cost_lines = [r.message for r in caplog.records if "comics_ocr_vision " in r.message]
     assert len(cost_lines) == 1
@@ -1869,7 +1855,7 @@ def test_comics_ocr_endpoint_logs_two_step_fallback_when_the_detector_finds_noth
     )
 
     with caplog.at_level("INFO", logger="castia.server"):
-        main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+        main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
 
     assert any(
         "read_path=two_step_fallback" in r.message for r in caplog.records
@@ -1891,7 +1877,7 @@ def test_two_step_read_is_used_when_a_detector_is_configured(monkeypatch):
         "read_panel_two_step",
         lambda *a, **k: {"regions": [{"node_id": "r0", "text": "TWO STEP"}], "warning": None},
     )
-    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    result = main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
     assert result["regions"][0]["text"] == "TWO STEP"
 
 
@@ -1917,7 +1903,7 @@ def test_a_two_step_failure_falls_back_to_the_single_step_path(monkeypatch):
             "detected_languages": [],
         },
     )
-    result = main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)
+    result = main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)
     assert result["regions"][0]["text"] == "FALLBACK"
 
 
@@ -1939,4 +1925,4 @@ def test_no_detector_configured_keeps_the_original_single_step_path(monkeypatch)
             "image_width": 0, "image_height": 0, "detected_languages": [],
         },
     )
-    assert main.comics_ocr_endpoint(image=_FakeUploadFile(b"bytes"), language=None)["regions"] == []
+    assert main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)["regions"] == []

@@ -62,6 +62,14 @@ Operational behavior:
     (/api/adapt, /api/comics/adapt); the public API (/v1/*) uses its own
     per-API-key limit (CASTIA_API_DAILY_LIMIT) instead. Cache hits don't
     count against either. Set a limit to 0 to disable it.
+    The two per-panel comics endpoints (/api/comics/ocr,
+    /api/comics/redraw) have their own much larger ceilings
+    (CASTIA_PANEL_DAILY_LIMIT/CASTIA_PANEL_MONTHLY_LIMIT) in a separate
+    quota scope, since one legitimate chapter fires one call per panel -
+    see PANEL_DAILY_LIMIT. Note that whose quota a request counts against
+    depends on the Next.js proxy forwarding the real visitor's address
+    (X-Castia-Client-IP, see _client_ip) - without that every visitor
+    shares one bucket.
   - Endpoints are plain `def`, so FastAPI runs them in its threadpool —
     the engine is synchronous and a full song takes tens of seconds; this
     keeps the event loop free without touching the engine.
@@ -126,6 +134,29 @@ DAILY_LIMIT = int(os.environ.get("CASTIA_DAILY_LIMIT", "3"))
 # not tracked per-medium) - it's a total spend ceiling, not a per-feature
 # allowance.
 MONTHLY_LIMIT = int(os.environ.get("CASTIA_MONTHLY_LIMIT", "6"))
+# Per-IP ceilings for the two per-panel comics endpoints (/api/comics/ocr,
+# /api/comics/redraw), counted in their own quota scope
+# (server/quota.py::_bucket_key) so they never consume the adaptation
+# allowance above and vice versa.
+#
+# These endpoints had NO ceiling of any kind before this: each OCR call is
+# a real, metered Google Cloud Vision request and each redraw is real
+# inpainting work, both billed to this project per call, and a plain loop
+# against either could run up an unbounded bill. They also can't reuse
+# DAILY_LIMIT's numbers - that cap is 3, while ONE legitimate chapter
+# fires one call per panel (up to MAX_COMICS_PANELS, and a whole-chapter
+# strip auto-sliced by web/lib/chapterSlice.ts routinely lands in the
+# dozens), so sharing that bucket would break normal use immediately.
+#
+# Sized against real use rather than guessed: a 100-panel chapter (the
+# MAX_COMICS_PANELS ceiling) costs at most 100 OCR + 100 redraw calls, so
+# 400/day comfortably covers a couple of the largest chapters this product
+# accepts, or many ordinary ones, while still stopping a runaway loop
+# within a few hundred calls instead of never.
+PANEL_DAILY_LIMIT = int(os.environ.get("CASTIA_PANEL_DAILY_LIMIT", "400"))
+PANEL_MONTHLY_LIMIT = int(os.environ.get("CASTIA_PANEL_MONTHLY_LIMIT", "2000"))
+# The quota scope name for the two limits above - see quota._bucket_key.
+PANEL_QUOTA_SCOPE = "panel"
 # A full-resolution chapter-slice PNG can be several megabytes; this caps
 # a single panel upload well above any normal slice, not just above a
 # typical one, so this only ever rejects something clearly wrong (a
@@ -360,6 +391,40 @@ def _check_quota(ip: str, kind: str = "songs") -> None:
         )
 
 
+def _check_panel_quota(ip: str, kind: str) -> None:
+    """The per-IP ceiling for one per-panel comics call (OCR or redraw).
+
+    Applied to every caller, signed in or not - deliberately unlike
+    _check_quota above, which a signed-in user bypasses. That bypass is
+    justified there because a signed-in adaptation is charged real
+    credits (CREDITS_PER_SECTION/CREDITS_PER_PANEL), so the cost is
+    already paid for by the person incurring it. Neither of these two
+    endpoints charges credits today, so nobody has paid for this work and
+    there is nothing for an account to bypass on the strength of. If they
+    ever do start charging, this should grow the same
+    credits-then-elif-quota shape the adapt endpoints use.
+
+    See PANEL_DAILY_LIMIT for why these have their own scope and their
+    own, much larger numbers than the adaptation caps.
+    """
+    if not quota.check_and_increment(ip, PANEL_DAILY_LIMIT, scope=PANEL_QUOTA_SCOPE):
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You've reached today's limit for {kind}. "
+                "Panels already processed are unaffected - try again tomorrow."
+            ),
+        )
+    if not quota.check_and_increment_monthly(ip, PANEL_MONTHLY_LIMIT, scope=PANEL_QUOTA_SCOPE):
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"You've reached this month's limit for {kind}. "
+                "Panels already processed are unaffected."
+            ),
+        )
+
+
 class YoutubeSectionTiming(BaseModel):
     start: float
     end: float
@@ -460,6 +525,7 @@ def youtube_draft(request: YoutubeDraftRequest) -> dict:
 
 @app.post("/api/comics/ocr")
 def comics_ocr_endpoint(
+    http_request: Request,
     image: UploadFile = File(...),
     language: str | None = Form(None),
 ) -> dict:
@@ -488,6 +554,10 @@ def comics_ocr_endpoint(
             status_code=413,
             detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
         )
+
+    # After the size check (a rejected upload never reaches Vision, so it
+    # shouldn't spend anyone's allowance) and before any billable call.
+    _check_panel_quota(_client_ip(http_request), "reading panels")
 
     # Built once, up front, so real usage (its call_log) can be logged no
     # matter which path below actually uses it - previously this cost was
@@ -642,6 +712,7 @@ class RedrawRegion(BaseModel):
 
 @app.post("/api/comics/redraw")
 def comics_redraw_endpoint(
+    http_request: Request,
     image: UploadFile = File(...),
     regions: str = Form(...),
     default_font: str | None = Form(None),
@@ -713,6 +784,13 @@ def comics_redraw_endpoint(
     cached = cache.get(result_id)
     if cached is not None:
         return {**cached, "id": result_id}
+
+    # Deliberately after the cache lookup: a cache hit runs no inpainting
+    # and costs nothing, and this module's stated convention (see the
+    # quota bullet in the docstring at the top of this file) is that cache
+    # hits don't count against any quota. Reloading a page or opening the
+    # same panel in a second tab must not spend the allowance.
+    _check_panel_quota(_client_ip(http_request), "redrawing panels")
 
     try:
         result_bytes, inpaint_method = redraw_panel_detailed(

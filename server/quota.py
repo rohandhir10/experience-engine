@@ -88,24 +88,48 @@ def _check_and_increment(
         return True
 
 
-def check_and_increment(ip: str, daily_limit: int) -> bool:
+def _bucket_key(ip: str, scope: str) -> str:
+    """The stored key for one caller's counter within one scope.
+
+    Different kinds of work need independently-sized ceilings against the
+    same caller: one chapter adaptation is a handful of expensive
+    Writers' Room runs, while OCR-ing that same chapter is dozens of
+    cheap per-panel Vision calls. Counting both into one bucket would
+    mean either the adaptation cap is uselessly high or normal per-panel
+    work trips it immediately.
+
+    Namespacing the key rather than adding a `scope` column keeps the
+    existing atomic-UPSERT exactly as-is on both backends and needs no
+    migration. An empty scope produces the bare ip, byte-identical to
+    what this module stored before scopes existed - so pre-existing rows
+    and the default (adaptation) callers are completely unaffected.
+    """
+    return f"{scope}:{ip}" if scope else ip
+
+
+def check_and_increment(ip: str, daily_limit: int, scope: str = "") -> bool:
     """Returns True if this request is allowed (and counts it against
     today's total for this ip), False if ip has already reached
     daily_limit today. daily_limit <= 0 disables the quota entirely,
     without touching either backend — matches the pre-existing
     CASTIA_DAILY_LIMIT=0 convention. An anti-burst limit only - see
     check_and_increment_monthly for the actual cost ceiling.
+
+    `scope` selects an independent counter for this ip - see _bucket_key.
     """
     today = date.today().isoformat()
-    return _check_and_increment(ip, daily_limit, today, _memory_counts, "DailyQuotaUsage", "day")
+    return _check_and_increment(
+        _bucket_key(ip, scope), daily_limit, today, _memory_counts, "DailyQuotaUsage", "day"
+    )
 
 
-def check_and_increment_monthly(ip: str, monthly_limit: int) -> bool:
+def check_and_increment_monthly(ip: str, monthly_limit: int, scope: str = "") -> bool:
     """Same as check_and_increment, keyed by calendar month instead of
     day - this is the real ceiling on cumulative free-tier spend per IP.
     monthly_limit <= 0 disables it, same convention as the daily cap.
     """
     this_month = date.today().strftime("%Y-%m")
     return _check_and_increment(
-        ip, monthly_limit, this_month, _memory_monthly_counts, "MonthlyQuotaUsage", "month"
+        _bucket_key(ip, scope), monthly_limit, this_month, _memory_monthly_counts,
+        "MonthlyQuotaUsage", "month",
     )
