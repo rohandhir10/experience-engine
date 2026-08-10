@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_API_URL } from "@/lib/api";
+import { clientIpHeaders } from "@/lib/clientIp";
 
 // A single Cloud Vision call over one panel image, not a multi-agent
 // engine call - same ceiling reasoning as app/api/youtube-draft/route.ts,
@@ -34,6 +35,11 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/comics/ocr`, {
       method: "POST",
+      // No Content-Type: fetch sets the multipart boundary itself. The
+      // client-IP pair is what lets the engine meter this per visitor -
+      // one Cloud Vision call per panel is real money, and a sliced
+      // chapter fires dozens of them (lib/clientIp.ts).
+      headers: clientIpHeaders(request),
       body: upstreamForm,
       signal: controller.signal,
     });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_API_URL } from "@/lib/api";
+import { clientIpHeaders } from "@/lib/clientIp";
 
 // Image inpainting + text rendering (engine/comics_redraw.py) - not a
 // multi-agent engine call, but still real per-pixel work; same
@@ -34,6 +35,11 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/comics/redraw`, {
       method: "POST",
+      // No Content-Type: fetch sets the multipart boundary itself. The
+      // client-IP pair is what lets the engine meter this per visitor -
+      // inpainting is real per-pixel work, uncapped before this
+      // (lib/clientIp.ts).
+      headers: clientIpHeaders(request),
       body: upstreamForm,
       signal: controller.signal,
     });

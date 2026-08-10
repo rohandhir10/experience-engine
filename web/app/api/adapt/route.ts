@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_API_URL } from "@/lib/api";
+import { clientIpHeaders } from "@/lib/clientIp";
 
 // A full engine run (Song DNA -> Writers' Room -> Judge, several LLM
 // calls) routinely takes well past Vercel's 10s default function
@@ -26,7 +27,12 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/adapt`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Lets the engine bucket per-IP quota by the real visitor
+        // rather than by this server (lib/clientIp.ts).
+        ...clientIpHeaders(request),
+      },
       body: JSON.stringify(body),
       signal: controller.signal,
     });

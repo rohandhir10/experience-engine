@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { ENGINE_API_URL } from "@/lib/api";
+import { clientIpHeaders } from "@/lib/clientIp";
 
 // Same identity-forwarding pattern as app/api/adapt/start/route.ts and
 // app/api/comics/adapt/route.ts: forward the signed-in user's id (if
@@ -30,7 +31,14 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/comics/adapt/start`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(await identityHeaders()) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await identityHeaders()),
+        // After identityHeaders so both agree on the same secret
+        // value; this pair is what lets the engine bucket quota by
+        // the real visitor instead of by this server (lib/clientIp.ts).
+        ...clientIpHeaders(request),
+      },
       body: JSON.stringify(body),
     });
   } catch {

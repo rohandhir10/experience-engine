@@ -234,6 +234,34 @@ app.add_middleware(
 )
 
 def _client_ip(request: Request) -> str:
+    """The address a request's quota (server/quota.py) is bucketed under.
+
+    Every browser-facing request arrives through the Next.js proxy
+    (web/app/api/**/route.ts), which opens its own outbound fetch - so
+    this process's peer address is the Next.js server for EVERY visitor,
+    and x-forwarded-for on that hop describes the proxy's own connection,
+    not the person using the site. Bucketing on either of those puts the
+    entire site in ONE quota bucket: the first few visitors of the day
+    exhaust it and everyone after them is refused. That is an
+    availability bug, not a metering rounding error, which is why the
+    proxy now forwards the real address explicitly.
+
+    X-Castia-Client-IP is honored ONLY alongside a valid internal secret,
+    the same reasoning _authed_user_id already applies to forwarded user
+    identity: anyone can set a header, but only the Next.js server knows
+    the secret, so an unauthenticated request claiming an address is not
+    evidence of anything and must fall through to the peer address.
+    Otherwise quota would be opt-out for anyone who reads this file.
+
+    Direct callers (the public /v1 API, called server-to-server rather
+    than through the proxy) still reach here via the platform's own edge
+    proxy and are still read from x-forwarded-for, unchanged.
+    """
+    if INTERNAL_API_SECRET and request.headers.get("x-castia-internal-secret") == INTERNAL_API_SECRET:
+        forwarded_client = (request.headers.get("x-castia-client-ip") or "").strip()
+        if forwarded_client:
+            return forwarded_client
+
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
         return forwarded.split(",")[0].strip()

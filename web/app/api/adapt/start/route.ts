@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { ENGINE_API_URL } from "@/lib/api";
+import { clientIpHeaders } from "@/lib/clientIp";
 
 // Forwards the signed-in user's id (if any) so the engine records this
 // adaptation in their history. The internal secret is what makes the
@@ -34,7 +35,14 @@ export async function POST(request: NextRequest) {
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/adapt/start`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(await identityHeaders()) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await identityHeaders()),
+        // After identityHeaders so both agree on the same secret value;
+        // this pair is what lets the engine bucket quota by the real
+        // visitor instead of by this server (see lib/clientIp.ts).
+        ...clientIpHeaders(request),
+      },
       body: JSON.stringify(body),
     });
   } catch {
