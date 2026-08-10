@@ -69,6 +69,38 @@ function perPage(price: number, credits: number): string {
   return ((price / credits) * PAGE_CREDITS).toFixed(2);
 }
 
+// Original artwork, not a screenshot - states the one fact that actually
+// makes this pricing page unusual: everything below is free today, not a
+// discount or a trial, because billing simply isn't wired up yet. Real
+// and disclosed elsewhere in this page's prose; this just makes it
+// visible at a glance instead of hero copy alone carrying it.
+function FreeRightNowPanel() {
+  return (
+    <div className="rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-accent/70">
+        Right now
+      </p>
+      <p className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">Free</p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+        No account, no card, no limit tier - billing isn't live.
+      </p>
+
+      <div className="my-5 border-t border-dashed border-black/10 dark:border-white/10" />
+
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+        Building toward
+      </p>
+      <p className="mt-2 font-serif text-2xl text-ink/40 dark:text-ink-dark/40">
+        ${PACKS[0].price}&ndash;${SUBSCRIPTION.price}
+        <span className="text-[13px] font-sans text-ink/35 dark:text-ink-dark/35"> credits &amp; monthly</span>
+      </p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+        The tiers below, once Paddle checkout goes live.
+      </p>
+    </div>
+  );
+}
+
 export default function PricingPage() {
   const breadcrumb = breadcrumbJsonLd([
     { name: "Home", path: "/" },
@@ -98,19 +130,22 @@ export default function PricingPage() {
       <div className="mx-auto max-w-3xl">
         <SiteHeader active="pricing" />
 
-        <div className="mt-10">
-          <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Pricing" }]} />
-          <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
-            Pricing.
-          </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
-            CASTIA is free to try right now, for everyone, with no account
-            needed - that's a limitation of billing not existing yet, not
-            the plan. What's below is the credit-based pricing we're
-            building toward, and every tier in it is paid: checkout will
-            run through Paddle, but until it's live, nothing here is
-            charged today.
-          </p>
+        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Pricing" }]} />
+            <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
+              Pricing.
+            </h1>
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              CASTIA is free to try right now, for everyone, with no
+              account needed - that's a limitation of billing not existing
+              yet, not the plan. What's below is the credit-based pricing
+              we're building toward, and every tier in it is paid: checkout
+              will run through Paddle, but until it's live, nothing here is
+              charged today.
+            </p>
+          </div>
+          <FreeRightNowPanel />
         </div>
 
         <section className="mt-12">
