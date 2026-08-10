@@ -54,7 +54,7 @@ export default function Home() {
       <SiteHeader active="home" forceDark />
 
       <div className="mx-auto mt-16 flex w-full max-w-3xl flex-col items-center text-center sm:mt-20">
-        <h1 className="animate-fade-up text-[2.1rem] font-semibold leading-[1.15] tracking-tight text-white sm:text-[2.6rem]">
+        <h1 className="animate-fade-up font-serif text-[2.1rem] leading-[1.15] tracking-tight text-white sm:text-[2.6rem]">
           The words are the{" "}
           <span className="relative inline-block whitespace-nowrap">
             easy part
@@ -219,23 +219,7 @@ export default function Home() {
           Three roles, one line: a translator, a room of writers, an editor.
         </h2>
 
-        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <PipelineStep
-            n="1"
-            title="Translator"
-            body="One literal, anchor translation — the floor everything else is checked against."
-          />
-          <PipelineStep
-            n="2"
-            title="Creative Adapter"
-            body="Five differently-angled rewrites, each taking a real liberty with phrasing, idiom, or rhythm."
-          />
-          <PipelineStep
-            n="3"
-            title="Judge"
-            body="Scores every rewrite against the anchor, picks a winner, and writes down the real reason it departs from literal."
-          />
-        </div>
+        <HomePipelineFlow />
 
         <p className="mt-6 text-center text-[13px] text-white/40">
           <Link href="/how-it-works" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
@@ -264,15 +248,55 @@ export default function Home() {
   );
 }
 
-function PipelineStep({ n, title, body }: { n: string; title: string; body: string }) {
+// Same chip-and-arrow visual language as CompareDiagram (/compare/*) and
+// CandidateDiagram (/how-it-works), restyled for this page's forced-dark
+// shell - ties the homepage into the rest of the site's design system
+// instead of three identical bordered cards repeating the "equal-weight
+// feature grid" shape every other section on this page already avoids.
+function HomePipelineFlow() {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-white/15 text-[11px] text-white/40">
-        {n}
-      </span>
-      <h3 className="mt-3 font-serif text-[1.05rem] text-white">{title}</h3>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-white/45">{body}</p>
+    <div className="mt-10 flex flex-col items-center gap-2.5 sm:flex-row sm:justify-center sm:gap-2.5">
+      <FlowChip title="Translator" body="One literal anchor" />
+      <FlowArrow />
+      <FlowChip title="5 rewrites" body="Different angles, same line" />
+      <FlowArrow />
+      <FlowChip title="Judge" body="Scores, picks, states why" accent />
+      <FlowArrow />
+      <FlowChip title="Output" body="A line you can trust" dim />
     </div>
+  );
+}
+
+function FlowChip({
+  title,
+  body,
+  accent,
+  dim,
+}: {
+  title: string;
+  body: string;
+  accent?: boolean;
+  dim?: boolean;
+}) {
+  return (
+    <div
+      className={`w-full max-w-[220px] rounded-xl border px-4 py-3 text-center sm:max-w-[160px] ${
+        accent ? "border-accent/40 bg-accent/[0.08]" : dim ? "border-white/[0.06] bg-white/[0.015]" : "border-white/10 bg-white/[0.02]"
+      }`}
+    >
+      <p className={`font-serif text-[13.5px] ${accent ? "text-white" : dim ? "text-white/50" : "text-white/85"}`}>
+        {title}
+      </p>
+      <p className={`mt-1 text-[11px] leading-snug ${dim ? "text-white/30" : "text-white/40"}`}>{body}</p>
+    </div>
+  );
+}
+
+function FlowArrow() {
+  return (
+    <span className="text-white/20 rotate-90 sm:rotate-0" aria-hidden="true">
+      →
+    </span>
   );
 }
 
