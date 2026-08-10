@@ -11,6 +11,19 @@ import { FONT_OPTIONS, resolveRedrawRegionText } from "@/lib/comicsRedraw";
  * of whether OCR has run - OCR only ever pre-fills a draft, never locks
  * the field or overwrites something the human already typed.
  *
+ * Original/Redrawn toggle: once a panel has a real redraw result, the
+ * main image frame shows an Original/Redrawn tab pair instead of two
+ * separate stacked images (the original with OCR boxes used to live
+ * here, and the redrawn composite lived again further down, after the
+ * Redraw button - a real trust-building comparison neither reader could
+ * do without scrolling back and forth). One frame, one toggle; the
+ * OCR-box overlay only ever applies to the Original tab, since those
+ * boxes describe the original image's regions and have no meaning
+ * against the redrawn composite. Resets to "original" on every panel
+ * switch - a view choice on one panel isn't a meaningful default for a
+ * different one, and a panel with no redraw result yet has nothing to
+ * default "redrawn" to anyway.
+ *
  * Reading order: Cloud Vision returns detected regions sorted by plain
  * top-to-bottom/left-to-right position (see engine/comics_ocr.py's
  * docstring) - wrong for manga's right-to-left reading, and not
@@ -45,6 +58,13 @@ export function PanelWorkspace({
 }) {
   const [activeId, setActiveId] = useState(panels[0]?.id);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
+  // Which image the main frame shows - "original" (with OCR region
+  // boxes overlaid) or "redrawn" (the typeset result). Reset to
+  // "original" on every panel switch below, same as naturalSize - a
+  // view choice made on one panel isn't a meaningful default for a
+  // different panel, and could otherwise silently show a stale
+  // "redrawn" tab on a panel that has no redraw result at all yet.
+  const [imageView, setImageView] = useState<"original" | "redrawn">("original");
   const activeIndex = panels.findIndex((p) => p.id === activeId);
   const active = panels[activeIndex] ?? panels[0];
 
@@ -54,6 +74,7 @@ export function PanelWorkspace({
     const clamped = Math.max(0, Math.min(panels.length - 1, index));
     setActiveId(panels[clamped].id);
     setNaturalSize(null);
+    setImageView("original");
   }
 
   function moveRegion(fromIndex: number, toIndex: number) {
@@ -115,6 +136,7 @@ export function PanelWorkspace({
             onClick={() => {
               setActiveId(panel.id);
               setNaturalSize(null);
+              setImageView("original");
             }}
             className={`relative shrink-0 overflow-hidden rounded-lg border transition ${
               panel.id === active.id
@@ -168,39 +190,83 @@ export function PanelWorkspace({
 
         <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
+            {/* Only shown once there's a second real image to compare
+                against - a panel with no redraw result yet has nothing
+                to toggle to, so showing an inert "Redrawn" tab would be
+                clicking into an empty state rather than a real view. */}
+            {active.redrawResultUrl && (
+              <div className="mb-2 inline-flex rounded-full border border-black/[0.08] p-0.5 text-[12px] dark:border-white/[0.1]">
+                <button
+                  type="button"
+                  onClick={() => setImageView("original")}
+                  className={`rounded-full px-3 py-1 font-medium transition ${
+                    imageView === "original"
+                      ? "bg-ink text-paper dark:bg-ink-dark dark:text-paper-dark"
+                      : "text-ink/50 hover:text-ink dark:text-ink-dark/50 dark:hover:text-ink-dark"
+                  }`}
+                >
+                  Original
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImageView("redrawn")}
+                  className={`rounded-full px-3 py-1 font-medium transition ${
+                    imageView === "redrawn"
+                      ? "bg-ink text-paper dark:bg-ink-dark dark:text-paper-dark"
+                      : "text-ink/50 hover:text-ink dark:text-ink-dark/50 dark:hover:text-ink-dark"
+                  }`}
+                >
+                  Redrawn
+                </button>
+              </div>
+            )}
             <div className="relative overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.02] dark:border-white/[0.08] dark:bg-white/[0.02]">
-              {/* A real, unmodified render of the user's own file. Boxes
-                  are drawn in percentage coordinates (region pixel / the
-                  image's own natural size), so they stay aligned with
-                  the image regardless of its rendered width. */}
-              <img
-                key={active.id}
-                src={active.previewUrl}
-                alt={active.fileName}
-                className="w-full"
-                onLoad={(e) => {
-                  const img = e.currentTarget;
-                  setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
-                }}
-              />
-              {naturalSize &&
-                active.ocrRegions?.map((region, i) => (
-                  <div
-                    key={i}
-                    title={`${region.text} (${region.confidence.toFixed(0)}% confidence)`}
-                    className="absolute border-2 border-accent/70 bg-accent/10"
-                    style={{
-                      left: `${(region.bbox.x / naturalSize.width) * 100}%`,
-                      top: `${(region.bbox.y / naturalSize.height) * 100}%`,
-                      width: `${(region.bbox.width / naturalSize.width) * 100}%`,
-                      height: `${(region.bbox.height / naturalSize.height) * 100}%`,
+              {imageView === "redrawn" && active.redrawResultUrl ? (
+                // The actual typeset result - no OCR boxes overlaid,
+                // since those describe the ORIGINAL image's regions and
+                // have no meaning against the redrawn composite.
+                <img
+                  key={active.redrawResultUrl}
+                  src={active.redrawResultUrl}
+                  alt={`Redrawn version of ${active.fileName}`}
+                  className="w-full"
+                />
+              ) : (
+                <>
+                  {/* A real, unmodified render of the user's own file. Boxes
+                      are drawn in percentage coordinates (region pixel / the
+                      image's own natural size), so they stay aligned with
+                      the image regardless of its rendered width. */}
+                  <img
+                    key={active.id}
+                    src={active.previewUrl}
+                    alt={active.fileName}
+                    className="w-full"
+                    onLoad={(e) => {
+                      const img = e.currentTarget;
+                      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
                     }}
-                  >
-                    <span className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
-                      {i + 1}
-                    </span>
-                  </div>
-                ))}
+                  />
+                  {naturalSize &&
+                    active.ocrRegions?.map((region, i) => (
+                      <div
+                        key={i}
+                        title={`${region.text} (${region.confidence.toFixed(0)}% confidence)`}
+                        className="absolute border-2 border-accent/70 bg-accent/10"
+                        style={{
+                          left: `${(region.bbox.x / naturalSize.width) * 100}%`,
+                          top: `${(region.bbox.y / naturalSize.height) * 100}%`,
+                          width: `${(region.bbox.width / naturalSize.width) * 100}%`,
+                          height: `${(region.bbox.height / naturalSize.height) * 100}%`,
+                        }}
+                      >
+                        <span className="absolute -left-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
+                          {i + 1}
+                        </span>
+                      </div>
+                    ))}
+                </>
+              )}
             </div>
 
             <div className="mt-3 flex items-center gap-3">
@@ -364,16 +430,10 @@ export function PanelWorkspace({
                     {active.redrawMessage}
                   </p>
                 )}
-                {active.redrawResultUrl && (
-                  <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.08] dark:border-white/[0.08]">
-                    <img
-                      key={active.redrawResultUrl}
-                      src={active.redrawResultUrl}
-                      alt={`Redrawn version of ${active.fileName}`}
-                      className="w-full"
-                    />
-                  </div>
-                )}
+                {/* The result itself now shows in the main image frame
+                    above (the Original/Redrawn toggle), not duplicated
+                    here a second time - "Download result" above is
+                    still the real, separate action of saving the file. */}
               </div>
             )}
           </div>
