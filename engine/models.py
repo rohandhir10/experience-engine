@@ -124,6 +124,14 @@ class BubbleInput(BaseModel):
     # below) actually keys off of. None means unattributed - a caption
     # box, an unclear speaker, or simply not determined yet.
     voice: str | None = None
+    # "dialogue" | "sfx" | "narration" | "background" | "unknown" - only
+    # ever set when the optional vision-LLM OCR read pass ran
+    # (CASTIA_VISION_READING, off by default; engine/comics_vision.py)
+    # and classified this region; None otherwise, same as before this
+    # field existed. engine/comics_adapt.py::adapt_chapter reads this to
+    # skip running "sfx"/"background" regions through the Writers' Room
+    # at all - see that module's _SKIP_KINDS for why.
+    kind: str | None = None
 
 
 class ChapterInput(BaseModel):
@@ -634,6 +642,14 @@ class SectionResultV1(BaseModel):
     # generation time and was otherwise discarded. None means no count
     # could be computed (never a fabricated number).
     source_syllable_count: int | None = None
+    # True only for engine/comics_adapt.py's SFX/background skip path
+    # (BubbleInput.kind in _SKIP_KINDS) - candidates/ruling are a real,
+    # honest pass-through of the untranslated source_text, not a
+    # translation, so a caller (server/main.py's on_bubble_done) can
+    # tell the two cases apart and skip the extra _explain_why LLM call
+    # a real translation gets. False (the default) for every other
+    # result, comics or song, unchanged from before this field existed.
+    skipped: bool = False
 
 
 class RoomMemory(BaseModel):

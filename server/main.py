@@ -721,6 +721,15 @@ class ComicsPanelText(BaseModel):
     # straight through to BubbleInput.voice below. None/omitted means
     # unattributed, same as before this field existed.
     voice: str | None = None
+    # "dialogue" | "sfx" | "narration" | "background" | "unknown" - the
+    # optional vision-LLM OCR read pass's classification of this region
+    # (web/lib/comics-types.ts's OcrRegion.kind), when it ran. Threaded
+    # straight through to BubbleInput.kind, which engine/comics_adapt.py
+    # uses to skip the Writers' Room entirely for "sfx"/"background"
+    # regions. None/omitted (every request before this existed, and any
+    # deployment without CASTIA_VISION_READING set) behaves exactly as
+    # before - nothing is skipped without a real classification.
+    kind: str | None = None
 
 
 class ComicsAdaptRequest(BaseModel):
@@ -915,7 +924,7 @@ def _run_comics_adaptation(
         target_language=request.target_language,
         context_note=request.context_note,
         bubbles=[
-            BubbleInput(id=p.id, source_text=p.text, voice=p.voice)
+            BubbleInput(id=p.id, source_text=p.text, voice=p.voice, kind=p.kind)
             for p in non_empty_panels
         ],
     )
@@ -957,8 +966,17 @@ def _run_comics_adaptation(
     def on_bubble_done(bubble_id: str, result, index: int, total: int) -> None:
         literal = _translator_text(result)
         adapted = result.ruling.final_line
-        why = _explain_why(
-            client, dna.artistic_thesis, literal, adapted, result.ruling.priority_tradeoffs_made
+        # A skipped (SFX/background) bubble's "literal" and "adapted"
+        # are both just the untranslated source text - there is no real
+        # translation for _explain_why (another LLM call) to explain,
+        # so use the skip reason directly rather than spending a call
+        # asking a model to narrate a no-op.
+        why = (
+            result.ruling.priority_tradeoffs_made
+            if getattr(result, "skipped", False)
+            else _explain_why(
+                client, dna.artistic_thesis, literal, adapted, result.ruling.priority_tradeoffs_made
+            )
         )
         panels_out.append({"id": bubble_id, "literal": literal, "adapted_text": adapted, "why": why})
         _report_progress(index, total, f"Panel {index}/{total}: done")

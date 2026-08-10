@@ -128,6 +128,20 @@ describe("panelToChapterBubbles", () => {
   it("returns nothing for a panel with no regions and no extracted text", () => {
     expect(panelToChapterBubbles(panel({ ocrRegions: null, extractedText: "   " }))).toEqual([]);
   });
+
+  it("threads a region's kind through, for the SFX/background skip guard server-side", () => {
+    const p = panel({
+      ocrRegions: [region({ text: "BOOM", kind: "sfx" }), region({ text: "hello", kind: "dialogue" })],
+    });
+    const bubbles = panelToChapterBubbles(p);
+    expect(bubbles[0].kind).toBe("sfx");
+    expect(bubbles[1].kind).toBe("dialogue");
+  });
+
+  it("leaves kind undefined for a region with no vision-LLM classification", () => {
+    const p = panel({ ocrRegions: [region({ text: "hello there" })] });
+    expect(panelToChapterBubbles(p)[0].kind).toBeUndefined();
+  });
 });
 
 describe("parseBubbleId", () => {

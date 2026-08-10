@@ -47,13 +47,16 @@ from .language_profile import NEUTRAL_PROFILE, LanguageProfile
 from .llm_client import LLMClient
 from .models import (
     BubbleInput,
+    Candidate,
     ChapterDNA,
     ChapterInput,
     CharacterVoice,
     DensityItem,
     EmotionalArcPoint,
+    JudgeRuling,
     NarrativeFunctionItem,
     RoomMemory,
+    RoutingSignals,
     SectionProfile,
     SectionResultV1,
     SongDNA,
@@ -134,6 +137,67 @@ def _bubble_song_dna(dna: ChapterDNA, bubble: BubbleInput) -> SongDNA:
             syntax_tendency="unspecified",
             signature_devices=[],
         ),
+    )
+
+
+# BubbleInput.kind values that skip the Writers' Room entirely.
+# "sfx" and "background" only - NOT "narration" (still real prose a
+# reader reads and engine/comics_redraw.py CAN typeset, since captions
+# sit in their own plain box, not baked into busy artwork like SFX) and
+# NOT "unknown"/None (unclassified means exactly that - unclassified,
+# not "known to be SFX" - defaulting an unknown region to skip would
+# silently drop real dialogue whenever the optional vision-LLM pass is
+# uncertain, which is a much worse failure than occasionally translating
+# an SFX word that turns out fine).
+#
+# Why this is worth skipping at all: engine/comics_redraw.py's own
+# module docstring already scopes redraw to speech bubbles only - an
+# SFX/background region's translation can never be typeset back into
+# the artwork regardless of what this pipeline produces for it, so
+# running it through 3-8 real LLM calls (Translator, Creative Adapter,
+# Judge triage, up to 4 specialist consults, final ruling - see
+# writers_room_v1.py) for output nothing downstream can use is pure
+# waste, not caution. It also removes a real quality risk: a short,
+# context-free SFX word ("THUD", "SQUEAK") run through five differently
+# -angled creative philosophies has nothing to anchor a genuine creative
+# choice to, and the Judge has nothing but that same word to score
+# against - the same "one or two words is a philosophy question, not a
+# translation" observation Peter Low's Pentathlon Principle makes about
+# short lyric fragments, made worse here since a bare SFX word carries
+# none of the emotional/narrative context Chapter DNA gives dialogue.
+_SKIP_KINDS = frozenset({"sfx", "background"})
+
+
+def _build_skip_result(bubble: BubbleInput) -> SectionResultV1:
+    """The result for a bubble matching _SKIP_KINDS - an honest,
+    untranslated pass-through of bubble.source_text, never a fabricated
+    translation. `skipped=True` is what lets server/main.py's
+    on_bubble_done skip the extra _explain_why LLM call a real
+    translation gets, instead of trying to explain a "translation" that
+    never happened.
+    """
+    reason = (
+        f'Not run through the Writers\' Room: classified as "{bubble.kind}" text, '
+        "not dialogue - engine/comics_redraw.py only typesets speech-bubble text "
+        "back into a panel, so a translation here could never be used anyway."
+    )
+    return SectionResultV1(
+        section=bubble.id,
+        candidates=[
+            Candidate(
+                id=f"{bubble.id}-skip",
+                agent="skipped",
+                text=bubble.source_text,
+                round="generation",
+            )
+        ],
+        routing_signals=RoutingSignals(),
+        ruling=JudgeRuling(
+            section=bubble.id,
+            final_line=bubble.source_text,
+            priority_tradeoffs_made=reason,
+        ),
+        skipped=True,
     )
 
 
@@ -329,6 +393,19 @@ def adapt_chapter(
                 f"This chapter is taking longer than the configured time limit "
                 f"({index - 1}/{total} bubbles finished). Try again, or with fewer panels."
             )
+        if bubble.kind in _SKIP_KINDS:
+            logger.info(
+                'Skipping bubble %s (kind="%s") - not run through the Writers\' Room.',
+                bubble.id,
+                bubble.kind,
+            )
+            if on_stage:
+                on_stage(bubble.id, "adapting", index, total)
+            result = _build_skip_result(bubble)
+            results.append(result)
+            if on_bubble_done:
+                on_bubble_done(bubble.id, result, index, total)
+            continue
         if on_stage:
             on_stage(bubble.id, "adapting", index, total)
         result = adapt_bubble(chapter, dna, bubble, room_memory, client, profile)

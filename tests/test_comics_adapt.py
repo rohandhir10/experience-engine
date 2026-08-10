@@ -14,6 +14,7 @@ import pytest
 from engine.comics_adapt import (
     ChapterTimeoutError,
     _bubble_song_dna,
+    _build_skip_result,
     adapt_bubble,
     adapt_chapter,
     character_bible_updates,
@@ -780,3 +781,125 @@ def test_adapt_chapter_calls_on_room_memory_done_once_with_the_final_state():
 def test_adapt_chapter_works_unchanged_with_no_on_room_memory_done_given():
     results = adapt_chapter(_chapter(), CHAPTER_DNA, FakeClientRulesImmediately())
     assert len(results) == 1
+
+
+# --- SFX/background skip guard -------------------------------------------
+
+def test_build_skip_result_is_an_honest_untranslated_pass_through():
+    bubble = BubbleInput(id="panel_1_bubble_2", source_text="BOOM", kind="sfx")
+
+    result = _build_skip_result(bubble)
+
+    assert result.skipped is True
+    assert result.section == "panel_1_bubble_2"
+    # No fabricated translation - final_line and the sole candidate are
+    # both exactly the untranslated source text.
+    assert result.ruling.final_line == "BOOM"
+    assert result.candidates == [c for c in result.candidates if c.text == "BOOM"]
+    assert result.candidates[0].agent == "skipped"
+    assert "sfx" in result.ruling.priority_tradeoffs_made
+
+
+def test_adapt_chapter_skips_the_writers_room_for_an_sfx_bubble():
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="BOOM", kind="sfx")]
+    )
+    client = FakeClientRulesImmediately()
+
+    results = adapt_chapter(chapter, CHAPTER_DNA, client)
+
+    assert len(results) == 1
+    assert results[0].skipped is True
+    assert results[0].ruling.final_line == "BOOM"
+    # The whole point: zero LLM calls for a region that can never be
+    # typeset back into the artwork anyway.
+    assert client.calls == []
+
+
+def test_adapt_chapter_skips_background_bubbles_too():
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="OPEN 24 HOURS", kind="background")]
+    )
+    client = FakeClientRulesImmediately()
+
+    results = adapt_chapter(chapter, CHAPTER_DNA, client)
+
+    assert results[0].skipped is True
+    assert client.calls == []
+
+
+@pytest.mark.parametrize("kind", [None, "dialogue", "narration", "unknown"])
+def test_adapt_chapter_does_not_skip_kinds_outside_the_skip_set(kind):
+    chapter = _chapter(
+        bubbles=[BubbleInput(id="b1", source_text="line one", voice="Guard Captain", kind=kind)]
+    )
+    client = FakeClientRulesImmediately()
+
+    results = adapt_chapter(chapter, CHAPTER_DNA, client)
+
+    assert results[0].skipped is False
+    # At least the base Translator/Creative Adapter/Judge triage calls
+    # happened - not an exact-list check, since this fixture's ruling
+    # also triggers a verify-driven corrective retry (a pre-existing
+    # adapt_chapter interaction, unrelated to the skip guard).
+    stages_called = [stage for stage, _ in client.calls]
+    assert stages_called[:3] == ["translator", "creative_adapter", "judge_triage"]
+
+
+def test_adapt_chapter_handles_a_mix_of_skipped_and_real_bubbles_in_order():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="line one", voice="Guard Captain"),
+            BubbleInput(id="b2", source_text="CRASH", kind="sfx"),
+            BubbleInput(id="b3", source_text="line three", voice="Princess"),
+        ]
+    )
+    client = FakeClientRulesImmediately()
+
+    results = adapt_chapter(chapter, CHAPTER_DNA, client)
+
+    assert [r.section for r in results] == ["b1", "b2", "b3"]
+    assert [r.skipped for r in results] == [False, True, False]
+    # The skipped bubble (b2, "CRASH") contributes zero LLM calls and
+    # its source text is never sent to the model at all - only the two
+    # real bubbles (b1, b3) hit the Writers' Room.
+    assert sum(1 for stage, _ in client.calls if stage == "translator") == 2
+    assert all("CRASH" not in user for _, user in client.calls)
+
+
+def test_adapt_chapter_reports_on_stage_and_on_bubble_done_for_a_skipped_bubble():
+    chapter = _chapter(bubbles=[BubbleInput(id="b1", source_text="BOOM", kind="sfx")])
+    stages: list[tuple[str, str, int, int]] = []
+    done: list[tuple[str, bool, int, int]] = []
+
+    adapt_chapter(
+        chapter,
+        CHAPTER_DNA,
+        FakeClientRulesImmediately(),
+        on_stage=lambda bubble_id, stage, i, t: stages.append((bubble_id, stage, i, t)),
+        on_bubble_done=lambda bubble_id, result, i, t: done.append((bubble_id, result.skipped, i, t)),
+    )
+
+    assert stages == [("b1", "adapting", 1, 1)]
+    assert done == [("b1", True, 1, 1)]
+
+
+def test_adapt_chapter_does_not_let_a_skipped_bubble_touch_room_memory():
+    chapter = _chapter(
+        bubbles=[
+            BubbleInput(id="b1", source_text="BOOM", voice="Guard Captain", kind="sfx"),
+        ]
+    )
+    captured: list[RoomMemory] = []
+
+    adapt_chapter(
+        chapter, CHAPTER_DNA, FakeClientRulesImmediately(), on_room_memory_done=captured.append
+    )
+
+    # A skipped bubble's synthetic ruling never becomes a "prior ruling"
+    # future real bubbles would be judged against, and never overwrites
+    # the character's real honorific state with placeholder content.
+    assert captured[0].prior_rulings == []
+    assert "Guard Captain" not in captured[0].honorific_state or captured[0].honorific_state.get(
+        "Guard Captain"
+    ) == next((c.honorific_register for c in CHAPTER_DNA.characters if c.name == "Guard Captain"), None)

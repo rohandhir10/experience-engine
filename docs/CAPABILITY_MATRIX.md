@@ -4188,3 +4188,82 @@ concurrency is worker-replica-based rather than in-process). Also not
 done: actually provisioning the Redis instance or the second Railway
 service - that's a dashboard/infrastructure step, not a code change, and
 nothing here takes effect until `REDIS_URL` is set on both services.
+
+## SFX/background regions skip the Writers' Room entirely
+
+`engine/comics_redraw.py` was always explicit that it only typesets
+speech-bubble text back into a panel - sound-effect (SFX) text baked
+into busy artwork was documented as "NOT attempted here" (inpainting a
+jagged action-line background would just produce a visibly broken
+smudge). What was never true until now: nothing upstream of redraw
+actually knew or cared about that distinction. Every detected text
+region - dialogue, SFX, background signage - was run through the full
+Writers' Room (Translator, Creative Adapter, Judge triage, up to 4
+specialist consults, final ruling: 3-8 real LLM calls per region,
+`engine/writers_room_v1.py`) for a translation that could never be
+typeset into the artwork anyway, since `comics_redraw.py`'s own
+docstring already disclaimed "the caller is responsible for only
+sending genuine bubble regions."
+
+- **`engine/models.py`**: `BubbleInput` gained `kind: str | None = None`
+  (the optional vision-LLM OCR pass's `"dialogue" | "sfx" | "narration" |
+  "background" | "unknown"` classification, previously computed
+  server-side and never threaded past OCR alignment). `SectionResultV1`
+  gained `skipped: bool = False`, so a synthetic pass-through result can
+  be told apart from a real translation by any caller, not just
+  `comics_adapt.py` itself.
+- **`engine/comics_adapt.py`**: `_SKIP_KINDS = {"sfx", "background"}` -
+  deliberately NOT `"narration"` (still real prose a reader reads, and
+  `comics_redraw.py` CAN typeset a caption box) or `"unknown"`/`None`
+  (unclassified isn't the same claim as "known to be SFX" - defaulting
+  an uncertain region to skip would silently drop real dialogue whenever
+  the vision-LLM pass is unsure, a much worse failure than occasionally
+  translating an SFX word that turns out fine). `_build_skip_result`
+  returns an honest, untranslated pass-through of `source_text` - never
+  a fabricated translation - with `skipped=True` and a real reason in
+  `ruling.priority_tradeoffs_made`. `adapt_chapter`'s loop checks
+  `bubble.kind` before calling `adapt_bubble`/`_verify_and_correct_bubble`
+  at all, still fires `on_stage`/`on_bubble_done` so a caller's progress
+  reporting doesn't need to know skips exist, and never lets a skipped
+  bubble's synthetic ruling pollute `RoomMemory` (no `prior_rulings`
+  entry, no honorific-state overwrite) for bubbles judged after it.
+- **`server/main.py`**: `ComicsPanelText` gained `kind: str | None = None`,
+  threaded into `BubbleInput(...)`. `on_bubble_done` checks
+  `result.skipped` before calling `_explain_why` (itself a real LLM
+  call) - a skipped bubble's `why` is the skip reason directly, since
+  there's no real translation for a model to narrate.
+- **`web/lib/comics-types.ts`**: `ChapterBubble` gained `kind?: string`;
+  `panelToChapterBubbles` threads a region's own `kind` through
+  (`OcrRegion.kind` already existed, but was previously dead metadata -
+  nothing downstream ever read it). A flat whole-panel unit (no detected
+  regions) has no per-region kind, same as before.
+- **`web/lib/comicsAdapt.ts`**: `adaptChapter`'s `panels` param type
+  updated to match; the request body itself needed no change, since
+  `panels` is passed straight through to `JSON.stringify`.
+
+**The real, honest cost picture** (see the conversation this shipped
+from for the full reasoning): redraw itself has never charged credits
+(`/api/comics/redraw` has no `credits.deduct` call at all), and
+adaptation is charged a flat `CREDITS_PER_PANEL` regardless of region
+count or kind - so this changes nothing about what a user pays. What it
+saves is real backend LLM spend (fewer OpenAI/Anthropic calls per
+chapter) and removes a real quality risk: a short, context-free SFX
+word run through five creative-adaptation philosophies has nothing
+worth making a genuine creative choice about, and previously risked
+polluting Room Memory/character voice tracking with a translation
+decision that was never really a translation decision.
+
+Every existing deployment (any request with no `kind` set - i.e. every
+deployment without `CASTIA_VISION_READING` enabled, and every request
+predating this) behaves exactly as before: `bubble.kind` is `None`,
+`None not in _SKIP_KINDS`, nothing is skipped.
+
+Tests: `tests/test_comics_adapt.py` (10 new - `_build_skip_result`'s
+shape, SFX/background actually skip, dialogue/narration/unknown/None
+explicitly do NOT skip, a skipped bubble contributes zero LLM calls and
+never leaks its source text into a real bubble's prompt, `on_stage`/
+`on_bubble_done` still fire, Room Memory stays untouched by a skip) and
+`tests/test_server.py` (2 new - `_explain_why` bypass, `kind` threading
+into `BubbleInput`) plus `web/lib/comics-types.test.ts` (2 new - `kind`
+threading through `panelToChapterBubbles`, undefined when unclassified).
+Full suite green: 1041 pytest, 132 vitest.

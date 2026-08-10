@@ -146,7 +146,7 @@ export type DetectedLanguage = {
 // almost anything except this).
 const REGION_ID_SEPARATOR = "::";
 
-export type ChapterBubble = { id: string; text: string; voice?: string };
+export type ChapterBubble = { id: string; text: string; voice?: string; kind?: string };
 
 /** Builds one real adaptation unit ("bubble", in engine terms) per
  * detected OCR region for a panel that has them, instead of flattening
@@ -167,6 +167,14 @@ export type ChapterBubble = { id: string; text: string; voice?: string };
  * panel-level fallback - a real per-bubble signal beats a per-panel
  * guess when both exist.
  *
+ * `kind`, when the optional vision-LLM read pass set one (OcrRegion.kind),
+ * is threaded straight through to server/main.py's ComicsPanelText.kind
+ * -> engine.models.BubbleInput.kind, which engine/comics_adapt.py uses
+ * to skip the Writers' Room entirely for "sfx"/"background" regions -
+ * see that module's _SKIP_KINDS for why. A flat whole-panel unit below
+ * (no detected regions) never has a per-region kind, so it's always
+ * undefined there, same as before this field existed.
+ *
  * Region ids are `${panelId}::${regionIndex}`, parseable back apart by
  * parseBubbleId - this is how a result gets applied to the right
  * REGION instead of the whole panel once adaptation finishes
@@ -180,6 +188,7 @@ export function panelToChapterBubbles(panel: ComicPanel): ChapterBubble[] {
         id: `${panel.id}${REGION_ID_SEPARATOR}${index}`,
         text: region.text.trim(),
         voice: region.speaker?.trim() || panel.voice?.trim() || undefined,
+        kind: region.kind,
       }))
       .filter((bubble) => bubble.text.length > 0);
   }

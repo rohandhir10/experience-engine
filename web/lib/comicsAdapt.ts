@@ -120,7 +120,11 @@ async function pollJob(
 // independently. `voice`, when set, becomes BubbleInput.voice
 // server-side - the thing that actually drives per-character voice
 // consistency and honorific-register tracking (engine/comics_adapt.py);
-// omitted, a bubble is adapted unattributed.
+// omitted, a bubble is adapted unattributed. `kind`, when the optional
+// vision-LLM read pass classified this region, becomes BubbleInput.kind
+// server-side - "sfx"/"background" skip the Writers' Room entirely
+// (engine/comics_adapt.py's _SKIP_KINDS); omitted, a bubble is adapted
+// normally, same as before this field existed.
 // `seriesName`, when given (and the caller is signed in - server/main.py
 // silently ignores it otherwise, since a persisted character bible needs
 // a real owner), ties this chapter's characters to any previously-saved
@@ -130,7 +134,7 @@ async function pollJob(
 // character memory for this request, same as every request behaved
 // before this existed.
 export async function adaptChapter(
-  panels: { id: string; text: string; voice?: string }[],
+  panels: { id: string; text: string; voice?: string; kind?: string }[],
   sourceLanguage: string,
   targetLanguage: string,
   onProgress?: (progress: ChapterAdaptProgress) => void,

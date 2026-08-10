@@ -983,9 +983,10 @@ class _FakeRuling:
 
 
 class _FakeSectionResult:
-    def __init__(self, section, final_line):
+    def __init__(self, section, final_line, skipped=False, tradeoff="test tradeoff"):
         self.section = section
-        self.ruling = _FakeRuling(final_line)
+        self.ruling = _FakeRuling(final_line, priority_tradeoffs_made=tradeoff)
+        self.skipped = skipped
 
 
 def _fake_chapter_dna(**overrides):
@@ -1054,6 +1055,80 @@ def test_comics_adapt_endpoint_returns_chapter_dna_and_per_panel_results(monkeyp
         {"id": "panel-1", "literal": "literal panel-1", "adapted_text": "adapted panel-1", "why": "why text"},
         {"id": "panel-2", "literal": "literal panel-2", "adapted_text": "adapted panel-2", "why": "why text"},
     ]
+
+
+def test_comics_adapt_endpoint_skipped_bubble_bypasses_explain_why(monkeypatch):
+    """A skipped (SFX/background) bubble's "why" comes straight from
+    result.ruling.priority_tradeoffs_made (the skip reason set by
+    engine/comics_adapt.py::_build_skip_result) - _explain_why is never
+    called for it, which is the whole point of skipping: no extra LLM
+    call trying to narrate a translation that never happened."""
+    _patch_comics_adapt(monkeypatch)
+    explain_why_calls = []
+    monkeypatch.setattr(
+        main,
+        "_explain_why",
+        lambda client, thesis, literal, adapted, tradeoffs: explain_why_calls.append(1) or "why text",
+    )
+
+    def adapt_chapter_with_one_skip(
+        chapter, dna, client, on_stage=None, on_bubble_done=None, on_room_memory_done=None, deadline=None
+    ):
+        results = [
+            _FakeSectionResult("panel-1", "BOOM", skipped=True, tradeoff="Skipped: classified as sfx."),
+            _FakeSectionResult("panel-2", "adapted panel-2", skipped=False),
+        ]
+        for index, result in enumerate(results, start=1):
+            if on_bubble_done:
+                on_bubble_done(result.section, result, index, len(results))
+        return results
+
+    monkeypatch.setattr(main, "adapt_chapter", adapt_chapter_with_one_skip)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="BOOM", kind="sfx"),
+            main.ComicsPanelText(id="panel-2", text="goodbye"),
+        ],
+    )
+    result = main.comics_adapt_endpoint(request, _FakeRequest())
+
+    assert result["panels"] == [
+        {"id": "panel-1", "literal": "literal panel-1", "adapted_text": "BOOM", "why": "Skipped: classified as sfx."},
+        {"id": "panel-2", "literal": "literal panel-2", "adapted_text": "adapted panel-2", "why": "why text"},
+    ]
+    # Only the real (non-skipped) bubble triggered _explain_why.
+    assert len(explain_why_calls) == 1
+
+
+def test_comics_adapt_endpoint_threads_kind_into_bubble_input(monkeypatch):
+    _patch_comics_adapt(monkeypatch)
+    captured_chapters = []
+
+    def capturing_adapt_chapter(
+        chapter, dna, client, on_stage=None, on_bubble_done=None, on_room_memory_done=None, deadline=None
+    ):
+        captured_chapters.append(chapter)
+        return _fake_adapt_chapter(
+            chapter, dna, client, on_stage=on_stage, on_bubble_done=on_bubble_done,
+            on_room_memory_done=on_room_memory_done,
+        )
+
+    monkeypatch.setattr(main, "adapt_chapter", capturing_adapt_chapter)
+
+    request = main.ComicsAdaptRequest(
+        source_language="Korean",
+        panels=[
+            main.ComicsPanelText(id="panel-1", text="BOOM", kind="sfx"),
+            main.ComicsPanelText(id="panel-2", text="hello"),
+        ],
+    )
+    main.comics_adapt_endpoint(request, _FakeRequest())
+
+    bubbles = {b.id: b for b in captured_chapters[0].bubbles}
+    assert bubbles["panel-1"].kind == "sfx"
+    assert bubbles["panel-2"].kind is None
 
 
 def test_run_comics_adaptation_reports_incremental_progress_when_given_a_job_id(monkeypatch):
