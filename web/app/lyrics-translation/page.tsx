@@ -14,7 +14,7 @@ export const metadata = {
   alternates: { canonical: entry.path },
 };
 
-const LANGUAGES = ["English", "Hindi", "Japanese", "Korean", "Spanish", "Urdu"];
+const LANGUAGES = ["English", "Japanese", "Korean", "Spanish", "Urdu", "Hindi"];
 
 // Original artwork, not a screenshot - grounded in the real Judge
 // behavior described in how-it-works: a literal anchor line, an adapted
@@ -86,9 +86,9 @@ export default function LyricsTranslationPage() {
             <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
               The rhyme a line is chasing, the idiom it's leaning on, the
               thing left unsaid on purpose - a word-for-word pass drops all
-              of it. Castia adapts across English, Hindi, Japanese, Korean,
-              Spanish, and Urdu, in any direction, and shows its work on
-              every line.
+              of it. Castia adapts across English, Japanese, Korean,
+              Spanish, Urdu, and Hindi, in any direction, and shows its
+              work on every line.
             </p>
             <Link
               href="/music"
@@ -128,7 +128,7 @@ export default function LyricsTranslationPage() {
             Six languages, six different rulebooks
           </h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
-            English, Hindi, Japanese, Korean, Spanish, and Urdu don't share
+            English, Japanese, Korean, Spanish, Urdu, and Hindi don't share
             one notion of what makes a lyric work — each has its own
             language profile encoding what actually carries structure and
             register in that tradition, so the same generic checklist
@@ -141,16 +141,16 @@ export default function LyricsTranslationPage() {
               body='Traditional verse doesn’t rhyme at all — structure comes from mora count against the melody instead, and rhyme in J-pop reads as a consciously borrowed device. The first-person pronoun a singer chooses (僕/boku, 俺/ore, 私/watashi) characterizes their gender and self-presentation before a single image appears, and even script choice is tonal: the same word in hiragana softens it, in katakana it can read as cold or emphatic.'
             />
             <LangNote
-              lang="Hindi & Urdu"
-              body="Both sit on the same Sanskritized-versus-Persianized axis from opposite sides: choosing prem or ishq for “love,” pyaar or mohabbat, places a line socially and emotionally in a way a single English word for “love” can't distinguish. The ghazal's radif — a whole phrase repeated verbatim at the end of each couplet — is structural, not incidental, and has to survive adaptation the way a chorus hook does."
-            />
-            <LangNote
               lang="Korean"
               body="Korean grammatically encodes how the speaker regards the listener in the verb ending itself — plain, polite, formal, or written/declarative — and switching mid-song is a real, deliberate event, not a grammar error to normalize away. End rhyme carries little information here since Korean's agglutinative verb endings rhyme almost automatically; meter and repetition do the real structural work instead."
             />
             <LangNote
               lang="Spanish"
               body="Assonant rhyme — matching only the vowels from the last stressed syllable on, ignoring consonants — is a full traditional rhyme form and the backbone of the romance ballad tradition, not a near-miss to be corrected into full rhyme. Diminutives like -ito/-ita are hugely productive and carry affection or condescension, not literal smallness."
+            />
+            <LangNote
+              lang="Urdu & Hindi"
+              body="Both sit on the same Persianized-versus-Sanskritized axis from opposite sides: choosing ishq or prem for “love,” mohabbat or pyaar, places a line socially and emotionally in a way a single English word for “love” can't distinguish. The ghazal's radif — a whole phrase repeated verbatim at the end of each couplet — is structural, not incidental, and has to survive adaptation the way a chorus hook does."
             />
           </div>
           <p className="mt-6 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
@@ -183,7 +183,7 @@ export default function LyricsTranslationPage() {
           </div>
           <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
             Adapt in any direction between them - Japanese to English,
-            Spanish to Korean, Urdu to Hindi, and every other pairing.
+            Spanish to Korean, Hindi to Urdu, and every other pairing.
           </p>
         </section>
 
