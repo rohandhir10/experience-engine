@@ -9,13 +9,20 @@ type DashboardSection =
   | "settings"
   | "billing";
 
-const NAV_ITEMS: { key: DashboardSection; label: string; href: string }[] = [
+const NAV_ITEMS: { key: DashboardSection; label: string; href: string; badge?: string }[] = [
   { key: "home", label: "Home", href: "/dashboard" },
   { key: "adaptations", label: "Adaptations", href: "/dashboard/adaptations" },
   { key: "favorites", label: "Favorites", href: "/dashboard/favorites" },
   { key: "collections", label: "Collections", href: "/dashboard/collections" },
   { key: "usage", label: "Usage", href: "/dashboard/usage" },
-  { key: "settings", label: "Settings", href: "/dashboard/settings" },
+  // Labeled "API Keys," not "Settings" - that's the only thing this page
+  // actually manages (no profile/password/email/account-deletion page
+  // exists anywhere in this app yet), and "Settings" promised more than
+  // it delivered. "Beta" here for the same reason it used to live on a
+  // separate, now-removed duplicate nav row pointing at this identical
+  // URL: server/main.py's /v1/* routes are real but still lack an async
+  // job/poll pattern for a long chapter - see /docs/api.
+  { key: "settings", label: "API Keys", href: "/dashboard/settings", badge: "Beta" },
 ];
 
 const BOTTOM_ITEMS: { key: DashboardSection; label: string; href: string }[] = [
@@ -27,6 +34,12 @@ const BOTTOM_ITEMS: { key: DashboardSection; label: string; href: string }[] = [
 // keeps the tag truthful as features land one at a time.
 const LIVE_SECTIONS: ReadonlySet<DashboardSection> = new Set<DashboardSection>([
   "home",
+  // Real now too (app/dashboard/adaptations/page.tsx's own comment: "no
+  // longer a DashboardStub") - the same RecentAdaptations component
+  // Favorites already uses, just unfiltered. This set was never updated
+  // when that landed, so the nav kept showing "Soon" on a fully working
+  // page - found auditing this file for the opposite kind of drift.
+  "adaptations",
   "favorites",
   "collections",
   // API key management (server/api_keys.py) is real now - the only real
@@ -46,12 +59,19 @@ function NavRow({
   href,
   active,
   live,
+  badge,
 }: {
   label: string;
   href: string;
   active: boolean;
   live: boolean;
+  badge?: string;
 }) {
+  // A live section only shows a badge if it explicitly carries one
+  // (e.g. "Beta" on API Keys) - a not-yet-live section always shows
+  // "Soon" regardless, unless it's the active row (no point badging
+  // the page you're already looking at).
+  const shownBadge = badge ?? (!live ? "Soon" : null);
   return (
     <Link
       href={href}
@@ -62,22 +82,24 @@ function NavRow({
       }`}
     >
       <span>{label}</span>
-      {!active && !live && (
+      {!active && shownBadge && (
         <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/35 dark:bg-white/10 dark:text-ink-dark/40">
-          Soon
+          {shownBadge}
         </span>
       )}
     </Link>
   );
 }
 
-/** Home, Favorites and Collections are real (adaptation history,
- * starring, and grouping — backed by accounts; see web/auth.ts and
- * server/accounts.py). The remaining sections still lead to honest stubs
- * (components/DashboardStub): there's no usage metering and no settings
- * to change yet. Those keep a "Soon" tag rather than being hidden or inert, so the
- * eventual shape of the product is real to click through without
- * pretending it works — see LIVE_SECTIONS above. */
+/** Every section in LIVE_SECTIONS above is real - adaptation history,
+ * starring, grouping, the credit ledger, and API key management (see
+ * web/auth.ts, server/accounts.py, server/credits.py,
+ * server/api_keys.py). None currently lead to a stub; LIVE_SECTIONS
+ * still exists (rather than being deleted now that it covers every
+ * DashboardSection) so the next genuinely-unbuilt section has a real
+ * place to keep its honest "Soon" tag instead of hiding or faking it,
+ * the same convention this app uses elsewhere for a real, disclosed
+ * gap. */
 export function DashboardSidebar({ active = "home" }: { active?: DashboardSection }) {
   return (
     <nav className="flex w-full flex-col gap-1 sm:w-48 sm:shrink-0">
@@ -88,6 +110,7 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
           href={item.href}
           active={active === item.key}
           live={LIVE_SECTIONS.has(item.key)}
+          badge={item.badge}
         />
       ))}
       <div className="my-2 border-t border-black/[0.05] dark:border-white/[0.05]" />
@@ -100,22 +123,6 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
           live={LIVE_SECTIONS.has(item.key)}
         />
       ))}
-      {/* server/main.py's /v1/* routes are real now (keys managed on the
-          Settings page below, documented at /docs/api) - "Beta"
-          discloses the actual remaining gap honestly: no async job/poll
-          pattern for a long chapter yet, same convention as Webtoons'
-          own "Beta" badge elsewhere in this app. Still links to Settings
-          rather than the docs page - a sidebar nav row is for account
-          management, not documentation. */}
-      <Link
-        href="/dashboard/settings"
-        className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px] text-ink/30 transition hover:text-ink/55 dark:text-ink-dark/30 dark:hover:text-ink-dark/55"
-      >
-        <span>API</span>
-        <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/35 dark:bg-white/10 dark:text-ink-dark/40">
-          Beta
-        </span>
-      </Link>
     </nav>
   );
 }
