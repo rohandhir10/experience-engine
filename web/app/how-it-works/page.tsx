@@ -39,6 +39,45 @@ const SOURCES = [
   },
 ];
 
+// Original artwork, not a screenshot - visualizes the specific mechanism
+// Step 2/3 below describe in prose: five differently-angled rewrites
+// scored against the literal anchor, with one picked and the rest left
+// behind. None of the other diagrams on this page (PipelineDiagramDark,
+// ComicsPipelineDiagram) show this - those are stage-flow diagrams, this
+// is the selection itself.
+function CandidateDiagram() {
+  const others = [1, 2, 3, 4];
+  return (
+    <div className="rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+        Five rewrites, scored against the anchor
+      </p>
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center gap-3 rounded-lg border border-accent/40 bg-accent/[0.06] px-3 py-2">
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-paper">
+            ✓
+          </span>
+          <p className="font-serif text-[13px] leading-snug text-ink dark:text-ink-dark">
+            &ldquo;The night won&rsquo;t end - it just goes quiet.&rdquo;
+          </p>
+        </div>
+        {others.map((i) => (
+          <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 opacity-40">
+            <span className="h-5 w-5 shrink-0 rounded-full border border-ink/20 dark:border-ink-dark/20" />
+            <p className="font-serif text-[13px] leading-snug text-ink/60 dark:text-ink-dark/60">
+              Rewrite {i}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 border-t border-black/[0.06] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.06] dark:text-ink-dark/50">
+        &ldquo;Kept the near-rhyme, dropped the literal &lsquo;grows&rsquo;
+        to make it singable against the melody.&rdquo;
+      </p>
+    </div>
+  );
+}
+
 export default function HowItWorksPage() {
   const breadcrumb = breadcrumbJsonLd([
     { name: "Home", path: "/" },
@@ -81,18 +120,22 @@ export default function HowItWorksPage() {
       <div className="mx-auto max-w-3xl">
         <SiteHeader />
 
-        <div className="mt-10">
-          <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "How it works" }]} />
-          <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
-            A real Writers' Room, not one prompt.
-          </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
-            Castia doesn't ask a single model to translate a line and call
-            it done. Every line — whether it's a song lyric or a comic
-            panel's dialogue — goes through the same three-stage pipeline,
-            and every departure from a literal translation ships with a
-            plain-language reason instead of a silent rewrite.
-          </p>
+        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <div>
+            <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "How it works" }]} />
+            <h1 className="mt-3 font-serif text-3xl leading-[1.15] text-ink dark:text-ink-dark sm:text-4xl">
+              Five rewrites compete for every line.
+              <br />
+              One wins, and it has to say why.
+            </h1>
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              Every line — whether it's a song lyric or a comic panel's
+              dialogue — goes through the same three-stage pipeline below,
+              and every departure from a literal translation ships with a
+              plain-language reason instead of a silent rewrite.
+            </p>
+          </div>
+          <CandidateDiagram />
         </div>
 
         <div className="mt-12 space-y-6">
