@@ -4379,3 +4379,52 @@ Original/Redrawn toggle's existing Playwright check to confirm the
 `npx vitest run` (149 passed, unchanged - this fix moved logic, it
 didn't add new pure functions to unit-test beyond what
 `chapterSlice.test.ts` already covers), and `npm run build` all clean.
+
+## Early warning before a chapter over MAX_COMICS_PANELS reaches "Adapt chapter"
+
+**The gap**: `server/main.py`'s `MAX_COMICS_PANELS` (100, real env var
+`CASTIA_MAX_COMICS_PANELS`) is the ONLY place a chapter's panel count
+was ever checked - purely server-side, and only at the moment "Adapt
+chapter" is actually clicked. Nothing on the frontend warned earlier,
+so a chapter that ends up over the limit - most easily now via
+`lib/chapterSlice.ts` auto-slicing one very tall image into 100+
+pages - let a user OCR, edit, and reorder every panel by hand before
+finding out at the very last step that none of it could be adapted as
+one chapter. Confirmed live before fixing: a 400x65000px strip sliced
+into 117 panels with zero warning anywhere in the UI; only clicking
+"Adapt chapter" (mocked to return the real backend 413) surfaced
+anything.
+
+**The fix**: `web/lib/comics-types.ts` adds `MAX_COMICS_PANELS_HINT =
+100` - explicitly documented as a best-effort mirror of the server's
+default, not authoritative (the real limit is env-configurable and
+not readable from the client). `app/comics/page.tsx` shows a
+persistent warning banner (reusing the same red-text styling as the
+existing `adaptError`/`conversionErrors`/`addMoreError` surfaces)
+whenever `panels.length > MAX_COMICS_PANELS_HINT`, driven directly off
+`panels.length` so it appears regardless of how the panels got there
+(slicing, "Add more", a folder upload, manually selecting 100+ files)
+and clears itself the moment the count drops back under the line (e.g.
+after removing panels). Deliberately does NOT disable "Adapt chapter"
+or block the upload - only `server/main.py`'s own check is
+authoritative, since a deployment could override the env var and make
+a client-side block a real, wrong refusal this constant has no way to
+know about.
+
+**Verified live** against a production build: the warning now appears
+immediately after the 400x65000px strip finishes slicing into 117
+panels - before any OCR, before any editing, before "Adapt chapter" is
+ever clicked. "Adapt chapter" stays clickable (disabled only for the
+unrelated, pre-existing reason that no panel has extracted text yet);
+clicking it after typing in real text still surfaces the actual
+backend 413 (mocked with the real message) via the existing
+`adaptError` UI, and the early warning banner remains visible
+alongside it rather than disappearing. Re-ran the full regression
+suite built across this session's last several fixes - chapter-slice
+detection, PDF/ZIP/mixed uploads, drag-and-drop, folder upload, re-
+upload dedup, reorder+remove after slicing, batch OCR at scale, and
+the Original/Redrawn toggle - all still pass unchanged. `npx tsc
+--noEmit`, `npx vitest run` (149 passed, unchanged - this is a UI-only
+warning banner with no new pure logic to unit-test beyond the existing
+`MAX_COMICS_PANELS_HINT` constant itself), and `npm run build` all
+clean.

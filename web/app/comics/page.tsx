@@ -10,7 +10,14 @@ import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
 import { PanelOrderGrid } from "@/components/comics/PanelOrderGrid";
 import { naturalCompare } from "@/lib/naturalSort";
 import { LANGUAGES } from "@/lib/languages";
-import { applyBubbleResult, moveItem, panelToChapterBubbles, panelsToCsv, type ComicPanel } from "@/lib/comics-types";
+import {
+  applyBubbleResult,
+  MAX_COMICS_PANELS_HINT,
+  moveItem,
+  panelToChapterBubbles,
+  panelsToCsv,
+  type ComicPanel,
+} from "@/lib/comics-types";
 import { OcrRequestError, resolvePanelSpeaker, runPanelOcr } from "@/lib/comicsOcr";
 import { resolveImageUploads } from "@/lib/panelUpload";
 import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
@@ -468,6 +475,21 @@ export default function ComicsPage() {
               </div>
               {addMoreError && (
                 <p className="mt-2 text-[12px] text-red-600/80 dark:text-red-400/80">{addMoreError}</p>
+              )}
+              {panels.length > MAX_COMICS_PANELS_HINT && (
+                // Purely a heads-up, shown as soon as the count crosses the
+                // line - "Adapt chapter" itself stays clickable, since only
+                // server/main.py's own check (the real, authoritative one)
+                // can say for certain a given deployment will reject it.
+                // Without this, a chapter this large - most often an
+                // auto-sliced whole-chapter strip, see
+                // lib/chapterSlice.ts - silently let a user edit every
+                // panel by hand before finding out at the very last step.
+                <p className="mt-2 text-[12px] text-red-600/80 dark:text-red-400/80">
+                  {panels.length} panels is over the usual {MAX_COMICS_PANELS_HINT}-panel limit for one
+                  chapter - "Adapt chapter" will likely reject this. Consider removing some panels or
+                  splitting this into shorter chapters before doing more editing.
+                </p>
               )}
 
               <PanelOrderGrid panels={panels} onReorder={reorderPanels} />

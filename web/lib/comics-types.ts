@@ -16,6 +16,17 @@ export function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[]
   return next;
 }
 
+// Mirrors server/main.py's MAX_COMICS_PANELS default (its real,
+// authoritative env var is CASTIA_MAX_COMICS_PANELS - not readable from
+// the client, so this can't be more than a best-effort hint that tracks
+// the common case). Used ONLY to warn early, in app/comics/page.tsx,
+// before a user sinks real editing time into a chapter "Adapt chapter"
+// will reject outright once server/main.py's own (authoritative) check
+// runs - never to block an upload or a reorder client-side, since a
+// deployment that overrides the env var would make that a real, wrong
+// refusal this constant has no way to know about.
+export const MAX_COMICS_PANELS_HINT = 100;
+
 // A single chapter-slice image plus whatever script text has been drawn
 // out of it so far. extractedText/adaptedText/why are plain user-
 // editable fields regardless of source - "Run OCR" (lib/comicsOcr.ts)
