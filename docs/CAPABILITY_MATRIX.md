@@ -4333,3 +4333,49 @@ assertion. Re-ran the same upload flow with a normal 800x1200px panel
 immediately after and confirmed it still lands as exactly 1 panel with
 its original filename untouched, so the common case has zero behavior
 change.
+
+## Closed the one upload path the chapter-slice fix above missed: "Add more"
+
+**The gap**: the slicing fix above only reached uploads through
+`PanelUploader.tsx` (the initial drop zone/file/folder inputs). Once a
+chapter already had at least one panel, `app/comics/page.tsx`'s "Add
+more" input (its own separate `<input type="file">`, not a re-render of
+`PanelUploader`) called `addFiles` directly - the exact same silent
+garbled-OCR bug the slicer was built to close, still fully open on this
+one path. Confirmed live before fixing: uploaded one normal panel, then
+used "Add more" to add the same 800x24000px strip that correctly splits
+into 22 pages on the initial upload - via "Add more" it landed as a
+single unsliced panel.
+
+**The fix**: extracted the parallel per-file slicing logic that used to
+live inline in `PanelUploader.tsx`'s `handleIncoming` into
+`web/lib/panelUpload.ts::resolveImageUploads` - the same
+`Promise.allSettled`-based "check every file's dimensions in parallel,
+collect failures without aborting the batch" logic, now a plain
+async function instead of duplicated. `PanelUploader.tsx` calls it for
+its own three entry points (drop, file picker, folder picker);
+`app/comics/page.tsx`'s new `addMoreFiles` calls it directly for "Add
+more", then hands the resolved files to the existing `addFiles`. A
+slicing failure surfaces in a new `addMoreError` state with its own
+small text banner - "Add more" doesn't render `PanelUploader`, so it
+never had access to that component's `conversionErrors` UI.
+
+**Verified live, all five ways a `File[]` can enter the workspace**,
+against a production build: (1) the original drop-zone file input - a
+whole-chapter strip still slices into 22 pages, a normal panel still
+lands as 1; (2) real HTML5 drag-and-drop (a genuine `DragEvent` with a
+populated `DataTransfer`, not `setInputFiles` - the one path that could
+plausibly differ from the file-input path in the browser, and hadn't
+been checked with a real drop before) - same 22-page result; (3) the
+`webkitdirectory` folder picker, given an actual directory containing
+one normal panel and one whole-chapter strip - correctly resolves to 23
+panels; (4) "Add more" itself, re-run after the fix - now also 23
+panels (1 already-loaded + 22 sliced), where it was 2 before; (5) PDF
+and ZIP uploads, plus a mixed image+PDF drop in the same batch -
+re-verified unaffected by the `resolveImageUploads` extraction (2 PDF
+pages, 3 ZIP images, 3 total for the mixed case). Also re-ran the
+Original/Redrawn toggle's existing Playwright check to confirm the
+`page.tsx` edits here didn't touch that flow. `npx tsc --noEmit`,
+`npx vitest run` (149 passed, unchanged - this fix moved logic, it
+didn't add new pure functions to unit-test beyond what
+`chapterSlice.test.ts` already covers), and `npm run build` all clean.

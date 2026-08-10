@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ChapterSliceError, sliceChapterStrip } from "@/lib/chapterSlice";
+import { resolveImageUploads } from "@/lib/panelUpload";
 import { PdfConversionError, pdfToImageFiles } from "@/lib/pdfToImages";
 import { ZipConversionError, zipToImageFiles } from "@/lib/zipToImages";
 
@@ -40,12 +40,16 @@ function isZip(file: File): boolean {
  *
  * A plain image can ALSO be that same unsliced whole-chapter export,
  * dropped in directly instead of pre-cut - a real, unannounced upload
- * shape, not a hypothetical. lib/chapterSlice.ts checks every accepted
- * image's own dimensions and, past its aspect-ratio/height thresholds,
- * cuts it into page-sized slices right here too - before it ever
- * becomes a "panel" and reaches lib/imageDownscale.ts's OCR shrink,
- * which would otherwise crush a 30,000px-tall strip down to 2000px and
- * make every speech bubble unreadable with no error at all. */
+ * shape, not a hypothetical. lib/panelUpload.ts's resolveImageUploads
+ * (lib/chapterSlice.ts underneath) checks every accepted image's own
+ * dimensions and, past its aspect-ratio/height thresholds, cuts it into
+ * page-sized slices right here too - before it ever becomes a "panel"
+ * and reaches lib/imageDownscale.ts's OCR shrink, which would otherwise
+ * crush a 30,000px-tall strip down to 2000px and make every speech
+ * bubble unreadable with no error at all. app/comics/page.tsx's "Add
+ * more" input calls the same resolveImageUploads directly (it doesn't
+ * render this component) - see that file for why that split existed
+ * and had to be closed. */
 export function PanelUploader({
   onFilesSelected,
 }: {
@@ -75,25 +79,9 @@ export function PanelUploader({
     const errors: string[] = [];
 
     if (images.length) {
-      // Every image's dimensions get checked in parallel, not one at a
-      // time - the common case is a batch of already-correctly-sized
-      // panels, and decoding N of them sequentially would add real,
-      // felt latency to an upload that needs no slicing at all.
-      const results = await Promise.allSettled(images.map((file) => sliceChapterStrip(file)));
-      const slicedFiles: File[] = [];
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        if (result.status === "fulfilled") {
-          slicedFiles.push(...result.value);
-        } else {
-          const err = result.reason;
-          console.error("Chapter-strip slicing failed", images[i].name, err);
-          errors.push(
-            err instanceof ChapterSliceError ? `${err.fileName}: ${err.message}` : `${images[i].name}: couldn't be read`
-          );
-        }
-      }
-      if (slicedFiles.length) onFilesSelected(slicedFiles);
+      const resolved = await resolveImageUploads(images);
+      errors.push(...resolved.errors);
+      if (resolved.files.length) onFilesSelected(resolved.files);
     }
 
     for (const { kind, file } of convertibles) {

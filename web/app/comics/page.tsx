@@ -12,6 +12,7 @@ import { naturalCompare } from "@/lib/naturalSort";
 import { LANGUAGES } from "@/lib/languages";
 import { applyBubbleResult, moveItem, panelToChapterBubbles, panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, resolvePanelSpeaker, runPanelOcr } from "@/lib/comicsOcr";
+import { resolveImageUploads } from "@/lib/panelUpload";
 import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
@@ -87,6 +88,12 @@ export default function ComicsPage() {
   // reasoning /s/[id] never has to think about since songs are read-only
   // once shared.
   const [lastAdaptedId, setLastAdaptedId] = useState<string | null>(null);
+  // Surfaces a chapter-strip slicing failure from the "Add more" input
+  // specifically (lib/panelUpload.ts::resolveImageUploads) - the initial
+  // upload's PanelUploader.tsx has its own conversionErrors UI for this
+  // same failure; "Add more" doesn't render that component, so it needs
+  // its own small surface rather than swallowing the error.
+  const [addMoreError, setAddMoreError] = useState<string | null>(null);
 
   // Written on every real arrival here - see app/music/page.tsx's
   // matching effect for why (tile click, switcher, or a direct URL all
@@ -129,6 +136,19 @@ export default function ComicsPage() {
       return merged.sort((a, b) => naturalCompare(a.fileName, b.fileName));
     });
     setLastAdaptedId(null);
+  }
+
+  // "Add more"'s own entry point - NOT allowed to call addFiles directly
+  // with the raw FileList the way it used to. Routes through the same
+  // resolveImageUploads every other upload path uses (PanelUploader.tsx's
+  // drop zone/file/folder inputs) so a whole-chapter strip added here
+  // gets sliced into pages exactly like one added on the very first
+  // upload, instead of silently landing as one unreadable panel.
+  async function addMoreFiles(files: File[]) {
+    setAddMoreError(null);
+    const { files: resolved, errors } = await resolveImageUploads(files);
+    if (resolved.length) addFiles(resolved);
+    if (errors.length) setAddMoreError(errors.join(" "));
   }
 
   function updatePanel(id: string, patch: Partial<ComicPanel>) {
@@ -432,7 +452,7 @@ export default function ComicsPage() {
                       accept="image/jpeg,image/png,image/webp"
                       className="hidden"
                       onChange={(e) => {
-                        if (e.target.files) addFiles(Array.from(e.target.files));
+                        if (e.target.files) void addMoreFiles(Array.from(e.target.files));
                         e.target.value = "";
                       }}
                     />
@@ -446,6 +466,9 @@ export default function ComicsPage() {
                   </button>
                 </div>
               </div>
+              {addMoreError && (
+                <p className="mt-2 text-[12px] text-red-600/80 dark:text-red-400/80">{addMoreError}</p>
+              )}
 
               <PanelOrderGrid panels={panels} onReorder={reorderPanels} />
 
