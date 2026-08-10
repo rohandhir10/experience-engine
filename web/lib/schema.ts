@@ -1,4 +1,4 @@
-import { SITE_NAME, absoluteUrl } from "./seo";
+import { SITE_NAME, FOUNDER_NAME, absoluteUrl } from "./seo";
 
 // Shared JSON-LD builders so every editorial page emits the same shape
 // (and the same real dates from lib/content.ts) instead of each page
@@ -43,7 +43,7 @@ export function articleJsonLd({
     description,
     datePublished: publishedDate,
     dateModified: updatedDate,
-    author: { "@type": "Organization", name: SITE_NAME, url: absoluteUrl("/") },
+    author: { "@type": "Person", name: FOUNDER_NAME, url: absoluteUrl("/about") },
     publisher: { "@type": "Organization", name: SITE_NAME, url: absoluteUrl("/") },
     ...(citations && citations.length > 0
       ? { citation: citations.map((c) => ({ "@type": "CreativeWork", name: c.name, url: c.url })) }

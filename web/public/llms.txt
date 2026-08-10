@@ -45,6 +45,7 @@ Every submission runs through the same pipeline regardless of medium:
 - Glossary (definitions of terms used throughout this site): /glossary
 - Comparisons: /compare/google-translate, /compare/deepl, /compare/chatgpt-prompt
 - API reference (auth, endpoints, request/response shapes): /docs/api
+- About (who runs this, how the site's claims are sourced): /about
 - One worked example, viewable without an account: /s/demo
 
 ## Notes for citation

@@ -7,6 +7,7 @@ import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
 import type { ContentEntry } from "@/lib/content";
 import { breadcrumbJsonLd, articleJsonLd, type Citation } from "@/lib/schema";
+import { FOUNDER_NAME } from "@/lib/seo";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
@@ -56,7 +57,11 @@ export function BlogPostShell({
             {entry.title}
           </h1>
           <p className="mt-3 text-[12px] text-ink/35 dark:text-ink-dark/35">
-            Published {formatDate(entry.publishedDate)}
+            By{" "}
+            <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/55 dark:hover:text-ink-dark/55">
+              {FOUNDER_NAME}
+            </Link>{" "}
+            · Published {formatDate(entry.publishedDate)}
             {entry.updatedDate !== entry.publishedDate ? ` · Updated ${formatDate(entry.updatedDate)}` : ""}
           </p>
         </div>

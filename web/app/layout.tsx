@@ -4,7 +4,7 @@ import "./globals.css";
 import { AmbientGlow } from "@/components/AmbientGlow";
 import { JsonLd } from "@/components/JsonLd";
 import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
-import { SITE_URL, SITE_NAME, absoluteUrl } from "@/lib/seo";
+import { SITE_URL, SITE_NAME, FOUNDER_NAME, absoluteUrl } from "@/lib/seo";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 const DEFAULT_TITLE = "Castia — Adapt the feeling, not just the words";
@@ -48,6 +48,7 @@ const organizationJsonLd = {
   name: SITE_NAME,
   url: SITE_URL,
   logo: absoluteUrl("/logo"),
+  founder: { "@type": "Person", name: FOUNDER_NAME, url: absoluteUrl("/about") },
 };
 
 const softwareApplicationJsonLd = {

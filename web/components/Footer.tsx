@@ -45,6 +45,9 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
         <Link href="/docs/api" className={`transition ${dim}`}>
           API
         </Link>
+        <Link href="/about" className={`transition ${dim}`}>
+          About
+        </Link>
       </nav>
       <nav className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-[12px]">
         <Link href="/terms" className={`transition ${dim}`}>
