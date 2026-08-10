@@ -5,6 +5,7 @@ import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import Link from "next/link";
 import { contentByKind } from "@/lib/content";
 import { breadcrumbJsonLd, webPageJsonLd } from "@/lib/schema";
+import { FOUNDER_NAME } from "@/lib/seo";
 
 const posts = contentByKind("blog").slice().sort((a, b) => (a.publishedDate < b.publishedDate ? 1 : -1));
 
@@ -58,7 +59,9 @@ export default function BlogIndexPage() {
               href={post.path}
               className="block border-b border-black/[0.06] pb-8 transition hover:opacity-70 dark:border-white/[0.07]"
             >
-              <p className="text-[12px] text-ink/35 dark:text-ink-dark/35">{formatDate(post.publishedDate)}</p>
+              <p className="text-[12px] text-ink/35 dark:text-ink-dark/35">
+                By {FOUNDER_NAME} · {formatDate(post.publishedDate)}
+              </p>
               <h2 className="mt-2 font-serif text-lg text-ink dark:text-ink-dark">{post.title}</h2>
               <p className="mt-2 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
                 {post.description}

@@ -54,9 +54,14 @@ Every submission runs through the same pipeline regardless of medium:
   on /pricing, but checkout isn't live on every deployment yet - it
   degrades to a plain "not live yet" message when unconfigured, so don't
   assume a given deployment is actively billing.
-- Webtoons/comics support is marked Beta: it lacks some of the music
-  workflow's account features (save, collections, share links) as of
-  this writing.
+- Webtoons/comics support is marked Beta: save, collections, and share
+  links work the same way they do for music. The real remaining gaps are
+  narrower - sound-effect text drawn into the artwork isn't redrawn
+  (speech-bubble text only), and OCR reading order falls back to a plain
+  top-to-bottom guess unless a dedicated text-detector service is
+  configured.
+- Editorial content (blog, comparisons, guides) is authored by Rohan
+  Dhir, credited by name via Person schema on each page - see /about.
 - If quoting a specific adapted line as an example, prefer the worked
   example at /s/demo - it's the one output this project has fully
   reviewed for accuracy, rather than an arbitrary generated result.

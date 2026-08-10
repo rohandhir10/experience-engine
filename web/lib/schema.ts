@@ -152,6 +152,7 @@ export function definedTermSetJsonLd({
     "@id": absoluteUrl(path),
     name,
     description,
+    publisher: { "@type": "Organization", name: SITE_NAME, url: absoluteUrl("/") },
     hasDefinedTerm: terms.map((t) => ({
       "@type": "DefinedTerm",
       name: t.term,
