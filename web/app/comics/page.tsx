@@ -7,9 +7,10 @@ import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
 import { PanelUploader } from "@/components/comics/PanelUploader";
 import { PanelWorkspace } from "@/components/comics/PanelWorkspace";
+import { PanelOrderGrid } from "@/components/comics/PanelOrderGrid";
 import { naturalCompare } from "@/lib/naturalSort";
 import { LANGUAGES } from "@/lib/languages";
-import { applyBubbleResult, panelToChapterBubbles, panelsToCsv, type ComicPanel } from "@/lib/comics-types";
+import { applyBubbleResult, moveItem, panelToChapterBubbles, panelsToCsv, type ComicPanel } from "@/lib/comics-types";
 import { OcrRequestError, resolvePanelSpeaker, runPanelOcr } from "@/lib/comicsOcr";
 import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
@@ -262,6 +263,15 @@ export default function ComicsPage() {
     setLastAdaptedId(null);
   }
 
+  // The order `panels` is in is exactly the order a whole-chapter
+  // adaptation processes pages in (adaptWholeChapter below runs
+  // panelToChapterBubbles over `panels` as given) - reordering here is
+  // reordering the real thing, not a separate "view order" that would
+  // need reconciling with it later.
+  function reorderPanels(fromIndex: number, toIndex: number) {
+    setPanels((prev) => moveItem(prev, fromIndex, toIndex));
+  }
+
   const chapterLanguage = guessChapterLanguage(panels);
 
   // Pre-fills "From" with Cloud Vision's own guess once it's available
@@ -436,6 +446,8 @@ export default function ComicsPage() {
                   </button>
                 </div>
               </div>
+
+              <PanelOrderGrid panels={panels} onReorder={reorderPanels} />
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {/* Only shown once a non-English target is picked, same as

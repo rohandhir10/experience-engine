@@ -1,3 +1,21 @@
+// Moves the item at `fromIndex` to `toIndex`, clamped into range -
+// shared by every "fix the order a human review step surfaced" control
+// in this app: PanelWorkspace.tsx's per-panel bubble reading-order
+// badges, and PanelOrderGrid.tsx's whole-chapter page order. One
+// implementation instead of two copies of the same splice logic that
+// could drift apart. `toIndex` out of range clamps rather than throwing
+// - a drag-and-drop drop target computed from stale state (e.g. the
+// list just changed size) should degrade to "move to the nearest valid
+// end," not crash the reorder.
+export function moveItem<T>(items: T[], fromIndex: number, toIndex: number): T[] {
+  const clamped = Math.max(0, Math.min(items.length - 1, toIndex));
+  if (clamped === fromIndex || fromIndex < 0 || fromIndex >= items.length) return items;
+  const next = [...items];
+  const [moved] = next.splice(fromIndex, 1);
+  next.splice(clamped, 0, moved);
+  return next;
+}
+
 // A single chapter-slice image plus whatever script text has been drawn
 // out of it so far. extractedText/adaptedText/why are plain user-
 // editable fields regardless of source - "Run OCR" (lib/comicsOcr.ts)

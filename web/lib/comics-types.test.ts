@@ -3,6 +3,7 @@ import {
   applyBubbleResult,
   combinedAdaptedText,
   combinedWhy,
+  moveItem,
   panelToChapterBubbles,
   panelsToCsv,
   parseBubbleId,
@@ -45,6 +46,41 @@ function region(overrides: Partial<OcrRegion> = {}): OcrRegion {
     ...overrides,
   };
 }
+
+describe("moveItem", () => {
+  it("moves an item forward", () => {
+    expect(moveItem(["a", "b", "c", "d"], 0, 2)).toEqual(["b", "c", "a", "d"]);
+  });
+
+  it("moves an item backward", () => {
+    expect(moveItem(["a", "b", "c", "d"], 3, 1)).toEqual(["a", "d", "b", "c"]);
+  });
+
+  it("clamps a too-large toIndex to the end instead of throwing", () => {
+    expect(moveItem(["a", "b", "c"], 0, 99)).toEqual(["b", "c", "a"]);
+  });
+
+  it("clamps a negative toIndex to the start instead of throwing", () => {
+    expect(moveItem(["a", "b", "c"], 2, -5)).toEqual(["c", "a", "b"]);
+  });
+
+  it("returns the same array unchanged when fromIndex equals the clamped toIndex", () => {
+    const original = ["a", "b", "c"];
+    expect(moveItem(original, 1, 1)).toBe(original);
+  });
+
+  it("returns the same array unchanged for an out-of-range fromIndex", () => {
+    const original = ["a", "b", "c"];
+    expect(moveItem(original, 10, 0)).toBe(original);
+    expect(moveItem(original, -1, 0)).toBe(original);
+  });
+
+  it("does not mutate the input array", () => {
+    const original = ["a", "b", "c"];
+    moveItem(original, 0, 2);
+    expect(original).toEqual(["a", "b", "c"]);
+  });
+});
 
 describe("panelsToCsv", () => {
   it("writes a header row and one row per panel, numbered from 1", () => {

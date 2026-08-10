@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ComicPanel } from "@/lib/comics-types";
+import { moveItem, type ComicPanel } from "@/lib/comics-types";
 import { FONT_OPTIONS, resolveRedrawRegionText } from "@/lib/comicsRedraw";
 
 /** Panel-by-panel review: a thumbnail rail to jump between panels, the
@@ -59,12 +59,7 @@ export function PanelWorkspace({
   function moveRegion(fromIndex: number, toIndex: number) {
     const regions = active.ocrRegions;
     if (!regions) return;
-    const clamped = Math.max(0, Math.min(regions.length - 1, toIndex));
-    if (clamped === fromIndex) return;
-    const reordered = [...regions];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(clamped, 0, moved);
-    onUpdatePanel(active.id, { ocrRegions: reordered });
+    onUpdatePanel(active.id, { ocrRegions: moveItem(regions, fromIndex, toIndex) });
   }
 
   function applyRegionOrderToExtractedText() {
