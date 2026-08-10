@@ -113,7 +113,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, character_bibles, credits, db, jobs, paddle, password_auth, quota, task_queue
+from . import accounts, api_keys, cache, character_bibles, credits, db, emailing, jobs, paddle, password_auth, quota, task_queue
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -234,6 +234,68 @@ ALLOWED_ORIGINS = os.environ.get(
     "CASTIA_ALLOWED_ORIGINS", "http://localhost:3000"
 ).split(",")
 
+def production_config_problems() -> list[str]:
+    """Settings that are fine (or deliberate) in local dev but are real
+    problems in production, checked once at startup and logged.
+
+    Every item here is a failure that is otherwise SILENT: nothing throws,
+    the service comes up healthy, and the damage only shows up later as
+    lost work, mis-metered quota, or a purchase that never granted
+    credits. A startup line is the cheapest place to catch a deploy that
+    is missing an environment variable.
+
+    Returns strings rather than logging directly so this is testable
+    without capturing log output, and so a future readiness endpoint could
+    surface the same list. Deliberately never raises - a warning must not
+    be able to take down a deployment that is otherwise serving fine.
+    """
+    problems: list[str] = []
+
+    if not os.environ.get("DATABASE_URL"):
+        problems.append(
+            "DATABASE_URL is not set. Accounts, credits, adaptation history and the "
+            "Paddle idempotency guard are all unavailable, and quota/jobs/cache fall "
+            "back to per-process memory and local disk - which on an ephemeral or "
+            "multi-instance host means counters reset on every deploy and are not "
+            "shared between instances (server/quota.py, server/jobs.py, server/cache.py)."
+        )
+
+    if not INTERNAL_API_SECRET:
+        problems.append(
+            "CASTIA_INTERNAL_API_SECRET is not set. The /api/me/* account endpoints "
+            "return 503, signed-in identity is never trusted, and per-IP quota cannot "
+            "tell visitors apart - every request buckets under the proxy's own address "
+            "(see _client_ip)."
+        )
+
+    if not os.environ.get("RESEND_API_KEY"):
+        problems.append(
+            "RESEND_API_KEY is not set. Email verification links are only written to "
+            "the log, never delivered, so nobody can complete a password signup "
+            "(server/emailing.py)."
+        )
+    elif "resend.dev" in emailing.EMAIL_FROM:
+        problems.append(
+            f"CASTIA_EMAIL_FROM is still Resend's sandbox sender ({emailing.EMAIL_FROM}). "
+            "Set it to an address on a domain verified in Resend, or verification mail "
+            "will look untrustworthy and is likely to be filtered as spam."
+        )
+
+    if not os.environ.get("CASTIA_PADDLE_WEBHOOK_SECRET"):
+        problems.append(
+            "CASTIA_PADDLE_WEBHOOK_SECRET is not set. The Paddle webhook returns 503, so "
+            "completed purchases never grant credits (server/paddle.py)."
+        )
+    elif not os.environ.get("CASTIA_PADDLE_PRICE_CREDITS"):
+        problems.append(
+            "CASTIA_PADDLE_PRICE_CREDITS is not set. Paddle webhooks are accepted and "
+            "verified but map no price id to a credit amount, so a real payment grants "
+            "nothing (server/paddle.py)."
+        )
+
+    return problems
+
+
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
     # Best-effort: DATABASE_URL isn't set in local/test environments that
@@ -252,6 +314,8 @@ async def _lifespan(_app: FastAPI):
             logger.info("database schema at migration head")
         except Exception:
             logger.exception("database init failed")
+    for problem in production_config_problems():
+        logger.warning("PRODUCTION CONFIG: %s", problem)
     yield
 
 

@@ -1,0 +1,84 @@
+# Runs the checks this project already relies on, on every push and PR,
+# so a broken commit is caught before it reaches Railway/Vercel rather
+# than after. Every step here is a command that was already part of the
+# normal working loop - this adds automation, not new standards.
+#
+# The two halves are separate jobs rather than sequential steps in one:
+# they share nothing, and a Python failure shouldn't hide a TypeScript
+# one (or vice versa) by short-circuiting the run.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# A newer push to the same branch makes an in-flight run irrelevant -
+# cancel it rather than paying for both and waiting on the stale one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Python (engine + server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # Matches the version the project is developed against.
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run the test suite
+        # No DATABASE_URL and no provider API keys on purpose: the suite
+        # is built to run fully offline against the in-memory/disk
+        # fallbacks (see server/quota.py and server/jobs.py's docstrings),
+        # and a CI run must never spend real LLM or Cloud Vision money.
+        run: python -m pytest -q
+
+  frontend:
+    name: TypeScript (web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        # `npm ci` (not `install`) so the lockfile is authoritative and a
+        # CI run can't silently pick up a different dependency tree than
+        # the one that was committed.
+        run: npm ci
+        env:
+          # web/package.json's postinstall copies the pdf.js worker into
+          # public/; PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD keeps any transitive
+          # Playwright install from pulling ~500MB of browsers that
+          # nothing in these checks launches.
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Production build
+        # Catches the class of failure neither tsc nor vitest sees - a
+        # bad import in a route handler, a server/client boundary
+        # violation, a page that throws while prerendering.
+        run: npm run build
