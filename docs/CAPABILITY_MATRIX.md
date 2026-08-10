@@ -4267,3 +4267,69 @@ never leaks its source text into a real bubble's prompt, `on_stage`/
 into `BubbleInput`) plus `web/lib/comics-types.test.ts` (2 new - `kind`
 threading through `panelToChapterBubbles`, undefined when unclassified).
 Full suite green: 1041 pytest, 132 vitest.
+
+## Whole-chapter-as-one-image uploads got silently ruined - now auto-sliced into pages
+
+**The real problem**: `web/components/comics/PanelUploader.tsx` accepts
+a plain image alongside PDFs and ZIPs, and always treated it as ONE
+panel - correct for a normal pre-sliced page, but a real, unannounced
+upload shape is a whole chapter exported as a SINGLE tall vertical
+strip (routinely 15,000-50,000px tall), dropped in directly instead of
+pre-cut. Nothing anywhere in this codebase split a tall image into
+pages. Worse, `web/lib/imageDownscale.ts`'s `OCR_MAX_EDGE_PX` (2000px)
+- sized to shrink a NORMAL panel/page for Cloud Vision - ran against
+that strip exactly the same way, crushing every speech bubble down to
+a handful of unreadable pixels before OCR ever saw them. No error, no
+warning: OCR just returned garbled or missing text, silently, and
+looked like a normal bad result. Separately, redraw sends the
+un-downscaled original file, so a big enough strip (a lossless PNG
+export easily clears it) could also hit `server/main.py`'s hard
+`MAX_IMAGE_BYTES` (15MB) 413 on top of that - two independent failure
+modes stacked on one upload shape nothing was checking for.
+
+**The fix**: `web/lib/chapterSlice.ts` (new) - `planChapterSlices(width,
+height)` is the pure decision function (directly unit-tested, no DOM):
+an image trips slicing only past BOTH `SLICE_ASPECT_THRESHOLD` (height
+:width > 3) AND `SLICE_MIN_HEIGHT_PX` (height > 4000px), so a real
+single page - even an unusually tall spread - is left alone, and a
+short-but-narrow crop can't trip it on ratio alone. `sliceChapterStrip`
+is the DOM-touching wrapper (mirrors `imageDownscale.ts`'s
+`downscaleForOcr` pattern: decodes via `createImageBitmap`, degrades to
+returning the file untouched if canvas/`createImageBitmap` aren't
+available) that actually cuts a tripped image into page-sized JPEG
+slices via canvas, each close to a normal page's aspect ratio (1.4:1)
+so every slice OCRs and redraws exactly like any other page - no
+special-casing anywhere downstream. Slices are named
+`{basename}-page-{01..NN}.jpg`, zero-padded so `naturalCompare`
+(`lib/naturalSort.ts`) keeps them in reading order.
+
+Wired into `PanelUploader.tsx`'s `handleIncoming`, in the same slot
+PDF/ZIP conversion already runs (before `onFilesSelected`), so it
+happens before a strip ever becomes a "panel" and reaches the OCR
+downscale. Every accepted image is checked in parallel
+(`Promise.allSettled`), not one at a time - the common case is a batch
+of already-correctly-sized panels, and decoding N of them sequentially
+would add real, felt latency to an upload that needs no slicing at
+all. A decode failure on one file surfaces in the same
+`conversionErrors` UI PDF/ZIP failures already use, and doesn't block
+the other files in the batch.
+
+Tests: `web/lib/chapterSlice.test.ts` (10 new) - a normal single page
+left alone, an extra-tall real page (spread) NOT tripped by ratio
+alone, a narrow-but-short crop NOT tripped by ratio alone, a real
+24,000px strip actually slices into >1 page, slices land close to the
+1.4:1 target aspect, slices fully cover the original height, a
+zero-dimension image is a no-op rather than a division by zero, and
+the strict-inequality behavior right at the aspect threshold boundary.
+`npx tsc --noEmit`, `npx vitest run` (149 passed), and `npm run build`
+all clean.
+
+Verified live in a real browser (`next build && next start` - see the
+Original/Redrawn toggle entry above for why not `next dev`): uploaded a
+generated 800x24000px JPEG through the actual file input and confirmed
+it landed as 22 separate panels named `whole-chapter-page-01.jpg`
+through `-page-22.jpg` in the real workspace UI - not just a unit-test
+assertion. Re-ran the same upload flow with a normal 800x1200px panel
+immediately after and confirmed it still lands as exactly 1 panel with
+its original filename untouched, so the common case has zero behavior
+change.
