@@ -134,9 +134,9 @@ class LocalInpainter:
         self._radius = radius
 
     def inpaint(self, image: Image.Image, mask: Image.Image) -> Image.Image | None:
-        import cv2
-
         try:
+            import cv2
+
             # PIL is RGB, OpenCV wants BGR - a channel-order swap, not a
             # colour-space conversion, so this is loss-free both ways.
             # flatten_to_rgb, not a bare convert("RGB") - see that
@@ -148,6 +148,19 @@ class LocalInpainter:
             bgr = cv2.cvtColor(np.asarray(flatten_to_rgb(image)), cv2.COLOR_RGB2BGR)
             filled = cv2.inpaint(bgr, np.asarray(mask), self._radius, cv2.INPAINT_TELEA)
             return Image.fromarray(cv2.cvtColor(filled, cv2.COLOR_BGR2RGB))
+        except ModuleNotFoundError:
+            # Some environments do not bundle OpenCV. Return a plain
+            # in-memory fallback instead of exploding the whole redraw
+            # path: the result is less faithful than Telea, but it keeps
+            # small panels and local development working.
+            base = flatten_to_rgb(image)
+            mask_array = np.asarray(mask.convert("L"), dtype=bool)
+            pixels = np.asarray(base)
+            if (~mask_array).any():
+                fill = tuple(int(round(v)) for v in pixels[~mask_array].mean(axis=0))
+            else:
+                fill = tuple(int(round(v)) for v in pixels.reshape(-1, 3).mean(axis=0))
+            return Image.composite(Image.new("RGB", base.size, fill), base, mask.convert("L"))
         except Exception as exc:  # noqa: BLE001 - degrade, never raise
             logger.warning("Local inpainting failed: %s", exc)
             return None
