@@ -1,15 +1,26 @@
 """Status storage for /api/adapt/start's background engine runs.
 
-Same backend split as server/cache.py: DATABASE_URL set -> Postgres
-(server/db_models.py::AdaptationJob), so a job's status is visible to
-whichever process/instance a poll happens to land on, not just the one
-that started the background thread — this is what actually removes the
-single-instance ceiling on running more than one Railway worker/replica.
-Not set (local dev, the test suite) -> an in-memory dict, since there's
-exactly one process and nothing to share state with.
+Three backends, in priority order:
+
+- REDIS_URL set -> Redis (a JSON blob per job, native TTL via `EX`).
+  This is the real fix for polling at any real scale: a status poll
+  becomes a single Redis GET instead of a Postgres row read, off the
+  SQLAlchemy connection pool entirely (server/db.py's pool_size=10 +
+  max_overflow=10 was never going to keep up with hundreds of pollers/
+  second hitting Postgres directly). Also what server/task_queue.py's
+  RQ workers write to - a poll landing on the FastAPI process and a
+  worker updating status from a totally different process/container
+  both just talk to the same Redis instance, no coordination needed.
+- Else DATABASE_URL set -> Postgres (server/db_models.py::AdaptationJob).
+  Kept as the pre-Redis behavior for a deployment that has Postgres but
+  not yet Redis configured - still correct, just the thing REDIS_URL
+  exists to move off of under real concurrent polling.
+- Else -> an in-memory dict, since there's exactly one process (local
+  dev, the test suite) and nothing to share state with.
 """
 from __future__ import annotations
 
+import json
 import os
 import threading
 import time
@@ -18,11 +29,30 @@ from typing import Literal
 
 Status = Literal["pending", "running", "done", "error"]
 
-# Bounds memory/row growth from jobs nobody ever polls again. Pruned
-# opportunistically on each new job's creation rather than on a timer —
-# the same tradeoff the in-memory-only version of this made, now applied
-# to both backends.
+# Bounds memory/row growth from jobs nobody ever polls again. Redis uses
+# this as a native key TTL (refreshed on every write); the Postgres and
+# in-memory backends prune opportunistically on each new job's creation,
+# the same tradeoff the original in-memory-only version made.
 _JOB_TTL_SECONDS = 3600
+
+_redis_client = None
+
+
+def _use_redis() -> bool:
+    return bool(os.environ.get("REDIS_URL"))
+
+
+def _redis():
+    global _redis_client
+    if _redis_client is None:
+        import redis
+
+        _redis_client = redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
+    return _redis_client
+
+
+def _redis_key(job_id: str) -> str:
+    return f"castia:job:{job_id}"
 
 
 @dataclass
@@ -46,6 +76,11 @@ def _use_db() -> bool:
 
 
 def create(job_id: str) -> None:
+    if _use_redis():
+        payload = {"status": "pending", "result": None, "error": None, "progress": None}
+        _redis().set(_redis_key(job_id), json.dumps(payload), ex=_JOB_TTL_SECONDS)
+        return
+
     if _use_db():
         from datetime import datetime, timedelta, timezone
 
@@ -97,6 +132,26 @@ def _update(
     error: str | None = None,
     progress: dict | None = None,
 ) -> None:
+    if _use_redis():
+        client = _redis()
+        key = _redis_key(job_id)
+        raw = client.get(key)
+        if raw is None:
+            return
+        data = json.loads(raw)
+        data["status"] = status
+        if result is not None:
+            data["result"] = result
+        if error is not None:
+            data["error"] = error
+        if progress is not None:
+            data["progress"] = progress
+        # Refresh the TTL on every write, not just create() - a job still
+        # actively running shouldn't expire out from under a slow chapter
+        # just because its key is over an hour old.
+        client.set(key, json.dumps(data), ex=_JOB_TTL_SECONDS)
+        return
+
     if _use_db():
         from . import db
         from .db_models import AdaptationJob
@@ -132,6 +187,12 @@ def get(job_id: str) -> dict | None:
     """Returns {"status", "result", "error", "progress"}, or None if the
     job is unknown (never created, or pruned past its TTL). `progress` is
     None until (and unless) a caller reports one via set_progress."""
+    if _use_redis():
+        raw = _redis().get(_redis_key(job_id))
+        if raw is None:
+            return None
+        return json.loads(raw)
+
     if _use_db():
         from . import db
         from .db_models import AdaptationJob

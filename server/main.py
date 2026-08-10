@@ -105,7 +105,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, character_bibles, credits, db, jobs, paddle, password_auth, quota
+from . import accounts, api_keys, cache, character_bibles, credits, db, jobs, paddle, password_auth, quota, task_queue
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -835,12 +835,19 @@ def comics_adapt_start(request: ComicsAdaptRequest, http_request: Request) -> di
     job_id = uuid.uuid4().hex
     jobs.create(job_id)
 
-    thread = threading.Thread(
-        target=_run_comics_job,
-        args=(job_id, request, result_id, non_empty_panels, user_id, debited),
-        daemon=True,
-    )
-    thread.start()
+    if task_queue.use_queue():
+        task_queue.get_queue().enqueue(
+            _run_comics_job,
+            job_id, request, result_id, non_empty_panels, user_id, debited,
+            job_timeout=JOB_TIMEOUT_SECONDS + 120,
+        )
+    else:
+        thread = threading.Thread(
+            target=_run_comics_job,
+            args=(job_id, request, result_id, non_empty_panels, user_id, debited),
+            daemon=True,
+        )
+        thread.start()
     return {"status": "pending", "job_id": job_id, "result": None}
 
 
@@ -1105,11 +1112,17 @@ def _run_comics_job(
     user_id: str | None,
     debited: int | None,
 ) -> None:
-    """Background-thread target for /api/comics/adapt/start - same
-    _run_slots concurrency bound and jobs.py status storage
-    /api/adapt/start's _run_job already uses for songs, reused as-is
-    (both are medium-agnostic: a semaphore around "one engine run" and a
-    generic pending/running/done/error record)."""
+    """Entry point for a comics adaptation job - either the RQ task body
+    directly (server/task_queue.py's worker calls this exact function;
+    RQ's own per-job timeout plus one-job-per-worker-process model
+    already bounds concurrency, no additional slot logic needed) or,
+    when REDIS_URL isn't configured, the background-thread target for
+    /api/comics/adapt/start's in-process fallback, gated by the
+    _run_slots semaphore below."""
+    if task_queue.use_queue():
+        _run_comics_job_body(job_id, request, result_id, non_empty_panels, user_id, debited)
+        return
+
     if not _run_slots.acquire(timeout=SLOT_ACQUIRE_TIMEOUT_SECONDS):
         logger.error(
             "comics job id=%s timed out waiting %ds for a free run slot", job_id, SLOT_ACQUIRE_TIMEOUT_SECONDS
@@ -1119,35 +1132,50 @@ def _run_comics_job(
         jobs.set_error(job_id, "Castia is at capacity right now. Please try again in a few minutes.")
         return
     try:
-        jobs.set_running(job_id)
-        try:
-            payload = _run_comics_adaptation(
-                request, result_id, non_empty_panels, user_id, job_id=job_id
-            )
-            jobs.set_done(job_id, {"id": result_id, **payload})
-        except ValidationError as exc:
-            if debited is not None:
-                credits.refund(user_id, debited, reference=result_id)
-            jobs.set_error(job_id, str(exc))
-        except LLMError as exc:
-            if debited is not None:
-                credits.refund(user_id, debited, reference=result_id)
-            logger.error("comics job id=%s engine failure: %s", job_id, exc)
-            jobs.set_error(
-                job_id, "The engine hit a problem processing this chapter. Try again in a moment."
-            )
-        except RuntimeError as exc:
-            if debited is not None:
-                credits.refund(user_id, debited, reference=result_id)
-            logger.error("comics job id=%s configuration failure: %s", job_id, exc)
-            jobs.set_error(job_id, str(exc))
-        except Exception:
-            if debited is not None:
-                credits.refund(user_id, debited, reference=result_id)
-            logger.exception("comics job id=%s unexpected failure", job_id)
-            jobs.set_error(job_id, "Something went wrong processing this chapter. Try again.")
+        _run_comics_job_body(job_id, request, result_id, non_empty_panels, user_id, debited)
     finally:
         _run_slots.release()
+
+
+def _run_comics_job_body(
+    job_id: str,
+    request: ComicsAdaptRequest,
+    result_id: str,
+    non_empty_panels: list[ComicsPanelText],
+    user_id: str | None,
+    debited: int | None,
+) -> None:
+    """The actual engine run + jobs.py status storage, shared by both
+    dispatch paths above - a semaphore/RQ concern above this line, an
+    error-handling/credit-refund concern below it, deliberately kept
+    separate so neither has to know about the other."""
+    jobs.set_running(job_id)
+    try:
+        payload = _run_comics_adaptation(
+            request, result_id, non_empty_panels, user_id, job_id=job_id
+        )
+        jobs.set_done(job_id, {"id": result_id, **payload})
+    except ValidationError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        jobs.set_error(job_id, str(exc))
+    except LLMError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        logger.error("comics job id=%s engine failure: %s", job_id, exc)
+        jobs.set_error(
+            job_id, "The engine hit a problem processing this chapter. Try again in a moment."
+        )
+    except RuntimeError as exc:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        logger.error("comics job id=%s configuration failure: %s", job_id, exc)
+        jobs.set_error(job_id, str(exc))
+    except Exception:
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        logger.exception("comics job id=%s unexpected failure", job_id)
+        jobs.set_error(job_id, "Something went wrong processing this chapter. Try again.")
 
 
 @app.get("/api/comics/adapt/{result_id}")
@@ -1859,15 +1887,23 @@ def get_adapt(result_id: str) -> dict:
     return cached
 
 
-# Bounds how many engine runs can be mid-flight at once, regardless of
-# how many /api/adapt/start requests land at the same time. Each run is
-# several dozen sequential LLM calls at its peak (a full multi-section
-# song) - with no cap, a burst of concurrent submissions would all hit
-# the LLM provider simultaneously and risk provider-side rate-limit
-# failures across every concurrent job, not just the newest one. The
-# number itself is a starting guess, not a measured ceiling - tune via
-# CASTIA_MAX_CONCURRENT_RUNS once real concurrent traffic exists to learn
-# from.
+# Everything below (_run_slots, SLOT_ACQUIRE_TIMEOUT_SECONDS) governs
+# ONLY the in-process threading fallback used when REDIS_URL isn't set
+# (local dev, the test suite, or a deployment that hasn't configured the
+# queue yet) - see server/task_queue.py's module docstring. When
+# REDIS_URL IS set, concurrency is governed by how many worker processes/
+# replicas the separate worker Railway service runs instead, and none of
+# this is consulted at all (_run_job/_run_comics_job's first check is
+# task_queue.use_queue()).
+#
+# Bounds how many engine runs can be mid-flight at once in THIS process,
+# regardless of how many /api/adapt/start requests land at the same
+# time. Each run is several dozen sequential LLM calls at its peak (a
+# full multi-section song) - with no cap, a burst of concurrent
+# submissions would all hit the LLM provider simultaneously and risk
+# provider-side rate-limit failures across every concurrent job, not
+# just the newest one. The number itself is a starting guess, not a
+# measured ceiling - tune via CASTIA_MAX_CONCURRENT_RUNS.
 MAX_CONCURRENT_RUNS = int(os.environ.get("CASTIA_MAX_CONCURRENT_RUNS", "4"))
 _run_slots = threading.Semaphore(MAX_CONCURRENT_RUNS)
 # `with _run_slots:` blocks forever if a slot never comes free - fine
@@ -1897,34 +1933,63 @@ def _run_job(
     started: float,
     user_id: str | None = None,
 ) -> None:
+    """Entry point for a song adaptation job - either the RQ task body
+    directly (REDIS_URL set - see server/task_queue.py's module
+    docstring for why no additional slot logic is needed there) or the
+    in-process threading fallback's background-thread target, gated by
+    the _run_slots semaphore below."""
+    if task_queue.use_queue():
+        _run_job_body(
+            job_id, request, result_id, text, target_language, source_language, sections, song, ip, started, user_id,
+        )
+        return
+
     if not _run_slots.acquire(timeout=SLOT_ACQUIRE_TIMEOUT_SECONDS):
         logger.error("job id=%s timed out waiting %ds for a free run slot", job_id, SLOT_ACQUIRE_TIMEOUT_SECONDS)
         jobs.set_error(job_id, "Castia is at capacity right now. Please try again in a few minutes.")
         return
     try:
-        jobs.set_running(job_id)
-        try:
-            experience_result = _run_adaptation(
-                request, result_id, text, target_language, source_language, sections, song, ip, started,
-                log_prefix="job", user_id=user_id, job_id=job_id,
-            )
-            jobs.set_done(job_id, experience_result)
-        except LLMError as exc:
-            logger.error("job id=%s engine failure: %s", job_id, exc)
-            jobs.set_error(
-                job_id, "The engine hit a problem processing this song. Try again in a moment."
-            )
-        except RuntimeError as exc:
-            logger.error("job id=%s configuration failure: %s", job_id, exc)
-            jobs.set_error(job_id, str(exc))
-        except Exception:
-            # A background thread's uncaught exception is otherwise silent -
-            # nothing re-raises it anywhere the poller would see. Whoever's
-            # polling deserves an "error" status, not an indefinite "pending".
-            logger.exception("job id=%s unexpected failure", job_id)
-            jobs.set_error(job_id, "Something went wrong processing this song. Try again.")
+        _run_job_body(
+            job_id, request, result_id, text, target_language, source_language, sections, song, ip, started, user_id,
+        )
     finally:
         _run_slots.release()
+
+
+def _run_job_body(
+    job_id: str,
+    request: AdaptRequest,
+    result_id: str,
+    text: str,
+    target_language: str,
+    source_language: str,
+    sections: list[SectionInput],
+    song: SongInput,
+    ip: str,
+    started: float,
+    user_id: str | None = None,
+) -> None:
+    jobs.set_running(job_id)
+    try:
+        experience_result = _run_adaptation(
+            request, result_id, text, target_language, source_language, sections, song, ip, started,
+            log_prefix="job", user_id=user_id, job_id=job_id,
+        )
+        jobs.set_done(job_id, experience_result)
+    except LLMError as exc:
+        logger.error("job id=%s engine failure: %s", job_id, exc)
+        jobs.set_error(
+            job_id, "The engine hit a problem processing this song. Try again in a moment."
+        )
+    except RuntimeError as exc:
+        logger.error("job id=%s configuration failure: %s", job_id, exc)
+        jobs.set_error(job_id, str(exc))
+    except Exception:
+        # A background thread's uncaught exception is otherwise silent -
+        # nothing re-raises it anywhere the poller would see. Whoever's
+        # polling deserves an "error" status, not an indefinite "pending".
+        logger.exception("job id=%s unexpected failure", job_id)
+        jobs.set_error(job_id, "Something went wrong processing this song. Try again.")
 
 
 @app.post("/api/adapt/start")
@@ -1973,12 +2038,19 @@ def adapt_start(request: AdaptRequest, http_request: Request) -> dict:
     job_id = uuid.uuid4().hex
     jobs.create(job_id)
 
-    thread = threading.Thread(
-        target=_run_job,
-        args=(job_id, request, result_id, text, target_language, source_language, sections, song, ip, started, user_id),
-        daemon=True,
-    )
-    thread.start()
+    if task_queue.use_queue():
+        task_queue.get_queue().enqueue(
+            _run_job,
+            job_id, request, result_id, text, target_language, source_language, sections, song, ip, started, user_id,
+            job_timeout=SONG_JOB_TIMEOUT_SECONDS + 120,
+        )
+    else:
+        thread = threading.Thread(
+            target=_run_job,
+            args=(job_id, request, result_id, text, target_language, source_language, sections, song, ip, started, user_id),
+            daemon=True,
+        )
+        thread.start()
     return {"status": "pending", "job_id": job_id, "result": None}
 
 

@@ -4110,3 +4110,81 @@ confirm. Two new tests (one per job type) simulate exhaustion by holding
 every slot and shrinking the acquire timeout, proving the job settles to
 the capacity error quickly rather than hanging. Full suite green: 1014
 pytest.
+
+## Real distributed job queue (Redis + RQ), for concurrency past one container
+
+The semaphore/timeout hardening above protects the single existing
+container from hanging; it does nothing to raise how many jobs can
+actually run at once, which was always capped at MAX_CONCURRENT_RUNS
+(4) regardless of how many `/api/adapt/start` requests arrived - a real
+ceiling on real concurrent traffic, not just a hypothetical one. This
+adds the actual second axis: a separate worker service, scaled
+independently of the web service, with concurrency governed by however
+many worker replicas run rather than a fixed in-process number.
+
+- **`server/jobs.py`**: added Redis as a third, highest-priority backend
+  (`REDIS_URL` set - checked before `DATABASE_URL`) for job status - a
+  JSON blob per job with a native TTL, refreshed on every write. This is
+  the actual fix for polling at real scale: a status poll becomes one
+  Redis `GET`, off `server/db.py`'s SQLAlchemy pool (`pool_size=10` +
+  `max_overflow=10`) entirely, which was never sized for hundreds of
+  pollers/second hitting Postgres directly. Existing Postgres and
+  in-memory backends unchanged, still used when `REDIS_URL` isn't set.
+- **`server/task_queue.py`** (new): thin RQ `Queue` wrapper, gated on
+  `REDIS_URL` the same way every other `DATABASE_URL`-style split in
+  this codebase works. `use_queue()` is the single toggle
+  `adapt_start()`/`comics_adapt_start()` check to decide whether to
+  enqueue onto Redis or fall back to the original `threading.Thread`.
+- **`server/main.py`**: `_run_job`/`_run_comics_job` split into a thin
+  dispatcher (RQ task body directly when `task_queue.use_queue()`, else
+  the pre-existing `_run_slots`-gated threading path) and a
+  `_run_job_body`/`_run_comics_job_body` doing the actual engine
+  run + `jobs.py` status writes - identical either way, so nothing
+  about error handling, credit refunds, or progress reporting changed,
+  only which process runs it. `job_timeout` on enqueue (RQ's own
+  worker-enforced hard ceiling, matching `SONG_JOB_TIMEOUT_SECONDS`/
+  `JOB_TIMEOUT_SECONDS` + a 2-minute buffer) is a strictly better version
+  of `SLOT_ACQUIRE_TIMEOUT_SECONDS`'s protection against a leaked slot -
+  RQ's worker can actually kill an overrunning job's process, not just
+  time out waiting for one.
+- **`server/worker.py`** (new): the second Railway service's entry point
+  (`python -m server.worker`) - imports `server.main` (so RQ can resolve
+  `_run_job`/`_run_comics_job` by dotted path when a job arrives) and
+  runs a real forking `rq.Worker`. Fails loudly and immediately if
+  `REDIS_URL` isn't set, rather than starting up and sitting idle
+  forever, which would look identical to "everything's fine" from the
+  outside.
+- **Dockerfile**: documented (not duplicated - same image, same
+  `requirements.txt`) how the worker service reuses this file with its
+  Start Command overridden to `python -m server.worker` in Railway's
+  dashboard.
+
+Frontend: **no changes** - `web/lib/useAdaptSubmit.ts` and
+`web/lib/comicsAdapt.ts` already poll `/api/adapt/jobs/{id}`/
+`/api/comics/adapt/jobs/{id}`; those endpoints just read from a
+different backend now. This was a deliberate choice over true
+server-push (SSE): true SSE would mean the browser connecting directly
+to the Railway backend instead of through the Next.js proxy (CORS, a
+`NEXT_PUBLIC_*` backend URL, a new public surface) to work around
+Vercel's function-duration ceiling - Redis-backed polling gets the same
+practical fix (Postgres is off the hot path) without any of that.
+
+Tests: `tests/test_jobs_redis.py` (9, real `fakeredis`, not a mock of
+`jobs.py`'s own code) and `tests/test_task_queue.py` (5, RQ's
+`is_async=False` mode - `enqueue()` runs the job inline, so the full
+`enqueue → _run_job/_run_comics_job → jobs.py` chain is exercised
+end-to-end without a live worker process) plus `tests/test_worker.py`
+(1, the fail-fast guard). Manually verified once more outside pytest
+with a genuinely separate `rq.worker.SimpleWorker` instance on a shared
+`fakeredis.FakeServer` (two independent connections, not one) actually
+dequeuing and completing a job end to end. Full suite green: 1029
+pytest.
+
+**Deliberately not done in this pass**: outbound rate limiting ahead of
+the LLM provider (a burst of concurrent worker replicas can still
+collectively exceed OpenAI/Anthropic's account-level TPM/RPM and get
+429s back - `MAX_CONCURRENT_RUNS`-style limiting doesn't help once
+concurrency is worker-replica-based rather than in-process). Also not
+done: actually provisioning the Redis instance or the second Railway
+service - that's a dashboard/infrastructure step, not a code change, and
+nothing here takes effect until `REDIS_URL` is set on both services.

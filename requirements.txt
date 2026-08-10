@@ -32,3 +32,9 @@ google-auth>=2.28
 opencv-python-headless>=4.9
 numpy>=1.26
 pillow>=10.0
+# Real distributed job queue (server/task_queue.py, server/worker.py) -
+# gated on REDIS_URL exactly like DATABASE_URL gates Postgres throughout
+# this file's other modules, so local dev/tests need neither running.
+redis>=5.0
+rq>=1.16
+fakeredis>=2.20  # test-only: tests/test_jobs_redis.py, tests/test_task_queue.py - no real Redis server needed
