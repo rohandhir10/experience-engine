@@ -4622,3 +4622,76 @@ new) - `homepageFaqs()` returns real (not copied/drifted) `Faq` objects
 from the shared array, every named question resolves to a real entry,
 and declared order is preserved. 177 vitest passing; `tsc` and
 `next build` both clean.
+
+## /music and /comics rebuilt against the same AI-SEO checklist
+
+**Scope check before touching anything**: /music and /comics already
+had real, page-specific `metadata` and `WebApplication`/`BreadcrumbList`
+JSON-LD via dedicated `layout.tsx` files (a prior gap-close: both are
+`"use client"` pages that can't export metadata themselves, so a
+sibling server-component layout carries it - `app/music/layout.tsx`'s
+own comment already documents why). What was still missing, matching
+the homepage checklist gap exactly: byline, FAQ block with schema, and
+a last-updated stamp. The comparison table / feature-proof / pipeline
+sections both pages already had were left untouched.
+
+**`web/lib/faqs.ts`**: `homepageFaqs()`'s lookup logic generalized into
+a shared `faqsFor(questions)` helper, plus two new curated subsets -
+`musicFaqs()` (what does Castia do, how is it different, which
+languages, do I need an account - the lyrics-relevant four) and
+`comicsFaqs()` (swaps the language question for "does this work for
+comics too", the question someone already on the webtoons tool
+actually has). Same shared-array reasoning as the homepage entry: all
+three subsets pull from the one canonical `FAQS` array, so `/faq`,
+`/`, `/music`, and `/comics` can never render drifted text for a
+question more than one of them happens to share.
+
+**`app/music/layout.tsx` / `app/comics/layout.tsx`**: each gained a
+`faqPageJsonLd()` block alongside their existing breadcrumb/
+WebApplication schema. Placed here (not in the client page/component)
+specifically because a crawler or a fresh visitor's first paint always
+shows the same default state these FAQs describe - `/comics` in
+particular only shows its FAQ block before any panel is uploaded, and
+since that's genuinely the state every fresh page load starts in, the
+markup never claims content a real visitor's first view wouldn't
+actually show.
+
+**`components/InputScreen.tsx`** (`/music`) and **`app/comics/page.tsx`**
+(`/comics`): each gained a real byline ("Built by Rohan Dhir", linking
+to `/about`) plus a hand-bumped `PAGE_UPDATED_DATE` right under the
+subheadline - kept to one small, low-opacity line specifically so it
+doesn't compete with the actual interactive controls (language
+pickers, paste/upload) sitting immediately below it, unlike the
+homepage where that space had nothing more urgent to protect. No
+photo on either - none exists, and a stock/generated one would be the
+same fabricated-credential problem this codebase's no-fabrication
+discipline already rules out elsewhere. Each also gained a "Common
+questions" section (the page's own curated FAQ subset + a link to the
+full `/faq` page + a `/pricing` link) placed after each page's existing
+proof/pipeline content and before the shared `Footer`. On `/comics`
+this section is wrapped in the same `panels.length === 0` guard the
+pre-existing language-chip row already uses - shown only before real
+work has started, the same "nothing here worth showing once there's
+real state to show instead" reasoning `PanelOrderGrid.tsx` already
+documents for its own conditional render; verified live that it
+disappears the moment a real panel is uploaded, rather than trusting
+the conditional by inspection alone.
+
+**Verified live** against a production build, both pages: zero CSP
+violations; JSON-LD blocks present
+(`Organization`/`SoftwareApplication` sitewide,
+`BreadcrumbList`/`WebApplication`/`FAQPage` per-page) with each
+`FAQPage` block's questions matching the visibly rendered text exactly;
+byline, updated stamp, and FAQ section all confirmed in real browser
+screenshots in both `/music`'s always-dark shell and `/comics`'s
+theme-reactive light/dark shell. Uploaded a real 1x1 PNG through
+`/comics`'s actual file input and confirmed the FAQ/byline block is
+visible before the upload and gone immediately after, with the real
+panel workspace active in its place - not asserted from the JSX alone.
+`web/lib/faqs.test.ts` restructured around a shared `describe.each` over
+all three curated subsets (homepage/music/comics) rather than
+duplicating one test file's worth of assertions three times, plus two
+new cross-subset checks: every subset includes the one question every
+visitor asks first ("What does Castia do?"), and no two subsets are
+accidentally identical. 188 vitest passing; `tsc` and `next build`
+clean.

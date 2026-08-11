@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { TargetLanguageSelect } from "@/components/TargetLanguageSelect";
@@ -28,6 +29,16 @@ import { writeMediumPreference } from "@/lib/mediumPreference";
 import { ComicsPipelineDiagram } from "@/components/ComicsPipelineDiagram";
 import { Footer } from "@/components/Footer";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { FOUNDER_NAME } from "@/lib/seo";
+import { comicsFaqs } from "@/lib/faqs";
+
+// Hand-bumped alongside a real content edit to this page's empty state -
+// never build-time. Matches app/page.tsx's PAGE_UPDATED_DATE and
+// InputScreen.tsx's own copy of the same convention; this page has its
+// own constant since its content changes on its own schedule.
+const PAGE_UPDATED_DATE = "2026-08-11";
+
+const COMICS_FAQS = comicsFaqs();
 
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
 // screen) with a "Beta" badge, rather than reachable only by URL - it
@@ -403,6 +414,25 @@ export default function ComicsPage() {
                   Writers' Room pipeline the music side runs on, not a
                   separate, lesser engine.
                 </p>
+                {/* A real byline (linking to the one page with a real
+                    Person bio) plus a real, hand-bumped edit date - see
+                    PAGE_UPDATED_DATE above. No photo: none exists, and a
+                    stock/generated one would be a fabricated credential. */}
+                <p className="mt-2 text-[11.5px] text-ink/35 dark:text-ink-dark/35">
+                  Built by{" "}
+                  <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/60 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/60">
+                    {FOUNDER_NAME}
+                  </Link>
+                  {" · "}Updated{" "}
+                  <time dateTime={PAGE_UPDATED_DATE}>
+                    {new Date(PAGE_UPDATED_DATE + "T00:00:00Z").toLocaleDateString("en-US", {
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })}
+                  </time>
+                </p>
                 <div className="mt-5">
                   <PanelUploader onFilesSelected={addFiles} />
                 </div>
@@ -432,6 +462,36 @@ export default function ComicsPage() {
                   </span>
                 ))}
               </div>
+            </ScrollReveal>
+          )}
+
+          {/* Only shown before any real work has started - same
+              reasoning PanelOrderGrid.tsx already uses ("nothing here
+              worth showing once there's real state to show instead").
+              Once panels exist the workspace itself is the content;
+              this marketing/reference material would just be in the way. */}
+          {panels.length === 0 && (
+            <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06]">
+              <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-ink-dark sm:text-[1.9rem]">
+                Common questions
+              </h2>
+              <div className="mt-8 space-y-6">
+                {COMICS_FAQS.map((faq) => (
+                  <div key={faq.question} className="border-b border-black/[0.06] pb-6 dark:border-white/[0.07]">
+                    <h3 className="font-serif text-[15px] text-ink dark:text-ink-dark">{faq.question}</h3>
+                    <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">{faq.answer}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-6 text-center text-[13px] text-ink/45 dark:text-ink-dark/45">
+                <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70">
+                  See all FAQs
+                </Link>
+                {" · "}
+                <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70">
+                  See pricing
+                </Link>
+              </p>
             </ScrollReveal>
           )}
 

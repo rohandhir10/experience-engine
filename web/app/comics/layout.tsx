@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
-import { breadcrumbJsonLd, webApplicationJsonLd } from "@/lib/schema";
+import { breadcrumbJsonLd, faqPageJsonLd, webApplicationJsonLd } from "@/lib/schema";
+import { comicsFaqs } from "@/lib/faqs";
 
 export const metadata: Metadata = {
   title: "Adapt webtoon and comic dialogue (Beta)",
@@ -24,10 +25,16 @@ export default function ComicsLayout({ children }: { children: React.ReactNode }
     name: "Castia — Webtoons (Beta)",
     description: metadata.description as string,
   });
+  // Matches the visible "Common questions" section app/comics/page.tsx
+  // renders in its own empty state (before any panel is uploaded) - a
+  // crawler or a fresh visitor always sees that empty state first, so
+  // this is never claiming markup for content nobody's page load shows.
+  const faqPage = faqPageJsonLd(comicsFaqs());
   return (
     <>
       <JsonLd data={breadcrumb} />
       <JsonLd data={webApplication} />
+      <JsonLd data={faqPage} />
       {children}
     </>
   );

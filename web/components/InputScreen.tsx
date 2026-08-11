@@ -13,6 +13,17 @@ import { Footer } from "./Footer";
 import { detectSourceLanguage } from "@/lib/detectLanguage";
 import { LANGUAGES, sourceHintFor } from "@/lib/languages";
 import type { YoutubeSource } from "@/lib/useAdaptSubmit";
+import { FOUNDER_NAME } from "@/lib/seo";
+import { musicFaqs } from "@/lib/faqs";
+
+// Hand-bumped alongside a real content edit to this page - never
+// build-time (a fresh "Updated today" on every deploy regardless of
+// whether anything changed would be dishonest). Matches app/page.tsx's
+// PAGE_UPDATED_DATE convention; this page has its own constant since its
+// content changes on its own schedule, not the homepage's.
+const PAGE_UPDATED_DATE = "2026-08-11";
+
+const MUSIC_FAQS = musicFaqs();
 
 const MIN_ROWS = 6;
 const MAX_TEXTAREA_HEIGHT_PX = 380;
@@ -171,6 +182,30 @@ export function InputScreen({
           style={{ animationDelay: "80ms" }}
         >
           {sourceHintFor(targetLanguage, sourceLanguage)}
+        </p>
+        {/* A real byline (linking to the one page with a real Person
+            bio) plus a real, hand-bumped edit date - kept to one small,
+            low-opacity line so it doesn't compete with the actual
+            interactive controls just below it. No photo: none exists,
+            and a stock/generated one would be a fabricated credential
+            this codebase's no-fabrication discipline rules out. */}
+        <p
+          className="animate-fade-up mt-2 text-[11.5px] text-white/25"
+          style={{ animationDelay: "90ms" }}
+        >
+          Built by{" "}
+          <Link href="/about" className="underline decoration-white/15 underline-offset-4 hover:text-white/50">
+            {FOUNDER_NAME}
+          </Link>
+          {" · "}Updated{" "}
+          <time dateTime={PAGE_UPDATED_DATE}>
+            {new Date(PAGE_UPDATED_DATE + "T00:00:00Z").toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+              timeZone: "UTC",
+            })}
+          </time>
         </p>
 
         <div
@@ -482,6 +517,29 @@ export function InputScreen({
         <div className="mt-8">
           <PipelineDiagramDark />
         </div>
+      </ScrollReveal>
+
+      <ScrollReveal className="mx-auto mt-24 w-full max-w-2xl">
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+          Common questions
+        </h2>
+        <div className="mt-8 space-y-6">
+          {MUSIC_FAQS.map((faq) => (
+            <div key={faq.question} className="border-b border-white/[0.06] pb-6">
+              <h3 className="font-serif text-[15px] text-white">{faq.question}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-white/45">{faq.answer}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-center text-[13px] text-white/40">
+          <Link href="/faq" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+            See all FAQs
+          </Link>
+          {" · "}
+          <Link href="/pricing" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+            See pricing
+          </Link>
+        </p>
       </ScrollReveal>
 
       <Footer dark />

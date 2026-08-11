@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
-import { breadcrumbJsonLd, webApplicationJsonLd } from "@/lib/schema";
+import { breadcrumbJsonLd, faqPageJsonLd, webApplicationJsonLd } from "@/lib/schema";
+import { musicFaqs } from "@/lib/faqs";
 
 export const metadata: Metadata = {
   title: "Adapt song lyrics across six languages",
@@ -28,10 +29,17 @@ export default function MusicLayout({ children }: { children: React.ReactNode })
     name: "Castia — Music",
     description: metadata.description as string,
   });
+  // The visible "Common questions" section InputScreen.tsx renders near
+  // its own footer uses this exact same musicFaqs() call - same
+  // reasoning as app/page.tsx's homepage FAQ block: markup and visible
+  // text have to be the same real strings, so both read from the one
+  // shared array in lib/faqs.ts rather than each typing its own copy.
+  const faqPage = faqPageJsonLd(musicFaqs());
   return (
     <>
       <JsonLd data={breadcrumb} />
       <JsonLd data={webApplication} />
+      <JsonLd data={faqPage} />
       {children}
     </>
   );

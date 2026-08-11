@@ -69,6 +69,18 @@ export const FAQS: Faq[] = [
 
 export const FAQ_CATEGORIES = ["Product", "Pricing & access", "Technical"] as const;
 
+/** Looks up real Faq objects by their exact question string, in the
+ * given order - shared by every page that renders a curated subset of
+ * the full FAQ list, so each subset is a plain array of strings (easy to
+ * read, easy to see what's included) rather than its own hand-copied
+ * Faq objects that could drift from the canonical answer text. Throws
+ * (via the non-null assertion) if a question doesn't exist - a typo'd
+ * question here should fail the build, not silently render `undefined`.
+ */
+function faqsFor(questions: string[]): Faq[] {
+  return questions.map((q) => FAQS.find((faq) => faq.question === q)!);
+}
+
 // The four questions a first-time visitor on "/" actually asks, one per
 // real category except Technical (an API question is the wrong altitude
 // for a chooser page a brand-new visitor lands on) - not a random slice,
@@ -82,7 +94,32 @@ export const HOMEPAGE_FAQ_QUESTIONS = [
 ];
 
 export function homepageFaqs(): Faq[] {
-  return HOMEPAGE_FAQ_QUESTIONS.map(
-    (q) => FAQS.find((faq) => faq.question === q)!
-  );
+  return faqsFor(HOMEPAGE_FAQ_QUESTIONS);
+}
+
+// /music-specific: someone already on the lyrics tool wants to know the
+// mechanism and the language roster, not whether comics exist too.
+export const MUSIC_FAQ_QUESTIONS = [
+  "What does Castia do?",
+  "How is this different from Google Translate or a single AI prompt?",
+  "Which languages are supported?",
+  "Do I need an account?",
+];
+
+export function musicFaqs(): Faq[] {
+  return faqsFor(MUSIC_FAQ_QUESTIONS);
+}
+
+// /comics-specific: swaps the language-roster question for the one a
+// visitor already on the webtoons tool actually has (does this work for
+// comics at all, and what does "Beta" really mean here).
+export const COMICS_FAQ_QUESTIONS = [
+  "What does Castia do?",
+  "Does this work for comics and webtoons too?",
+  "How is this different from Google Translate or a single AI prompt?",
+  "Do I need an account?",
+];
+
+export function comicsFaqs(): Faq[] {
+  return faqsFor(COMICS_FAQ_QUESTIONS);
 }
