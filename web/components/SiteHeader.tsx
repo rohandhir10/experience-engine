@@ -102,11 +102,13 @@ export function SiteHeader({
           // already the first thing on the page, so this just points
           // back at it rather than away from it.
           href={active === "webtoons" ? "/comics" : "/music#lyrics"}
-          className={
-            forceDark
-              ? "whitespace-nowrap rounded-full bg-white px-4 py-1.5 text-[13px] font-medium text-black transition active:scale-[0.97]"
-              : "whitespace-nowrap rounded-full bg-ink px-4 py-1.5 text-[13px] font-medium text-paper transition active:scale-[0.97] dark:bg-ink-dark dark:text-paper-dark"
-          }
+          // Accent, not the neutral ink/paper pairing every other button
+          // on the page uses - this is the one link in the header meant
+          // to pull the eye, and up to now it looked identical in weight
+          // to "Sign In" right next to it. white text on accent is
+          // ~4.75:1 (AA, both themes - accent's own hex doesn't change
+          // with theme or forceDark, so one className covers all of them).
+          className="whitespace-nowrap rounded-full bg-accent px-4 py-1.5 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
         >
           Get Started
         </Link>
