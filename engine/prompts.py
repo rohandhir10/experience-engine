@@ -18,6 +18,7 @@ from .models import (
     Rebuttal,
     RoomMemory,
     RoutingSignals,
+    SectionInput,
     SongDNA,
     SongInput,
 )
@@ -120,6 +121,130 @@ def song_dna_prompt(
     # schema example full of literal {}, which .format() would misparse.
     system = SONG_DNA_SYSTEM.replace("{target_language}", song.target_language)
     return system, user
+
+
+# Split off SONG_DNA_SYSTEM's whole-work fields (no "sections" array) for the
+# chunked long-song path — engine/song_dna.py's _generate_chunked_song_dna.
+# Same coverage instructions as the single-call prompt; only the schema and
+# the closing instruction differ, so a long song's overview call still reads
+# every dimension description it needs, just without being asked to also
+# enumerate a per-section array it has no room left to fill accurately.
+SONG_DNA_OVERVIEW_SYSTEM = (
+    SONG_DNA_SYSTEM.split('The "sections" array MUST contain')[0]
+    + """\
+Respond with ONLY a single JSON object matching this shape (omit no top-level \
+key; use empty lists where a dimension genuinely doesn't apply to this song). \
+Do NOT include a "sections" key — that per-section breakdown is requested \
+separately, in smaller batches, once this overview exists to keep it \
+consistent:
+
+{
+  "artistic_thesis": str,
+  "genre_feel": str,
+  "poetic_register": str,
+  "arc_shape": str,
+  "songwriter_intention": str,
+  "turn_points": [{"section": str, "cause": str}],
+  "motifs": [{"motif": str, "first_occurrence": str, "occurrences": [{"section": str, "how_meaning_shifted": str}], "resolves_or_breaks_at_end": str}],
+  "ambiguities": [{"section": str, "ambiguous_element": str, "competing_readings": [str], "is_the_ambiguity_the_point": bool}],
+  "symbols": [{"section": str, "symbol": str, "concrete_form": str, "symbolic_meaning": str, "register": "archetypal|culturally_specific|invented_for_this_song"}],
+  "repetition_patterns": [{"repeated_element": str, "occurrences": int, "exact_or_varied": str, "craft_function": str}],
+  "style": {"diction_register": str, "rhyme_type": str, "syntax_tendency": str, "signature_devices": [str]}
+}
+"""
+)
+
+# The matching per-chunk prompt: given the overview already generated above
+# (so every chunk's per-section read stays anchored to the same thesis/arc/
+# register rather than each batch improvising its own), produce ONLY the
+# SectionProfile entries for the sections in THIS chunk.
+SONG_DNA_SECTIONS_SYSTEM = """\
+You are continuing a songwriting analysis already underway. A colleague has \
+already produced the whole-song read below (artistic thesis, arc shape, \
+poetic register, and so on) - treat it as settled ground truth, not \
+something to re-derive or contradict.
+
+Your job now is the per-section breakdown for ONLY the sections given below \
+(a slice of the full song, not the whole thing - other sections are being \
+analyzed in separate batches by colleagues doing the same job). For each \
+section given, cover: narrative function (what job it does: setup, \
+escalation, hook, turn, release, resolution, and how it relates to the \
+section(s) before/after it), lyrical density (sparse vs dense, and what \
+that pacing does), emotional arc point (valence, intensity, dominant \
+feeling), imagery (concrete sensory pictures and what feeling each stands \
+in for), vulnerability (what is being admitted, how directly or how \
+guardedly, and at what emotional cost), and rhythm (where lines rush or \
+stretch and why).
+
+The "sections" array MUST contain exactly one entry per section given below, \
+in the same order, using the exact section name shown in brackets - never \
+fewer, even for a short or wordless section (a vocal refrain, an "oh oh" \
+hook) - analyze what it is doing musically and emotionally even with no \
+literal semantic content.
+
+Respond with ONLY a single JSON object matching this shape:
+
+{
+  "sections": [
+    {
+      "name": str,
+      "narrative_function": {"section": str, "function": str, "relation_to_adjacent": str},
+      "density": {"section": str, "density": "sparse|moderate|dense", "note": str},
+      "emotional_arc_point": {"section": str, "valence": float, "intensity": float, "dominant_feeling": str},
+      "imagery": [{"section": str, "image": str, "sensory_channel": str, "stands_in_for": str}],
+      "vulnerability": [{"section": str, "what_is_admitted": str, "directness": "stated_plainly|deflected_through_humor|buried_in_imagery|undercut_by_irony", "felt_cost": str}],
+      "rhythm": [{"section": str, "line": str, "scansion_note": str, "rhythmic_function": str}]
+    }
+  ]
+}
+"""
+
+
+def song_dna_overview_prompt(
+    song: SongInput, profile: "LanguageProfile | None" = None
+) -> tuple[str, str]:
+    """Whole-work half of the chunked long-song path
+    (engine/song_dna.py::_generate_chunked_song_dna) - same input as
+    song_dna_prompt (every section's full text, so arc/motif/thesis
+    judgments still see the whole song), but asks for only the whole-work
+    fields, leaving per-section analysis to song_dna_sections_prompt."""
+    sections_text = "\n\n".join(f"[{s.name}]\n{s.source_text}" for s in song.sections)
+    context = f"\nContext: {song.context_note}" if song.context_note else ""
+    profile_block = profile.song_dna_block() if profile else ""
+    user = (
+        f"Source language: {song.source_language}{context}\n"
+        f"{profile_block}\n"
+        f"Full song, section by section:\n\n{sections_text}\n\n"
+        "Analyze this song's whole-work artistic DNA as instructed."
+    )
+    system = SONG_DNA_OVERVIEW_SYSTEM.replace("{target_language}", song.target_language)
+    return system, user
+
+
+def song_dna_sections_prompt(
+    song: SongInput,
+    chunk: list["SectionInput"],
+    overview: dict,
+) -> tuple[str, str]:
+    """Per-section half of the chunked long-song path - `overview` is the
+    already-generated whole-work dict (song_dna_overview_prompt's parsed
+    reply) so this chunk's section analysis stays anchored to the same
+    thesis/arc/register every other chunk was given, not a fresh guess."""
+    sections_text = "\n\n".join(f"[{s.name}]\n{s.source_text}" for s in chunk)
+    overview_block = (
+        f"Artistic thesis: {overview.get('artistic_thesis', '')}\n"
+        f"Genre feel: {overview.get('genre_feel', '')}\n"
+        f"Poetic register: {overview.get('poetic_register', '')}\n"
+        f"Arc shape: {overview.get('arc_shape', '')}\n"
+        f"Songwriter intention: {overview.get('songwriter_intention', '')}"
+    )
+    user = (
+        f"Source language: {song.source_language}\n\n"
+        f"Whole-song read already established:\n{overview_block}\n\n"
+        f"This batch's sections, in order:\n\n{sections_text}\n\n"
+        "Analyze this batch's per-section breakdown as instructed."
+    )
+    return SONG_DNA_SECTIONS_SYSTEM, user
 
 
 # ---------------------------------------------------------------------------

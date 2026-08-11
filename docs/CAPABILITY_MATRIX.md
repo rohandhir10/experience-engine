@@ -5260,3 +5260,76 @@ enshrine a wrong assumption.
   needed - font selection already flows through the existing per-region
   `font` field end to end, and boldness is chosen automatically
   server-side alongside the existing color estimate.
+
+## Chunked Song DNA for long-form songs
+
+**The gap**, disclosed in `engine/song_dna.py`'s own module docstring
+since it was written: Song DNA is generated in ONE LLM call with an
+8k-token reply budget - "fine for a song's 3-9 sections; for long-form
+input the model omits more and the placeholder machinery... fills more,
+so quality degrades silently rather than crashing." Above
+`SECTION_COUNT_SOFT_LIMIT` (15) distinct sections, a warning logged the
+degradation but nothing fixed it - the log message said so explicitly:
+"long-form input needs chunked analysis (not yet implemented)."
+
+**The fix:** `generate_song_dna` now branches. At or under the soft
+limit, nothing changed - same single call, same `stage="song_dna"`, byte-
+identical prompt (`tests/test_golden_prompts.py`'s hash needed no update,
+confirmed by running it rather than assumed). Over the limit, it runs
+`_generate_chunked_song_dna` instead:
+
+1. **One overview call** (`song_dna_overview_prompt`, `stage=
+   "song_dna_overview"`) - still given every section's full text (arc/
+   motif/thesis judgments genuinely need to see the whole song), but asks
+   for ONLY the whole-work fields (artistic thesis, arc shape, poetic
+   register, motifs, symbols, style, etc.) - no `"sections"` key, so
+   nothing competes with those dimensions for reply budget.
+2. **Per-section calls in `SECTION_CHUNK_SIZE`-sized batches** (8 -
+   comfortably inside the 3-9 section range the single-call prompt was
+   actually tested against, not just under the failure threshold).
+   `song_dna_sections_prompt` gives each batch the overview's
+   artistic-thesis/arc-shape/poetic-register/songwriter-intention as
+   settled context, so separate batches read the same song consistently
+   instead of each one improvising its own take - the actual reason this
+   is two prompt shapes and not just "ask for 8 sections at a time" with
+   no shared grounding.
+3. Results are merged (`{**overview, "sections": sections}`) and validated
+   through the same `SongDNA.model_validate` as the single-call path, so
+   `_fill_missing_sections`/`_duplicate_repeated_profiles` downstream
+   don't need to know which path produced the DNA - a batch that omits a
+   section is patched exactly the same way a single-call omission always
+   was.
+- **What this does NOT do - a real, disclosed trade-off, not a full
+  fix:** this is not the same analysis quality a true single-call read of
+  a short song gets. Each section-batch call sees only its OWN batch's
+  section text, not the others' - a `narrative_function.
+  relation_to_adjacent` note for the last section of one batch cannot
+  literally see the first section of the next batch the way a genuinely
+  single-context read could. The whole-work fields (motifs, arc shape,
+  turn points) stay fully song-wide since the overview call still reads
+  every section's text at once; only the PER-SECTION notes lose
+  cross-batch adjacency. This is disclosed in `engine/song_dna.py`'s own
+  updated module docstring, not left implicit. `engine/chapter_dna.py`'s
+  matching comics-side bound (documented in "Wiring one bubble through
+  the Writers' Room" above) is untouched - chapters don't carry a
+  per-section array the same way, so this chunking approach doesn't
+  transfer as-is; that remains exactly as deferred as it was.
+- **Tier 1** for the chunking mechanism itself (deterministic batching,
+  grounding, and merge, fully tested); **Tier 0** for whether the chunked
+  read's actual craft quality holds up against a real single-call read on
+  a real long song - no test corpus of real long-form songs exists to
+  measure that gap, same standing caveat every Tier 0 LLM-judgment entry
+  in this document carries.
+- **Verified:** 6 new `tests/test_song_dna_chunking.py` tests - a song
+  exactly at the soft limit still takes the single-call path unchanged, a
+  song one over it switches to the chunked path, batches land at the
+  exact configured chunk size with a correctly-sized remainder batch
+  (`SECTION_CHUNK_SIZE*2+3` sections producing `[8, 8, 3]`-sized
+  batches), every section is covered exactly once with no duplicates
+  across batches, every batch's prompt actually carries the same
+  overview text (not a per-batch guess), and a batch that omits a
+  section still gets patched by the existing placeholder machinery. Full
+  suite: 1208 Python passed (1202 pre-existing + 6 new), `pytest tests/`
+  clean. No frontend/server changes needed - `generate_song_dna`'s
+  signature and return type are unchanged, so every caller (`engine/
+  pipeline.py`, `server/main.py`) needed no updates.

@@ -1,10 +1,17 @@
-"""Builds a SongDNA from a SongInput via one LLM call (docs/SONG_DNA.md).
-
-Known architectural bound: the whole work is analyzed in ONE call with an
-8k-token reply budget. Fine for a song's 3-9 sections; for long-form input
-the model omits more and the placeholder machinery below fills more, so
-quality degrades silently rather than crashing. The warnings here make
-that degradation visible instead of silent.
+"""Builds a SongDNA from a SongInput via one LLM call (docs/SONG_DNA.md), or —
+above SECTION_COUNT_SOFT_LIMIT distinct sections — via the chunked long-song
+path (_generate_chunked_song_dna): one call for the whole-work fields
+(artistic thesis, arc shape, motifs, etc. — dimensions that genuinely need to
+see the whole song at once), then the per-section breakdown in batches of
+SECTION_CHUNK_SIZE sections each, every batch anchored to that same
+whole-work read so separate batches don't drift into inconsistent readings
+of the same song. This still isn't the SAME analysis a true single-call read
+of a short song gets — each section-batch call sees only its own sections'
+text, not the others', so a narrative_function's "relation_to_adjacent" note
+for the last section of one batch can't literally see the first section of
+the next. That's a real, disclosed trade-off against the alternative this
+replaces (silent truncation, no per-section analysis at all for the omitted
+sections) — see docs/CAPABILITY_MATRIX.md for the honest comparison.
 """
 from __future__ import annotations
 
@@ -16,17 +23,27 @@ from .models import (
     DensityItem,
     EmotionalArcPoint,
     NarrativeFunctionItem,
+    SectionInput,
     SectionProfile,
     SongDNA,
     SongInput,
 )
-from .prompts import song_dna_prompt
+from .prompts import song_dna_overview_prompt, song_dna_prompt, song_dna_sections_prompt
 
 logger = logging.getLogger(__name__)
 
-# Above this many distinct sections, the one-call analysis is running
-# outside the territory it was built and tested for.
+# Above this many distinct sections, a single-call analysis is running
+# outside the territory it was built and tested for (silent omissions past
+# this point, before the chunked path existed) — generate_song_dna switches
+# to _generate_chunked_song_dna instead of running the one-call prompt.
 SECTION_COUNT_SOFT_LIMIT = 15
+
+# Sections per batch in the chunked path — comfortably inside the 3-9
+# section range the single-call prompt was actually built and tested
+# against, leaving real headroom in the 8k reply budget per batch rather
+# than picking a size that just barely avoids the soft limit's own failure
+# mode.
+SECTION_CHUNK_SIZE = 8
 
 
 def _build_dna_input(song: SongInput) -> SongInput:
@@ -93,6 +110,40 @@ def _duplicate_repeated_profiles(dna: SongDNA, song: SongInput) -> SongDNA:
     return dna
 
 
+def _chunk_sections(sections: list[SectionInput], size: int) -> list[list[SectionInput]]:
+    return [sections[i : i + size] for i in range(0, len(sections), size)]
+
+
+def _generate_chunked_song_dna(
+    dna_input: SongInput, client: LLMClient, profile: LanguageProfile
+) -> SongDNA:
+    """The long-song path: one call for the whole-work fields, then the
+    per-section breakdown in SECTION_CHUNK_SIZE-sized batches, each batch
+    grounded in that same whole-work read. See this module's docstring for
+    the honest trade-off against a true single-call analysis.
+    """
+    logger.info(
+        "%d distinct sections exceeds the single-call Song DNA soft limit "
+        "of %d — using the chunked long-song path (%d sections per batch) "
+        "instead of one call.",
+        len(dna_input.sections),
+        SECTION_COUNT_SOFT_LIMIT,
+        SECTION_CHUNK_SIZE,
+    )
+    overview_system, overview_user = song_dna_overview_prompt(dna_input, profile)
+    overview = client.complete_json(
+        overview_system, overview_user, max_tokens=4000, stage="song_dna_overview"
+    )
+
+    sections: list[dict] = []
+    for chunk in _chunk_sections(dna_input.sections, SECTION_CHUNK_SIZE):
+        system, user = song_dna_sections_prompt(dna_input, chunk, overview)
+        reply = client.complete_json(system, user, max_tokens=8000, stage="song_dna_sections")
+        sections.extend(reply.get("sections", []))
+
+    return SongDNA.model_validate({**overview, "sections": sections})
+
+
 def generate_song_dna(
     song: SongInput,
     client: LLMClient,
@@ -100,16 +151,11 @@ def generate_song_dna(
 ) -> SongDNA:
     dna_input = _build_dna_input(song)
     if len(dna_input.sections) > SECTION_COUNT_SOFT_LIMIT:
-        logger.warning(
-            "%d distinct sections exceeds the single-call Song DNA soft "
-            "limit of %d — expect omissions/truncation; long-form input "
-            "needs chunked analysis (not yet implemented).",
-            len(dna_input.sections),
-            SECTION_COUNT_SOFT_LIMIT,
-        )
-    system, user = song_dna_prompt(dna_input, profile)
-    data = client.complete_json(system, user, max_tokens=8000, stage="song_dna")
-    dna = SongDNA.model_validate(data)
+        dna = _generate_chunked_song_dna(dna_input, client, profile)
+    else:
+        system, user = song_dna_prompt(dna_input, profile)
+        data = client.complete_json(system, user, max_tokens=8000, stage="song_dna")
+        dna = SongDNA.model_validate(data)
     dna = _fill_missing_sections(dna, dna_input)
     dna = _duplicate_repeated_profiles(dna, song)
     return dna
