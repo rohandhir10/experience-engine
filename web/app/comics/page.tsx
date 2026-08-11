@@ -448,8 +448,8 @@ export default function ComicsPage() {
                   comment for the full reasoning and why how-it-works's
                   usage is different (paired with an identical dark card
                   right above it, not standing alone). */}
-              <div className="rounded-2xl border border-black/[0.08] bg-black/[0.02] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
-                <p className="text-[12px] uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
+              <div className="rounded-2xl border border-black/[0.06] bg-black/[0.015] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
+                <p className="text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
                   What happens to a panel
                 </p>
                 <div className="mt-4">

@@ -33,7 +33,16 @@ const STAGES: { title: string; description: string }[] = [
  * reads differently there specifically because it's paired with an
  * identical dark "Music" card directly above it (PipelineDiagramDark) -
  * a deliberate two-card rhythm, not a single card standing out alone -
- * so that usage keeps the old default rather than needing this fix too. */
+ * so that usage keeps the old default rather than needing this fix too.
+ *
+ * The first `dark={false}` pass just inverted the dark palette to
+ * near-white-on-white (bg-black/[0.02], border-black/[0.08]) - correct
+ * on contrast, but flat and characterless next to the dark version's
+ * white-on-navy presence. The numbered accent badges below (numeral in
+ * a tinted accent circle, per stage) and the warmer per-card surface
+ * are what actually carried the dark version's visual weight - not the
+ * dark background itself - so the light branch gets its own equivalent
+ * instead of a literal-inverse recolor. */
 export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
   return (
     <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-stretch sm:gap-0">
@@ -43,9 +52,14 @@ export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
             className={
               dark
                 ? "flex-1 rounded-xl border border-white/10 bg-white/[0.03] p-4"
-                : "flex-1 rounded-xl border border-black/[0.08] bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03]"
+                : "flex-1 rounded-xl border border-black/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none"
             }
           >
+            {!dark && (
+              <span className="mb-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-[10px] font-semibold text-accent dark:hidden">
+                {i + 1}
+              </span>
+            )}
             <p className={dark ? "text-[13px] font-medium text-white/90" : "text-[13px] font-medium text-ink dark:text-white/90"}>
               {stage.title}
             </p>
@@ -64,7 +78,7 @@ export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
               className={
                 dark
                   ? "relative hidden h-px w-8 shrink-0 bg-white/10 sm:block"
-                  : "relative hidden h-px w-8 shrink-0 bg-black/10 dark:bg-white/10 sm:block"
+                  : "relative hidden h-px w-8 shrink-0 bg-accent/20 dark:bg-white/10 sm:block"
               }
               aria-hidden="true"
             >
