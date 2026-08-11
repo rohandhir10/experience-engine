@@ -4428,3 +4428,61 @@ the Original/Redrawn toggle - all still pass unchanged. `npx tsc
 warning banner with no new pure logic to unit-test beyond the existing
 `MAX_COMICS_PANELS_HINT` constant itself), and `npm run build` all
 clean.
+
+## Error monitoring (Sentry), with the privacy locks this product actually needs
+
+**The gap**: errors were never invisible - server/main.py logs them with
+`logger.exception` and Railway keeps stdout. What was missing was anyone
+FINDING OUT. A log line at 3am is only useful to someone already
+scrolling logs, and a failure hitting fifty users in an hour looks
+exactly like one that happened once. The two background-job paths were
+the worst of it: a job failure reaches no user and no HTTP status, so it
+existed only as one line nobody was reading.
+
+**`server/monitoring.py`** initializes Sentry when `CASTIA_SENTRY_DSN` is
+set and is a complete no-op otherwise - no DSN, no `sentry-sdk`
+installed, a malformed DSN, or a capture that itself throws all end in a
+logged no-op, never an exception reaching a request. An observability
+tool that can break the thing it observes is worse than none. Wired into
+the startup lifespan (first, so a failure in database init is itself
+reported) and into both background-job `except` blocks, tagged with
+identifiers only (`job_id`, `kind`) and never content.
+
+**The privacy work is the substance here.** This service handles song
+lyrics and comic dialogue - third-party copyrighted text users paste in -
+and Sentry's own defaults would ship it: `max_request_body_size` defaults
+to `"medium"` (the request body IS the lyrics) and
+`include_local_variables` defaults to `True` (a stack frame inside the
+engine holds the lyrics in a local). Both are forced off and deliberately
+NOT configurable by environment variable, since the risk is a property of
+what this application processes rather than of how a deployment is set
+up. A `before_send` scrubber additionally redacts credential headers
+(case-insensitively), cookies wholesale, and secret-looking `extra` keys,
+and drops any request body that reached an event anyway - belt-and-braces
+on the one mistake that is genuinely one-way.
+
+**A methodology correction worth recording.** The first version of these
+tests asserted the *options passed to `sentry_sdk.init`*. That is
+necessary and insufficient, and an end-to-end check against a recording
+transport initially appeared to show a leak. Investigating rather than
+patching showed two separate things: `include_local_variables=False` does
+work correctly (runtime user data never reaches the payload), and the
+apparent leak was an artifact of the test planting the text as a *source
+literal*, which Sentry captures as source context - real code, not user
+data. The test was then rewritten to use a `uuid4` token generated at
+runtime, which by construction exists in no source file, so it tests the
+guarantee rather than the test's own source. `include_source_context` is
+now left on as an explicit, documented decision (frames would otherwise
+be just a filename and a line number), with the standing consequence that
+secrets must live in environment variables and not in source - already
+true of this codebase.
+
+Tests: `tests/test_monitoring.py` (21) - the four degradation paths, the
+init options, the scrubber including a whole-payload falsification, and
+two payload-level tests that run a real init and a real capture against a
+recording transport: one asserting a runtime-generated token never
+appears in what would be transmitted, one asserting no stack frame
+carries a `vars` mapping at all (stronger and more durable than checking
+one string's absence). `CASTIA_SENTRY_DSN` added to
+`production_config_problems`. 1111 pytest passing; app verified to boot
+both with and without a DSN configured.

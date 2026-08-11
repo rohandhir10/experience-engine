@@ -38,3 +38,9 @@ pillow>=10.0
 redis>=5.0
 rq>=1.16
 fakeredis>=2.20  # test-only: tests/test_jobs_redis.py, tests/test_task_queue.py - no real Redis server needed
+# Error monitoring, inert unless CASTIA_SENTRY_DSN is set (server/monitoring.py).
+# Listed as a hard requirement rather than an extra so a production image
+# can't be built without it while the DSN is configured - but the code
+# still degrades to a no-op if the import fails, since an observability
+# tool must never be able to break the thing it observes.
+sentry-sdk>=2.0

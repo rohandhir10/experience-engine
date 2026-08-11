@@ -21,6 +21,7 @@ FULLY_CONFIGURED = {
     "RESEND_API_KEY": "re_live_xxx",
     "CASTIA_PADDLE_WEBHOOK_SECRET": "pdl_ntfset_xxx",
     "CASTIA_PADDLE_PRICE_CREDITS": '{"pri_123": 144}',
+    "CASTIA_SENTRY_DSN": "https://public@o0.ingest.sentry.io/0",
 }
 
 
@@ -121,3 +122,9 @@ def test_never_raises_even_with_a_completely_empty_environment(monkeypatch):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr(main, "INTERNAL_API_SECRET", "")
     assert isinstance(main.production_config_problems(), list)
+
+
+def test_missing_sentry_dsn_is_reported(configured, monkeypatch):
+    monkeypatch.delenv("CASTIA_SENTRY_DSN")
+    problems = main.production_config_problems()
+    assert any("CASTIA_SENTRY_DSN" in p for p in problems)

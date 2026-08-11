@@ -113,7 +113,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, character_bibles, credits, db, emailing, jobs, paddle, password_auth, quota, task_queue
+from . import accounts, api_keys, cache, character_bibles, credits, db, emailing, jobs, monitoring, paddle, password_auth, quota, task_queue
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -281,6 +281,13 @@ def production_config_problems() -> list[str]:
             "will look untrustworthy and is likely to be filtered as spam."
         )
 
+    if not os.environ.get("CASTIA_SENTRY_DSN"):
+        problems.append(
+            "CASTIA_SENTRY_DSN is not set. Errors are still written to the log, but "
+            "nothing aggregates or alerts on them - a failure affecting many users "
+            "looks exactly like one that happened once (server/monitoring.py)."
+        )
+
     if not os.environ.get("CASTIA_PADDLE_WEBHOOK_SECRET"):
         problems.append(
             "CASTIA_PADDLE_WEBHOOK_SECRET is not set. The Paddle webhook returns 503, so "
@@ -298,6 +305,9 @@ def production_config_problems() -> list[str]:
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    # First, so anything that fails during the rest of startup (the
+    # database init below) is itself reported rather than only logged.
+    monitoring.init_error_monitoring()
     # Best-effort: DATABASE_URL isn't set in local/test environments that
     # never touch Postgres, and nothing on the /api/adapt path depends on
     # it yet, so a missing or unreachable database logs a warning here
@@ -1359,10 +1369,14 @@ def _run_comics_job_body(
             credits.refund(user_id, debited, reference=result_id)
         logger.error("comics job id=%s configuration failure: %s", job_id, exc)
         jobs.set_error(job_id, str(exc))
-    except Exception:
+    except Exception as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
         logger.exception("comics job id=%s unexpected failure", job_id)
+        # A background job's failure reaches no user and no HTTP status -
+        # without this it exists only as one line in a log nobody is
+        # watching. Identifiers only, never chapter content.
+        monitoring.capture_exception(exc, job_id=job_id, kind="comics_adapt")
         jobs.set_error(job_id, "Something went wrong processing this chapter. Try again.")
 
 
@@ -2206,11 +2220,15 @@ def _run_job_body(
     except RuntimeError as exc:
         logger.error("job id=%s configuration failure: %s", job_id, exc)
         jobs.set_error(job_id, str(exc))
-    except Exception:
+    except Exception as exc:
         # A background thread's uncaught exception is otherwise silent -
         # nothing re-raises it anywhere the poller would see. Whoever's
         # polling deserves an "error" status, not an indefinite "pending".
         logger.exception("job id=%s unexpected failure", job_id)
+        # ...and whoever maintains this deserves to hear about it without
+        # having to be reading logs at the time. Identifiers only, never
+        # the lyrics themselves.
+        monitoring.capture_exception(exc, job_id=job_id, kind="song_adapt")
         jobs.set_error(job_id, "Something went wrong processing this song. Try again.")
 
 
