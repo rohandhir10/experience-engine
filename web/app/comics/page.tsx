@@ -406,8 +406,14 @@ export default function ComicsPage() {
                   the headline instead of being pulled out to its own
                   full-width row, and the pipeline explainer becomes its
                   own full-width band below instead, where it has room to
-                  breathe (and for icons - see ComicsPipelineDiagram.tsx). */}
-              <div className="max-w-xl">
+                  breathe (and for icons - see ComicsPipelineDiagram.tsx).
+                  Centered (mx-auto), not left-hugging the wide max-w-5xl
+                  shell - a narrower reading measure left un-centered just
+                  moved the empty space instead of removing it, all of it
+                  landing on the right (real feedback, not a hypothetical -
+                  the pipeline band below stays full-width since it isn't
+                  a reading-measure block). */}
+              <div className="mx-auto max-w-xl">
                 <div className="flex items-center gap-2.5">
                   <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
                     Give every character their own voice.
