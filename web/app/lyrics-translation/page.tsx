@@ -90,11 +90,9 @@ export default function LyricsTranslationPage() {
               The adapter has to know why it works.
             </h1>
             <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
-              The rhyme a line is chasing, the idiom it's leaning on, the
-              thing left unsaid on purpose - a word-for-word pass drops all
-              of it. Castia adapts across English, Japanese, Korean,
-              Spanish, Urdu, and Hindi, in any direction, and shows its
-              work on every line.
+              A word-for-word pass drops the rhyme, the idiom, the thing
+              left unsaid on purpose. Castia adapts across six languages,
+              in any direction, and shows its work on every line.
             </p>
             <Link
               href="/music"

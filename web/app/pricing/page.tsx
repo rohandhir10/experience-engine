@@ -136,13 +136,17 @@ export default function PricingPage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Pricing.
             </h1>
+            {/* Short, not the old two-sentence hedge/caveat - the panel
+                beside it (FreeRightNowPanel) already states the same
+                facts (free right now, no account, the pricing below is
+                what's coming) visually, so the paragraph doesn't need to
+                re-explain them in prose too. Real feedback that the site
+                read as text-heavy; the fuller disclosure still exists in
+                this page's own meta description (entry.description
+                above), untouched. */}
             <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
-              CASTIA is free to try right now, for everyone, with no
-              account needed - that's a limitation of billing not existing
-              yet, not the plan. What's below is the credit-based pricing
-              we're building toward, and every tier in it is paid: checkout
-              will run through Paddle, but until it's live, nothing here is
-              charged today.
+              Free to use right now, for everyone. What's below is the
+              pricing we're building toward, not what you pay today.
             </p>
           </div>
           <FreeRightNowPanel />

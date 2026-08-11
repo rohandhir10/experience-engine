@@ -119,10 +119,9 @@ export default function MangaWebtoonTranslationPage() {
               Neither is the voice.
             </h1>
             <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
-              Upload a chapter's panels and Castia reads every speech
-              bubble in the order it's meant to be read, then keeps each
-              character sounding like themselves from the first line to
-              the last. Currently in Beta.
+              Upload a chapter, and Castia reads every bubble in order —
+              then keeps each character sounding like themselves, panel to
+              panel. Currently in Beta.
             </p>
             <Link
               href="/comics"

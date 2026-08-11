@@ -48,21 +48,24 @@ export default function AboutPage() {
 
         <section className="mt-12">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">What Castia is</h2>
+          {/* Shorter, not the old jargon list (literal Translator anchor,
+              five Creative Adapter rewrites, a Judge...) - that detail
+              already lives one click away on how-it-works, which this
+              paragraph links to for exactly that reason. Real feedback
+              that the site read as text-heavy; this page's own meta
+              description above is untouched. */}
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            Castia adapts song lyrics and comic/webtoon dialogue across six
-            languages through a three-stage pipeline - a literal Translator
-            anchor, five Creative Adapter rewrites, and a Judge that picks a
-            winner and states its reason - instead of a single translation
-            pass. The full mechanism is on{" "}
+            Castia adapts lyrics and comic dialogue across six languages
+            through three stages that check each other's work, not a
+            single translation pass — the full mechanism is on{" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
               how it works
             </Link>
-            . The comics side is in Beta; the specific rough edges are
-            disclosed on the{" "}
+            . Comics is in Beta; its rough edges are disclosed on the{" "}
             <Link href="/manga-webtoon-translation" className="underline decoration-ink/20 underline-offset-4">
               manga &amp; webtoon translation
             </Link>{" "}
-            page rather than smoothed over.
+            page, not smoothed over.
           </p>
         </section>
 
