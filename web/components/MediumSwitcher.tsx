@@ -26,7 +26,16 @@ export function MediumSwitcher({
   }
 
   const border = forceDark ? "border-white/10" : "border-black/[0.12] dark:border-white/[0.12]";
-  const activeClass = forceDark ? "bg-white/10 text-white/90" : "bg-black/[0.05] text-ink dark:bg-white/10 dark:text-ink-dark";
+  // Accent tint instead of the neutral gray fill every other "current
+  // state" indicator on the page already avoided - this is the one
+  // place on /music and /comics telling you which workspace you're in,
+  // and a flat gray pill didn't read as selected so much as just
+  // slightly darker. text-accent standalone is ~4.57:1 on paper (AA)
+  // and far higher against paper-dark, so this doesn't need a separate
+  // dark: color, only a lighter tint for the fill in dark mode.
+  const activeClass = forceDark
+    ? "bg-accent/20 text-white"
+    : "bg-accent/[0.12] text-accent dark:bg-accent/20";
   const inactiveClass = forceDark
     ? "text-white/62 hover:text-white/78"
     : "text-ink/62 hover:text-ink/78 dark:text-ink-dark/62 dark:hover:text-ink-dark/78";
