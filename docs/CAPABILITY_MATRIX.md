@@ -4695,3 +4695,52 @@ new cross-subset checks: every subset includes the one question every
 visitor asks first ("What does Castia do?"), and no two subsets are
 accidentally identical. 188 vitest passing; `tsc` and `next build`
 clean.
+
+## Fixed /comics's light-mode pipeline card reading as a templated, mismatched block
+
+**The real problem, reported directly**: `ComicsPipelineDiagram` (the
+"what happens to a panel" diagram) was wrapped in a fixed
+`bg-[#141a2b]` dark navy card unconditionally, on a page
+(`app/comics/page.tsx`) that is otherwise a normal theme-reactive
+light/dark page. In light mode this put one lone dark rectangle next to
+a plain light dropzone with nothing else on the page justifying it -
+exactly the "white background, black image thing, looks templated"
+complaint. The component's own prior doc comment had called this
+deliberate ("dark and cinematic on purpose... breaking the page's own
+theme for weight"), reasoning by analogy to `PipelineDiagramDark.tsx`
+on `/music` - but `/music` is entirely dark (`forceDark`), so its dark
+diagram never had a light background to clash against; the same pattern
+genuinely doesn't transfer to a page that isn't dark everywhere else.
+
+**Why not just delete the dark styling outright**: `ComicsPipelineDiagram`
+is also used on `/how-it-works`, in a section wrapped in the identical
+`bg-[#141a2b]` card - but there it sits directly below an identical dark
+"Music" card (`PipelineDiagramDark`), forming a deliberate two-card
+rhythm rather than one card standing out alone. That usage wasn't
+reported as broken and, checked directly, doesn't have the same problem
+- so the fix had to be scoped to `/comics` only, not applied by
+deleting the component's only styling.
+
+**The fix**: `ComicsPipelineDiagram` gains a `dark` prop (default
+`true`, same "explicit opt-out" convention already used by
+`Footer`/`TargetLanguageSelect`'s own `dark` props elsewhere in this
+codebase) - the default preserves `/how-it-works`'s exact existing
+look with zero changes needed there. `app/comics/page.tsx` passes
+`dark={false}` and its own wrapper card switches from the fixed navy
+background to the same theme-reactive
+`border-black/[0.08] bg-black/[0.02] dark:border-white/[0.08]
+dark:bg-white/[0.02]` pattern already used elsewhere on that exact
+page, with the "WHAT HAPPENS TO A PANEL" label recolored to match the
+theme-reactive eyebrow label immediately below it ("Six languages, any
+direction").
+
+**Verified live** against a production build, in both color schemes,
+on both pages: `/comics` in light mode now shows a subtle, theme-
+matched card instead of a dark rectangle; `/comics` in dark mode is
+unchanged in spirit (still a card, just theme-consistent rather than a
+fixed color); `/how-it-works` in both light and dark mode is
+pixel-for-pixel the same as before this change - confirmed by
+screenshot, not assumed from the default-preserving prop value alone.
+188 vitest passing (untouched by this change - no new pure logic to
+test, this is a styling/prop-default fix), `tsc` and `next build`
+clean.

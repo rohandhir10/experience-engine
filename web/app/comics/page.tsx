@@ -438,11 +438,23 @@ export default function ComicsPage() {
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-[#141a2b] p-6 sm:p-8">
-                <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+              {/* Theme-reactive, not the fixed-dark "spotlight" card
+                  ComicsPipelineDiagram.tsx's `dark` prop still defaults
+                  to elsewhere (app/how-it-works/page.tsx) - this page is
+                  a normal light/dark page, and one lone dark navy
+                  rectangle sitting next to a plain light dropzone read as
+                  a mismatched, templated stock block rather than a
+                  deliberate design choice. See that component's own doc
+                  comment for the full reasoning and why how-it-works's
+                  usage is different (paired with an identical dark card
+                  right above it, not standing alone). */}
+              <div className="rounded-2xl border border-black/[0.08] bg-black/[0.02] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
+                <p className="text-[12px] uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
                   What happens to a panel
                 </p>
-                <ComicsPipelineDiagram />
+                <div className="mt-4">
+                  <ComicsPipelineDiagram dark={false} />
+                </div>
               </div>
             </div>
           )}

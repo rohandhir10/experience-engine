@@ -11,26 +11,61 @@ const STAGES: { title: string; description: string }[] = [
  * Agent" framing from the original landing-page brief, which named two
  * things that don't exist (there's no adversarial mechanism, and
  * typesetting is a separate, optional step - see engine/
- * comics_redraw.py - not a stage every chapter runs through). Dark and
- * cinematic on purpose even though /comics itself is a light-themed
- * page - a deliberately technical, "under the hood" section breaking
- * the page's own theme for weight, same pattern components/
- * PipelineDiagramDark.tsx uses on /music. The connecting line's
- * traveling dot is decorative motion only. */
-export function ComicsPipelineDiagram() {
+ * comics_redraw.py - not a stage every chapter runs through). The
+ * connecting line's traveling dot is decorative motion only.
+ *
+ * `dark` (default true, same "explicit opt-out" convention as
+ * Footer/TargetLanguageSelect's own `dark` prop) forces the always-white-
+ * on-navy styling this component originally shipped with - real
+ * dark-mode-only usages against a fixed dark wrapper, e.g. app/how-it-
+ * works/page.tsx's `bg-[#141a2b]` card, need internal text that's always
+ * legible against THAT specific fixed background regardless of the
+ * site's own light/dark setting, not classes that would swap to
+ * dark-mode-styled (light) text the moment a visitor's site theme
+ * doesn't match the wrapper's fixed color.
+ *
+ * `dark={false}` (app/comics/page.tsx) is the fix for a real, reported
+ * problem: /comics itself is a normal theme-reactive light/dark page,
+ * and wrapping this diagram in that same fixed dark navy card put one
+ * lone dark rectangle against /comics's plain light background in light
+ * mode - exactly the "mismatched, templated" look a genuinely intentional
+ * design choice shouldn't produce. how-it-works's own dark treatment
+ * reads differently there specifically because it's paired with an
+ * identical dark "Music" card directly above it (PipelineDiagramDark) -
+ * a deliberate two-card rhythm, not a single card standing out alone -
+ * so that usage keeps the old default rather than needing this fix too. */
+export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
   return (
     <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-stretch sm:gap-0">
       {STAGES.map((stage, i) => (
         <div key={stage.title} className="flex flex-1 items-center gap-0">
-          <div className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="text-[13px] font-medium text-white/90">{stage.title}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+          <div
+            className={
+              dark
+                ? "flex-1 rounded-xl border border-white/10 bg-white/[0.03] p-4"
+                : "flex-1 rounded-xl border border-black/[0.08] bg-black/[0.02] p-4 dark:border-white/10 dark:bg-white/[0.03]"
+            }
+          >
+            <p className={dark ? "text-[13px] font-medium text-white/90" : "text-[13px] font-medium text-ink dark:text-white/90"}>
+              {stage.title}
+            </p>
+            <p
+              className={
+                dark
+                  ? "mt-1 text-[11px] leading-relaxed text-white/40"
+                  : "mt-1 text-[11px] leading-relaxed text-ink/50 dark:text-white/40"
+              }
+            >
               {stage.description}
             </p>
           </div>
           {i < STAGES.length - 1 && (
             <div
-              className="relative hidden h-px w-8 shrink-0 bg-white/10 sm:block"
+              className={
+                dark
+                  ? "relative hidden h-px w-8 shrink-0 bg-white/10 sm:block"
+                  : "relative hidden h-px w-8 shrink-0 bg-black/10 dark:bg-white/10 sm:block"
+              }
               aria-hidden="true"
             >
               <span
