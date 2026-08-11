@@ -122,7 +122,7 @@ export function PanelUploader({
       className={`relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border-2 border-dashed px-8 py-16 text-center transition ${
         dragActive
           ? "border-accent/50 bg-accent/[0.04]"
-          : "border-accent/[0.18] bg-black/[0.015] dark:border-white/[0.12] dark:bg-white/[0.02]"
+          : "border-accent/[0.18] bg-black/[0.015] dark:border-white/[0.15] dark:bg-white/[0.02]"
       }`}
     >
       {/* A halftone screentone texture (classic comic-print dot pattern)
@@ -191,7 +191,7 @@ export function PanelUploader({
           <button
             type="button"
             onClick={() => folderInputRef.current?.click()}
-            className="rounded-full border border-black/[0.1] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+            className="rounded-full border border-black/[0.13] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
           >
             Choose a folder
           </button>

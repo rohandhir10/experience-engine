@@ -12,7 +12,7 @@ export function CompareDiagram({
   competitorStep: string;
 }) {
   return (
-    <div className="rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+    <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
       <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
         {competitorName}
       </p>

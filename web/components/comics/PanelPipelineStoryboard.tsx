@@ -55,7 +55,7 @@ export function PanelPipelineStoryboard() {
       {STEPS.map((step, i) => (
         <div
           key={step.title}
-          className="flex flex-col rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none"
+          className="flex flex-col rounded-2xl border border-black/[0.12] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none"
         >
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/10 text-[11px] font-medium text-accent">
@@ -63,7 +63,7 @@ export function PanelPipelineStoryboard() {
             </span>
             <p className="text-[13px] font-medium text-ink dark:text-white/90">{step.title}</p>
           </div>
-          <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.06] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]">
+          <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.10] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]">
             <step.Art />
           </div>
           <p className="mt-3 text-[11.5px] leading-relaxed text-ink/50 dark:text-white/40">

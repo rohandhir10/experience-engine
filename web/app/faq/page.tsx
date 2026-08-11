@@ -46,7 +46,7 @@ export default function FaqPage() {
               </h2>
               <div className="mt-4 space-y-7">
                 {FAQS.filter((faq) => faq.category === category).map((faq) => (
-                  <div key={faq.question} className="border-b border-black/[0.06] pb-7 dark:border-white/[0.07]">
+                  <div key={faq.question} className="border-b border-black/[0.10] pb-7 dark:border-white/[0.11]">
                     <h3 className="font-serif text-lg text-ink dark:text-ink-dark">
                       {faq.question}
                     </h3>

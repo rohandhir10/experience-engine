@@ -113,7 +113,7 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
           badge={item.badge}
         />
       ))}
-      <div className="my-2 border-t border-black/[0.05] dark:border-white/[0.05]" />
+      <div className="my-2 border-t border-black/[0.09] dark:border-white/[0.09]" />
       {BOTTOM_ITEMS.map((item) => (
         <NavRow
           key={item.key}

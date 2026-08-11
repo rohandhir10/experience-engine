@@ -41,7 +41,7 @@ export function UseCasesMenu({ forceDark }: { forceDark?: boolean }) {
     : "text-ink/45 hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70";
   const panel = forceDark
     ? "border-white/10 bg-[#161210]"
-    : "border-black/[0.08] bg-paper dark:border-white/[0.08] dark:bg-paper-dark";
+    : "border-black/[0.12] bg-paper dark:border-white/[0.12] dark:bg-paper-dark";
   const item = forceDark
     ? "text-white/70 hover:bg-white/[0.06]"
     : "text-ink/70 hover:bg-black/[0.03] dark:text-ink-dark/70 dark:hover:bg-white/[0.05]";

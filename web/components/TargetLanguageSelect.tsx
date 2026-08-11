@@ -29,7 +29,7 @@ export function TargetLanguageSelect({
         className={
           dark
             ? "rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-white outline-none transition focus:border-white/30"
-            : "rounded-full border border-black/[0.08] bg-white/70 px-3 py-1.5 text-ink outline-none transition focus:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark"
+            : "rounded-full border border-black/[0.12] bg-white/70 px-3 py-1.5 text-ink outline-none transition focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark"
         }
       >
         {options.map((lang) => (

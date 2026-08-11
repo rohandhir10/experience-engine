@@ -155,11 +155,11 @@ export default function Home() {
           tagline="Rewrite song lyrics across six languages so they still hit the way the original does."
           continuing={lastMedium === "music"}
         >
-          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.06] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.10] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
             {/* Hovering crossfades the literal reading into the adapted
                 line - a real, small demonstration of the mechanism
                 itself, not decoration for its own sake. */}
-            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex items-center gap-2 rounded-lg border border-black/[0.10] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                 <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" fill="none" stroke="currentColor" strokeWidth="1.6" />
               </svg>
@@ -186,8 +186,8 @@ export default function Home() {
           tagline="Adapt comic and webtoon dialogue, panel by panel."
           continuing={lastMedium === "webtoons"}
         >
-          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.06] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
-            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.10] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex items-center gap-2 rounded-lg border border-black/[0.10] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                 <path d="M4 4h16v12H7l-3 3V4z" />
               </svg>
@@ -209,7 +209,7 @@ export default function Home() {
         </MediumTile>
       </div>
 
-      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06] sm:mt-24 sm:pt-20">
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-black/[0.10] pt-16 dark:border-white/[0.10] sm:mt-24 sm:pt-20">
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           How is this different from Google Translate or a single AI prompt?
         </h2>
@@ -218,10 +218,10 @@ export default function Home() {
           Castia isn't. Real, documented differences, not a marketing claim:
         </p>
 
-        <div className="mt-8 overflow-x-auto rounded-2xl border border-black/[0.08] bg-black/[0.01] dark:border-white/10 dark:bg-white/[0.02]">
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-black/[0.12] bg-black/[0.01] dark:border-white/10 dark:bg-white/[0.02]">
           <table className="w-full min-w-[560px] text-left text-[13px]">
             <thead>
-              <tr className="border-b border-black/[0.08] dark:border-white/10">
+              <tr className="border-b border-black/[0.12] dark:border-white/10">
                 <th className="p-4 font-medium text-ink/40 dark:text-white/35"> </th>
                 <th className="p-4 font-medium text-ink/55 dark:text-white/50">Google Translate</th>
                 <th className="p-4 font-medium text-ink/55 dark:text-white/50">DeepL</th>
@@ -229,7 +229,7 @@ export default function Home() {
                 <th className="p-4 font-medium text-ink dark:text-white">Castia</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/[0.08] dark:divide-white/10">
+            <tbody className="divide-y divide-black/[0.12] dark:divide-white/10">
               {[
                 ["Drafts per line", "One", "One", "One", "Six — one literal anchor + five creative rewrites"],
                 ["Verification step", "Not documented", "Not documented", "No mechanism", "A Judge scores every rewrite against the anchor"],
@@ -273,7 +273,7 @@ export default function Home() {
         </p>
       </ScrollReveal>
 
-      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06] sm:mt-24 sm:pt-20" delayMs={80}>
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-black/[0.10] pt-16 dark:border-white/[0.10] sm:mt-24 sm:pt-20" delayMs={80}>
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           How does the Writers' Room actually work?
         </h2>
@@ -291,7 +291,7 @@ export default function Home() {
       </ScrollReveal>
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl sm:mt-24" delayMs={80}>
-        <div className="rounded-2xl border border-black/[0.06] bg-black/[0.02] p-8 text-center dark:border-transparent dark:bg-[#181310] sm:p-12">
+        <div className="rounded-2xl border border-black/[0.10] bg-black/[0.02] p-8 text-center dark:border-transparent dark:bg-[#181310] sm:p-12">
           <p className="font-serif text-[1.35rem] leading-[1.35] text-ink dark:text-white sm:text-[1.6rem]">
             Every AI has an opinion about your words.
             <br />
@@ -305,13 +305,13 @@ export default function Home() {
         </div>
       </ScrollReveal>
 
-      <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06] sm:mt-24 sm:pt-20" delayMs={80}>
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.10] pt-16 dark:border-white/[0.10] sm:mt-24 sm:pt-20" delayMs={80}>
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           Common questions
         </h2>
         <div className="mt-8 space-y-6">
           {HOMEPAGE_FAQS.map((faq) => (
-            <div key={faq.question} className="border-b border-black/[0.06] pb-6 dark:border-white/[0.06]">
+            <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.10]">
               <h3 className="font-serif text-[15px] text-ink dark:text-white">{faq.question}</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-white/45">{faq.answer}</p>
             </div>
@@ -369,8 +369,8 @@ function FlowChip({
         accent
           ? "border-accent/40 bg-accent/[0.08]"
           : dim
-            ? "border-black/[0.05] bg-black/[0.01] dark:border-white/[0.06] dark:bg-white/[0.015]"
-            : "border-black/[0.08] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]"
+            ? "border-black/[0.09] bg-black/[0.01] dark:border-white/[0.10] dark:bg-white/[0.015]"
+            : "border-black/[0.12] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]"
       }`}
     >
       <p className={`font-serif text-[13.5px] ${accent ? "text-ink dark:text-white" : dim ? "text-ink/55 dark:text-white/50" : "text-ink/85 dark:text-white/85"}`}>
@@ -412,7 +412,7 @@ function MediumTile({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-black/[0.08] bg-black/[0.015] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-black/[0.15] hover:bg-black/[0.03] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.15)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-white/[0.05] dark:hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
+      className="group flex flex-col rounded-2xl border border-black/[0.12] bg-black/[0.015] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-black/[0.15] hover:bg-black/[0.03] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.15)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-white/[0.05] dark:hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
     >
       <div className="overflow-hidden rounded-lg">{children}</div>
       <div className="mt-4 flex items-center gap-2">

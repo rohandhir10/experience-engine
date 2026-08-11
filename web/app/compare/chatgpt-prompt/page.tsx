@@ -123,16 +123,16 @@ export default function CompareChatGptPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Side by side
           </h2>
-          <div className="mt-5 overflow-x-auto rounded-2xl border border-black/[0.06] dark:border-white/[0.07]">
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-black/[0.10] dark:border-white/[0.11]">
             <table className="w-full min-w-[480px] text-left text-[13px]">
               <thead>
-                <tr className="border-b border-black/[0.06] dark:border-white/[0.07]">
+                <tr className="border-b border-black/[0.10] dark:border-white/[0.11]">
                   <th className="p-4 font-medium text-ink/50 dark:text-ink-dark/50"> </th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">One ChatGPT prompt</th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Castia</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.07]">
+              <tbody className="divide-y divide-black/[0.10] dark:divide-white/[0.11]">
                 {[
                   ["Drafts produced", "One", "Six (one literal anchor + five creative rewrites)"],
                   ["Checked against a literal reading", "No", "Yes - every rewrite is scored against the anchor"],

@@ -25,7 +25,7 @@ export function MediumSwitcher({
     router.push(next === "music" ? "/music" : "/comics");
   }
 
-  const border = forceDark ? "border-white/10" : "border-black/[0.08] dark:border-white/[0.08]";
+  const border = forceDark ? "border-white/10" : "border-black/[0.12] dark:border-white/[0.12]";
   const activeClass = forceDark ? "bg-white/10 text-white/90" : "bg-black/[0.05] text-ink dark:bg-white/10 dark:text-ink-dark";
   const inactiveClass = forceDark
     ? "text-white/40 hover:text-white/70"

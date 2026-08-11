@@ -505,14 +505,14 @@ export default function ComicsPage() {
               Once panels exist the workspace itself is the content;
               this marketing/reference material would just be in the way. */}
           {panels.length === 0 && (
-            <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06]">
+            <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.10] pt-16 dark:border-white/[0.10]">
               <div className="mx-auto h-[2px] w-8 rounded-full bg-accent/50" aria-hidden="true" />
               <h2 className="mt-4 text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-ink-dark sm:text-[1.9rem]">
                 Common questions
               </h2>
               <div className="mt-8 space-y-6">
                 {COMICS_FAQS.map((faq) => (
-                  <div key={faq.question} className="border-b border-black/[0.06] pb-6 dark:border-white/[0.07]">
+                  <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.11]">
                     <h3 className="font-serif text-[15px] text-ink dark:text-ink-dark">{faq.question}</h3>
                     <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">{faq.answer}</p>
                   </div>
@@ -538,7 +538,7 @@ export default function ComicsPage() {
                     {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
                   </p>
                   {chapterLanguage && (
-                    <span className="rounded-full border border-black/[0.08] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.08] dark:text-ink-dark/50">
+                    <span className="rounded-full border border-black/[0.12] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50">
                       Detected language: {chapterLanguage.languageName ?? chapterLanguage.languageCode}
                       {chapterLanguage.ocrdPanelCount > 1 &&
                         ` (${chapterLanguage.agreeingPanelCount} of ${chapterLanguage.ocrdPanelCount} OCR'd panels)`}
@@ -634,7 +634,7 @@ export default function ComicsPage() {
                       value={seriesName}
                       onChange={(e) => setSeriesName(e.target.value)}
                       placeholder="e.g. Solo Leveling (optional)"
-                      className="rounded-full border border-black/[0.08] bg-white/70 px-3 py-1.5 text-[13px] text-ink placeholder:text-ink/30 outline-none transition focus:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                      className="rounded-full border border-black/[0.12] bg-white/70 px-3 py-1.5 text-[13px] text-ink placeholder:text-ink/30 outline-none transition focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
                     />
                   </label>
                 )}

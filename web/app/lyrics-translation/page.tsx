@@ -24,7 +24,7 @@ const LANGUAGES = ["English", "Japanese", "Korean", "Spanish", "Urdu", "Hindi"];
 // hasn't earned.
 function LyricLineDiagram() {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+    <div className="relative overflow-hidden rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
       <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
         Literal
       </p>
@@ -48,7 +48,7 @@ function LyricLineDiagram() {
         The night won't end - it just goes quiet.
       </p>
 
-      <p className="mt-5 border-t border-black/[0.06] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.06] dark:text-ink-dark/50">
+      <p className="mt-5 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.10] dark:text-ink-dark/50">
         &ldquo;Kept the near-rhyme on end / quiet, dropped the literal
         &lsquo;grows&rsquo; to make it singable against the melody.&rdquo;
       </p>

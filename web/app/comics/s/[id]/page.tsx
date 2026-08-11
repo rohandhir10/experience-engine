@@ -104,7 +104,7 @@ export default function ComicsSharedResultPage() {
           {result.panels.map((panel, i) => (
             <div
               key={panel.id}
-              className="rounded-2xl border border-black/[0.08] bg-white/70 p-5 dark:border-white/[0.08] dark:bg-white/[0.03]"
+              className="rounded-2xl border border-black/[0.12] bg-white/70 p-5 dark:border-white/[0.12] dark:bg-white/[0.03]"
             >
               <p className="text-[11px] uppercase tracking-wide text-ink/35 dark:text-ink-dark/35">
                 Panel {i + 1}

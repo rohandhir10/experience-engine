@@ -84,7 +84,7 @@ export function YoutubeSyncPlayer({
   }, [videoId]);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/[0.07]">
+    <div className="overflow-hidden rounded-2xl border border-black/[0.10] dark:border-white/[0.11]">
       <div className="aspect-video w-full" ref={containerRef} />
     </div>
   );

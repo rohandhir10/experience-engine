@@ -48,7 +48,7 @@ const SOURCES = [
 function CandidateDiagram() {
   const others = [1, 2, 3, 4];
   return (
-    <div className="rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+    <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
       <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
         Five rewrites, scored against the anchor
       </p>
@@ -70,7 +70,7 @@ function CandidateDiagram() {
           </div>
         ))}
       </div>
-      <p className="mt-4 border-t border-black/[0.06] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.06] dark:text-ink-dark/50">
+      <p className="mt-4 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.10] dark:text-ink-dark/50">
         &ldquo;Kept the near-rhyme, dropped the literal &lsquo;grows&rsquo;
         to make it singable against the melody.&rdquo;
       </p>
@@ -156,7 +156,7 @@ export default function HowItWorksPage() {
           />
         </div>
 
-        <section className="mt-14 border-t border-black/[0.06] pt-10 dark:border-white/[0.07]">
+        <section className="mt-14 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Why five rewrites and a Judge, not one pass
           </h2>

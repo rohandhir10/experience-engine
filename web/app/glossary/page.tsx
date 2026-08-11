@@ -171,7 +171,7 @@ export default function GlossaryPage() {
               </h2>
               <div className="mt-5 space-y-9">
                 {TERMS.filter((t) => t.category === category).map((t) => (
-                  <div key={t.slug} id={t.slug} className="scroll-mt-24 border-b border-black/[0.06] pb-8 dark:border-white/[0.07]">
+                  <div key={t.slug} id={t.slug} className="scroll-mt-24 border-b border-black/[0.10] pb-8 dark:border-white/[0.11]">
                     <h3 className="font-serif text-lg text-ink dark:text-ink-dark">{t.term}</h3>
                     <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
                       {t.definition}

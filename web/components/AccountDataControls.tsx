@@ -78,7 +78,7 @@ export function AccountDataControls() {
     <div className="mt-12">
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">Your data</h2>
 
-      <div className="mt-4 rounded-xl border border-black/[0.08] p-4 dark:border-white/[0.08]">
+      <div className="mt-4 rounded-xl border border-black/[0.12] p-4 dark:border-white/[0.12]">
         <p className="text-[14px] font-medium text-ink dark:text-ink-dark">
           Download your data
         </p>
@@ -92,7 +92,7 @@ export function AccountDataControls() {
           type="button"
           onClick={handleExport}
           disabled={exporting}
-          className="mt-3 rounded-full border border-black/[0.1] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+          className="mt-3 rounded-full border border-black/[0.13] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
         >
           {exporting ? "Preparing…" : "Download my data"}
         </button>
@@ -119,7 +119,7 @@ export function AccountDataControls() {
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
                 autoComplete="off"
-                className="mt-1.5 w-full max-w-sm rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2 text-[14px] text-ink transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark"
+                className="mt-1.5 w-full max-w-sm rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] text-ink transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark"
               />
             </label>
             <button

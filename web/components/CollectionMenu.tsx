@@ -94,7 +94,7 @@ export function CollectionMenu({
           {/* Click-away layer: a menu you can only close by re-clicking
               the same button reads as stuck. */}
           <div className="fixed inset-0 z-10" onClick={close} aria-hidden="true" />
-          <div className="absolute right-0 top-full z-20 mt-1 max-h-72 w-60 overflow-y-auto rounded-xl border border-black/[0.08] bg-paper p-1 shadow-lg dark:border-white/[0.08] dark:bg-[#1b1b1d]">
+          <div className="absolute right-0 top-full z-20 mt-1 max-h-72 w-60 overflow-y-auto rounded-xl border border-black/[0.12] bg-paper p-1 shadow-lg dark:border-white/[0.12] dark:bg-[#1b1b1d]">
             {collections.map((collection) => {
               const member = memberIds.includes(collection.id);
               return (
@@ -118,7 +118,7 @@ export function CollectionMenu({
             })}
 
             {collections.length > 0 && (
-              <div className="my-1 border-t border-black/[0.06] dark:border-white/[0.08]" />
+              <div className="my-1 border-t border-black/[0.10] dark:border-white/[0.12]" />
             )}
 
             {creating ? (
@@ -136,7 +136,7 @@ export function CollectionMenu({
                   placeholder="Collection name…"
                   maxLength={100}
                   disabled={busy}
-                  className="w-full rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] text-ink outline-none transition placeholder:text-ink/30 focus:border-black/20 disabled:opacity-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                  className="w-full rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] text-ink outline-none transition placeholder:text-ink/30 focus:border-black/20 disabled:opacity-50 dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
                 />
                 {failed && (
                   <p role="alert" className="mt-1 px-1 text-[11px] text-red-500/80">

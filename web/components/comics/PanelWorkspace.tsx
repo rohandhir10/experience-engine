@@ -141,7 +141,7 @@ export function PanelWorkspace({
             className={`relative shrink-0 overflow-hidden rounded-lg border transition ${
               panel.id === active.id
                 ? "border-accent"
-                : "border-black/[0.08] hover:border-black/20 dark:border-white/[0.1]"
+                : "border-black/[0.12] hover:border-black/20 dark:border-white/[0.13]"
             }`}
           >
             <img
@@ -195,7 +195,7 @@ export function PanelWorkspace({
                 to toggle to, so showing an inert "Redrawn" tab would be
                 clicking into an empty state rather than a real view. */}
             {active.redrawResultUrl && (
-              <div className="mb-2 inline-flex rounded-full border border-black/[0.08] p-0.5 text-[12px] dark:border-white/[0.1]">
+              <div className="mb-2 inline-flex rounded-full border border-black/[0.12] p-0.5 text-[12px] dark:border-white/[0.13]">
                 <button
                   type="button"
                   onClick={() => setImageView("original")}
@@ -220,7 +220,7 @@ export function PanelWorkspace({
                 </button>
               </div>
             )}
-            <div className="relative overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.02] dark:border-white/[0.08] dark:bg-white/[0.02]">
+            <div className="relative overflow-hidden rounded-xl border border-black/[0.12] bg-black/[0.02] dark:border-white/[0.12] dark:bg-white/[0.02]">
               {imageView === "redrawn" && active.redrawResultUrl ? (
                 // The actual typeset result - no OCR boxes overlaid,
                 // since those describe the ORIGINAL image's regions and
@@ -274,7 +274,7 @@ export function PanelWorkspace({
                 type="button"
                 onClick={() => onRunOcr(active.id)}
                 disabled={active.ocrStatus === "running"}
-                className="rounded-full border border-black/[0.1] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+                className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
               >
                 {active.ocrStatus === "running" ? "Reading panel…" : "Run OCR"}
               </button>
@@ -307,7 +307,7 @@ export function PanelWorkspace({
                   {active.ocrRegions.map((region, i) => (
                     <li
                       key={i}
-                      className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-white/50 px-2.5 py-1.5 dark:border-white/[0.08] dark:bg-white/[0.02]"
+                      className="flex items-center gap-2 rounded-lg border border-black/[0.10] bg-white/50 px-2.5 py-1.5 dark:border-white/[0.12] dark:bg-white/[0.02]"
                     >
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
                         {i + 1}
@@ -355,7 +355,7 @@ export function PanelWorkspace({
                     <select
                       value={active.redrawFont ?? ""}
                       onChange={(e) => onUpdatePanel(active.id, { redrawFont: e.target.value || null })}
-                      className="rounded-md border border-black/[0.08] bg-white/70 px-1.5 py-1 text-[11px] text-ink dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark"
+                      className="rounded-md border border-black/[0.12] bg-white/70 px-1.5 py-1 text-[11px] text-ink dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark"
                     >
                       {FONT_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
@@ -384,12 +384,12 @@ export function PanelWorkspace({
                           onChange={(e) => setRedrawRegionText(i, e.target.value)}
                           rows={2}
                           placeholder={`Adapted text for region ${i + 1}…`}
-                          className="w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                          className="w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
                         />
                         <select
                           value={active.redrawRegionFonts?.[i] ?? ""}
                           onChange={(e) => setRedrawRegionFont(i, e.target.value)}
-                          className="mt-1 rounded-md border border-black/[0.08] bg-white/70 px-1.5 py-0.5 text-[11px] text-ink/60 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark/60"
+                          className="mt-1 rounded-md border border-black/[0.12] bg-white/70 px-1.5 py-0.5 text-[11px] text-ink/60 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark/60"
                         >
                           <option value="">Use panel default</option>
                           {FONT_OPTIONS.map((opt) => (
@@ -407,7 +407,7 @@ export function PanelWorkspace({
                     type="button"
                     onClick={() => onRedrawPanel(active.id)}
                     disabled={active.redrawStatus === "running"}
-                    className="rounded-full border border-black/[0.1] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+                    className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
                   >
                     {active.redrawStatus === "running" ? "Redrawing…" : "Redraw panel"}
                   </button>
@@ -453,7 +453,7 @@ export function PanelWorkspace({
                 value={active.voice ?? ""}
                 onChange={(e) => onUpdatePanel(active.id, { voice: e.target.value || null })}
                 placeholder="e.g. Guard Captain"
-                className="mt-1.5 w-full rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2 text-[14px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                className="mt-1.5 w-full rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
               />
               <datalist id="comics-known-voices">
                 {knownVoices.map((voice) => (
@@ -481,7 +481,7 @@ export function PanelWorkspace({
                   {active.ocrRegions.map((region, i) => (
                     <li
                       key={i}
-                      className="rounded-lg border border-black/[0.06] p-2.5 dark:border-white/[0.08]"
+                      className="rounded-lg border border-black/[0.10] p-2.5 dark:border-white/[0.12]"
                     >
                       <div className="flex items-center gap-2">
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
@@ -498,14 +498,14 @@ export function PanelWorkspace({
                         onChange={(e) => setRegionAdaptedText(i, e.target.value)}
                         rows={2}
                         placeholder="Adapted text for this bubble…"
-                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
                       />
                       <textarea
                         value={active.regionWhys?.[i] ?? ""}
                         onChange={(e) => setRegionWhy(i, e.target.value)}
                         rows={1}
                         placeholder="Why (optional)…"
-                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1.5 text-[12px] leading-snug text-ink/60 placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark/60 dark:placeholder:text-ink-dark/30"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[12px] leading-snug text-ink/60 placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark/60 dark:placeholder:text-ink-dark/30"
                       />
                     </li>
                   ))}
@@ -556,7 +556,7 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2 text-[14px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
       />
     </label>
   );

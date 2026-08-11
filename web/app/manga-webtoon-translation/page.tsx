@@ -35,7 +35,7 @@ const SOURCES = [
 // showing the order it's read in.
 function PanelDiagram() {
   return (
-    <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/[0.08] bg-paper dark:border-white/[0.08] dark:bg-ink/40">
+    <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-black/[0.12] bg-paper dark:border-white/[0.12] dark:bg-ink/40">
       <svg
         className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.05] dark:opacity-[0.08]"
         aria-hidden="true"
@@ -184,7 +184,7 @@ export default function MangaWebtoonTranslationPage() {
           </div>
         </section>
 
-        <div className="mt-14 rounded-2xl border border-black/[0.08] bg-black/[0.02] p-6 dark:border-white/[0.08] dark:bg-white/[0.03] sm:p-7">
+        <div className="mt-14 rounded-2xl border border-black/[0.12] bg-black/[0.02] p-6 dark:border-white/[0.12] dark:bg-white/[0.03] sm:p-7">
           <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
             What Beta actually means here
           </p>

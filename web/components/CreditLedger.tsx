@@ -103,7 +103,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
 
   return (
     <div className="mt-6">
-      <div className="rounded-2xl border border-black/[0.06] px-7 py-6 dark:border-white/[0.07]">
+      <div className="rounded-2xl border border-black/[0.10] px-7 py-6 dark:border-white/[0.11]">
         <p className="text-[12px] uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
           Current balance
         </p>
@@ -128,7 +128,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
           {view === "usage" ? "No adaptations run yet." : "No transactions yet."}
         </p>
       ) : (
-        <ul className="mt-3 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+        <ul className="mt-3 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
           {rows.map((row) => (
             <li key={row.id} className="flex items-center justify-between py-3 text-[13px]">
               <div>

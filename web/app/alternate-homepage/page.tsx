@@ -101,7 +101,7 @@ export default function AlternateHomepage() {
         </p>
         <div className="mt-8 grid gap-10 sm:grid-cols-2 sm:items-center">
           <UseCaseTabs />
-          <div className="overflow-hidden rounded-xl border border-black/[0.08] shadow-lg dark:border-white/[0.08]">
+          <div className="overflow-hidden rounded-xl border border-black/[0.12] shadow-lg dark:border-white/[0.12]">
             <Image
               src="/screenshots/comparison-card.png"
               alt="A real CASTIA result: the literal reading next to the adapted line, with a plain-language reason for the change"
@@ -118,7 +118,7 @@ export default function AlternateHomepage() {
           states verifiable facts about the product instead of implying
           a customer base that doesn't exist. */}
       <div className="mx-auto mt-16 max-w-5xl">
-        <div className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-black/[0.06] bg-black/[0.015] px-6 py-5 dark:border-white/[0.06] dark:bg-white/[0.015]">
+        <div className="flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-black/[0.10] bg-black/[0.015] px-6 py-5 dark:border-white/[0.10] dark:bg-white/[0.015]">
           {[
             "6 languages, any direction",
             "Every change logged with a reason",
@@ -126,7 +126,7 @@ export default function AlternateHomepage() {
           ].map((fact) => (
             <span
               key={fact}
-              className="rounded-full border border-black/[0.08] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.08] dark:text-ink-dark/50"
+              className="rounded-full border border-black/[0.12] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50"
             >
               {fact}
             </span>
@@ -183,16 +183,16 @@ export default function AlternateHomepage() {
               time, tied to your account, not lost in a chat history.
             </p>
           </div>
-          <div className="rounded-xl border border-black/[0.08] bg-white/70 p-5 dark:border-white/[0.08] dark:bg-white/[0.03]">
+          <div className="rounded-xl border border-black/[0.12] bg-white/70 p-5 dark:border-white/[0.12] dark:bg-white/[0.03]">
             <div className="flex items-center gap-3">
               <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 fill-accent" aria-hidden="true">
                 <path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z" />
               </svg>
               <div className="flex flex-wrap gap-1.5">
-                <span className="rounded-full border border-black/[0.08] px-2 py-0.5 text-[11px] text-ink/50 dark:border-white/[0.08] dark:text-ink-dark/50">
+                <span className="rounded-full border border-black/[0.12] px-2 py-0.5 text-[11px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50">
                   Hindi Rock
                 </span>
-                <span className="rounded-full border border-black/[0.08] px-2 py-0.5 text-[11px] text-ink/50 dark:border-white/[0.08] dark:text-ink-dark/50">
+                <span className="rounded-full border border-black/[0.12] px-2 py-0.5 text-[11px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50">
                   Covers
                 </span>
               </div>
@@ -205,7 +205,7 @@ export default function AlternateHomepage() {
       </div>
 
       {/* Final CTA split. */}
-      <div className="mx-auto mt-24 max-w-5xl rounded-3xl border border-black/[0.08] p-10 text-center dark:border-white/[0.08] sm:p-14">
+      <div className="mx-auto mt-24 max-w-5xl rounded-3xl border border-black/[0.12] p-10 text-center dark:border-white/[0.12] sm:p-14">
         <h2 className="font-serif text-[1.8rem] text-ink dark:text-ink-dark">
           Your song starts here.
         </h2>
@@ -225,7 +225,7 @@ export default function AlternateHomepage() {
         </div>
       </div>
 
-      <footer className="mx-auto mt-20 max-w-5xl border-t border-black/[0.06] pt-8 text-center text-[12px] text-ink/35 dark:border-white/[0.06] dark:text-ink-dark/35">
+      <footer className="mx-auto mt-20 max-w-5xl border-t border-black/[0.10] pt-8 text-center text-[12px] text-ink/35 dark:border-white/[0.10] dark:text-ink-dark/35">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           <Link href="/" className="hover:text-ink/60 dark:hover:text-ink-dark/60">
             Home

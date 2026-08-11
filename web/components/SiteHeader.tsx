@@ -49,7 +49,7 @@ export function SiteHeader({
       className={
         forceDark
           ? "mx-auto flex w-full max-w-5xl items-center justify-between"
-          : "mx-auto flex w-full max-w-3xl items-center justify-between border-b border-black/[0.05] pb-5 dark:border-white/[0.05]"
+          : "mx-auto flex w-full max-w-3xl items-center justify-between border-b border-black/[0.09] pb-5 dark:border-white/[0.09]"
       }
     >
       <Link href="/">

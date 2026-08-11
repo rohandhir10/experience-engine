@@ -84,7 +84,7 @@ const STAGES: { title: string; description: string; Icon: () => JSX.Element }[] 
  * so that usage keeps the old default rather than needing this fix too.
  *
  * The first `dark={false}` pass just inverted the dark palette to
- * near-white-on-white (bg-black/[0.02], border-black/[0.08]) - correct
+ * near-white-on-white (bg-black/[0.02], border-black/[0.12]) - correct
  * on contrast, but flat and characterless next to the dark version's
  * white-on-navy presence. A numbered accent badge per stage plus a
  * warmer per-card surface fixed that; per-step icons (this pass) replace
@@ -102,7 +102,7 @@ export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
             className={
               dark
                 ? "flex-1 rounded-xl border border-white/10 bg-white/[0.03] p-4"
-                : "flex-1 rounded-xl border border-black/[0.08] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none"
+                : "flex-1 rounded-xl border border-black/[0.12] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-white/10 dark:bg-white/[0.03] dark:shadow-none"
             }
           >
             {!dark && (

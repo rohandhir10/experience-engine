@@ -57,7 +57,7 @@ export default function BlogIndexPage() {
             <Link
               key={post.slug}
               href={post.path}
-              className="block border-b border-black/[0.06] pb-8 transition hover:opacity-70 dark:border-white/[0.07]"
+              className="block border-b border-black/[0.10] pb-8 transition hover:opacity-70 dark:border-white/[0.11]"
             >
               <p className="text-[12px] text-ink/35 dark:text-ink-dark/35">
                 By {FOUNDER_NAME} · {formatDate(post.publishedDate)}

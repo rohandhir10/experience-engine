@@ -131,7 +131,7 @@ export function ApiKeysManager() {
             This is the only time the full key is shown. Store it somewhere safe.
           </p>
           <div className="mt-3 flex items-center gap-2">
-            <code className="flex-1 truncate rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2 text-[12px] text-ink dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark">
+            <code className="flex-1 truncate rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[12px] text-ink dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark">
               {justCreated.key}
             </code>
             <button
@@ -154,7 +154,7 @@ export function ApiKeysManager() {
             if (e.key === "Enter") createKey();
           }}
           placeholder="e.g. Production"
-          className="w-56 rounded-lg border border-black/[0.08] bg-white/70 px-3 py-2 text-[13px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+          className="w-56 rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[13px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
         />
         <button
           type="button"
@@ -172,7 +172,7 @@ export function ApiKeysManager() {
           No API keys yet — create one to call the public API.
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+        <ul className="mt-6 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
           {state.keys.map((key) => (
             <li key={key.id} className="flex items-center justify-between gap-4 py-3">
               <div className="min-w-0">

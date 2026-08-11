@@ -127,16 +127,16 @@ export default function CompareDeepLPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Side by side
           </h2>
-          <div className="mt-5 overflow-x-auto rounded-2xl border border-black/[0.06] dark:border-white/[0.07]">
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-black/[0.10] dark:border-white/[0.11]">
             <table className="w-full min-w-[480px] text-left text-[13px]">
               <thead>
-                <tr className="border-b border-black/[0.06] dark:border-white/[0.07]">
+                <tr className="border-b border-black/[0.10] dark:border-white/[0.11]">
                   <th className="p-4 font-medium text-ink/50 dark:text-ink-dark/50"> </th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">DeepL</th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Castia</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.07]">
+              <tbody className="divide-y divide-black/[0.10] dark:divide-white/[0.11]">
                 {[
                   ["Best for", "Documents, business text, general fluent translation", "Song lyrics and comic dialogue that need to keep their feeling"],
                   ["Context handling", "Whole-sentence, per DeepL's own description", "Whole-song / whole-chapter (Chapter DNA cast & tone profile for comics)"],

@@ -159,7 +159,7 @@ export function CollectionsManager() {
           onChange={(e) => setNewName(e.target.value)}
           placeholder="New collection name…"
           maxLength={100}
-          className="min-w-0 flex-1 rounded-full border border-black/[0.08] bg-white/70 px-4 py-2 text-[14px] text-ink outline-none transition placeholder:text-ink/30 focus:border-black/20 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+          className="min-w-0 flex-1 rounded-full border border-black/[0.12] bg-white/70 px-4 py-2 text-[14px] text-ink outline-none transition placeholder:text-ink/30 focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
         />
         <button
           type="submit"
@@ -176,7 +176,7 @@ export function CollectionsManager() {
           adaptations.
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+        <ul className="mt-6 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
           {state.collections.map((collection) => (
             <li key={collection.id} className="flex items-center gap-3 py-3">
               <button
@@ -306,7 +306,7 @@ function CollectionDetail({
           Nothing in this collection yet.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+        <ul className="mt-4 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
           {members.map((entry) => (
             <li key={entry.resultId} className="flex items-center gap-3 py-3">
               <Link
@@ -329,7 +329,7 @@ function CollectionDetail({
       )}
 
       {addable.length > 0 && (
-        <div className="mt-8 border-t border-black/[0.05] pt-5 dark:border-white/[0.05]">
+        <div className="mt-8 border-t border-black/[0.09] pt-5 dark:border-white/[0.09]">
           <button
             type="button"
             onClick={() => setShowPicker((v) => !v)}
@@ -338,7 +338,7 @@ function CollectionDetail({
             {showPicker ? "Hide" : "Add from your history"} ({addable.length})
           </button>
           {showPicker && (
-            <ul className="mt-3 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+            <ul className="mt-3 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
               {addable.map((entry) => (
                 <li key={entry.resultId} className="flex items-center gap-3 py-2.5">
                   <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60 dark:text-ink-dark/60">

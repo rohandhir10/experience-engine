@@ -155,15 +155,15 @@ export default function ApiDocsPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Errors
           </h2>
-          <div className="mt-4 overflow-x-auto rounded-2xl border border-black/[0.06] dark:border-white/[0.07]">
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-black/[0.10] dark:border-white/[0.11]">
             <table className="w-full min-w-[420px] text-left text-[13px]">
               <thead>
-                <tr className="border-b border-black/[0.06] dark:border-white/[0.07]">
+                <tr className="border-b border-black/[0.10] dark:border-white/[0.11]">
                   <th className="p-4 font-medium text-ink/50 dark:text-ink-dark/50">Status</th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Meaning</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-black/[0.06] dark:divide-white/[0.07]">
+              <tbody className="divide-y divide-black/[0.10] dark:divide-white/[0.11]">
                 {[
                   ["400", "Bad request - e.g. an unsupported language, or source and target set to the same language"],
                   ["401", "Missing or invalid API key"],
@@ -185,7 +185,7 @@ export default function ApiDocsPage() {
           </p>
         </section>
 
-        <section className="mt-14 border-t border-black/[0.06] pt-10 dark:border-white/[0.07]">
+        <section className="mt-14 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             POST /v1/adapt
           </h2>
@@ -202,7 +202,7 @@ export default function ApiDocsPage() {
           <CodeBlock label="Response (200)">{ADAPT_RESPONSE}</CodeBlock>
         </section>
 
-        <section className="mt-14 border-t border-black/[0.06] pt-10 dark:border-white/[0.07]">
+        <section className="mt-14 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             POST /v1/comics/adapt
           </h2>
@@ -223,7 +223,7 @@ export default function ApiDocsPage() {
           <CodeBlock label="Response (200)">{COMICS_RESPONSE}</CodeBlock>
         </section>
 
-        <section className="mt-14 border-t border-black/[0.06] pt-10 dark:border-white/[0.07]">
+        <section className="mt-14 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Known limitations
           </h2>
@@ -264,7 +264,7 @@ function CodeBlock({ label, children }: { label: string; children: string }) {
       <p className="text-[11px] uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
         {label}
       </p>
-      <pre className="mt-2 overflow-x-auto rounded-xl border border-black/[0.06] bg-black/[0.03] p-4 text-[12.5px] leading-relaxed text-ink/75 dark:border-white/[0.07] dark:bg-white/[0.03] dark:text-ink-dark/75">
+      <pre className="mt-2 overflow-x-auto rounded-xl border border-black/[0.10] bg-black/[0.03] p-4 text-[12.5px] leading-relaxed text-ink/75 dark:border-white/[0.11] dark:bg-white/[0.03] dark:text-ink-dark/75">
         <code>{children}</code>
       </pre>
     </div>

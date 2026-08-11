@@ -70,7 +70,7 @@ export function PanelOrderGrid({
             className={`group relative cursor-grab overflow-hidden rounded-lg border transition active:cursor-grabbing ${
               dragOverIndex === index && dragIndex !== index
                 ? "border-accent"
-                : "border-black/[0.08] dark:border-white/[0.08]"
+                : "border-black/[0.12] dark:border-white/[0.12]"
             } ${dragIndex === index ? "opacity-40" : ""}`}
           >
             <span className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-ink/80 text-[10px] font-medium text-paper dark:bg-black/70">

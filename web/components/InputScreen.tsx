@@ -476,8 +476,8 @@ export function InputScreen({
             title="Imports straight from YouTube"
             description="Paste a link and the captions come back as reviewable sections — read them over, fix anything, then adapt. Nothing goes out the door unread."
           >
-            <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.06] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
-              <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.10] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-center gap-2 rounded-lg border border-black/[0.10] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
                 <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                   <path d="M8 5.5v13l11-6.5z" />
                 </svg>
@@ -535,7 +535,7 @@ export function InputScreen({
         </h2>
         <div className="mt-8 space-y-6">
           {MUSIC_FAQS.map((faq) => (
-            <div key={faq.question} className="border-b border-black/[0.06] pb-6 dark:border-white/[0.06]">
+            <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.10]">
               <h3 className="font-serif text-[15px] text-ink dark:text-white">{faq.question}</h3>
               <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-white/45">{faq.answer}</p>
             </div>
@@ -570,7 +570,7 @@ function FeatureCard({
 }) {
   return (
     <div className={`${span ?? ""} flex flex-col`}>
-      <div className="flex-1 overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.01] p-3 dark:border-white/10 dark:bg-white/[0.02]">
+      <div className="flex-1 overflow-hidden rounded-xl border border-black/[0.12] bg-black/[0.01] p-3 dark:border-white/10 dark:bg-white/[0.02]">
         {children}
       </div>
       <h3 className="mt-4 text-[14px] font-medium text-ink/85 dark:text-white/85">{title}</h3>

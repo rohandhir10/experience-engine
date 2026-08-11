@@ -10,7 +10,7 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
   const dim = dark
     ? "text-white/40 hover:text-white/70"
     : "text-ink/40 hover:text-ink/70 dark:text-ink-dark/40 dark:hover:text-ink-dark/70";
-  const border = dark ? "border-white/10" : "border-black/[0.06] dark:border-white/[0.07]";
+  const border = dark ? "border-white/10" : "border-black/[0.10] dark:border-white/[0.11]";
 
   return (
     <footer className={`mx-auto mt-24 w-full max-w-4xl border-t px-0 pt-8 ${border}`}>

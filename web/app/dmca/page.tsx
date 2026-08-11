@@ -36,7 +36,7 @@ export default function DmcaPage() {
               Castia's designated agent for copyright infringement notices
               under the Digital Millennium Copyright Act (DMCA) is:
             </p>
-            <div className="mt-3 rounded-lg border border-black/[0.08] bg-white/50 p-4 dark:border-white/[0.08] dark:bg-white/[0.03]">
+            <div className="mt-3 rounded-lg border border-black/[0.12] bg-white/50 p-4 dark:border-white/[0.12] dark:bg-white/[0.03]">
               <Placeholder>Agent name</Placeholder>
               <br />
               <Placeholder>Mailing address</Placeholder>

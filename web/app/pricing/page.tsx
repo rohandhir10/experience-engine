@@ -76,7 +76,7 @@ function perPage(price: number, credits: number): string {
 // visible at a glance instead of hero copy alone carrying it.
 function FreeRightNowPanel() {
   return (
-    <div className="rounded-2xl border border-black/[0.08] bg-paper p-6 dark:border-white/[0.08] dark:bg-paper-dark sm:p-7">
+    <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
       <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-accent/70">
         Right now
       </p>
@@ -182,7 +182,7 @@ export default function PricingPage() {
             {PACKS.map((pack) => (
               <div
                 key={pack.name}
-                className="rounded-2xl border border-black/[0.06] px-6 py-7 dark:border-white/[0.07]"
+                className="rounded-2xl border border-black/[0.10] px-6 py-7 dark:border-white/[0.11]"
               >
                 <p className="font-serif text-xl text-ink dark:text-ink-dark">
                   {pack.name}
@@ -215,7 +215,7 @@ export default function PricingPage() {
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
             For regular use without buying a new pack every time.
           </p>
-          <div className="mt-6 rounded-2xl border border-black/[0.06] px-7 py-8 dark:border-white/[0.07] sm:max-w-sm">
+          <div className="mt-6 rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11] sm:max-w-sm">
             <p className="font-serif text-xl text-ink dark:text-ink-dark">
               {SUBSCRIPTION.name}
             </p>
@@ -247,7 +247,7 @@ export default function PricingPage() {
             Studio &amp; Enterprise
           </h2>
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            <div className="rounded-2xl border border-black/[0.06] px-7 py-8 dark:border-white/[0.07]">
+            <div className="rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11]">
               <p className="font-serif text-xl text-ink dark:text-ink-dark">
                 Studio
               </p>
@@ -270,7 +270,7 @@ export default function PricingPage() {
                 Coming soon
               </p>
             </div>
-            <div className="rounded-2xl border border-black/[0.06] px-7 py-8 dark:border-white/[0.07]">
+            <div className="rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11]">
               <p className="font-serif text-xl text-ink dark:text-ink-dark">
                 Enterprise
               </p>
@@ -296,7 +296,7 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="mt-12 border-t border-black/[0.06] pt-10 dark:border-white/[0.07]">
+        <section className="mt-12 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Credits, in detail
           </h2>

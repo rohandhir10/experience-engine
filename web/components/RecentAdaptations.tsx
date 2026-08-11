@@ -213,7 +213,7 @@ export function RecentAdaptations({
     );
   }
   return (
-    <ul className="mt-4 divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+    <ul className="mt-4 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
       {state.entries.map((entry) => {
         const { label, href } = resolveHistoryEntryDisplay(entry);
         return (

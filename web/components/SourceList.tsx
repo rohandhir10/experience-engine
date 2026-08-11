@@ -5,7 +5,7 @@
  * a source that was actually looked up, never invented. */
 export function SourceList({ sources }: { sources: { name: string; url: string; note?: string }[] }) {
   return (
-    <div className="mt-14 border-t border-black/[0.06] pt-8 dark:border-white/[0.07]">
+    <div className="mt-14 border-t border-black/[0.10] pt-8 dark:border-white/[0.11]">
       <h2 className="text-[12px] uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
         Sources
       </h2>

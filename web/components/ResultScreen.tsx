@@ -67,7 +67,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
           (literal reading -> adapted line -> why it changed), which
           applies the same way regardless of which song demonstrates it. */}
       {result.id === "demo" && (
-        <div className="mx-auto mb-8 max-w-2xl rounded-xl border border-black/[0.06] bg-black/[0.02] px-4 py-3 text-center text-[13px] leading-relaxed text-ink/50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-ink-dark/50">
+        <div className="mx-auto mb-8 max-w-2xl rounded-xl border border-black/[0.10] bg-black/[0.02] px-4 py-3 text-center text-[13px] leading-relaxed text-ink/50 dark:border-white/[0.10] dark:bg-white/[0.02] dark:text-ink-dark/50">
           One real example, showing how the engine works — not a preview
           of what genre or language your own song needs to be.{" "}
           <Link
