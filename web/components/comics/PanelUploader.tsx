@@ -119,49 +119,83 @@ export function PanelUploader({
         setDragActive(false);
         void handleIncoming(e.dataTransfer.files);
       }}
-      className={`flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-16 text-center transition ${
+      className={`relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border-2 border-dashed px-8 py-16 text-center transition ${
         dragActive
           ? "border-accent/50 bg-accent/[0.04]"
           : "border-accent/[0.18] bg-black/[0.015] dark:border-white/[0.12] dark:bg-white/[0.02]"
       }`}
     >
-      <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
-        Drop chapter images, a PDF, or a ZIP here
-      </p>
-      <p className="max-w-sm text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
-        JPG, PNG, or WebP panel slices, in any order — they'll be sorted by file name once
-        they're in. A PDF works too: each page becomes its own panel automatically. So does a
-        ZIP of pre-sliced images — the standard hand-off for a webtoon episode.
-      </p>
+      {/* A halftone screentone texture (classic comic-print dot pattern)
+          plus two faded, empty speech-bubble outlines - low-opacity enough
+          to stay out of the way of the actual copy and buttons, but
+          enough to read as an environment meant for comic art specifically
+          rather than a generic file-uploader box (real feedback: it
+          looked exactly like a PDF converter's dropzone before this). All
+          decorative and non-interactive (aria-hidden, pointer-events-none,
+          painted first so real content stacks above it), currentColor-
+          driven so it follows the accent/theme instead of needing its own
+          light/dark pair. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute inset-0 text-accent/[0.05] dark:text-white/[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(currentColor 1px, transparent 1px)",
+            backgroundSize: "15px 15px",
+          }}
+        />
+        <BlankSpeechBubble className="absolute -left-7 -top-9 h-28 w-36 -rotate-6 text-accent/[0.07] dark:text-white/[0.05]" />
+        <BlankSpeechBubble
+          flip
+          className="absolute -bottom-10 -right-8 h-32 w-40 rotate-3 text-accent/[0.06] dark:text-white/[0.045]"
+        />
+      </div>
 
-      {converting && (
-        <p className="text-[12px] text-ink/50 dark:text-ink-dark/50">
-          Converting {converting}…
+      {/* Positioned (relative), not static - the decorative texture above
+          is absolutely positioned, and per CSS's painting order that
+          paints above static in-flow content regardless of DOM order.
+          Wrapping the real content in its own positioned box (stack
+          level 0, same as the texture) puts DOM order back in charge, so
+          this - coming after the texture in markup - paints on top of it
+          rather than being silently hidden underneath. */}
+      <div className="relative flex flex-col items-center gap-4">
+        <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
+          Drop chapter images, a PDF, or a ZIP here
         </p>
-      )}
-      {conversionErrors.length > 0 && (
-        <div className="max-w-sm text-[12px] leading-relaxed text-red-600/80 dark:text-red-400/80">
-          {conversionErrors.map((error) => (
-            <p key={error}>{error}</p>
-          ))}
-        </div>
-      )}
+        <p className="max-w-sm text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+          JPG, PNG, or WebP panel slices, in any order — they'll be sorted by file name once
+          they're in. A PDF works too: each page becomes its own panel automatically. So does a
+          ZIP of pre-sliced images — the standard hand-off for a webtoon episode.
+        </p>
 
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
-        >
-          Choose files
-        </button>
-        <button
-          type="button"
-          onClick={() => folderInputRef.current?.click()}
-          className="rounded-full border border-black/[0.1] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
-        >
-          Choose a folder
-        </button>
+        {converting && (
+          <p className="text-[12px] text-ink/50 dark:text-ink-dark/50">
+            Converting {converting}…
+          </p>
+        )}
+        {conversionErrors.length > 0 && (
+          <div className="max-w-sm text-[12px] leading-relaxed text-red-600/80 dark:text-red-400/80">
+            {conversionErrors.map((error) => (
+              <p key={error}>{error}</p>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
+          >
+            Choose files
+          </button>
+          <button
+            type="button"
+            onClick={() => folderInputRef.current?.click()}
+            className="rounded-full border border-black/[0.1] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+          >
+            Choose a folder
+          </button>
+        </div>
       </div>
 
       <input
@@ -190,5 +224,23 @@ export function PanelUploader({
         }}
       />
     </div>
+  );
+}
+
+/** An empty speech-bubble outline (rounded rect + tail), stroke only, no
+ * text and no fill besides the surface it's stacked on - decoration for
+ * the dropzone texture above, nothing else reads its content, hence
+ * aria-hidden at the call site rather than here. */
+function BlankSpeechBubble({ className, flip }: { className?: string; flip?: boolean }) {
+  return (
+    <svg viewBox="0 0 120 84" fill="none" className={className}>
+      <rect x="4" y="4" width="112" height="56" rx="18" stroke="currentColor" strokeWidth="3" />
+      <path
+        d={flip ? "M84 60 L100 80 L70 62 Z" : "M36 60 L20 80 L50 62 Z"}
+        stroke="currentColor"
+        strokeWidth="3"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

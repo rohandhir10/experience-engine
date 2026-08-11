@@ -26,7 +26,7 @@ import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
 import { RedrawRequestError, redrawPanel, resolveRedrawRegionText } from "@/lib/comicsRedraw";
 import { writeMediumPreference } from "@/lib/mediumPreference";
-import { ComicsPipelineDiagram } from "@/components/ComicsPipelineDiagram";
+import { PanelPipelineStoryboard } from "@/components/comics/PanelPipelineStoryboard";
 import { Footer } from "@/components/Footer";
 import { ScrollReveal } from "@/components/ScrollReveal";
 import { FOUNDER_NAME } from "@/lib/seo";
@@ -406,8 +406,9 @@ export default function ComicsPage() {
                   the headline instead of being pulled out to its own
                   full-width row, and the pipeline explainer becomes its
                   own full-width band below instead, where it has room to
-                  breathe (and for icons - see ComicsPipelineDiagram.tsx).
-                  Centered (mx-auto), not left-hugging the wide max-w-5xl
+                  breathe (and for its per-step art - see
+                  PanelPipelineStoryboard.tsx). Centered (mx-auto), not
+                  left-hugging the wide max-w-5xl
                   shell - a narrower reading measure left un-centered just
                   moved the empty space instead of removing it, all of it
                   landing on the right (real feedback, not a hypothetical -
@@ -457,23 +458,23 @@ export default function ComicsPage() {
                 </div>
               </div>
 
-              {/* Theme-reactive, not the fixed-dark "spotlight" card
-                  ComicsPipelineDiagram.tsx's `dark` prop still defaults
-                  to elsewhere (app/how-it-works/page.tsx) - this page is
-                  a normal light/dark page, and one lone dark navy
-                  rectangle sitting next to a plain light dropzone read as
-                  a mismatched, templated stock block rather than a
-                  deliberate design choice. See that component's own doc
-                  comment for the full reasoning and why how-it-works's
-                  usage is different (paired with an identical dark card
-                  right above it, not standing alone). */}
-              <div className="mt-14 rounded-2xl border border-black/[0.06] bg-black/[0.015] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
+              {/* A visual storyboard, not five identical text rows in a
+                  bordered box - real feedback, not a hypothetical: the
+                  old version read like a terms-of-service list, not a
+                  product page. Each step now carries its own honest
+                  illustration (PanelPipelineStoryboard.tsx's own doc
+                  comment covers why these are diagrams, not fabricated
+                  screenshots), so the outer wrapper card that used to
+                  hold ComicsPipelineDiagram's five plain rows is gone
+                  too - five already-bordered storyboard cards inside
+                  another bordered card just doubled the chrome. */}
+              <div className="mt-14">
                 <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                   What happens to a panel
                 </p>
                 <div className="mt-5">
-                  <ComicsPipelineDiagram dark={false} />
+                  <PanelPipelineStoryboard />
                 </div>
               </div>
             </div>
