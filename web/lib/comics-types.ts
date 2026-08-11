@@ -290,6 +290,57 @@ export function applyBubbleResult(
   return { ...panel, regionAdaptedTexts: nextAdaptedTexts, regionWhys: nextWhys };
 }
 
+export type PanelAdaptStatus = "none" | "partial" | "done";
+
+/** How much of a panel's real adaptation work is actually filled in -
+ * "none" of its bubbles have a result yet, "done" every one does, or
+ * "partial" for anywhere in between. Built for a real, disclosed UX gap:
+ * during a whole-chapter adapt run, the thumbnail rails (PanelOrderGrid,
+ * PanelWorkspace's own rail) gave no per-panel signal for which panels
+ * were actually finished versus still pending - a user reviewing panel
+ * 12 while the job filled in panel 3 had no way to tell without clicking
+ * into each one. Pure and testable rather than inlined into a component,
+ * since "done" has to agree with applyBubbleResult's own notion of which
+ * slot a bubble result landed in (parseBubbleId's regionIndex, not just
+ * "regionAdaptedTexts is non-null").
+ *
+ * A panel with no real bubbles at all (panelToChapterBubbles returns
+ * empty - no OCR regions and no hand-typed extractedText) is always
+ * "none": there is nothing to be partial or done about. */
+export function panelAdaptStatus(panel: ComicPanel): PanelAdaptStatus {
+  const bubbles = panelToChapterBubbles(panel);
+  if (bubbles.length === 0) return "none";
+
+  const doneCount = bubbles.filter((bubble) => {
+    const { regionIndex } = parseBubbleId(bubble.id);
+    if (regionIndex === null) return panel.adaptedText.trim().length > 0;
+    return Boolean(panel.regionAdaptedTexts?.[regionIndex]?.trim());
+  }).length;
+
+  if (doneCount === 0) return "none";
+  if (doneCount === bubbles.length) return "done";
+  return "partial";
+}
+
+/** Whether rerunning OCR on this panel would throw away real, reviewed
+ * work - a new OCR run means new region indices, and every region-
+ * indexed field (regionAdaptedTexts, regionWhys, redrawRegionTexts,
+ * redrawRegionFonts) plus any redraw result gets wiped and replaced
+ * (app/comics/page.tsx::ocrPanel) since the old indices no longer
+ * correspond to anything real. False for the FIRST OCR run on a panel
+ * (ocrStatus "idle") - there's nothing to lose yet, so no confirmation
+ * is needed there. Used to gate a confirm step before a rerun; see
+ * PanelWorkspace.tsx's "Run OCR" button. */
+export function ocrRerunWouldDiscardWork(panel: ComicPanel): boolean {
+  if (panel.ocrStatus !== "done" && panel.ocrStatus !== "error") return false;
+  return Boolean(
+    panel.regionAdaptedTexts?.some((text) => text?.trim()) ||
+      panel.regionWhys?.some((why) => why?.trim()) ||
+      panel.redrawRegionTexts?.some((text) => text?.trim()) ||
+      panel.redrawResultUrl
+  );
+}
+
 /** One combined block of a panel's real per-region adapted text, in
  * region order - for CSV export and anywhere else that wants a single
  * string rather than per-bubble structure. Falls back to the flat

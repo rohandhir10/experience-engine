@@ -4,6 +4,8 @@ import {
   combinedAdaptedText,
   combinedWhy,
   moveItem,
+  ocrRerunWouldDiscardWork,
+  panelAdaptStatus,
   panelToChapterBubbles,
   panelsToCsv,
   parseBubbleId,
@@ -251,5 +253,97 @@ describe("combinedAdaptedText / combinedWhy", () => {
     const p = panel({ ocrRegions: null, adaptedText: "flat adapted", why: "flat why" });
     expect(combinedAdaptedText(p)).toBe("flat adapted");
     expect(combinedWhy(p)).toBe("flat why");
+  });
+});
+
+describe("panelAdaptStatus", () => {
+  it("is 'none' for a panel with no real bubbles at all", () => {
+    const p = panel({ ocrRegions: null, extractedText: "" });
+    expect(panelAdaptStatus(p)).toBe("none");
+  });
+
+  it("is 'none' for a multi-region panel where nothing has been adapted yet", () => {
+    const p = panel({ ocrRegions: [region(), region()] });
+    expect(panelAdaptStatus(p)).toBe("none");
+  });
+
+  it("is 'partial' when some but not all regions have a real result", () => {
+    const p = panel({
+      ocrRegions: [region(), region(), region()],
+      regionAdaptedTexts: ["one", null, null],
+    });
+    expect(panelAdaptStatus(p)).toBe("partial");
+  });
+
+  it("is 'done' once every region has a real, non-blank result", () => {
+    const p = panel({
+      ocrRegions: [region(), region()],
+      regionAdaptedTexts: ["one", "two"],
+    });
+    expect(panelAdaptStatus(p)).toBe("done");
+  });
+
+  it("treats a whitespace-only region result the same as unfilled", () => {
+    const p = panel({
+      ocrRegions: [region(), region()],
+      regionAdaptedTexts: ["one", "   "],
+    });
+    expect(panelAdaptStatus(p)).toBe("partial");
+  });
+
+  it("for a no-region (flat) panel, is 'done' once adaptedText is filled and 'none' otherwise", () => {
+    const empty = panel({ ocrRegions: null, extractedText: "hand-typed line", adaptedText: "" });
+    expect(panelAdaptStatus(empty)).toBe("none");
+
+    const filled = panel({
+      ocrRegions: null,
+      extractedText: "hand-typed line",
+      adaptedText: "adapted line",
+    });
+    expect(panelAdaptStatus(filled)).toBe("done");
+  });
+});
+
+describe("ocrRerunWouldDiscardWork", () => {
+  it("is false before OCR has ever run - nothing to lose yet", () => {
+    const p = panel({ ocrStatus: "idle" });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(false);
+  });
+
+  it("is false while OCR is actively running", () => {
+    const p = panel({ ocrStatus: "running", regionAdaptedTexts: ["a real result"] });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(false);
+  });
+
+  it("is false for a completed OCR run with nothing downstream filled in", () => {
+    const p = panel({ ocrStatus: "done", ocrRegions: [region()] });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(false);
+  });
+
+  it("is true when a completed run has a real per-region adapted text", () => {
+    const p = panel({ ocrStatus: "done", regionAdaptedTexts: [null, "real result"] });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(true);
+  });
+
+  it("is true when a completed run has a real per-region why", () => {
+    const p = panel({ ocrStatus: "done", regionWhys: ["a reason"] });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(true);
+  });
+
+  it("is true when a completed run has a redraw text override", () => {
+    const p = panel({ ocrStatus: "done", redrawRegionTexts: ["typed redraw text"] });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(true);
+  });
+
+  it("is true when a completed run already produced a redraw result", () => {
+    const p = panel({ ocrStatus: "done", redrawResultUrl: "data:image/png;base64,abc" });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(true);
+  });
+
+  it("is true for a run that ended in error but still left real downstream work behind", () => {
+    // e.g. OCR errored on a RERUN, but the panel already had real results
+    // from the earlier successful run before that.
+    const p = panel({ ocrStatus: "error", regionAdaptedTexts: ["kept from an earlier run"] });
+    expect(ocrRerunWouldDiscardWork(p)).toBe(true);
   });
 });

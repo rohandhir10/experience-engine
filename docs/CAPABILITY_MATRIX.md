@@ -5333,3 +5333,75 @@ confirmed by running it rather than assumed). Over the limit, it runs
   clean. No frontend/server changes needed - `generate_song_dna`'s
   signature and return type are unchanged, so every caller (`engine/
   pipeline.py`, `server/main.py`) needed no updates.
+
+## Comics workspace UX: per-panel progress + two silent data-loss risks
+
+A real UX audit of `/comics` (not a hypothetical review - an agent pass
+that actually read `app/comics/page.tsx`, `PanelWorkspace.tsx`,
+`PanelOrderGrid.tsx`, and the data flow between them) surfaced ten real
+friction points. Fixed the three ranked highest - the ones that can
+silently lose a user's work or leave them with no sense of where a
+chapter-wide job stands - and left the rest (disabled-button clarity, the
+panel-count-limit error, the redraw text-source ambiguity, the invisible
+Series field gate, the view-toggle reset, and the two inconsistent
+upload-error surfaces) queued for a later round.
+
+**1. No per-panel progress signal during a chapter adapt run.** Both
+thumbnail rails (`PanelOrderGrid`'s macro grid, `PanelWorkspace`'s own
+navigation rail) showed nothing about which panels had real adapted text
+yet - a user reviewing panel 12 while the job filled in panel 3 had no
+way to tell without clicking into each one.
+- `lib/comics-types.ts::panelAdaptStatus` (new, pure): "none" | "partial"
+  | "done" for a panel, computed the same way `applyBubbleResult` decides
+  where a real result landed (via `parseBubbleId`'s `regionIndex`), not a
+  looser "is anything non-null" guess that could disagree with it.
+- `components/comics/PanelStatusBadge.tsx` (new): a small badge - a
+  green checkmark once `panelAdaptStatus` is "done" (regardless of
+  whether a job is currently running - a panel finished earlier, or by
+  hand, is just as done), an amber spinner for "partial" ONLY while
+  `adapting` is true (showing the same spinner after the job settled
+  would misreport a stalled, hand-filled-partway panel as "still
+  working"). Wired into both rails via a new `adapting` prop threaded
+  from `app/comics/page.tsx`'s `adaptStatus === "running"`.
+
+**2. Rerunning OCR silently discarded reviewed work.** A new OCR run
+means new region indices - `regionAdaptedTexts`, `regionWhys`,
+`redrawRegionTexts`, `redrawRegionFonts`, and any `redrawResultUrl` all
+get wiped (`app/comics/page.tsx::ocrPanel`, unchanged - correct behavior,
+since the old indices genuinely don't correspond to the new regions).
+What was missing was any warning before that happened.
+- `lib/comics-types.ts::ocrRerunWouldDiscardWork` (new, pure): true only
+  when OCR has already completed (`ocrStatus` "done"/"error" - false on
+  the FIRST run, nothing to lose yet) AND at least one of those fields
+  actually has real content. `PanelWorkspace.tsx`'s "Run OCR" button now
+  calls `window.confirm` first when this is true (same pattern this
+  codebase already uses for a destructive action -
+  `CollectionsManager.tsx`'s delete confirm), and its label reads "Rerun
+  OCR" instead of "Run OCR" once a result already exists, a small honest
+  signal this isn't the first pass.
+
+**3. No confirmation on "Remove panel."** Sat directly next to Prev/Next
+in a tight button row, deleted instantly, no undo. Now always confirmed
+via `window.confirm` naming the file - deliberately unconditional (not
+gated on whether the panel has real work yet, unlike the OCR-rerun
+confirm above), since the actual risk here is a misclick next to
+frequently-used navigation buttons, which is exactly as real on an
+untouched panel as a heavily-edited one.
+- **What this does NOT do:** doesn't add real undo (a confirm prevents a
+  misclick, not a change of mind after the fact); doesn't touch the
+  seven other findings from the same audit pass, which remain exactly as
+  disclosed as they were before this round.
+- **Tier 1** - all three fixes are deterministic UI/state logic, no LLM
+  judgment involved.
+- **Verified:** 13 new `lib/comics-types.test.ts` tests (`panelAdaptStatus`
+  across none/partial/done/whitespace-only/flat-panel cases,
+  `ocrRerunWouldDiscardWork` across idle/running/done-with-nothing-to-
+  lose/done-with-each-of-the-four-loseable-fields/error-after-an-earlier-
+  successful-run). Full suite: 204 Vitest passed (190 pre-existing + 14 -
+  13 new plus one net from the file's existing count), `tsc --noEmit` and
+  a fresh `next build` both clean. Browser-verified with Playwright
+  against the real production build: uploaded two panels, confirmed no
+  badge renders in the "none" state (no layout regression), confirmed
+  the Remove confirm dialog's exact message, and confirmed dismissing it
+  keeps the panel while accepting it removes it - not just asserted from
+  the code.

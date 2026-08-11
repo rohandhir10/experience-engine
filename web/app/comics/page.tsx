@@ -606,7 +606,11 @@ export default function ComicsPage() {
                 </p>
               )}
 
-              <PanelOrderGrid panels={panels} onReorder={reorderPanels} />
+              <PanelOrderGrid
+                panels={panels}
+                onReorder={reorderPanels}
+                adapting={adaptStatus === "running"}
+              />
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 {/* Only shown once a non-English target is picked, same as
@@ -706,6 +710,7 @@ export default function ComicsPage() {
                   onRemovePanel={removePanel}
                   onRunOcr={runOcr}
                   onRedrawPanel={redrawPanelAction}
+                  adapting={adaptStatus === "running"}
                 />
               </div>
             </>

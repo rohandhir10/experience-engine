@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { ComicPanel } from "@/lib/comics-types";
+import { panelAdaptStatus, type ComicPanel } from "@/lib/comics-types";
+import { PanelStatusBadge } from "./PanelStatusBadge";
 
 /** A macro overview of every uploaded page, in the order a whole-chapter
  * adaptation will actually process them in - shown once, before the
@@ -26,9 +27,14 @@ import type { ComicPanel } from "@/lib/comics-types";
 export function PanelOrderGrid({
   panels,
   onReorder,
+  adapting = false,
 }: {
   panels: ComicPanel[];
   onReorder: (fromIndex: number, toIndex: number) => void;
+  // Whether a whole-chapter "Adapt chapter" job is currently running - see
+  // PanelStatusBadge's own docstring for why this gates the spinner state
+  // specifically, not just whether a panel is "partial".
+  adapting?: boolean;
 }) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -75,6 +81,9 @@ export function PanelOrderGrid({
           >
             <span className="absolute left-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-ink/80 text-[10px] font-medium text-paper dark:bg-black/70">
               {index + 1}
+            </span>
+            <span className="absolute right-1.5 top-1.5 z-10">
+              <PanelStatusBadge status={panelAdaptStatus(panel)} adapting={adapting} />
             </span>
             {/* eslint-disable-next-line @next/next/no-img-element -- a
                 blob: object URL, next/image's remote-loader path doesn't

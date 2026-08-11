@@ -1,8 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { moveItem, type ComicPanel } from "@/lib/comics-types";
+import {
+  moveItem,
+  ocrRerunWouldDiscardWork,
+  panelAdaptStatus,
+  type ComicPanel,
+} from "@/lib/comics-types";
 import { FONT_OPTIONS, resolveRedrawRegionText } from "@/lib/comicsRedraw";
+import { PanelStatusBadge } from "./PanelStatusBadge";
 
 /** Panel-by-panel review: a thumbnail rail to jump between panels, the
  * active panel's real image (with a real OCR pass's bounding boxes
@@ -49,12 +55,16 @@ export function PanelWorkspace({
   onRemovePanel,
   onRunOcr,
   onRedrawPanel,
+  adapting = false,
 }: {
   panels: ComicPanel[];
   onUpdatePanel: (id: string, patch: Partial<ComicPanel>) => void;
   onRemovePanel: (id: string) => void;
   onRunOcr: (id: string) => void;
   onRedrawPanel: (id: string) => void;
+  // Whether a whole-chapter "Adapt chapter" job is currently running - see
+  // PanelStatusBadge's own docstring for why this gates the spinner state.
+  adapting?: boolean;
 }) {
   const [activeId, setActiveId] = useState(panels[0]?.id);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
@@ -152,6 +162,9 @@ export function PanelWorkspace({
             <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
               {index + 1}
             </span>
+            <span className="absolute right-1 top-1">
+              <PanelStatusBadge status={panelAdaptStatus(panel)} adapting={adapting} />
+            </span>
           </button>
         ))}
       </div>
@@ -180,7 +193,16 @@ export function PanelWorkspace({
             </button>
             <button
               type="button"
-              onClick={() => onRemovePanel(active.id)}
+              onClick={() => {
+                // Always confirmed, regardless of how much work exists on
+                // this panel - this button sits right next to Prev/Next in
+                // a tight row, and Remove is instant and has no undo, so a
+                // misclick alone is real risk even on a barely-touched
+                // panel, not just a heavily-edited one.
+                if (window.confirm(`Remove "${active.fileName}"? This can't be undone.`)) {
+                  onRemovePanel(active.id);
+                }
+              }}
               className="text-[13px] text-red-500/70 transition hover:text-red-500"
             >
               Remove
@@ -272,11 +294,29 @@ export function PanelWorkspace({
             <div className="mt-3 flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => onRunOcr(active.id)}
+                onClick={() => {
+                  // Rerunning OCR wipes every region-indexed field (a new
+                  // run means new region indices, see ocrRerunWouldDiscardWork's
+                  // own docstring) - only worth a confirm when there's
+                  // something real to lose, not on the first run.
+                  if (
+                    ocrRerunWouldDiscardWork(active) &&
+                    !window.confirm(
+                      "Rerunning OCR clears this panel's detected regions and any adapted text, redraw edits, or redraw result tied to them. Continue?"
+                    )
+                  ) {
+                    return;
+                  }
+                  onRunOcr(active.id);
+                }}
                 disabled={active.ocrStatus === "running"}
                 className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/78 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/78 dark:hover:text-ink-dark"
               >
-                {active.ocrStatus === "running" ? "Reading panel…" : "Run OCR"}
+                {active.ocrStatus === "running"
+                  ? "Reading panel…"
+                  : active.ocrStatus === "done" || active.ocrStatus === "error"
+                    ? "Rerun OCR"
+                    : "Run OCR"}
               </button>
               {active.ocrStatus === "done" && !active.ocrMessage && (
                 <span className="text-[12px] text-ink/62 dark:text-ink-dark/62">
