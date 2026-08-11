@@ -3,7 +3,6 @@ import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
-import { ScreenshotSlot } from "@/components/ScreenshotSlot";
 import { CompareDiagram } from "@/components/CompareDiagram";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
@@ -151,20 +150,19 @@ export default function CompareChatGptPage() {
           </div>
         </section>
 
-        <section className="mt-14">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Same prompt, run through both
-          </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            One source line, the same prompt, run through a single ChatGPT
-            request and through Castia. Unedited output, side by side.
-          </p>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <ScreenshotSlot label="A single ChatGPT prompt" path="/screenshots/compare/chatgpt-prompt.png" />
-            <ScreenshotSlot label="Castia" path="/screenshots/compare/chatgpt-prompt-castia.png" />
-          </div>
-        </section>
-
+        {/* The "same line, run through both" side-by-side used to render
+            here - a dashed "Screenshot pending" box, since no real
+            capture ever existed for the six images this page and its
+            siblings pointed at (running an actual line through
+            ChatGPT/DeepL/Google Translate and Castia to capture it needs
+            live API credentials this project doesn't have). Shipping a
+            visibly broken "pending" placeholder to real visitors is worse
+            than not having the section - removed until real screenshots
+            exist to fill it, same discipline MockWindow.tsx's own doc
+            comment states for why nothing here gets faked instead. The
+            component that rendered it (ScreenshotSlot.tsx) had no other
+            callers once this and its two sibling pages dropped it, so it
+            was deleted rather than left as dead code. */}
         <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center sm:p-10">
           <p className="font-serif text-xl text-white sm:text-2xl">
             See the whole pipeline on one line.

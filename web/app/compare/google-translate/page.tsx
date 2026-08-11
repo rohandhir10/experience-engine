@@ -3,7 +3,6 @@ import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
-import { ScreenshotSlot } from "@/components/ScreenshotSlot";
 import { CompareDiagram } from "@/components/CompareDiagram";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
@@ -159,20 +158,11 @@ export default function CompareGoogleTranslatePage() {
           </div>
         </section>
 
-        <section className="mt-14">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Same line, run through both
-          </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            One source line, the same input, run through Google Translate and
-            through Castia. Unedited output, side by side.
-          </p>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <ScreenshotSlot label="Google Translate" path="/screenshots/compare/google-translate.png" />
-            <ScreenshotSlot label="Castia" path="/screenshots/compare/google-translate-castia.png" />
-          </div>
-        </section>
-
+        {/* "Same line, run through both" removed - see the matching
+            comment in app/compare/chatgpt-prompt/page.tsx for why: it was
+            a dashed "Screenshot pending" placeholder with no real capture
+            behind it, since generating one needs live API credentials
+            this project doesn't have. */}
         <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center sm:p-10">
           <p className="font-serif text-xl text-white sm:text-2xl">
             See the tradeoff BLEU can't score.
