@@ -196,3 +196,23 @@ export function definedTermSetJsonLd({
     })),
   };
 }
+
+// Shared by app/faq/page.tsx (the full list) and app/page.tsx (a
+// curated subset) - see lib/faqs.ts for why the underlying text is a
+// single array too. Visible content and this markup must always be the
+// exact same strings, which is why both callers pass Faq objects
+// straight from that one array rather than re-typing any answer.
+export function faqPageJsonLd(faqs: { question: string; answer: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+}

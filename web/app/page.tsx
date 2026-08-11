@@ -5,7 +5,26 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Footer } from "@/components/Footer";
 import { ScrollReveal } from "@/components/ScrollReveal";
+import { JsonLd } from "@/components/JsonLd";
 import { readMediumPreference, type Medium } from "@/lib/mediumPreference";
+import { FOUNDER_NAME } from "@/lib/seo";
+import { webPageJsonLd, faqPageJsonLd } from "@/lib/schema";
+import { homepageFaqs } from "@/lib/faqs";
+
+// The last day this page's actual visible content changed - bumped by
+// hand alongside a real edit, same discipline lib/content.ts's registry
+// uses for editorial pages (see that file's own comment). "/" isn't in
+// that registry (it's a static route in sitemap.ts, not editorial
+// content with its own history), so this is its own single source for
+// the one thing that needs a real date: the dateModified this page's own
+// WebPage JSON-LD states below, and the "Updated" line rendered near the
+// FAQ section. Never auto-generated from build time - that would be a
+// fresh "Updated today" on every deploy regardless of whether anything
+// actually changed, which is the exact dishonesty this convention exists
+// to avoid.
+const PAGE_UPDATED_DATE = "2026-08-11";
+
+const HOMEPAGE_FAQS = homepageFaqs();
 
 // "/" is a neutral medium chooser, not the music workflow directly - the
 // music workflow itself lives at /music (moved from here, unchanged; see
@@ -51,6 +70,15 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-paper-dark px-6 pb-28 pt-8 sm:px-10">
+      <JsonLd data={webPageJsonLd({
+        path: "/",
+        name: "Castia — Adapt the feeling, not just the words",
+        description:
+          "Castia rewrites song lyrics and comic dialogue across six languages through a three-stage Writers' Room, with every change shipped alongside a plain-language reason.",
+        updatedDate: PAGE_UPDATED_DATE,
+      })} />
+      <JsonLd data={faqPageJsonLd(HOMEPAGE_FAQS)} />
+
       <SiteHeader active="home" forceDark />
 
       <div className="mx-auto mt-16 flex w-full max-w-3xl flex-col items-center text-center sm:mt-20">
@@ -76,12 +104,44 @@ export default function Home() {
           </span>
           .
         </h1>
+        {/* A self-contained answer to "what does Castia do" - the whole
+            mechanism in one sentence, so it stands on its own whether a
+            reader lands here from a search result or an AI-generated
+            summary quotes it directly, without needing the rest of the
+            page for context. */}
         <p
-          className="animate-fade-up mt-4 max-w-md text-[14px] text-white/40"
+          className="animate-fade-up mt-4 max-w-md text-[14px] leading-relaxed text-white/40"
           style={{ animationDelay: "80ms" }}
         >
-          Song lyrics or comic dialogue — Castia keeps the feeling a literal
-          pass throws away. Choose what you're adapting.
+          Castia rewrites song lyrics and comic dialogue across six languages
+          through a three-stage Writers' Room — one literal anchor, five
+          creative rewrites, and a Judge that picks a winner and states why.
+          Not a word-for-word pass. Choose what you're adapting below.
+        </p>
+        {/* A real byline (linking to the one page with a real Person bio -
+            app/about/page.tsx) plus a real, hand-bumped edit date - see
+            PAGE_UPDATED_DATE above for why this is never build-time. No
+            photo: one doesn't exist, and a stock/generated one would be
+            exactly the kind of fabricated credential this codebase's own
+            no-fabrication discipline (docs/CAPABILITY_MATRIX.md) rules
+            out. */}
+        <p
+          className="animate-fade-up mt-3 text-[11.5px] text-white/30"
+          style={{ animationDelay: "100ms" }}
+        >
+          Built by{" "}
+          <Link href="/about" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+            {FOUNDER_NAME}
+          </Link>
+          {" · "}Updated{" "}
+          <time dateTime={PAGE_UPDATED_DATE}>
+            {new Date(PAGE_UPDATED_DATE + "T00:00:00Z").toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+              timeZone: "UTC",
+            })}
+          </time>
         </p>
       </div>
 
@@ -151,12 +211,11 @@ export default function Home() {
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20">
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
-          Every other tool ships whatever its first draft happened to be.
+          How is this different from Google Translate or a single AI prompt?
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
-          Google Translate, DeepL, and a single AI prompt are all built to
-          produce one fluent pass and stop there. Real, documented
-          differences, not a marketing claim:
+          They're all built to produce one fluent pass and stop there —
+          Castia isn't. Real, documented differences, not a marketing claim:
         </p>
 
         <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -216,8 +275,11 @@ export default function Home() {
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20" delayMs={80}>
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
-          Three roles, one line: a translator, a room of writers, an editor.
+          How does the Writers' Room actually work?
         </h2>
+        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
+          Three roles, one line: a translator, a room of writers, an editor.
+        </p>
 
         <HomePipelineFlow />
 
@@ -241,6 +303,29 @@ export default function Home() {
             before it ships, not just flagged.
           </p>
         </div>
+      </ScrollReveal>
+
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20" delayMs={80}>
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+          Common questions
+        </h2>
+        <div className="mt-8 space-y-6">
+          {HOMEPAGE_FAQS.map((faq) => (
+            <div key={faq.question} className="border-b border-white/[0.06] pb-6">
+              <h3 className="font-serif text-[15px] text-white">{faq.question}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-white/45">{faq.answer}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-6 text-center text-[13px] text-white/40">
+          <Link href="/faq" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+            See all FAQs
+          </Link>
+          {" · "}
+          <Link href="/pricing" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+            See pricing
+          </Link>
+        </p>
       </ScrollReveal>
 
       <Footer dark />

@@ -4550,3 +4550,75 @@ cookies, credential headers case-insensitively, a whole-payload
 falsification), breadcrumb filtering including the default-deny case,
 and the privacy locks. 174 vitest passing, tsc and next build clean with
 zero warnings.
+
+## Homepage rebuilt against an AI-SEO structural checklist (byline, answer block, FAQ, dated schema)
+
+**What prompted it**: the user shared a 14-point "million-dollar landing
+page" checklist (H1-as-answered-question, byline, FAQ schema,
+comparison table, last-updated stamp, etc.) and asked for `/` to be
+rebuilt against it. Several items were already real and correct
+(comparison table with real sourced claims, a real pipeline/solution
+section, `Organization`/`SoftwareApplication` schema sitewide) - this
+entry covers what was actually missing, applied honestly: no fabricated
+client logos, no invented case-study numbers, no stock/generated author
+photo. Where the checklist's own example image showed fake "Trusted by
+BBC/Deloitte/Unilever" logos, this codebase's no-fabrication rule
+(itself already established) rules that out outright.
+
+**`web/lib/faqs.ts`** (new): the `FAQS` array moved out of
+`app/faq/page.tsx` into a shared module, plus `homepageFaqs()` - a
+curated 4-question subset (one per real category except Technical, the
+wrong altitude for a brand-new visitor) pulled by exact question-string
+lookup from the same array. One implementation instead of two copies of
+the same 8 answers that could drift out of sync - both `/faq` and `/`
+now render identical text for any question both pages happen to share,
+because they're the literal same object, not a re-typed copy.
+
+**`web/lib/schema.ts`**: added `faqPageJsonLd()`, extracted from
+`app/faq/page.tsx`'s previously inline `FAQPage` construction - now
+shared by both callers instead of one page owning the only copy of a
+pattern the homepage also needs.
+
+**`web/app/page.tsx`** (the actual rebuild):
+- A real byline ("Built by Rohan Dhir", linking to `/about`, the one
+  page with a real Person schema) - no photo, since none exists and a
+  stock one would itself be a fabricated credential.
+- A hand-bumped `PAGE_UPDATED_DATE` constant (never build-time - a fresh
+  "Updated today" on every deploy regardless of whether anything
+  changed would be exactly the dishonesty `lib/content.ts`'s existing
+  dating convention exists to avoid), rendered as a visible `<time>`
+  stamp and fed into a new `WebPage` JSON-LD's `dateModified`.
+- The subheadline tightened into a real, self-contained ~45-word answer
+  to "what does Castia do" - written so it stands alone if an AI-
+  generated summary quotes it directly, not dependent on the rest of
+  the page for context.
+- The two section H2s rewritten into the real questions they were
+  already answering ("How is this different from Google Translate or a
+  single AI prompt?", "How does the Writers' Room actually work?")
+  rather than brand-voice statements - AI answer-extraction lifts a
+  clean answer from a real question far more reliably than from a
+  declarative headline saying the same thing.
+- A new "Common questions" section rendering `homepageFaqs()`, with a
+  matching `FAQPage` JSON-LD block and a "See all FAQs" link to the full
+  `/faq` page - the actual FAQ-block checklist item, sourced from the
+  single shared array above.
+- A subtle "See pricing" link alongside it - honest since `/pricing`
+  has real Starter/Pro numbers, kept as a text link rather than a hard
+  CTA button so it doesn't compete with the page's one real conversion
+  action (choosing Music or Webtoons), preserving this page's explicit,
+  previously-documented "neutral chooser, not a funnel" design intent.
+
+**Verified live** against a production build: zero CSP violations on
+load (JSON-LD script tags aren't subject to `script-src` since their
+`type` isn't executable JS, and nothing else on the page needed a CSP
+change); all four JSON-LD blocks present (`Organization`,
+`SoftwareApplication` sitewide, plus the new page-specific `WebPage` and
+`FAQPage`); the `FAQPage` block's four questions match what's visibly
+rendered exactly; byline, updated stamp, and the FAQ section all render
+in a real browser screenshot. Re-verified `/faq` after the extraction:
+still renders all 8 questions, unchanged JSON-LD shape, confirming the
+refactor didn't alter that page's behavior. `web/lib/faqs.test.ts` (3
+new) - `homepageFaqs()` returns real (not copied/drifted) `Faq` objects
+from the shared array, every named question resolves to a real entry,
+and declared order is preserved. 177 vitest passing; `tsc` and
+`next build` both clean.
