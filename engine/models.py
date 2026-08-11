@@ -18,13 +18,31 @@ from pydantic import BaseModel, Field, model_validator
 class SectionInput(BaseModel):
     name: str
     source_text: str
-    # If set, this section is an exact (or near-exact) repeat of an earlier
-    # section's text — e.g. a chorus that recurs verbatim later in the song.
-    # The engine reuses that earlier section's final ruling directly instead
-    # of re-running the whole room, at zero extra LLM cost, so a song's full
-    # repeated structure can be represented without wasting calls re-judging
-    # identical text.
+    # If set, this section is an EXACT repeat of an earlier section's
+    # text — e.g. a chorus that recurs verbatim later in the song. The
+    # engine reuses that earlier section's final ruling directly instead
+    # of re-running the whole room, at zero extra LLM cost, so a song's
+    # full repeated structure can be represented without wasting calls
+    # re-judging identical text. Auto-detected for real user songs by
+    # engine/text_ingest.py::split_into_sections (engine/recurrence.py's
+    # detect_section_repeats) — a caller building SongInput directly can
+    # still set it by hand, same as before that auto-detection existed.
     repeats: str | None = None
+    # Set INSTEAD of `repeats` (never both — SongInput._validate_sections
+    # rejects that) when this section is a NEAR-repeat of an earlier
+    # section: the same lines, except a small number that changed (e.g. a
+    # final chorus with one "lifted" line, or a repeated hook with a
+    # swapped-in name — common enough in real songwriting that treating
+    # every non-identical repeat as an unrelated fresh section, the only
+    # option before this field existed, threw away the fact that most of
+    # it WAS the same section). Unlike `repeats`, the room still runs for
+    # this section - the changed line(s) need real adaptation - but
+    # engine/pipeline.py feeds the referenced section's earlier ruling in
+    # as an explicit consistency instruction (RoomMemory.variation_note),
+    # so the unchanged lines come out worded the same as they did the
+    # first time instead of being re-improvised from scratch. Also
+    # auto-detected by split_into_sections, same as `repeats`.
+    varies_from: str | None = None
     # Who is speaking/singing this section, when the work has more than one
     # voice (a duet, a dialogue). Voice consistency is judged WITHIN a
     # voice, not across different voices — before this field existed,
@@ -72,11 +90,12 @@ class SongInput(BaseModel):
 
     @model_validator(mode="after")
     def _validate_sections(self) -> "SongInput":
-        """Section names are load-bearing free text: `repeats` references
-        them, SongDNA.section() looks them up (first match wins), and room
-        memory labels rulings by them. Duplicates silently alias instead of
-        erroring, and a `repeats` pointing forward or at nothing crashes
-        deep in the pipeline — so validate both here, at the boundary.
+        """Section names are load-bearing free text: `repeats`/`varies_from`
+        reference them, SongDNA.section() looks them up (first match
+        wins), and room memory labels rulings by them. Duplicates
+        silently alias instead of erroring, and a `repeats`/`varies_from`
+        pointing forward or at nothing crashes deep in the pipeline — so
+        validate both here, at the boundary.
         """
         seen: set[str] = set()
         for section in self.sections:
@@ -87,11 +106,23 @@ class SongInput(BaseModel):
                     f"Duplicate section name {section.name!r} — names must be "
                     "unique, they are how repeats/rulings/DNA reference sections."
                 )
-            if section.repeats is not None and section.repeats not in seen:
+            if section.repeats is not None and section.varies_from is not None:
                 raise ValueError(
-                    f"Section {section.name!r} sets repeats={section.repeats!r}, "
-                    "which must name an EARLIER section in this song."
+                    f"Section {section.name!r} sets both repeats and "
+                    "varies_from — a section is either an exact repeat "
+                    "(reuse the earlier ruling as-is) or a near-repeat "
+                    "with changes (re-run the room, anchored to the "
+                    "earlier ruling), never both."
                 )
+            for field_name, reference in (
+                ("repeats", section.repeats),
+                ("varies_from", section.varies_from),
+            ):
+                if reference is not None and reference not in seen:
+                    raise ValueError(
+                        f"Section {section.name!r} sets {field_name}={reference!r}, "
+                        "which must name an EARLIER section in this song."
+                    )
             seen.add(section.name)
         return self
 
@@ -684,8 +715,19 @@ class RoomMemory(BaseModel):
     # then never read again anywhere downstream - real cost paid for
     # analysis no prompt ever saw.
     character_voices: dict[str, str] = Field(default_factory=dict)
+    # Set TRANSIENTLY by engine/pipeline.py, only while processing a
+    # section whose SectionInput.varies_from is set, and cleared again
+    # immediately after that one section finishes - unlike every field
+    # above, this is not persistent state carried across the whole song,
+    # it's a one-section instruction: which earlier section this one
+    # nearly repeats, which lines changed, and what that earlier
+    # section's ruling actually said, so the room preserves that wording
+    # for the unchanged lines instead of re-improvising them from
+    # scratch. None the rest of the time.
+    variation_note: str | None = None
 
     def summary_for_prompt(self) -> str:
+        variation_block = f"\n{self.variation_note}\n" if self.variation_note else ""
         compensation_block = ""
         if self.compensations:
             entries = "\n".join(
@@ -740,6 +782,7 @@ class RoomMemory(BaseModel):
                 + compensation_block
                 + honorific_block
                 + character_voice_block
+                + variation_block
             )
         lines = ["Decisions already made earlier in this song:"]
         for r in self.prior_rulings:
@@ -752,5 +795,9 @@ class RoomMemory(BaseModel):
             for motif, rendering in self.motif_decisions.items():
                 lines.append(f"- {motif}: {rendering}")
         return (
-            "\n".join(lines) + compensation_block + honorific_block + character_voice_block
+            "\n".join(lines)
+            + compensation_block
+            + honorific_block
+            + character_voice_block
+            + variation_block
         )

@@ -4016,11 +4016,10 @@ nor a non-2xx response ever raises. Full suite green: 1011 pytest.
   calibrate it against, would ship an abstraction nobody consumes — the
   same reasoning that gated the `evidence_tier` field on Phase 2 existing
   first. Deferred until real corpus data exists.
-- **Chorus-with-variation.** Real, common gap (a chorus repeating with
-  one changed line has no structural representation — only exact-verbatim
-  `repeats` and Phase 1's recurring-ending detection exist). Deferred
-  because it requires new schema and orchestration, not a quick win like
-  stress/rhyme.
+- ~~**Chorus-with-variation.**~~ **Closed** — see "Chorus-with-variation:
+  whole-section repeat detection" below. `SectionInput.varies_from` +
+  `engine/recurrence.py::detect_section_repeats` now give a near-repeated
+  chorus a structural representation, auto-detected for real user songs.
 - **Cross-language emotional fidelity verification.** Still the deepest
   open gap in the system — `verify.py` checks the shipped English only
   against the Translator's own anchor, never against the actual source
@@ -4744,3 +4743,112 @@ screenshot, not assumed from the default-preserving prop value alone.
 188 vitest passing (untouched by this change - no new pure logic to
 test, this is a styling/prop-default fix), `tsc` and `next build`
 clean.
+
+## Chorus-with-variation: whole-section repeat detection, and closing the gap that a repeated chorus was never actually detected at all
+
+**The gap this started as** ("Deliberately deferred out of Phase 3",
+above): a chorus repeating with one changed line (a "lifted" final
+chorus, a swapped-in name in a repeated hook) had no structural
+representation — only exact-verbatim `SectionInput.repeats` and Phase
+1's recurring-*ending* detection (`engine/recurrence.py`'s
+`detect_recurring_endings`, a single trailing phrase across otherwise-
+distinct sections) existed. A near-repeat was invisible to both, so it
+ran through the Writers' Room as an unrelated fresh section with no
+signal that most of its wording already had a correct answer from
+earlier in the song.
+
+**A bigger, more real gap found while scoping that one**: `repeats`
+itself — reusing an EARLIER section's ruling outright for an exact
+verbatim repeat — has real engine-side handling
+(`engine/pipeline.py::_reuse_repeated_section`) and has since the field
+was added, but `repeats` was never actually set by anything a real
+user's song went through. `engine/text_ingest.py::split_into_sections`
+(the one function every pasted-lyrics or YouTube-imported song is built
+from - `server/main.py::_build_song`) just splits on blank lines and
+never checked whether two blocks were duplicates. Only test fixtures
+ever constructed a `SectionInput` with `repeats` set by hand. So before
+this fix, a real user's exact-verbatim repeated chorus re-ran the full
+Translator → Creative Adapter → Judge room from scratch every time it
+recurred, with no guarantee it came out worded the same way twice —
+arguably worse than the "with variation" gap, since a repeating chorus
+is supposed to be recognizable specifically BECAUSE it repeats. Flagged
+back before implementing (real complication, not the originally-scoped
+task) and confirmed: close both, exact-detection first.
+
+**The fix, three pieces:**
+
+1. **Detection** (`engine/recurrence.py::detect_section_repeats`,
+   `diff_line_indices`): for each section, checks every EARLIER section
+   for a whole-section match — identical normalized lines is `"exact"`;
+   same line count with a MINORITY of lines differing (and at least
+   `MIN_LINES_FOR_VARIANT_MATCH` = 3 lines total, same false-positive
+   guardrail spirit as `MIN_SECTIONS_FOR_RECURRENCE`/`MIN_SUFFIX_WORDS`
+   above) is `"variant"`. An exact match always wins over a variant one
+   when both exist; among variant candidates, the fewest-changed-lines
+   match wins. Deterministic, no LLM call — same "exact string matching
+   over normalized text" contract every other check in this module
+   already keeps.
+2. **Schema** (`engine/models.py`): `SectionInput.varies_from`, set
+   INSTEAD of `repeats` (mutually exclusive - `SongInput._validate_sections`
+   rejects both being set, and validates `varies_from` references an
+   EARLIER section, same as `repeats` already did). Unlike `repeats`,
+   a `varies_from` section still runs the room — the changed line(s)
+   need a real adaptation, not a copy.
+3. **Orchestration** (`engine/pipeline.py`): a new
+   `RoomMemory.variation_note` field, set TRANSIENTLY only while
+   processing a `varies_from` section (built by the new
+   `_variation_note` helper: which earlier section, which source
+   line(s) changed and to what, and that earlier section's actual final
+   ruling text) and cleared again immediately after — unlike every
+   other `RoomMemory` field, this is a one-section instruction, not
+   state carried forward for the rest of the song. Rendered into the
+   prompt via `RoomMemory.summary_for_prompt()` (already threaded
+   through both room implementations' prompts for every section, so
+   this reaches the room for free rather than needing new plumbing per
+   room type), telling the room to keep unchanged lines' wording
+   IDENTICAL to the earlier ruling and only genuinely re-adapt the
+   line(s) that actually changed.
+4. **Ingestion** (`engine/text_ingest.py::split_into_sections`): runs
+   `detect_section_repeats` over the blank-line-split blocks and
+   populates `repeats`/`varies_from` automatically — this is what
+   actually closes the "never reachable for real users" gap. A caller
+   constructing `SongInput` directly can still set either field by
+   hand, same as before this auto-detection existed.
+
+**Deliberately conservative, same reasoning as the rest of this
+module**: a false negative here just leaves a section running as
+ordinary (today's status quo, and still correct, just not free / not
+consistency-anchored); a false positive would tell the room to copy an
+earlier ruling's wording onto a section that was never actually meant
+to match it, or hand it a "keep this line identical" instruction for a
+line it should be free to adapt fresh. `MIN_LINES_FOR_VARIANT_MATCH`
+and the "changed lines must be a minority" bound both exist to keep
+that false-positive rate low, at the cost of some real short variations
+going undetected (a 2-line hook with a swapped word doesn't qualify —
+same tradeoff already made for `MIN_SUFFIX_WORDS` above).
+
+**Not touched**: `engine/song_dna.py`'s existing `repeats`-only
+exclusion/duplication logic (`_build_dna_input`,
+`_duplicate_repeated_profiles`) — a `varies_from` section is NOT
+excluded from Song DNA analysis, and correctly so: its text genuinely
+differs from the earlier section (that's the whole point), so its own
+emotional-arc/imagery/density profile needs real analysis, not a
+duplicate of the earlier section's.
+
+**Verified**: 17 new tests (`tests/test_section_variation.py`) covering
+`diff_line_indices` (changed-line detection, `None` on line-count
+mismatch), `detect_section_repeats` (exact match, variant match, no
+match for unrelated/too-different sections, exact preferred over
+variant, fewest-changed-lines preferred among variants, short sections
+excluded from variant matching, majority-changed sections excluded),
+`split_into_sections` auto-populating both fields on real pasted-lyrics
+shaped input, `SongInput` validation (rejects both fields set together,
+rejects a forward/nonexistent reference), and pipeline orchestration:
+a `varies_from` section triggers a full room run (7 LLM calls for a
+2-section song) where the equivalent `repeats` section would not (4
+calls - proving the contrast directly, not just asserting a count), and
+`RoomMemory.variation_note` reaches the Translator's actual prompt text
+for the one section it applies to and is confirmed absent both before
+and after that section (proving it's cleared, not just present when
+expected). Full suite: 1128 passed (1111 pre-existing + 17 new), zero
+regressions.

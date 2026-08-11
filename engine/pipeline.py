@@ -13,6 +13,13 @@ Two room implementations are available:
 A section may set `repeats` to an earlier section's name (e.g. a chorus
 that recurs verbatim later in the song) — its ruling is reused directly at
 zero extra LLM cost instead of re-running the whole room on identical text.
+A section may instead set `varies_from` when it's a NEAR-repeat (same
+lines, a small number changed, e.g. a final chorus with one "lifted"
+line) — the room still runs, but is given the earlier section's ruling as
+an explicit consistency anchor (RoomMemory.variation_note) so the
+unchanged lines come out worded the same way twice. Both are normally
+auto-detected by engine/text_ingest.py::split_into_sections
+(engine/recurrence.py::detect_section_repeats), not hand-set.
 """
 from __future__ import annotations
 
@@ -23,6 +30,7 @@ from typing import Callable, Literal
 from .language_profile import LanguageProfile, resolve_profile
 from .llm_client import LLMClient, create_default_client
 from .models import RoomMemory, SectionInput, SectionResult, SectionResultV1, SongDNA, SongInput
+from .recurrence import diff_line_indices
 from .song_dna import generate_song_dna
 from .verify import (
     Finding,
@@ -136,6 +144,40 @@ def _reuse_repeated_section(
     reused.section = section_name
     reused.ruling.section = section_name
     return reused
+
+
+def _variation_note(
+    repeated_from: str,
+    prior_source: str,
+    current_source: str,
+    prior_final_line: str,
+) -> str:
+    """Builds the RoomMemory.variation_note instruction for a section
+    whose `varies_from` points at `repeated_from` — see SectionInput.
+    varies_from's docstring for why this exists instead of just reusing
+    the ruling outright the way `repeats` does.
+    """
+    diff = diff_line_indices(prior_source, current_source)
+    current_lines = [line for line in current_source.splitlines() if line.strip()]
+    if diff:
+        changed_desc = "; ".join(
+            f"line {i + 1} (now: {current_lines[i]!r})" for i in diff if i < len(current_lines)
+        )
+    else:
+        # detect_section_repeats only ever sets varies_from when at least
+        # one line differs, so this shouldn't happen from auto-detected
+        # input - but a caller can build SongInput by hand, so stay
+        # honest about the fallback rather than assume diff is non-empty.
+        changed_desc = "the line(s) that differ from that section's source text"
+    return (
+        f"This section is a NEAR-repeat of section {repeated_from!r} — same "
+        f"source lines except {changed_desc}. Section {repeated_from!r}'s "
+        f'final adapted wording was: "{prior_final_line}". Keep every '
+        "UNCHANGED line's wording IDENTICAL to that earlier ruling — this "
+        "is consistency, not a re-adaptation of lines that already have a "
+        "correct answer. Only the changed line(s) need genuine, fresh "
+        "adaptation."
+    )
 
 
 def _extract_correctable_section_errors(report: VerificationReport) -> dict[str, list[Finding]]:
@@ -409,6 +451,7 @@ def run_engine(
     room_memory = RoomMemory()
     section_results: list[SectionResult | SectionResultV1] = []
     results_by_name: dict[str, SectionResult | SectionResultV1] = {}
+    sections_by_name: dict[str, SectionInput] = {s.name: s for s in song.sections}
 
     run_section = run_section_v1 if room_version == "v1" else run_section_full
     total = len(song.sections)
@@ -423,30 +466,53 @@ def run_engine(
             on_stage(section.name, index, total)
         if section.repeats:
             result = _reuse_repeated_section(section.name, section.repeats, results_by_name)
-        elif room_version == "v1":
-            result = run_section(
-                client,
-                section.source_text,
-                dna,
-                section.name,
-                room_memory,
-                song.target_language,
-                section.voice,
-                profile,
-            )
         else:
-            # The full seven-agent room predates per-voice threading and
-            # does not use it — say so rather than silently dropping data.
-            if section.voice:
-                logger.warning(
-                    "Section %r sets voice=%r, but the full room does not "
-                    "thread voice into its prompts — only the v1 room does.",
-                    section.name,
-                    section.voice,
+            # A `varies_from` section still runs the room (unlike
+            # `repeats`, which skips it entirely) - it just gets an extra,
+            # transient instruction telling it which earlier section this
+            # nearly repeats, cleared again right after so it doesn't leak
+            # into later sections that have nothing to do with it.
+            if section.varies_from:
+                if section.varies_from not in results_by_name:
+                    raise ValueError(
+                        f"Section {section.name!r} sets varies_from={section.varies_from!r}, "
+                        f"but {section.varies_from!r} hasn't been processed yet — "
+                        "varies_from must reference an earlier section in the song."
+                    )
+                room_memory.variation_note = _variation_note(
+                    section.varies_from,
+                    sections_by_name[section.varies_from].source_text,
+                    section.source_text,
+                    results_by_name[section.varies_from].ruling.final_line,
                 )
-            result = run_section(
-                client, section.source_text, dna, section.name, room_memory, song.target_language
-            )
+            try:
+                if room_version == "v1":
+                    result = run_section(
+                        client,
+                        section.source_text,
+                        dna,
+                        section.name,
+                        room_memory,
+                        song.target_language,
+                        section.voice,
+                        profile,
+                    )
+                else:
+                    # The full seven-agent room predates per-voice
+                    # threading and does not use it — say so rather than
+                    # silently dropping data.
+                    if section.voice:
+                        logger.warning(
+                            "Section %r sets voice=%r, but the full room does not "
+                            "thread voice into its prompts — only the v1 room does.",
+                            section.name,
+                            section.voice,
+                        )
+                    result = run_section(
+                        client, section.source_text, dna, section.name, room_memory, song.target_language
+                    )
+            finally:
+                room_memory.variation_note = None
 
         section_results.append(result)
         results_by_name[section.name] = result

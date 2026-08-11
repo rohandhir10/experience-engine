@@ -23,6 +23,20 @@ differently-worded English line each time. What must stay consistent is
 the STRUCTURAL FUNCTION (each line closes on the same kind of question),
 not the wording. See verify.py's `_check_structural_recurrence` for that
 narrower, syntactic check.
+
+Also lives here: `detect_section_repeats`, whole-SECTION recurrence — a
+chorus (or any block) that reappears later in the song either verbatim
+(`SectionInput.repeats`) or with a small number of lines changed
+(`SectionInput.varies_from`, e.g. a final chorus with one "lifted" line).
+This is a different question from the suffix-matching above (a single
+recurring trailing phrase within otherwise-distinct sections) — this
+detects two sections that are substantially the SAME section. Both are
+"exact string matching over normalized source text" in the same sense:
+no interpretation, no LLM call, just a deterministic comparison the real
+ingestion path (engine/text_ingest.py) runs on every submitted song so a
+verbatim or near-verbatim repeated chorus doesn't silently get re-judged
+from scratch (and risk coming out worded differently) each time it
+recurs.
 """
 from __future__ import annotations
 
@@ -91,3 +105,81 @@ def detect_recurring_endings(
         if len(best_names) >= MIN_SECTIONS_FOR_RECURRENCE:
             return [RecurringEnding(shared_suffix=" ".join(best_suffix), sections=best_names)]
     return []
+
+
+# A variant match (same line count, some lines changed) needs at least
+# this many lines before it counts as a real chorus-with-variation rather
+# than a coincidence — a 1-2 line section matching another 1-2 line
+# section by line count is common and not meaningful on its own (same
+# spirit as MIN_SECTIONS_FOR_RECURRENCE/MIN_SUFFIX_WORDS above).
+MIN_LINES_FOR_VARIANT_MATCH = 3
+
+
+def _normalized_lines(text: str) -> list[str]:
+    return [_normalize(line) for line in text.splitlines() if line.strip()]
+
+
+def diff_line_indices(a_text: str, b_text: str) -> list[int] | None:
+    """0-based indices where `b_text`'s non-empty lines differ from
+    `a_text`'s, comparing position-wise after whitespace normalization.
+    None if the two don't have the same non-empty line count — nothing
+    meaningful to align in that case (a genuinely different section, not
+    a same-shape variant)."""
+    a_lines = _normalized_lines(a_text)
+    b_lines = _normalized_lines(b_text)
+    if len(a_lines) != len(b_lines):
+        return None
+    return [i for i, (a, b) in enumerate(zip(a_lines, b_lines)) if a != b]
+
+
+@dataclass
+class SectionRepeat:
+    kind: str  # "exact" | "variant"
+    repeats_from: str
+    # 0-based line indices that changed — always empty for "exact",
+    # always non-empty for "variant".
+    changed_line_indices: list[int] = field(default_factory=list)
+
+
+def detect_section_repeats(sections: list[tuple[str, str]]) -> dict[str, SectionRepeat]:
+    """`sections` is (section_name, source_text) pairs, in song order.
+
+    For each section, checks every EARLIER section for a whole-section
+    match: identical (normalized) lines is "exact"; same line count with
+    a minority of lines differing is "variant". When a section matches
+    more than one earlier candidate, an exact match always wins over a
+    variant one (it's strictly cheaper and cleaner to reuse outright);
+    among variant candidates, the one with the fewest changed lines wins,
+    tie-broken by whichever occurs earliest in the song.
+
+    Conservative on purpose, same reasoning as detect_recurring_endings
+    above: a false negative here just means a section is treated as
+    ordinary (today's status quo, and still correct — just not free);
+    a false positive would tell the room to copy an earlier ruling's
+    wording onto a section that was never actually meant to match it.
+    """
+    results: dict[str, SectionRepeat] = {}
+    seen: list[tuple[str, str]] = []
+    for name, text in sections:
+        lines = _normalized_lines(text)
+        exact_match: str | None = None
+        best_variant: tuple[str, list[int]] | None = None
+        if lines:
+            for earlier_name, earlier_text in seen:
+                diff = diff_line_indices(earlier_text, text)
+                if diff is None:
+                    continue
+                if not diff:
+                    exact_match = earlier_name
+                    break
+                if len(lines) >= MIN_LINES_FOR_VARIANT_MATCH and len(diff) <= len(lines) // 2:
+                    if best_variant is None or len(diff) < len(best_variant[1]):
+                        best_variant = (earlier_name, diff)
+        if exact_match is not None:
+            results[name] = SectionRepeat(kind="exact", repeats_from=exact_match)
+        elif best_variant is not None:
+            results[name] = SectionRepeat(
+                kind="variant", repeats_from=best_variant[0], changed_line_indices=best_variant[1]
+            )
+        seen.append((name, text))
+    return results
