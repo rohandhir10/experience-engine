@@ -4020,13 +4020,17 @@ nor a non-2xx response ever raises. Full suite green: 1011 pytest.
   whole-section repeat detection" below. `SectionInput.varies_from` +
   `engine/recurrence.py::detect_section_repeats` now give a near-repeated
   chorus a structural representation, auto-detected for real user songs.
-- **Cross-language emotional fidelity verification.** Still the deepest
-  open gap in the system — `verify.py` checks the shipped English only
-  against the Translator's own anchor, never against the actual source
-  text. Assigned to the research roadmap, not the engineering one: it
-  requires bilingual NLI/back-translation (Tier 2 at best) or a
-  fundamentally different verification approach, not a deterministic fix
-  in the shape of Phases 1-3.
+- **Cross-language emotional fidelity verification.** **Partially
+  closed** — see "Cross-language emotional fidelity: a real, if Tier 2,
+  first check" below. `verify.py::check_cross_language_fidelity` now
+  compares the shipped line against the actual source text directly (an
+  LLM judgment, warning-severity, live in production). What's still
+  genuinely open: this is one un-calibrated model call with no labeled
+  corpus to measure its own precision/recall against — real research
+  work (bilingual NLI, back-translation cross-checking, or validating
+  this check's accuracy at all) remains exactly as open as before. This
+  closes "nothing checks the source at all," not "this is a validated
+  measurement."
 
 ## Song job timeout raised: real full songs were hitting the 8-minute ceiling
 
@@ -4852,3 +4856,79 @@ for the one section it applies to and is confirmed absent both before
 and after that section (proving it's cleared, not just present when
 expected). Full suite: 1128 passed (1111 pre-existing + 17 new), zero
 regressions.
+
+## Cross-language emotional fidelity: a real, if Tier 2, first check
+
+**The gap**: every check in `engine/verify.py` compares the shipped
+adapted line against the Translator's own English literal anchor —
+never against the actual source-language text. That means an anchor
+that was already emotionally wrong (the Translator flattened a grieving
+line into something neutral, or amplified a wry aside into something
+melodramatic) becomes silent ground truth: every downstream check
+inherits it and nothing anywhere in the pipeline ever looks back at
+what the source actually said.
+
+**Why this can't be a deterministic check** like the rest of `verify.py`
+(word-diff, regex, CMU-dictionary lookups): telling whether a Hindi,
+Korean, Japanese, Spanish, or Urdu line's emotional register survived
+into English requires actually reading that language. No dictionary or
+string comparison substitutes for that. This is genuinely Tier 2 (a
+model's judgment, not a measurement) — disclosed as such everywhere it
+surfaces, same standard the Judge's own self-reported
+`invention_penalty` is already held to.
+
+**The check** (`engine/verify.py::check_cross_language_fidelity`, prompt
+in `engine/prompts.py::cross_language_fidelity_prompt`): given the real
+source text and the shipped final line, asks a model — scoped narrowly
+to emotional VALENCE and INTENSITY only, explicitly told a creative
+rewrite of phrasing/imagery/word-order is not itself a concern — whether
+the final line reads as `"preserved"`, `"flattened"`, `"amplified"`, or
+`"inverted"` relative to the source. Anything but `"preserved"` becomes
+a `severity="warning"` `Finding` (never `"error"`) — this is a
+probabilistic judgment about something as inherently fuzzy as emotional
+tone; it must stay visible without ever auto-blocking a section or
+feeding `engine/pipeline.py`'s corrective-retry loop the way a real
+deterministic error does.
+
+**Where it runs, and where it deliberately doesn't**: `verify_result`
+gained an optional `client: LLMClient | None = None` parameter — `None`
+(the default) reproduces the exact prior behavior of every existing
+caller with zero added cost or latency, since every other check in this
+file is still a pure computation. Only `server/main.py`'s SECOND
+`verify_result` call (the one that already runs after
+`run_engine`'s `apply_corrective_pass` has finished and only logs what's
+still true, never triggers another correction) now passes the real
+client — one extra LLM call per section, on the FINAL shipped wording,
+never on a draft that might still get rewritten. `engine/pipeline.py`'s
+own internal `verify_result` call inside `_apply_corrective_pass`
+deliberately still passes no client, so this check never runs mid-retry
+loop or doubles up. Real, disclosed cost: roughly one section's worth of
+extra translator-sized LLM calls per song (about a 33% increase in
+per-song verification-adjacent calls for the v1 room's 3-call-per-section
+baseline) — the user explicitly chose live-with-real-cost over an
+offline-only audit tool, after being shown the tradeoff.
+
+**Not claimed**: this is a first real check where there was previously
+none, not a validated measurement. There is no labeled corpus to
+calibrate the model's precision/recall against, no confidence
+threshold tuned against real failures, and no cross-checking against a
+second method (back-translation, bilingual NLI) the way the original
+gap description named as the "real" fix. `docs/CAPABILITY_MATRIX.md`'s
+own deferred-gap entry above is updated to say exactly this — "partially
+closed," not closed.
+
+**Verified**: 12 new tests (`tests/test_cross_language_fidelity.py`,
+deliberately separate from `tests/test_verify.py`, whose own docstring
+states "No LLM involved" — keeping that claim true for that file)
+covering: a `"preserved"` response producing no finding; `"flattened"`/
+`"amplified"`/`"inverted"` each producing a correctly-labeled warning;
+an unrecognized or missing response value degrading to no finding
+rather than a crash; a raised exception from the client degrading to no
+finding (same "decline honestly" standard `engine/comics_vision.py`'s
+optional read pass already holds itself to); the real source text and
+final line both actually reaching the prompt; and `verify_result`
+integration — no client means zero behavior change (byte-for-byte the
+same as every pre-existing caller), a client surfaces the finding as a
+warning that never flips `report.passed`, and the check is skipped
+outright when `source_language` or `source_sections` aren't present.
+Full suite: 1140 passed (1128 pre-existing + 12 new), zero regressions.

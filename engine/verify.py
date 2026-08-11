@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
+import logging
 import re
 import sys
 from collections import Counter
@@ -47,8 +48,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from .llm_client import LLMClient
 from .models import Deviation, SectionResultV1
 from .recurrence import detect_recurring_endings
+
+logger = logging.getLogger(__name__)
 from .rhyme import phoneme_repetition_similarity as _compute_pho_similarity
 from .rhyme import rhyme_density as _compute_rhyme_density
 from .rhythm import (
@@ -1067,8 +1071,90 @@ def _check_structural_recurrence(
     return findings
 
 
-def verify_result(result_dict: dict) -> VerificationReport:
-    """Verifies a stored EngineResult dict (a .result.json)."""
+# Valid engine/prompts.py::cross_language_fidelity_prompt responses that
+# indicate a real concern - "preserved" means no finding.
+_FIDELITY_BREAK_KINDS = frozenset({"flattened", "amplified", "inverted"})
+
+
+def check_cross_language_fidelity(
+    client: LLMClient,
+    source_text: str,
+    final_line: str,
+    source_language: str,
+    target_language: str,
+    section_name: str,
+) -> Finding | None:
+    """The one check in this file that compares the shipped line against
+    the actual SOURCE-LANGUAGE text directly - docs/CAPABILITY_MATRIX.md's
+    "Cross-language emotional fidelity verification": every other check
+    here only ever compares the shipped line against the Translator's own
+    English literal anchor, so an anchor that was ALREADY emotionally
+    wrong (flattened, amplified, or inverted relative to the true source)
+    is silently treated as ground truth by everything downstream.
+
+    Tier 2 (an LLM judgment, not a deterministic measurement) by
+    necessity - real bilingual reading comprehension of the source
+    language is not something a word-diff or dictionary lookup can
+    substitute for. Returns None (not an error) on any call failure or
+    unparseable response, same "decline honestly rather than fake a
+    result" standard the rest of this file already holds itself to -
+    engine/comics_vision.py's optional read pass is the same pattern.
+    Always severity="warning": this is a probabilistic judgment call
+    about something as genuinely ambiguous as emotional tone, not a
+    fact - it should be visible, never auto-block or auto-retry a
+    section the way a deterministic "error" finding does.
+    """
+    from . import prompts
+
+    system, user = prompts.cross_language_fidelity_prompt(
+        source_text, final_line, source_language, target_language, section_name
+    )
+    try:
+        data = client.complete_json(
+            system, user, max_tokens=300, stage="cross_language_fidelity"
+        )
+    except Exception as exc:  # noqa: BLE001 — deliberately broad; see docstring
+        logger.warning(
+            "Cross-language fidelity check failed for section %r, skipping: %s",
+            section_name,
+            exc,
+        )
+        return None
+
+    kind = data.get("emotional_fidelity")
+    if kind not in _FIDELITY_BREAK_KINDS:
+        return None  # "preserved", or an unrecognized value - either way, no finding.
+
+    concern = data.get("concern") or "No further explanation given."
+    confidence = data.get("confidence")
+    confidence_note = (
+        f" (model confidence: {confidence:.0%})" if isinstance(confidence, (int, float)) else ""
+    )
+    return Finding(
+        law="Cross-language emotional fidelity",
+        severity="warning",
+        section=section_name,
+        detail=(
+            f"Reading the actual {source_language} source directly (not the "
+            f"Translator's English anchor), the shipped line's emotional tone "
+            f"looks {kind.upper()} relative to the source{confidence_note}: {concern}"
+        ),
+        fragment=final_line[:120],
+    )
+
+
+def verify_result(result_dict: dict, client: LLMClient | None = None) -> VerificationReport:
+    """Verifies a stored EngineResult dict (a .result.json).
+
+    `client`, when given, additionally runs check_cross_language_fidelity
+    against every section with real source text — one extra LLM call per
+    section, so this is opt-in rather than the default: every OTHER check
+    in this function is a deterministic, zero-cost computation, and this
+    is the one exception. None (the default) reproduces the exact
+    pre-existing behavior of this function with zero added cost/latency —
+    every existing caller of verify_result is unaffected without passing
+    this explicitly.
+    """
     report = VerificationReport()
 
     sections: list[SectionResultV1] = []
@@ -1103,6 +1189,23 @@ def verify_result(result_dict: dict) -> VerificationReport:
         report.cross_section_findings.extend(
             _check_structural_recurrence(source_sections, sections_by_name)
         )
+
+        source_language = result_dict.get("source_language")
+        if client is not None and source_language:
+            for name, source_text in source_sections:
+                result = sections_by_name.get(name)
+                if result is None or result.skipped:
+                    continue
+                finding = check_cross_language_fidelity(
+                    client,
+                    source_text,
+                    result.ruling.final_line,
+                    source_language,
+                    target_language,
+                    name,
+                )
+                if finding is not None:
+                    report.cross_section_findings.append(finding)
 
     # --- Was this an adaptation at all? ------------------------------------
     # Checked song-wide, never per line. A single section that legitimately

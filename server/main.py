@@ -1917,8 +1917,14 @@ def _run_adaptation(
     # inside run_engine — this call never triggers another correction, it
     # only makes what's still true (if anything) visible in production
     # logs, since nothing was checking this in the deployed web app until
-    # now.
-    report = verify_result(engine_result.to_dict())
+    # now. `client=client` additionally runs the cross-language emotional
+    # fidelity check (engine/verify.py::check_cross_language_fidelity) —
+    # one extra LLM call per section, reading the actual source text
+    # directly rather than the Translator's own English anchor, which is
+    # the one thing nothing else in this pipeline ever double-checks.
+    # Warning-severity only (never triggers a retry) - a probabilistic
+    # judgment about emotional tone, not a fact to auto-correct against.
+    report = verify_result(engine_result.to_dict(), client=client)
     errors = [f for f in report.all_findings if f.severity == "error"]
     warnings = [f for f in report.all_findings if f.severity == "warning"]
     if errors:

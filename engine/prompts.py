@@ -1111,3 +1111,66 @@ def judge_final_prompt(
         "Render your final ruling now."
     )
     return system, user
+
+
+def cross_language_fidelity_prompt(
+    source_text: str,
+    final_line: str,
+    source_language: str,
+    target_language: str,
+    section_name: str,
+) -> tuple[str, str]:
+    """engine/verify.py's `check_cross_language_fidelity` — the ONE check
+    in that file that compares the shipped line against the actual
+    SOURCE-LANGUAGE text directly, rather than against the Translator's
+    own English literal anchor the way every other verify.py check does
+    (docs/CAPABILITY_MATRIX.md, "Cross-language emotional fidelity
+    verification"). An LLM call, deliberately: this needs real bilingual
+    reading comprehension of {source_language}, which no deterministic
+    check in this codebase can substitute for - Tier 2 (a judgment, not
+    a measurement), same disclosure standard as the Judge's own
+    self-reported invention_penalty.
+
+    Scoped narrowly to EMOTIONAL VALENCE and INTENSITY on purpose, not
+    general meaning equivalence - word-for-word fidelity is already
+    covered (for English targets) by verify.py's anchor-diff Law 1
+    check; what NOTHING today catches is the Translator's own anchor
+    itself being emotionally wrong (flattened, amplified, or inverted)
+    in a way every downstream check then silently inherits as ground
+    truth.
+    """
+    system = (
+        f"You read {source_language} fluently and are auditing an English-"
+        "language adaptation pipeline's output — but your review has "
+        "nothing to do with word choice, style, or singability. You are "
+        "checking exactly one thing: does the FINAL adapted line preserve "
+        "the EMOTIONAL VALENCE (positive/negative/ambivalent) and "
+        f"INTENSITY of the ORIGINAL {source_language} text? A creative "
+        "rewrite that changes phrasing, imagery, or word order is not a "
+        "problem — that is expected and is not what you are grading. What "
+        "counts as a real concern:\n"
+        "- FLATTENED: the source carries real emotional weight (grief, "
+        "longing, anger, joy) and the final line reads as neutral or "
+        "much milder.\n"
+        "- AMPLIFIED: the final line is more intense, more resolved, or "
+        "more dramatic than anything the source actually supports.\n"
+        "- INVERTED: the final line's emotional direction is the "
+        "opposite of the source's (source is bitter, final reads as "
+        "warm; source is hopeful, final reads as resigned).\n\n"
+        "Judge the FINAL line against the actual source text directly - "
+        "not against any English paraphrase or translation you might be "
+        "given elsewhere, and not against what you'd personally prefer "
+        "the line to say. If the emotional register genuinely matches, "
+        "say so plainly; do not manufacture a concern to seem thorough.\n\n"
+        'Respond with ONLY a JSON object: {"emotional_fidelity": '
+        '"preserved" | "flattened" | "amplified" | "inverted", "concern": '
+        "str or null (required, plain language, only when not "
+        '\\"preserved\\"), "confidence": float 0-1}.'
+    )
+    user = (
+        f"Section: {section_name}\n\n"
+        f"Original ({source_language}):\n{source_text}\n\n"
+        f"Final adapted line ({target_language}):\n{final_line}\n\n"
+        "Assess emotional fidelity now."
+    )
+    return system, user
