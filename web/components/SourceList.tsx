@@ -6,12 +6,12 @@
 export function SourceList({ sources }: { sources: { name: string; url: string; note?: string }[] }) {
   return (
     <div className="mt-14 border-t border-black/[0.10] pt-8 dark:border-white/[0.11]">
-      <h2 className="text-[12px] uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
+      <h2 className="text-[12px] uppercase tracking-[0.1em] text-ink/62 dark:text-ink-dark/62">
         Sources
       </h2>
       <ul className="mt-4 space-y-2.5">
         {sources.map((s) => (
-          <li key={s.url} className="text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <li key={s.url} className="text-[13px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             <a
               href={s.url}
               target="_blank"
@@ -20,7 +20,7 @@ export function SourceList({ sources }: { sources: { name: string; url: string; 
             >
               {s.name}
             </a>
-            {s.note && <span className="text-ink/40 dark:text-ink-dark/40"> — {s.note}</span>}
+            {s.note && <span className="text-ink/62 dark:text-ink-dark/62"> — {s.note}</span>}
           </li>
         ))}
       </ul>

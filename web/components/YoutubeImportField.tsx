@@ -60,11 +60,11 @@ export function YoutubeImportField({
   }
 
   const fieldClass = dark
-    ? "border-white/10 bg-white/[0.04] text-white placeholder:text-white/25 focus:border-white/20"
-    : "border-black/[0.12] bg-white/70 text-ink placeholder:text-ink/30 focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30";
+    ? "border-white/10 bg-white/[0.04] text-white placeholder:text-white/38 focus:border-white/20"
+    : "border-black/[0.12] bg-white/70 text-ink placeholder:text-ink/45 focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45";
   const buttonClass = dark
     ? "border-white/15 text-white/80 hover:border-white/30 hover:text-white"
-    : "border-black/10 text-ink/70 hover:border-black/20 hover:text-ink dark:border-white/10 dark:text-ink-dark/70";
+    : "border-black/10 text-ink/78 hover:border-black/20 hover:text-ink dark:border-white/10 dark:text-ink-dark/78";
 
   return (
     <div className="w-full">

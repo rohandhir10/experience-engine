@@ -23,7 +23,7 @@ export default function UsagePage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               Usage
             </h1>
-            <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
               Your current balance and every adaptation charged against it,
               most recent first.
             </p>

@@ -54,7 +54,7 @@ export function LoadingScreen({
         <span className="h-5 w-5 animate-spin rounded-full border-[1.5px] border-ink/15 border-t-ink/60 dark:border-ink-dark/15 dark:border-t-ink-dark/60" />
         <p
           key={message}
-          className="animate-fade-up font-serif text-[1.35rem] text-ink/70 dark:text-ink-dark/70"
+          className="animate-fade-up font-serif text-[1.35rem] text-ink/78 dark:text-ink-dark/78"
         >
           {message}
         </p>

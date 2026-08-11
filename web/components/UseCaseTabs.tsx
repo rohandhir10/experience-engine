@@ -43,14 +43,14 @@ export function UseCaseTabs() {
             className={`rounded-full border px-3 py-1.5 text-[13px] transition ${
               active === i
                 ? "border-accent/40 bg-accent/10 text-accent"
-                : "border-black/10 text-ink/50 hover:text-ink/80 dark:border-white/10 dark:text-ink-dark/50 dark:hover:text-ink-dark/80"
+                : "border-black/10 text-ink/68 hover:text-ink/80 dark:border-white/10 dark:text-ink-dark/68 dark:hover:text-ink-dark/80"
             }`}
           >
             {tab.label}
           </button>
         ))}
       </div>
-      <p className="mt-4 max-w-md text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+      <p className="mt-4 max-w-md text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
         {TABS[active].caption}
       </p>
     </div>

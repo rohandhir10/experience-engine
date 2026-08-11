@@ -18,7 +18,7 @@ export default function CollectionsPage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               Collections
             </h1>
-            <p className="mt-2 text-[13px] text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-2 text-[13px] text-ink/62 dark:text-ink-dark/62">
               Group your adaptations however you like — by artist, language,
               or mood.
             </p>

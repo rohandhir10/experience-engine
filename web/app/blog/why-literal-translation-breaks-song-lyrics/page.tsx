@@ -35,7 +35,7 @@ export default function Post() {
         label: "Try it on a lyric",
       }}
     >
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         Ask a machine translation engine to translate a song lyric and
         you'll get something that's often technically accurate and almost
         never singable. That's not a bug in the engine - it's a mismatch
@@ -46,7 +46,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Five demands, not one
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         Translation researcher Peter Low's 2003 paper in{" "}
         <em>Perspectives: Studies in Translatology</em> names this problem
         directly with what he calls the "Pentathlon Principle": a singable
@@ -58,7 +58,7 @@ export default function Post() {
         as sacrosanct actively produces a worse lyric translation, because
         it forces the other four to break.
       </p>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         A word-for-word rendering of a line can satisfy "sense" almost
         perfectly and still fail every other demand - it won't scan
         against the melody, it won't rhyme where the original did, and it
@@ -68,7 +68,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         The tradeoff is real, and measurable
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         This isn't just translator intuition. A 2010 EMNLP paper by
         Greene, Bodrumlu, and Knight built a statistical MT system that
         explicitly constrains its output to fit rhyme and meter, and found
@@ -83,7 +83,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         What this means for adapting a lyric
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         If a good lyric translation genuinely requires departing from a
         literal reading, the departure has to be made on purpose, with
         something to check it against - not left to whatever a single

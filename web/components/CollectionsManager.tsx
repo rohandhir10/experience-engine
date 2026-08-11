@@ -113,14 +113,14 @@ export function CollectionsManager() {
   }
 
   if (state.status === "loading") {
-    return <p className="mt-4 text-[14px] text-ink/30 dark:text-ink-dark/30">Loading…</p>;
+    return <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
-      <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
         <Link
           href="/sign-in"
-          className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70"
+          className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/78"
         >
           Sign in
         </Link>{" "}
@@ -130,7 +130,7 @@ export function CollectionsManager() {
   }
   if (state.status === "error") {
     return (
-      <p className="mt-4 text-[14px] text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] text-ink/62 dark:text-ink-dark/62">
         Couldn't load your collections right now.
       </p>
     );
@@ -159,7 +159,7 @@ export function CollectionsManager() {
           onChange={(e) => setNewName(e.target.value)}
           placeholder="New collection name…"
           maxLength={100}
-          className="min-w-0 flex-1 rounded-full border border-black/[0.12] bg-white/70 px-4 py-2 text-[14px] text-ink outline-none transition placeholder:text-ink/30 focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+          className="min-w-0 flex-1 rounded-full border border-black/[0.12] bg-white/70 px-4 py-2 text-[14px] text-ink outline-none transition placeholder:text-ink/45 focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
         />
         <button
           type="submit"
@@ -171,7 +171,7 @@ export function CollectionsManager() {
       </form>
 
       {state.collections.length === 0 ? (
-        <p className="mt-6 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+        <p className="mt-6 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
           No collections yet — make one above to start grouping your
           adaptations.
         </p>
@@ -187,14 +187,14 @@ export function CollectionsManager() {
                 <span className="block truncate text-[14px] text-ink/80 transition hover:text-ink dark:text-ink-dark/80 dark:hover:text-ink-dark">
                   {collection.name}
                 </span>
-                <span className="text-[12px] text-ink/35 dark:text-ink-dark/35">
+                <span className="text-[12px] text-ink/50 dark:text-ink-dark/50">
                   {collection.count} {collection.count === 1 ? "song" : "songs"}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={() => handleRename(collection)}
-                className="shrink-0 text-[12px] text-ink/40 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 dark:text-ink-dark/40 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+                className="shrink-0 text-[12px] text-ink/62 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/62 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
               >
                 Rename
               </button>
@@ -290,7 +290,7 @@ function CollectionDetail({
       <button
         type="button"
         onClick={onBack}
-        className="text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+        className="text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
       >
         ← All collections
       </button>
@@ -300,9 +300,9 @@ function CollectionDetail({
       </h2>
 
       {members === null ? (
-        <p className="mt-4 text-[14px] text-ink/30 dark:text-ink-dark/30">Loading…</p>
+        <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>
       ) : members.length === 0 ? (
-        <p className="mt-4 text-[14px] text-ink/40 dark:text-ink-dark/40">
+        <p className="mt-4 text-[14px] text-ink/62 dark:text-ink-dark/62">
           Nothing in this collection yet.
         </p>
       ) : (
@@ -311,7 +311,7 @@ function CollectionDetail({
             <li key={entry.resultId} className="flex items-center gap-3 py-3">
               <Link
                 href={`/s/${entry.resultId}`}
-                className="min-w-0 flex-1 truncate text-[14px] text-ink/75 transition hover:text-ink dark:text-ink-dark/75 dark:hover:text-ink-dark"
+                className="min-w-0 flex-1 truncate text-[14px] text-ink/80 transition hover:text-ink dark:text-ink-dark/80 dark:hover:text-ink-dark"
               >
                 {entry.hook || "Untitled adaptation"}
               </Link>
@@ -319,7 +319,7 @@ function CollectionDetail({
                 type="button"
                 onClick={() => setMembership(entry, false)}
                 disabled={pending.has(entry.resultId)}
-                className="shrink-0 text-[12px] text-ink/40 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 disabled:opacity-40 dark:text-ink-dark/40 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+                className="shrink-0 text-[12px] text-ink/62 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 disabled:opacity-40 dark:text-ink-dark/62 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
               >
                 Remove
               </button>
@@ -333,7 +333,7 @@ function CollectionDetail({
           <button
             type="button"
             onClick={() => setShowPicker((v) => !v)}
-            className="text-[13px] text-ink/50 transition hover:text-ink/80 dark:text-ink-dark/50 dark:hover:text-ink-dark/80"
+            className="text-[13px] text-ink/68 transition hover:text-ink/80 dark:text-ink-dark/68 dark:hover:text-ink-dark/80"
           >
             {showPicker ? "Hide" : "Add from your history"} ({addable.length})
           </button>
@@ -341,14 +341,14 @@ function CollectionDetail({
             <ul className="mt-3 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
               {addable.map((entry) => (
                 <li key={entry.resultId} className="flex items-center gap-3 py-2.5">
-                  <span className="min-w-0 flex-1 truncate text-[14px] text-ink/60 dark:text-ink-dark/60">
+                  <span className="min-w-0 flex-1 truncate text-[14px] text-ink/72 dark:text-ink-dark/72">
                     {entry.hook || "Untitled adaptation"}
                   </span>
                   <button
                     type="button"
                     onClick={() => setMembership(entry, true)}
                     disabled={pending.has(entry.resultId)}
-                    className="shrink-0 rounded-full border border-black/10 px-3 py-1 text-[12px] text-ink/60 transition hover:text-ink disabled:opacity-40 dark:border-white/10 dark:text-ink-dark/60 dark:hover:text-ink-dark"
+                    className="shrink-0 rounded-full border border-black/10 px-3 py-1 text-[12px] text-ink/72 transition hover:text-ink disabled:opacity-40 dark:border-white/10 dark:text-ink-dark/72 dark:hover:text-ink-dark"
                   >
                     Add
                   </button>

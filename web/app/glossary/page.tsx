@@ -152,7 +152,7 @@ export default function GlossaryPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Localization &amp; translation glossary.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             The terms that actually matter for judging whether a
             translation or adaptation is good - not a marketing glossary,
             the working vocabulary behind{" "}
@@ -173,13 +173,13 @@ export default function GlossaryPage() {
                 {TERMS.filter((t) => t.category === category).map((t) => (
                   <div key={t.slug} id={t.slug} className="scroll-mt-24 border-b border-black/[0.10] pb-8 dark:border-white/[0.11]">
                     <h3 className="font-serif text-lg text-ink dark:text-ink-dark">{t.term}</h3>
-                    <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+                    <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
                       {t.definition}
                     </p>
                     {t.related && (
                       <Link
                         href={t.related.href}
-                        className="mt-2.5 inline-block text-[13px] underline decoration-ink/20 underline-offset-4 text-ink/50 hover:text-ink/75 dark:text-ink-dark/50 dark:hover:text-ink-dark/75"
+                        className="mt-2.5 inline-block text-[13px] underline decoration-ink/20 underline-offset-4 text-ink/68 hover:text-ink/80 dark:text-ink-dark/68 dark:hover:text-ink-dark/80"
                       >
                         {t.related.label} →
                       </Link>

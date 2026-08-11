@@ -97,14 +97,14 @@ export function ApiKeysManager() {
   }
 
   if (state.status === "loading") {
-    return <p className="mt-4 text-[14px] text-ink/30 dark:text-ink-dark/30">Loading…</p>;
+    return <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
-      <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
         <Link
           href="/sign-in"
-          className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70"
+          className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/78"
         >
           Sign in
         </Link>{" "}
@@ -114,7 +114,7 @@ export function ApiKeysManager() {
   }
   if (state.status === "error") {
     return (
-      <p className="mt-4 text-[14px] text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] text-ink/62 dark:text-ink-dark/62">
         Couldn't load your API keys right now.
       </p>
     );
@@ -127,7 +127,7 @@ export function ApiKeysManager() {
           <p className="text-[13px] font-medium text-ink dark:text-ink-dark">
             "{justCreated.name}" created — copy this key now
           </p>
-          <p className="mt-1 text-[12px] text-ink/50 dark:text-ink-dark/50">
+          <p className="mt-1 text-[12px] text-ink/68 dark:text-ink-dark/68">
             This is the only time the full key is shown. Store it somewhere safe.
           </p>
           <div className="mt-3 flex items-center gap-2">
@@ -154,7 +154,7 @@ export function ApiKeysManager() {
             if (e.key === "Enter") createKey();
           }}
           placeholder="e.g. Production"
-          className="w-56 rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[13px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+          className="w-56 rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[13px] text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
         />
         <button
           type="button"
@@ -168,7 +168,7 @@ export function ApiKeysManager() {
       {error && <p className="mt-2 text-[12px] text-red-500/80">{error}</p>}
 
       {state.keys.length === 0 ? (
-        <p className="mt-6 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+        <p className="mt-6 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
           No API keys yet — create one to call the public API.
         </p>
       ) : (
@@ -178,9 +178,9 @@ export function ApiKeysManager() {
               <div className="min-w-0">
                 <p className="truncate text-[14px] text-ink/80 dark:text-ink-dark/80">
                   {key.name}{" "}
-                  <span className="text-ink/35 dark:text-ink-dark/35">{key.prefix}…</span>
+                  <span className="text-ink/50 dark:text-ink-dark/50">{key.prefix}…</span>
                 </p>
-                <p className="mt-0.5 text-[12px] text-ink/35 dark:text-ink-dark/35">
+                <p className="mt-0.5 text-[12px] text-ink/50 dark:text-ink-dark/50">
                   {key.revokedAt
                     ? `Revoked ${new Date(key.revokedAt).toLocaleDateString()}`
                     : key.lastUsedAt

@@ -23,7 +23,7 @@ export default function AdaptationsPage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               Adaptations
             </h1>
-            <p className="mt-2 text-[13px] text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-2 text-[13px] text-ink/62 dark:text-ink-dark/62">
               Every song and comic chapter you've adapted, most recent
               first — songs and webtoons together.
             </p>

@@ -25,12 +25,12 @@ export default function PrivacyPage() {
           <h1 className="font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Privacy Policy
           </h1>
-          <p className="mt-3 text-[13px] text-ink/40 dark:text-ink-dark/40">
+          <p className="mt-3 text-[13px] text-ink/62 dark:text-ink-dark/62">
             Last updated: [DATE] · DRAFT — pending legal review, not yet in effect
           </p>
         </div>
 
-        <div className="mt-10 space-y-9 text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+        <div className="mt-10 space-y-9 text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
           <Section title="1. What we collect">
             <p>Directly from you:</p>
             <ul className="mt-2 list-disc space-y-1.5 pl-5">

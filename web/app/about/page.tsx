@@ -41,14 +41,14 @@ export default function AboutPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             About Castia
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             Castia is built and run by {FOUNDER_NAME}.
           </p>
         </div>
 
         <section className="mt-12">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">What Castia is</h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Castia adapts song lyrics and comic/webtoon dialogue across six
             languages through a three-stage pipeline - a literal Translator
             anchor, five Creative Adapter rewrites, and a Judge that picks a
@@ -70,7 +70,7 @@ export default function AboutPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             How the writing on this site is sourced
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Every outside claim in Castia's blog, comparison, and guide
             pages - a research finding, an industry rate, a competitor's own
             description of its technology - links to the actual source
@@ -80,7 +80,7 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <p className="mt-12 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-12 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Questions about the product? Start with the{" "}
           <Link href="/faq" className="underline decoration-ink/20 underline-offset-4">
             FAQ

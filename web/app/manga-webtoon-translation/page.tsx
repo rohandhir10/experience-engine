@@ -65,7 +65,7 @@ function PanelDiagram() {
           <span className="absolute -left-2.5 -top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-paper">
             1
           </span>
-          <p className="font-serif text-[12px] italic leading-snug text-ink/70 dark:text-ink-dark/70">
+          <p className="font-serif text-[12px] italic leading-snug text-ink/78 dark:text-ink-dark/78">
             &ldquo;You're late again.&rdquo;
           </p>
         </div>
@@ -76,13 +76,13 @@ function PanelDiagram() {
           <span className="absolute -right-2.5 -top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-medium text-paper">
             2
           </span>
-          <p className="font-serif text-[12px] italic leading-snug text-ink/70 dark:text-ink-dark/70">
+          <p className="font-serif text-[12px] italic leading-snug text-ink/78 dark:text-ink-dark/78">
             &ldquo;Traffic. Don't start.&rdquo;
           </p>
         </div>
       </div>
 
-      <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] uppercase tracking-[0.1em] text-ink/30 dark:text-ink-dark/30">
+      <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] uppercase tracking-[0.1em] text-ink/45 dark:text-ink-dark/45">
         Reading order, detected
       </p>
     </div>
@@ -118,7 +118,7 @@ export default function MangaWebtoonTranslationPage() {
               <br />
               Neither is the voice.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               Upload a chapter's panels and Castia reads every speech
               bubble in the order it's meant to be read, then keeps each
               character sounding like themselves from the first line to
@@ -138,7 +138,7 @@ export default function MangaWebtoonTranslationPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Bubble text, detected panel by panel
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Each panel goes through Google Cloud Vision OCR, which detects
             every speech bubble's text and its position, so nothing needs
             to be manually transcribed before adaptation can start. A
@@ -148,7 +148,7 @@ export default function MangaWebtoonTranslationPage() {
             consistent from the first panel to the last instead of being
             re-decided line by line with no memory of what came before.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Reading order is inferred from where each bubble sits, so the
             same detection pass handles a manga spread read right to left
             and a webtoon strip read top to bottom. Without a dedicated
@@ -167,7 +167,7 @@ export default function MangaWebtoonTranslationPage() {
             <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
               Dialogue runs through the full Writers' Room
             </h2>
-            <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+            <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
               Once the dialogue is read, every line goes through the
               identical Translator → Creative Adapter → Judge pipeline the
               music side uses: a literal anchor, five creative rewrites,
@@ -185,10 +185,10 @@ export default function MangaWebtoonTranslationPage() {
         </section>
 
         <div className="mt-14 rounded-2xl border border-black/[0.12] bg-black/[0.02] p-6 dark:border-white/[0.12] dark:bg-white/[0.03] sm:p-7">
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
             What Beta actually means here
           </p>
-          <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Save, collections, and share-links work the same way they do
             for music — that part isn't the Beta gap. Two things
             specifically aren't finished: sound-effect text drawn directly
@@ -204,7 +204,7 @@ export default function MangaWebtoonTranslationPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Optional redraw &amp; typeset
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             A redraw step can erase the original lettering from a panel -
             inpainting the artwork underneath it - and typeset the adapted
             line back in, sized and wrapped to fit the bubble. This is the
@@ -213,7 +213,7 @@ export default function MangaWebtoonTranslationPage() {
             replacement for a full professional pipeline on something
             high-stakes.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Publishers Weekly's 2023 reporting on freelance manga
             translators organizing over pay described rates in the
             neighborhood of $100-250 per chapter on weekly series — that's
@@ -236,7 +236,7 @@ export default function MangaWebtoonTranslationPage() {
 
         <SourceList sources={SOURCES} />
 
-        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Working with song lyrics instead? See{" "}
           <Link href="/lyrics-translation" className="underline decoration-ink/20 underline-offset-4">
             song lyric translation

@@ -37,7 +37,7 @@ export function ThemeToggle({ forceDark }: { forceDark?: boolean }) {
       type="button"
       onClick={toggle}
       aria-label={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Toggle theme"}
-      className="grid h-7 w-7 place-items-center rounded-full text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
+      className="grid h-7 w-7 place-items-center rounded-full text-ink/65 transition hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
     >
       {mounted && theme === "dark" ? (
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">

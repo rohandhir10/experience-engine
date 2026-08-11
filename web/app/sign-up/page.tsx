@@ -56,14 +56,14 @@ export default function SignUpPage() {
         {status.kind === "sent" ? (
           <>
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">Check your email.</h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               We sent a verification link to <strong className="text-ink/80 dark:text-ink-dark/80">{status.email}</strong>.
               Click it to activate your account, then come back and sign in.
             </p>
             <button
               type="button"
               onClick={handleResend}
-              className="mt-8 w-full rounded-full border border-black/10 px-6 py-3 text-[14px] text-ink/60 transition hover:text-ink dark:border-white/10 dark:text-ink-dark/60 dark:hover:text-ink-dark"
+              className="mt-8 w-full rounded-full border border-black/10 px-6 py-3 text-[14px] text-ink/72 transition hover:text-ink dark:border-white/10 dark:text-ink-dark/72 dark:hover:text-ink-dark"
             >
               Resend the link
             </button>
@@ -71,14 +71,14 @@ export default function SignUpPage() {
         ) : (
           <>
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">Create an account.</h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               You don't need one to use CASTIA — sign up to keep a history of
               every song you adapt, on any device.
             </p>
 
             <form onSubmit={handleSubmit} className="mt-8 w-full space-y-3 text-left">
               <div>
-                <label htmlFor="email" className="text-[12px] text-ink/45 dark:text-ink-dark/45">
+                <label htmlFor="email" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
                   Email
                 </label>
                 <input
@@ -92,7 +92,7 @@ export default function SignUpPage() {
                 />
               </div>
               <div>
-                <label htmlFor="password" className="text-[12px] text-ink/45 dark:text-ink-dark/45">
+                <label htmlFor="password" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
                   Password
                 </label>
                 <input
@@ -105,7 +105,7 @@ export default function SignUpPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-black/10 bg-transparent px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-ink/30 dark:border-white/10 dark:text-ink-dark dark:focus:border-ink-dark/30"
                 />
-                <p className="mt-1 text-[12px] text-ink/35 dark:text-ink-dark/35">At least 8 characters.</p>
+                <p className="mt-1 text-[12px] text-ink/50 dark:text-ink-dark/50">At least 8 characters.</p>
               </div>
 
               {status.kind === "error" && (
@@ -121,7 +121,7 @@ export default function SignUpPage() {
               </button>
             </form>
 
-            <p className="mt-6 text-[13px] text-ink/45 dark:text-ink-dark/45">
+            <p className="mt-6 text-[13px] text-ink/65 dark:text-ink-dark/65">
               Already have an account?{" "}
               <Link href="/sign-in" className="underline decoration-ink/20 underline-offset-4">
                 Sign in
@@ -132,7 +132,7 @@ export default function SignUpPage() {
 
         <Link
           href="/music#lyrics"
-          className="mt-6 text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+          className="mt-6 text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
         >
           Just take me to CASTIA →
         </Link>

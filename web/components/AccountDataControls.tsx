@@ -82,7 +82,7 @@ export function AccountDataControls() {
         <p className="text-[14px] font-medium text-ink dark:text-ink-dark">
           Download your data
         </p>
-        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Everything on this account as a JSON file — your adaptations and their
           full adapted text, collections, credit history, and character bibles.
           API keys are listed by name only; the keys themselves were shown once at
@@ -92,7 +92,7 @@ export function AccountDataControls() {
           type="button"
           onClick={handleExport}
           disabled={exporting}
-          className="mt-3 rounded-full border border-black/[0.13] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+          className="mt-3 rounded-full border border-black/[0.13] px-5 py-2 text-[13px] font-medium text-ink/78 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/78 dark:hover:text-ink-dark"
         >
           {exporting ? "Preparing…" : "Download my data"}
         </button>
@@ -102,7 +102,7 @@ export function AccountDataControls() {
         <p className="text-[14px] font-medium text-ink dark:text-ink-dark">
           Delete this account
         </p>
-        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Permanently removes your account, adaptation history, collections, API
           keys, credit history and character bibles. Any remaining credit balance
           is forfeited. This cannot be undone — download your data first if you
@@ -111,8 +111,8 @@ export function AccountDataControls() {
 
         {email ? (
           <>
-            <label className="mt-3 block text-[12px] text-ink/50 dark:text-ink-dark/50">
-              Type <span className="font-medium text-ink/70 dark:text-ink-dark/70">{email}</span> to
+            <label className="mt-3 block text-[12px] text-ink/68 dark:text-ink-dark/68">
+              Type <span className="font-medium text-ink/78 dark:text-ink-dark/78">{email}</span> to
               confirm
               <input
                 type="text"
@@ -132,7 +132,7 @@ export function AccountDataControls() {
             </button>
           </>
         ) : (
-          <p className="mt-3 text-[13px] text-ink/40 dark:text-ink-dark/40">
+          <p className="mt-3 text-[13px] text-ink/62 dark:text-ink-dark/62">
             Sign in to manage this account.
           </p>
         )}

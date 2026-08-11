@@ -161,14 +161,14 @@ export function PanelUploader({
         <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
           Drop chapter images, a PDF, or a ZIP here
         </p>
-        <p className="max-w-sm text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="max-w-sm text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           JPG, PNG, or WebP panel slices, in any order — they'll be sorted by file name once
           they're in. A PDF works too: each page becomes its own panel automatically. So does a
           ZIP of pre-sliced images — the standard hand-off for a webtoon episode.
         </p>
 
         {converting && (
-          <p className="text-[12px] text-ink/50 dark:text-ink-dark/50">
+          <p className="text-[12px] text-ink/68 dark:text-ink-dark/68">
             Converting {converting}…
           </p>
         )}
@@ -191,7 +191,7 @@ export function PanelUploader({
           <button
             type="button"
             onClick={() => folderInputRef.current?.click()}
-            className="rounded-full border border-black/[0.13] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+            className="rounded-full border border-black/[0.13] px-5 py-2 text-[13px] font-medium text-ink/78 transition hover:border-black/20 hover:text-ink dark:border-white/[0.15] dark:text-ink-dark/78 dark:hover:text-ink-dark"
           >
             Choose a folder
           </button>

@@ -28,8 +28,8 @@ export function MediumSwitcher({
   const border = forceDark ? "border-white/10" : "border-black/[0.12] dark:border-white/[0.12]";
   const activeClass = forceDark ? "bg-white/10 text-white/90" : "bg-black/[0.05] text-ink dark:bg-white/10 dark:text-ink-dark";
   const inactiveClass = forceDark
-    ? "text-white/40 hover:text-white/70"
-    : "text-ink/40 hover:text-ink/70 dark:text-ink-dark/40 dark:hover:text-ink-dark/70";
+    ? "text-white/62 hover:text-white/78"
+    : "text-ink/62 hover:text-ink/78 dark:text-ink-dark/62 dark:hover:text-ink-dark/78";
 
   return (
     <div className={`hidden items-center gap-1 rounded-full border p-0.5 text-[12px] sm:flex ${border}`}>

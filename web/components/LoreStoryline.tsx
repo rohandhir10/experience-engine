@@ -58,7 +58,7 @@ export function LoreStoryline({
   }
 
   return (
-    <p className="mt-4 text-[12px] italic leading-relaxed text-ink/35 dark:text-ink-dark/35">
+    <p className="mt-4 text-[12px] italic leading-relaxed text-ink/50 dark:text-ink-dark/50">
       {sentence}
     </p>
   );

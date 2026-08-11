@@ -49,7 +49,7 @@ function CandidateDiagram() {
   const others = [1, 2, 3, 4];
   return (
     <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
         Five rewrites, scored against the anchor
       </p>
       <div className="mt-4 space-y-2">
@@ -64,13 +64,13 @@ function CandidateDiagram() {
         {others.map((i) => (
           <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2 opacity-40">
             <span className="h-5 w-5 shrink-0 rounded-full border border-ink/20 dark:border-ink-dark/20" />
-            <p className="font-serif text-[13px] leading-snug text-ink/60 dark:text-ink-dark/60">
+            <p className="font-serif text-[13px] leading-snug text-ink/72 dark:text-ink-dark/72">
               Rewrite {i}
             </p>
           </div>
         ))}
       </div>
-      <p className="mt-4 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.10] dark:text-ink-dark/50">
+      <p className="mt-4 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/68 dark:border-white/[0.10] dark:text-ink-dark/68">
         &ldquo;Kept the near-rhyme, dropped the literal &lsquo;grows&rsquo;
         to make it singable against the melody.&rdquo;
       </p>
@@ -128,7 +128,7 @@ export default function HowItWorksPage() {
               <br />
               One wins, and it has to say why.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               Every line — whether it's a song lyric or a comic panel's
               dialogue — goes through the same three-stage pipeline below,
               and every departure from a literal translation ships with a
@@ -160,7 +160,7 @@ export default function HowItWorksPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Why five rewrites and a Judge, not one pass
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             A standard neural machine translation system — the kind behind
             Google Translate and DeepL — is architecturally built to decode
             a single, most-probable target-language sentence and return it.
@@ -173,7 +173,7 @@ export default function HowItWorksPage() {
             translations. A single-pass system has no mechanism for making
             that tradeoff on purpose.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             It's also why the Judge is a scoring model reading against a
             literal anchor, not an automated metric like BLEU. Callison-Burch
             et al.'s 2006 analysis of BLEU — the standard automated
@@ -184,7 +184,7 @@ export default function HowItWorksPage() {
             better. Scoring against the literal anchor's actual meaning,
             the way the Judge does, sidesteps that specific blind spot.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Before a rewrite ever reaches the Judge, it's also checked for a
             specific set of failure patterns an automated pass can catch
             reliably: short lyric lines collapsing into one run-on prose
@@ -197,11 +197,11 @@ export default function HowItWorksPage() {
         </section>
 
         <div className="mt-14 rounded-2xl bg-[#181310] p-8 sm:p-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">Music</p>
+          <p className="text-[12px] uppercase tracking-[0.15em] text-white/38">Music</p>
           <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
             Source lyrics in, verified output out.
           </h2>
-          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
+          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
             Six languages, either direction — English, Hindi, Japanese,
             Korean, Spanish, and Urdu — each with its own language profile
             so idiom and rhythm checks apply the rules that actually govern
@@ -215,13 +215,13 @@ export default function HowItWorksPage() {
         </div>
 
         <div className="mt-8 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+          <p className="text-[12px] uppercase tracking-[0.15em] text-white/38">
             Webtoons &amp; comics (Beta)
           </p>
           <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
             OCR, a cast profile, then the identical Writers' Room.
           </h2>
-          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
+          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
             A chapter's panels go through Google Cloud Vision OCR, which
             detects each speech bubble's text and the order it's meant to
             be read in. Before any line is translated, a separate pass
@@ -233,7 +233,7 @@ export default function HowItWorksPage() {
             Translator → Creative Adapter → Judge pipeline the music side
             uses — not a separate, lesser engine.
           </p>
-          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
+          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
             An optional redraw pass can erase the original lettering,
             inpaint the artwork underneath it, and typeset the adapted line
             back into the bubble — with overlapping speech bubbles merged
@@ -248,7 +248,7 @@ export default function HowItWorksPage() {
           </div>
         </div>
 
-        <p className="mt-12 max-w-prose text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+        <p className="mt-12 max-w-prose text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
           Try it on a real result first —{" "}
           <Link href="/s/demo" className="underline decoration-ink/20 underline-offset-4">
             see the worked example
@@ -271,12 +271,12 @@ export default function HowItWorksPage() {
 function Step({ n, title, body }: { n: string; title: string; body: string }) {
   return (
     <div className="flex gap-5">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 font-serif text-[13px] text-ink/50 dark:border-white/10 dark:text-ink-dark/50">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/10 font-serif text-[13px] text-ink/68 dark:border-white/10 dark:text-ink-dark/68">
         {n}
       </div>
       <div>
         <h3 className="font-serif text-lg text-ink dark:text-ink-dark">{title}</h3>
-        <p className="mt-1.5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+        <p className="mt-1.5 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
           {body}
         </p>
       </div>

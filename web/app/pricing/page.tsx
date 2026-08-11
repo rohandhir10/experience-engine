@@ -81,20 +81,20 @@ function FreeRightNowPanel() {
         Right now
       </p>
       <p className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">Free</p>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
         No account, no card, no limit tier - billing isn't live.
       </p>
 
       <div className="my-5 border-t border-dashed border-black/10 dark:border-white/10" />
 
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
         Building toward
       </p>
-      <p className="mt-2 font-serif text-2xl text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-2 font-serif text-2xl text-ink/62 dark:text-ink-dark/62">
         ${PACKS[0].price}&ndash;${SUBSCRIPTION.price}
-        <span className="text-[13px] font-sans text-ink/35 dark:text-ink-dark/35"> credits &amp; monthly</span>
+        <span className="text-[13px] font-sans text-ink/50 dark:text-ink-dark/50"> credits &amp; monthly</span>
       </p>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
         The tiers below, once Paddle checkout goes live.
       </p>
     </div>
@@ -136,7 +136,7 @@ export default function PricingPage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Pricing.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               CASTIA is free to try right now, for everyone, with no
               account needed - that's a limitation of billing not existing
               yet, not the plan. What's below is the credit-based pricing
@@ -152,7 +152,7 @@ export default function PricingPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             How credits work
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             One credit is one unit of adaptation work. A typical song
             (~6 sections) runs about {SONG_CREDITS} credits. A typical
             manga/webtoon page (~5 panels, including the OCR and redraw
@@ -162,7 +162,7 @@ export default function PricingPage() {
             sparse one can run lower. Music and comics draw from the same
             credit balance.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             For comparison: professional manga localization freelancers
             typically charge $5/page and up just for translation, before
             typesetting. At Starter-pack rates, a full page here - translated,
@@ -174,7 +174,7 @@ export default function PricingPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Pay-as-you-go credit packs
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             Buy credits once, use them whenever. They don't expire and
             they're never charged again on their own.
           </p>
@@ -190,13 +190,13 @@ export default function PricingPage() {
                 <p className="mt-2 text-2xl text-ink dark:text-ink-dark">
                   ${pack.price}
                 </p>
-                <p className="mt-1 text-[13px] text-ink/45 dark:text-ink-dark/45">
+                <p className="mt-1 text-[13px] text-ink/65 dark:text-ink-dark/65">
                   {pack.credits.toLocaleString()} credits
                 </p>
-                <p className="mt-4 text-[13px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+                <p className="mt-4 text-[13px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
                   {pack.blurb}
                 </p>
-                <p className="mt-4 text-[12px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+                <p className="mt-4 text-[12px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
                   ~${perSong(pack.price, pack.credits)}/song · ~$
                   {perPage(pack.price, pack.credits)}/page
                 </p>
@@ -212,7 +212,7 @@ export default function PricingPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Creator subscription
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             For regular use without buying a new pack every time.
           </p>
           <div className="mt-6 rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11] sm:max-w-sm">
@@ -221,18 +221,18 @@ export default function PricingPage() {
             </p>
             <p className="mt-2 text-2xl text-ink dark:text-ink-dark">
               ${SUBSCRIPTION.price}
-              <span className="text-[14px] text-ink/45 dark:text-ink-dark/45">
+              <span className="text-[14px] text-ink/65 dark:text-ink-dark/65">
                 {" "}
                 / month
               </span>
             </p>
-            <p className="mt-1 text-[13px] text-ink/45 dark:text-ink-dark/45">
+            <p className="mt-1 text-[13px] text-ink/65 dark:text-ink-dark/65">
               {SUBSCRIPTION.credits.toLocaleString()} credits / month
             </p>
-            <p className="mt-4 text-[13px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+            <p className="mt-4 text-[13px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
               {SUBSCRIPTION.blurb}
             </p>
-            <p className="mt-4 text-[12px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-4 text-[12px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
               ~${perSong(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/song · ~$
               {perPage(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/page
             </p>
@@ -251,7 +251,7 @@ export default function PricingPage() {
               <p className="font-serif text-xl text-ink dark:text-ink-dark">
                 Studio
               </p>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
                 For teams shipping adaptations at volume.
               </p>
               <ul className="mt-5 space-y-2">
@@ -259,14 +259,14 @@ export default function PricingPage() {
                   (f) => (
                     <li
                       key={f}
-                      className="text-[13px] leading-relaxed text-ink/60 dark:text-ink-dark/60"
+                      className="text-[13px] leading-relaxed text-ink/72 dark:text-ink-dark/72"
                     >
                       {f}
                     </li>
                   )
                 )}
               </ul>
-              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/30 dark:text-ink-dark/30">
+              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/45 dark:text-ink-dark/45">
                 Coming soon
               </p>
             </div>
@@ -274,7 +274,7 @@ export default function PricingPage() {
               <p className="font-serif text-xl text-ink dark:text-ink-dark">
                 Enterprise
               </p>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
                 Custom volume, SLAs, and support.
               </p>
               <ul className="mt-5 space-y-2">
@@ -282,14 +282,14 @@ export default function PricingPage() {
                   (f) => (
                     <li
                       key={f}
-                      className="text-[13px] leading-relaxed text-ink/60 dark:text-ink-dark/60"
+                      className="text-[13px] leading-relaxed text-ink/72 dark:text-ink-dark/72"
                     >
                       {f}
                     </li>
                   )
                 )}
               </ul>
-              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/30 dark:text-ink-dark/30">
+              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/45 dark:text-ink-dark/45">
                 Coming soon
               </p>
             </div>
@@ -305,7 +305,7 @@ export default function PricingPage() {
               <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
                 What happens if a generation fails?
               </h3>
-              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
                 Credits are debited when a job starts, before the engine
                 runs, so a job can't begin without its cost already locked
                 in. If the underlying model or inpainting call fails after
@@ -317,7 +317,7 @@ export default function PricingPage() {
               <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
                 Do credits expire?
               </h3>
-              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
                 Pay-as-you-go pack credits don't expire and aren't charged
                 again on their own. Creator subscription credits are
                 delivered to the same balance every month for as long as
@@ -328,7 +328,7 @@ export default function PricingPage() {
               <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
                 Refunds, once billing is live
               </h3>
-              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+              <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
                 Failed generations are refunded automatically, as above.
                 For everything else — the general refund policy once
                 purchases are actually live — see the{" "}

@@ -116,8 +116,8 @@ export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
             <p
               className={
                 dark
-                  ? "mt-1 text-[11px] leading-relaxed text-white/40"
-                  : "mt-1 text-[11px] leading-relaxed text-ink/50 dark:text-white/40"
+                  ? "mt-1 text-[11px] leading-relaxed text-white/62"
+                  : "mt-1 text-[11px] leading-relaxed text-ink/68 dark:text-white/62"
               }
             >
               {stage.description}

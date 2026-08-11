@@ -22,7 +22,7 @@ export function PipelineDiagramDark() {
         <div key={stage.title} className="flex flex-1 items-center gap-0">
           <div className="flex-1 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <p className="text-[13px] font-medium text-white/90">{stage.title}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-white/40">
+            <p className="mt-1 text-[11px] leading-relaxed text-white/62">
               {stage.description}
             </p>
           </div>

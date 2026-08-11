@@ -63,7 +63,7 @@ export default function CompareGoogleTranslatePage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Castia vs. Google Translate.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               Google Translate is genuinely excellent at what it's built
               for. The honest comparison isn't "which is better" - it's
               which job each one is doing.
@@ -76,7 +76,7 @@ export default function CompareGoogleTranslatePage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             What Google Translate actually does
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Google's own published research describes Translate's engine as
             a neural machine translation (NMT) system - a deep encoder-decoder
             network trained to produce one fluent, accurate translation of
@@ -88,7 +88,7 @@ export default function CompareGoogleTranslatePage() {
             to do that, because sentence-level fluency and accuracy is the
             problem it's solving.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             For most translation needs - reading a menu, understanding an
             email, getting the gist of a foreign-language article - that's
             exactly the right tool, and a fast, free, extremely
@@ -100,7 +100,7 @@ export default function CompareGoogleTranslatePage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Where a single accurate pass isn't the same job
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             A song lyric or a character's line of dialogue has constraints a
             menu item doesn't: rhyme, rhythm, singability, idiom, a
             character's established voice. Translation researcher Peter
@@ -112,7 +112,7 @@ export default function CompareGoogleTranslatePage() {
             translation accuracy has no mechanism for making that tradeoff on
             purpose.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             This is also where automated translation-quality metrics run
             into their own well-documented limits: Callison-Burch et al.'s
             EACL 2006 paper on BLEU (the standard automated MT metric) shows
@@ -135,7 +135,7 @@ export default function CompareGoogleTranslatePage() {
             <table className="w-full min-w-[480px] text-left text-[13px]">
               <thead>
                 <tr className="border-b border-black/[0.10] dark:border-white/[0.11]">
-                  <th className="p-4 font-medium text-ink/50 dark:text-ink-dark/50"> </th>
+                  <th className="p-4 font-medium text-ink/68 dark:text-ink-dark/68"> </th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Google Translate</th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Castia</th>
                 </tr>
@@ -149,9 +149,9 @@ export default function CompareGoogleTranslatePage() {
                   ["Handles speech-bubble OCR & redraw", "No", "Yes (Beta)"],
                 ].map(([label, gt, castia]) => (
                   <tr key={label}>
-                    <td className="p-4 text-ink/50 dark:text-ink-dark/50">{label}</td>
-                    <td className="p-4 text-ink/70 dark:text-ink-dark/70">{gt}</td>
-                    <td className="p-4 text-ink/70 dark:text-ink-dark/70">{castia}</td>
+                    <td className="p-4 text-ink/68 dark:text-ink-dark/68">{label}</td>
+                    <td className="p-4 text-ink/78 dark:text-ink-dark/78">{gt}</td>
+                    <td className="p-4 text-ink/78 dark:text-ink-dark/78">{castia}</td>
                   </tr>
                 ))}
               </tbody>
@@ -163,7 +163,7 @@ export default function CompareGoogleTranslatePage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Same line, run through both
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             One source line, the same input, run through Google Translate and
             through Castia. Unedited output, side by side.
           </p>
@@ -177,7 +177,7 @@ export default function CompareGoogleTranslatePage() {
           <p className="font-serif text-xl text-white sm:text-2xl">
             See the tradeoff BLEU can't score.
           </p>
-          <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/50">
+          <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/68">
             Paste a verse and see the literal anchor, all five rewrites, and
             the Judge's stated reasoning for the one it picked.
           </p>
@@ -189,7 +189,7 @@ export default function CompareGoogleTranslatePage() {
           </Link>
         </div>
 
-        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Also see{" "}
           <Link href="/compare/deepl" className="underline decoration-ink/20 underline-offset-4">
             Castia vs. DeepL

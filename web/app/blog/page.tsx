@@ -41,7 +41,7 @@ export default function BlogIndexPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Blog.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             Writing on translation and localization research, grounded in
             real sources - not marketing copy dressed up as an article.
             Also see the{" "}
@@ -59,11 +59,11 @@ export default function BlogIndexPage() {
               href={post.path}
               className="block border-b border-black/[0.10] pb-8 transition hover:opacity-70 dark:border-white/[0.11]"
             >
-              <p className="text-[12px] text-ink/35 dark:text-ink-dark/35">
+              <p className="text-[12px] text-ink/50 dark:text-ink-dark/50">
                 By {FOUNDER_NAME} · {formatDate(post.publishedDate)}
               </p>
               <h2 className="mt-2 font-serif text-lg text-ink dark:text-ink-dark">{post.title}</h2>
-              <p className="mt-2 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+              <p className="mt-2 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
                 {post.description}
               </p>
             </Link>

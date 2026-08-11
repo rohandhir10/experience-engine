@@ -4,13 +4,13 @@
 export function Logo({ force }: { force?: "light" }) {
   if (force === "light") {
     return (
-      <span className="text-sm font-medium tracking-[0.2em] text-white/70">
+      <span className="text-sm font-medium tracking-[0.2em] text-white/78">
         CASTIA
       </span>
     );
   }
   return (
-    <span className="text-sm font-medium tracking-[0.2em] text-ink/60 dark:text-ink-dark/60">
+    <span className="text-sm font-medium tracking-[0.2em] text-ink/72 dark:text-ink-dark/72">
       CASTIA
     </span>
   );

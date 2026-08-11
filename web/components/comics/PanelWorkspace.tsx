@@ -158,7 +158,7 @@ export function PanelWorkspace({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
-          <p className="text-[12px] uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
+          <p className="text-[12px] uppercase tracking-[0.1em] text-ink/62 dark:text-ink-dark/62">
             Panel {activeIndex + 1} of {panels.length} · {active.fileName}
           </p>
           <div className="flex items-center gap-3">
@@ -166,7 +166,7 @@ export function PanelWorkspace({
               type="button"
               onClick={() => goTo(activeIndex - 1)}
               disabled={activeIndex === 0}
-              className="text-[13px] text-ink/45 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/45 dark:hover:text-ink-dark"
+              className="text-[13px] text-ink/65 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/65 dark:hover:text-ink-dark"
             >
               ← Prev
             </button>
@@ -174,7 +174,7 @@ export function PanelWorkspace({
               type="button"
               onClick={() => goTo(activeIndex + 1)}
               disabled={activeIndex === panels.length - 1}
-              className="text-[13px] text-ink/45 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/45 dark:hover:text-ink-dark"
+              className="text-[13px] text-ink/65 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/65 dark:hover:text-ink-dark"
             >
               Next →
             </button>
@@ -202,7 +202,7 @@ export function PanelWorkspace({
                   className={`rounded-full px-3 py-1 font-medium transition ${
                     imageView === "original"
                       ? "bg-ink text-paper dark:bg-ink-dark dark:text-paper-dark"
-                      : "text-ink/50 hover:text-ink dark:text-ink-dark/50 dark:hover:text-ink-dark"
+                      : "text-ink/68 hover:text-ink dark:text-ink-dark/68 dark:hover:text-ink-dark"
                   }`}
                 >
                   Original
@@ -213,7 +213,7 @@ export function PanelWorkspace({
                   className={`rounded-full px-3 py-1 font-medium transition ${
                     imageView === "redrawn"
                       ? "bg-ink text-paper dark:bg-ink-dark dark:text-paper-dark"
-                      : "text-ink/50 hover:text-ink dark:text-ink-dark/50 dark:hover:text-ink-dark"
+                      : "text-ink/68 hover:text-ink dark:text-ink-dark/68 dark:hover:text-ink-dark"
                   }`}
                 >
                   Redrawn
@@ -274,12 +274,12 @@ export function PanelWorkspace({
                 type="button"
                 onClick={() => onRunOcr(active.id)}
                 disabled={active.ocrStatus === "running"}
-                className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+                className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/78 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/78 dark:hover:text-ink-dark"
               >
                 {active.ocrStatus === "running" ? "Reading panel…" : "Run OCR"}
               </button>
               {active.ocrStatus === "done" && !active.ocrMessage && (
-                <span className="text-[12px] text-ink/40 dark:text-ink-dark/40">
+                <span className="text-[12px] text-ink/62 dark:text-ink-dark/62">
                   {active.ocrRegions?.length ?? 0} region
                   {(active.ocrRegions?.length ?? 0) === 1 ? "" : "s"} found
                 </span>
@@ -288,7 +288,7 @@ export function PanelWorkspace({
             {active.ocrMessage && (
               <p
                 className={`mt-2 text-[12px] leading-relaxed ${
-                  active.ocrStatus === "error" ? "text-red-500/80" : "text-ink/40 dark:text-ink-dark/40"
+                  active.ocrStatus === "error" ? "text-red-500/80" : "text-ink/62 dark:text-ink-dark/62"
                 }`}
               >
                 {active.ocrMessage}
@@ -298,7 +298,7 @@ export function PanelWorkspace({
             {active.ocrRegions && active.ocrRegions.length > 1 && (
               <div className="mt-4">
                 <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Reading order</p>
-                <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                <p className="mt-0.5 text-[11px] text-ink/62 dark:text-ink-dark/62">
                   Vision sorts bubbles top-to-bottom, left-to-right — wrong for manga's
                   right-to-left reading, and not guaranteed correct for any multi-bubble
                   panel. Fix the order here before it feeds anything downstream.
@@ -312,7 +312,7 @@ export function PanelWorkspace({
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-medium text-white">
                         {i + 1}
                       </span>
-                      <span className="min-w-0 flex-1 truncate text-[12px] text-ink/60 dark:text-ink-dark/60">
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-ink/72 dark:text-ink-dark/72">
                         {region.text}
                       </span>
                       <button
@@ -320,7 +320,7 @@ export function PanelWorkspace({
                         onClick={() => moveRegion(i, i - 1)}
                         disabled={i === 0}
                         aria-label={`Move region ${i + 1} earlier`}
-                        className="shrink-0 text-ink/40 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 dark:text-ink-dark/40 dark:hover:text-ink-dark"
+                        className="shrink-0 text-ink/62 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 dark:text-ink-dark/62 dark:hover:text-ink-dark"
                       >
                         ↑
                       </button>
@@ -329,7 +329,7 @@ export function PanelWorkspace({
                         onClick={() => moveRegion(i, i + 1)}
                         disabled={i === active.ocrRegions!.length - 1}
                         aria-label={`Move region ${i + 1} later`}
-                        className="shrink-0 text-ink/40 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 dark:text-ink-dark/40 dark:hover:text-ink-dark"
+                        className="shrink-0 text-ink/62 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-25 dark:text-ink-dark/62 dark:hover:text-ink-dark"
                       >
                         ↓
                       </button>
@@ -339,7 +339,7 @@ export function PanelWorkspace({
                 <button
                   type="button"
                   onClick={applyRegionOrderToExtractedText}
-                  className="mt-2 text-[12px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+                  className="mt-2 text-[12px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
                 >
                   Apply this order to Extracted text
                 </button>
@@ -351,7 +351,7 @@ export function PanelWorkspace({
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Redraw</p>
                   <label className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-ink/40 dark:text-ink-dark/40">Font</span>
+                    <span className="text-[11px] text-ink/62 dark:text-ink-dark/62">Font</span>
                     <select
                       value={active.redrawFont ?? ""}
                       onChange={(e) => onUpdatePanel(active.id, { redrawFont: e.target.value || null })}
@@ -365,7 +365,7 @@ export function PanelWorkspace({
                     </select>
                   </label>
                 </div>
-                <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                <p className="mt-0.5 text-[11px] text-ink/62 dark:text-ink-dark/62">
                   Erases the original text out of a bubble and draws the line below back in
                   its place — speech bubbles only, a small set of bundled comic fonts (never
                   an exact match for the original lettering), a best-guess text color. Only
@@ -384,12 +384,12 @@ export function PanelWorkspace({
                           onChange={(e) => setRedrawRegionText(i, e.target.value)}
                           rows={2}
                           placeholder={`Adapted text for region ${i + 1}…`}
-                          className="w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                          className="w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
                         />
                         <select
                           value={active.redrawRegionFonts?.[i] ?? ""}
                           onChange={(e) => setRedrawRegionFont(i, e.target.value)}
-                          className="mt-1 rounded-md border border-black/[0.12] bg-white/70 px-1.5 py-0.5 text-[11px] text-ink/60 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark/60"
+                          className="mt-1 rounded-md border border-black/[0.12] bg-white/70 px-1.5 py-0.5 text-[11px] text-ink/72 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark/72"
                         >
                           <option value="">Use panel default</option>
                           {FONT_OPTIONS.map((opt) => (
@@ -407,7 +407,7 @@ export function PanelWorkspace({
                     type="button"
                     onClick={() => onRedrawPanel(active.id)}
                     disabled={active.redrawStatus === "running"}
-                    className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+                    className="rounded-full border border-black/[0.13] px-4 py-1.5 text-[13px] font-medium text-ink/78 transition hover:border-black/20 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.15] dark:text-ink-dark/78 dark:hover:text-ink-dark"
                   >
                     {active.redrawStatus === "running" ? "Redrawing…" : "Redraw panel"}
                   </button>
@@ -415,7 +415,7 @@ export function PanelWorkspace({
                     <a
                       href={active.redrawResultUrl}
                       download={`redrawn-${active.fileName}`}
-                      className="text-[12px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+                      className="text-[12px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
                     >
                       Download result
                     </a>
@@ -424,7 +424,7 @@ export function PanelWorkspace({
                 {active.redrawMessage && (
                   <p
                     className={`mt-2 text-[12px] leading-relaxed ${
-                      active.redrawStatus === "error" ? "text-red-500/80" : "text-ink/40 dark:text-ink-dark/40"
+                      active.redrawStatus === "error" ? "text-red-500/80" : "text-ink/62 dark:text-ink-dark/62"
                     }`}
                   >
                     {active.redrawMessage}
@@ -443,7 +443,7 @@ export function PanelWorkspace({
               <span className="text-[13px] font-medium text-ink dark:text-ink-dark">
                 Speaker
               </span>
-              <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+              <p className="mt-0.5 text-[11px] text-ink/62 dark:text-ink-dark/62">
                 Who's talking in this panel — drives voice consistency and honorific tracking
                 during adaptation. Leave blank if unattributed (narration, unclear speaker).
               </p>
@@ -453,7 +453,7 @@ export function PanelWorkspace({
                 value={active.voice ?? ""}
                 onChange={(e) => onUpdatePanel(active.id, { voice: e.target.value || null })}
                 placeholder="e.g. Guard Captain"
-                className="mt-1.5 w-full rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                className="mt-1.5 w-full rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
               />
               <datalist id="comics-known-voices">
                 {knownVoices.map((voice) => (
@@ -472,7 +472,7 @@ export function PanelWorkspace({
                 <span className="text-[13px] font-medium text-ink dark:text-ink-dark">
                   Adapted text, per bubble
                 </span>
-                <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">
+                <p className="mt-0.5 text-[11px] text-ink/62 dark:text-ink-dark/62">
                   Each detected bubble is adapted on its own — a panel with two speakers
                   gets two independent rewrites, not one block credited to whoever's line
                   came first.
@@ -488,7 +488,7 @@ export function PanelWorkspace({
                           {i + 1}
                         </span>
                         {region.speaker && (
-                          <span className="text-[11px] text-ink/40 dark:text-ink-dark/40">
+                          <span className="text-[11px] text-ink/62 dark:text-ink-dark/62">
                             {region.speaker}
                           </span>
                         )}
@@ -498,14 +498,14 @@ export function PanelWorkspace({
                         onChange={(e) => setRegionAdaptedText(i, e.target.value)}
                         rows={2}
                         placeholder="Adapted text for this bubble…"
-                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
                       />
                       <textarea
                         value={active.regionWhys?.[i] ?? ""}
                         onChange={(e) => setRegionWhy(i, e.target.value)}
                         rows={1}
                         placeholder="Why (optional)…"
-                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[12px] leading-snug text-ink/60 placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark/60 dark:placeholder:text-ink-dark/30"
+                        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[12px] leading-snug text-ink/72 placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark/72 dark:placeholder:text-ink-dark/45"
                       />
                     </li>
                   ))}
@@ -551,12 +551,12 @@ function Field({
   return (
     <label className="block">
       <span className="text-[13px] font-medium text-ink dark:text-ink-dark">{label}</span>
-      <p className="mt-0.5 text-[11px] text-ink/40 dark:text-ink-dark/40">{hint}</p>
+      <p className="mt-0.5 text-[11px] text-ink/62 dark:text-ink-dark/62">{hint}</p>
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+        className="mt-1.5 w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] leading-relaxed text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
       />
     </label>
   );

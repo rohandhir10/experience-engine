@@ -43,7 +43,7 @@ export function LyricsFileImportField({
   const fieldClass = dark
     ? "border-white/10 hover:border-white/20"
     : "border-black/[0.12] hover:border-black/20 dark:border-white/[0.12] dark:hover:border-white/20";
-  const textClass = dark ? "text-white/50" : "text-ink/50 dark:text-ink-dark/50";
+  const textClass = dark ? "text-white/68" : "text-ink/68 dark:text-ink-dark/68";
 
   return (
     <div className="w-full">

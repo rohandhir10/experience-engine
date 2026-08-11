@@ -54,13 +54,13 @@ export function DeviationText({
                 role="tooltip"
                 className="absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-xl border border-black/[0.12] bg-paper px-4 py-3 text-left text-[13px] font-sans not-italic leading-relaxed text-ink shadow-lg dark:border-white/[0.12] dark:bg-paper-dark dark:text-ink-dark"
               >
-                <span className="block text-[10px] font-medium uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
+                <span className="block text-[10px] font-medium uppercase tracking-[0.1em] text-ink/62 dark:text-ink-dark/62">
                   Literal
                 </span>
-                <span className="mt-1 block text-ink/70 dark:text-ink-dark/70">
+                <span className="mt-1 block text-ink/78 dark:text-ink-dark/78">
                   {segment.deviation.fragmentOriginal}
                 </span>
-                <span className="mt-3 block text-ink/60 dark:text-ink-dark/60">{why}</span>
+                <span className="mt-3 block text-ink/72 dark:text-ink-dark/72">{why}</span>
               </span>
             )}
           </span>

@@ -51,12 +51,12 @@ function VerifyEmailContent() {
 
       <div className="mx-auto mt-24 flex max-w-sm flex-col items-center text-center">
         {status === "checking" && (
-          <p className="text-[14px] text-ink/50 dark:text-ink-dark/50">Verifying…</p>
+          <p className="text-[14px] text-ink/68 dark:text-ink-dark/68">Verifying…</p>
         )}
         {status === "ok" && (
           <>
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">Email verified.</h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               Your account is active. Sign in to start keeping a history of
               what you adapt.
             </p>
@@ -73,7 +73,7 @@ function VerifyEmailContent() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">
               That link isn't valid.
             </h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               It may have expired or already been used. You can request a
               fresh one from the sign-up page.
             </p>

@@ -66,7 +66,7 @@ export function PanelPipelineStoryboard() {
           <div className="mt-3 overflow-hidden rounded-xl border border-black/[0.10] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]">
             <step.Art />
           </div>
-          <p className="mt-3 text-[11.5px] leading-relaxed text-ink/50 dark:text-white/40">
+          <p className="mt-3 text-[11.5px] leading-relaxed text-ink/68 dark:text-white/62">
             {step.description}
           </p>
         </div>
@@ -156,7 +156,7 @@ function OcrArt() {
 
 function DnaArt() {
   return (
-    <div className="flex h-28 w-full flex-col justify-center gap-[3px] px-4 font-mono text-[10.5px] leading-[1.55] text-ink/70 dark:text-white/70 sm:h-32">
+    <div className="flex h-28 w-full flex-col justify-center gap-[3px] px-4 font-mono text-[10.5px] leading-[1.55] text-ink/78 dark:text-white/78 sm:h-32">
       <div>{"{"}</div>
       <div className="pl-3">
         <span className="text-accent">"genre"</span>: "slice-of-life",
@@ -188,12 +188,12 @@ function WritersRoomArt() {
             className={`rounded-lg border px-2.5 py-2 text-center text-[10px] font-medium ${
               i === 2
                 ? "border-accent/40 bg-accent/[0.08] text-ink dark:text-white"
-                : "border-black/10 bg-white text-ink/70 dark:border-white/10 dark:bg-white/5 dark:text-white/60"
+                : "border-black/10 bg-white text-ink/78 dark:border-white/10 dark:bg-white/5 dark:text-white/72"
             }`}
           >
             {n}
           </div>
-          {i < nodes.length - 1 && <span className="text-ink/20 dark:text-white/20">→</span>}
+          {i < nodes.length - 1 && <span className="text-ink/32 dark:text-white/32">→</span>}
         </div>
       ))}
     </div>
@@ -204,10 +204,10 @@ function AdaptedScriptArt() {
   return (
     <div className="flex h-28 w-full flex-col justify-center gap-2.5 px-4 sm:h-32">
       <div>
-        <span className="rounded border border-black/10 px-1.5 py-0.5 text-[8.5px] uppercase tracking-wide text-ink/40 dark:border-white/15 dark:text-white/40">
+        <span className="rounded border border-black/10 px-1.5 py-0.5 text-[8.5px] uppercase tracking-wide text-ink/62 dark:border-white/15 dark:text-white/62">
           Literal
         </span>
-        <p className="mt-1 text-[10.5px] leading-snug text-ink/45 dark:text-white/35">
+        <p className="mt-1 text-[10.5px] leading-snug text-ink/65 dark:text-white/50">
           "You are… late. Again."
         </p>
       </div>

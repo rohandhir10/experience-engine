@@ -20,7 +20,7 @@ export default function FavoritesPage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               Favorites
             </h1>
-            <p className="mt-2 text-[13px] text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-2 text-[13px] text-ink/62 dark:text-ink-dark/62">
               The adaptations you've starred.
             </p>
             <RecentAdaptations favoritesOnly />

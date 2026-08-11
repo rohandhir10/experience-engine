@@ -19,7 +19,7 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
       }}
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.10] text-ink/40 transition hover:border-black/[0.15] hover:text-ink/70 dark:border-white/[0.12] dark:text-ink-dark/40 dark:hover:border-white/[0.15] dark:hover:text-ink-dark/70"
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-black/[0.10] text-ink/62 transition hover:border-black/[0.15] hover:text-ink/78 dark:border-white/[0.12] dark:text-ink-dark/62 dark:hover:border-white/[0.15] dark:hover:text-ink-dark/78"
     >
       {copied ? (
         <span className="text-[10px] font-medium">✓</span>
@@ -61,7 +61,7 @@ export const ComparisonCard = forwardRef<
       style={{ animationDelay: `${index * 90}ms` }}
     >
       <div className="flex items-start justify-between">
-        <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink/40 dark:text-ink-dark/40">
+        <p className="text-xs font-medium uppercase tracking-[0.15em] text-ink/62 dark:text-ink-dark/62">
           {humanize(section.id)}
         </p>
         <CopyButton text={section.aura} />
@@ -69,10 +69,10 @@ export const ComparisonCard = forwardRef<
 
       {showOriginal && original && (
         <div className="mt-6 space-y-1 border-b border-black/[0.09] pb-6 dark:border-white/[0.09]">
-          <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
+          <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-ink/45 dark:text-ink-dark/45">
             Original
           </p>
-          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
             {original}
           </p>
         </div>
@@ -80,10 +80,10 @@ export const ComparisonCard = forwardRef<
 
       <div className="mt-7 grid grid-cols-1 gap-8 md:grid-cols-2 md:divide-x md:divide-black/[0.10] md:dark:divide-white/[0.11]">
         <div className="space-y-2 md:pr-8">
-          <span className="inline-flex items-center rounded-md border border-black/[0.13] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-ink/40 dark:border-white/[0.15] dark:text-ink-dark/40">
+          <span className="inline-flex items-center rounded-md border border-black/[0.13] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-ink/62 dark:border-white/[0.15] dark:text-ink-dark/62">
             [ Literal ]
           </span>
-          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
             {section.literal}
           </p>
         </div>
@@ -100,7 +100,7 @@ export const ComparisonCard = forwardRef<
         </div>
       </div>
 
-      <p className="mt-8 max-w-prose text-[14px] italic leading-relaxed text-ink/50 dark:text-ink-dark/50">
+      <p className="mt-8 max-w-prose text-[14px] italic leading-relaxed text-ink/68 dark:text-ink-dark/68">
         {section.why}
       </p>
 
@@ -111,8 +111,8 @@ export const ComparisonCard = forwardRef<
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${
               section.singability.closeMatch
-                ? "bg-black/[0.03] text-ink/45 dark:bg-white/[0.04] dark:text-ink-dark/45"
-                : "bg-black/[0.03] text-ink/55 dark:bg-white/[0.04] dark:text-ink-dark/55"
+                ? "bg-black/[0.03] text-ink/65 dark:bg-white/[0.04] dark:text-ink-dark/65"
+                : "bg-black/[0.03] text-ink/70 dark:bg-white/[0.04] dark:text-ink-dark/70"
             }`}
           >
             <span aria-hidden>♪</span>

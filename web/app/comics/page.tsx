@@ -419,14 +419,14 @@ export default function ComicsPage() {
                   <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
                     Give every character their own voice.
                   </h1>
-                  <span className="rounded-full border border-accent/25 bg-accent/[0.06] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent dark:border-white/10 dark:bg-white/10 dark:text-ink-dark/40">
+                  <span className="rounded-full border border-accent/25 bg-accent/[0.06] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent dark:border-white/10 dark:bg-white/10 dark:text-ink-dark/85">
                     Beta
                   </span>
                 </div>
-                {/* text-ink/65, not the original /50 - that read as low-
+                {/* text-ink/75, not the original /50 - that read as low-
                     contrast on the actual value proposition, not just
                     "editorial." */}
-                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/60">
+                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/72">
                   Upload a chapter's panels and Castia reads every speech
                   bubble, keeps each character's voice consistent from the
                   first page to the last, and shows the literal reading
@@ -438,9 +438,9 @@ export default function ComicsPage() {
                     Person bio) plus a real, hand-bumped edit date - see
                     PAGE_UPDATED_DATE above. No photo: none exists, and a
                     stock/generated one would be a fabricated credential. */}
-                <p className="mt-2 text-[11.5px] text-ink/35 dark:text-ink-dark/35">
+                <p className="mt-2 text-[11.5px] text-ink/50 dark:text-ink-dark/50">
                   Built by{" "}
-                  <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/60 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/60">
+                  <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/72 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/72">
                     {FOUNDER_NAME}
                   </Link>
                   {" · "}Updated{" "}
@@ -469,7 +469,7 @@ export default function ComicsPage() {
                   too - five already-bordered storyboard cards inside
                   another bordered card just doubled the chrome. */}
               <div className="mt-14">
-                <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
+                <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/45">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                   What happens to a panel
                 </p>
@@ -482,7 +482,7 @@ export default function ComicsPage() {
 
           {panels.length === 0 && (
             <ScrollReveal className="mx-auto mt-16 w-full max-w-2xl text-center">
-              <p className="flex items-center justify-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
+              <p className="flex items-center justify-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/45">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                 Six languages, any direction
               </p>
@@ -490,7 +490,7 @@ export default function ComicsPage() {
                 {LANGUAGES.map((lang) => (
                   <span
                     key={lang}
-                    className="rounded-full border border-accent/20 px-3 py-1 text-[13px] text-ink/60 dark:border-white/10 dark:text-ink-dark/60"
+                    className="rounded-full border border-accent/20 px-3 py-1 text-[13px] text-ink/72 dark:border-white/10 dark:text-ink-dark/72"
                   >
                     {lang}
                   </span>
@@ -514,16 +514,16 @@ export default function ComicsPage() {
                 {COMICS_FAQS.map((faq) => (
                   <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.11]">
                     <h3 className="font-serif text-[15px] text-ink dark:text-ink-dark">{faq.question}</h3>
-                    <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">{faq.answer}</p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-ink/70 dark:text-ink-dark/70">{faq.answer}</p>
                   </div>
                 ))}
               </div>
-              <p className="mt-6 text-center text-[13px] text-ink/45 dark:text-ink-dark/45">
-                <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70">
+              <p className="mt-6 text-center text-[13px] text-ink/65 dark:text-ink-dark/65">
+                <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/78">
                   See all FAQs
                 </Link>
                 {" · "}
-                <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70">
+                <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/78">
                   See pricing
                 </Link>
               </p>
@@ -534,11 +534,11 @@ export default function ComicsPage() {
             <>
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-[13px] text-ink/45 dark:text-ink-dark/45">
+                  <p className="text-[13px] text-ink/65 dark:text-ink-dark/65">
                     {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
                   </p>
                   {chapterLanguage && (
-                    <span className="rounded-full border border-black/[0.12] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50">
+                    <span className="rounded-full border border-black/[0.12] px-3 py-1 text-[12px] text-ink/68 dark:border-white/[0.12] dark:text-ink-dark/68">
                       Detected language: {chapterLanguage.languageName ?? chapterLanguage.languageCode}
                       {chapterLanguage.ocrdPanelCount > 1 &&
                         ` (${chapterLanguage.agreeingPanelCount} of ${chapterLanguage.ocrdPanelCount} OCR'd panels)`}
@@ -546,7 +546,7 @@ export default function ComicsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-4">
-                  <label className="cursor-pointer text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70">
+                  <label className="cursor-pointer text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78">
                     Add more
                     <input
                       type="file"
@@ -628,13 +628,13 @@ export default function ComicsPage() {
                     className="inline-flex items-center gap-2 text-[13px]"
                     title="Same name as a previous chapter reuses that series' saved character voices/honorifics instead of guessing them fresh. Leave blank for no cross-chapter memory."
                   >
-                    <span className="text-ink/40 dark:text-ink-dark/40">Series</span>
+                    <span className="text-ink/62 dark:text-ink-dark/62">Series</span>
                     <input
                       type="text"
                       value={seriesName}
                       onChange={(e) => setSeriesName(e.target.value)}
                       placeholder="e.g. Solo Leveling (optional)"
-                      className="rounded-full border border-black/[0.12] bg-white/70 px-3 py-1.5 text-[13px] text-ink placeholder:text-ink/30 outline-none transition focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                      className="rounded-full border border-black/[0.12] bg-white/70 px-3 py-1.5 text-[13px] text-ink placeholder:text-ink/45 outline-none transition focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
                     />
                   </label>
                 )}
@@ -674,7 +674,7 @@ export default function ComicsPage() {
                 )}
               </div>
               {adaptStatus === "running" && adaptProgress && (
-                <p className="mt-2 text-[12px] text-ink/45 dark:text-ink-dark/45">
+                <p className="mt-2 text-[12px] text-ink/65 dark:text-ink-dark/65">
                   {adaptProgress.message} · the panels below fill in as each one finishes - keep
                   reviewing or editing while the rest adapt.
                 </p>

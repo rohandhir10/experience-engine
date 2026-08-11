@@ -46,7 +46,7 @@ export default function DashboardPage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               What would you like to adapt today?
             </h1>
-            <p className="mt-2 text-[13px] text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-2 text-[13px] text-ink/62 dark:text-ink-dark/62">
               {sourceHintFor(targetLanguage, sourceLanguage)}
             </p>
 
@@ -106,7 +106,7 @@ export default function DashboardPage() {
                 }}
                 placeholder="Paste song lyrics…"
                 rows={MIN_ROWS}
-                className="w-full resize-none overflow-y-auto rounded-2xl border border-black/[0.12] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                className="w-full resize-none overflow-y-auto rounded-2xl border border-black/[0.12] bg-white/70 px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
               />
 
               {error && (
@@ -130,7 +130,7 @@ export default function DashboardPage() {
               data-screenshot="dashboard-recent-boundary"
               className="mt-16 border-t border-black/[0.09] pt-8 dark:border-white/[0.09]"
             >
-              <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
+              <h2 className="text-[13px] font-medium uppercase tracking-[0.1em] text-ink/62 dark:text-ink-dark/62">
                 Recent Adaptations
               </h2>
               <RecentAdaptations />

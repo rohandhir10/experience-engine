@@ -105,7 +105,7 @@ export default function ApiDocsPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             API reference.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             Two endpoints, both requiring an API key: <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">POST /v1/adapt</code> for
             song lyrics and <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">POST /v1/comics/adapt</code> for
             comic/webtoon dialogue. Both run the identical Translator → Creative
@@ -123,7 +123,7 @@ export default function ApiDocsPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Authentication
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Pass your key as a bearer token: <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">Authorization: Bearer castia_sk_...</code>.
             Generate one from{" "}
             <Link href="/dashboard/settings" className="underline decoration-ink/20 underline-offset-4">
@@ -139,7 +139,7 @@ export default function ApiDocsPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Rate limits
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Each key has a daily request cap, checked and incremented
             atomically per request — 1,000 requests/day by default, though
             this is an environment-configurable setting on the server, so
@@ -159,7 +159,7 @@ export default function ApiDocsPage() {
             <table className="w-full min-w-[420px] text-left text-[13px]">
               <thead>
                 <tr className="border-b border-black/[0.10] dark:border-white/[0.11]">
-                  <th className="p-4 font-medium text-ink/50 dark:text-ink-dark/50">Status</th>
+                  <th className="p-4 font-medium text-ink/68 dark:text-ink-dark/68">Status</th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Meaning</th>
                 </tr>
               </thead>
@@ -171,14 +171,14 @@ export default function ApiDocsPage() {
                   ["500", "Something failed inside the pipeline itself - safe to retry"],
                 ].map(([code, meaning]) => (
                   <tr key={code}>
-                    <td className="p-4 align-top font-mono text-ink/70 dark:text-ink-dark/70">{code}</td>
-                    <td className="p-4 align-top text-ink/60 dark:text-ink-dark/60">{meaning}</td>
+                    <td className="p-4 align-top font-mono text-ink/78 dark:text-ink-dark/78">{code}</td>
+                    <td className="p-4 align-top text-ink/72 dark:text-ink-dark/72">{meaning}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+          <p className="mt-3 max-w-prose text-[13px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
             Every error body has the same shape: <code className="rounded bg-black/[0.05] px-1 py-0.5 text-[12px] dark:bg-white/10">{`{ "detail": "..." }`}</code>,
             with a specific, human-readable message - never a bare status code
             with nothing else.
@@ -189,7 +189,7 @@ export default function ApiDocsPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             POST /v1/adapt
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Adapts a song lyric. <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">text</code> is
             the only required field — <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">target_language</code> defaults
             to English, and <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">source_language</code> is
@@ -206,7 +206,7 @@ export default function ApiDocsPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             POST /v1/comics/adapt
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Adapts a chapter's worth of comic/webtoon dialogue at once.{" "}
             <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">panels</code> is
             a flat list of speech-bubble entries, not literally one per
@@ -227,7 +227,7 @@ export default function ApiDocsPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Known limitations
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Both endpoints are synchronous — the request blocks until the
             full pipeline finishes, with no job/poll pattern yet for API
             callers (the browser-facing app has one internally; it isn't
@@ -240,7 +240,7 @@ export default function ApiDocsPage() {
           </p>
         </section>
 
-        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           See the full pipeline mechanics on{" "}
           <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
             how it works
@@ -261,10 +261,10 @@ export default function ApiDocsPage() {
 function CodeBlock({ label, children }: { label: string; children: string }) {
   return (
     <div className="mt-4">
-      <p className="text-[11px] uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+      <p className="text-[11px] uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
         {label}
       </p>
-      <pre className="mt-2 overflow-x-auto rounded-xl border border-black/[0.10] bg-black/[0.03] p-4 text-[12.5px] leading-relaxed text-ink/75 dark:border-white/[0.11] dark:bg-white/[0.03] dark:text-ink-dark/75">
+      <pre className="mt-2 overflow-x-auto rounded-xl border border-black/[0.10] bg-black/[0.03] p-4 text-[12.5px] leading-relaxed text-ink/80 dark:border-white/[0.11] dark:bg-white/[0.03] dark:text-ink-dark/80">
         <code>{children}</code>
       </pre>
     </div>

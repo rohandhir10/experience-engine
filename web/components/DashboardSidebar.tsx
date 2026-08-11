@@ -78,12 +78,12 @@ function NavRow({
       className={`flex items-center justify-between rounded-lg px-3 py-2 text-[13px] transition ${
         active
           ? "bg-black/[0.04] font-medium text-ink dark:bg-white/[0.06] dark:text-ink-dark"
-          : "text-ink/45 hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
+          : "text-ink/65 hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
       }`}
     >
       <span>{label}</span>
       {!active && shownBadge && (
-        <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/35 dark:bg-white/10 dark:text-ink-dark/40">
+        <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/65 dark:bg-white/10 dark:text-ink-dark/85">
           {shownBadge}
         </span>
       )}

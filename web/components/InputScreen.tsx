@@ -159,7 +159,7 @@ export function InputScreen({
             className={`rounded-full px-3.5 py-1.5 transition ${
               persona === "fan"
                 ? "bg-ink text-paper dark:bg-white dark:text-black"
-                : "text-ink/45 hover:text-ink/75 dark:text-white/45 dark:hover:text-white/75"
+                : "text-ink/65 hover:text-ink/80 dark:text-white/65 dark:hover:text-white/80"
             }`}
           >
             Adapting a song I love
@@ -171,7 +171,7 @@ export function InputScreen({
             className={`rounded-full px-3.5 py-1.5 transition ${
               persona === "creator"
                 ? "bg-ink text-paper dark:bg-white dark:text-black"
-                : "text-ink/45 hover:text-ink/75 dark:text-white/45 dark:hover:text-white/75"
+                : "text-ink/65 hover:text-ink/80 dark:text-white/65 dark:hover:text-white/80"
             }`}
           >
             Adapting my own lyrics
@@ -184,7 +184,7 @@ export function InputScreen({
           {PERSONA_HEADLINES[persona][1]}
         </h1>
         <p
-          className="animate-fade-up mt-4 text-[14px] text-ink/55 dark:text-white/40"
+          className="animate-fade-up mt-4 text-[14px] text-ink/70 dark:text-white/62"
           style={{ animationDelay: "80ms" }}
         >
           {sourceHintFor(targetLanguage, sourceLanguage)}
@@ -196,11 +196,11 @@ export function InputScreen({
             and a stock/generated one would be a fabricated credential
             this codebase's no-fabrication discipline rules out. */}
         <p
-          className="animate-fade-up mt-2 text-[11.5px] text-ink/35 dark:text-white/25"
+          className="animate-fade-up mt-2 text-[11.5px] text-ink/50 dark:text-white/38"
           style={{ animationDelay: "90ms" }}
         >
           Built by{" "}
-          <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/55 dark:decoration-white/15 dark:hover:text-white/50">
+          <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/70 dark:decoration-white/15 dark:hover:text-white/68">
             {FOUNDER_NAME}
           </Link>
           {" · "}Updated{" "}
@@ -251,7 +251,7 @@ export function InputScreen({
               className={`rounded-full px-4 py-1.5 transition ${
                 mode === "paste"
                   ? "bg-ink text-paper dark:bg-white dark:text-black"
-                  : "text-ink/50 hover:text-ink/80 dark:text-white/50 dark:hover:text-white/80"
+                  : "text-ink/68 hover:text-ink/80 dark:text-white/68 dark:hover:text-white/80"
               }`}
             >
               Paste lyrics
@@ -262,7 +262,7 @@ export function InputScreen({
               className={`rounded-full px-4 py-1.5 transition ${
                 mode === "youtube"
                   ? "bg-ink text-paper dark:bg-white dark:text-black"
-                  : "text-ink/50 hover:text-ink/80 dark:text-white/50 dark:hover:text-white/80"
+                  : "text-ink/68 hover:text-ink/80 dark:text-white/68 dark:hover:text-white/80"
               }`}
             >
               From YouTube
@@ -273,7 +273,7 @@ export function InputScreen({
               className={`rounded-full px-4 py-1.5 transition ${
                 mode === "file"
                   ? "bg-ink text-paper dark:bg-white dark:text-black"
-                  : "text-ink/50 hover:text-ink/80 dark:text-white/50 dark:hover:text-white/80"
+                  : "text-ink/68 hover:text-ink/80 dark:text-white/68 dark:hover:text-white/80"
               }`}
             >
               Import .lrc/.srt
@@ -284,7 +284,7 @@ export function InputScreen({
             <div className="w-full max-w-md">
               <YoutubeImportField onImported={handleImported} />
               {timedDraft && (
-                <p className="mt-3 text-[12px] leading-relaxed text-ink/45 dark:text-white/35">
+                <p className="mt-3 text-[12px] leading-relaxed text-ink/65 dark:text-white/50">
                   {timedDraft.warning} Review the text below before adapting it.
                 </p>
               )}
@@ -295,7 +295,7 @@ export function InputScreen({
             <div className="w-full max-w-md">
               <LyricsFileImportField onImported={handleImported} />
               {timedDraft && (
-                <p className="mt-3 text-[12px] leading-relaxed text-ink/45 dark:text-white/35">
+                <p className="mt-3 text-[12px] leading-relaxed text-ink/65 dark:text-white/50">
                   {timedDraft.warning} Review the text below before adapting it.
                 </p>
               )}
@@ -344,7 +344,7 @@ export function InputScreen({
             rows={MIN_ROWS}
             autoFocus
             aria-describedby={error ? "lyrics-error" : undefined}
-            className="w-full resize-none overflow-y-auto rounded-2xl border border-black/10 bg-black/[0.02] px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition focus:border-black/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/25 dark:focus:border-white/20"
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-black/10 bg-black/[0.02] px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/45 transition focus:border-black/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/38 dark:focus:border-white/20"
           />
 
           {error && (
@@ -366,7 +366,7 @@ export function InputScreen({
             </button>
 
             {text.trim() && !loading && (
-              <span className="animate-fade-up text-[12px] text-ink/35 dark:text-white/25">⌘ + Enter</span>
+              <span className="animate-fade-up text-[12px] text-ink/50 dark:text-white/38">⌘ + Enter</span>
             )}
           </div>
         </form>
@@ -381,7 +381,7 @@ export function InputScreen({
             see the banner on the demo page itself for the same reasoning. */}
         <Link
           href="/s/demo"
-          className="animate-fade-up mt-8 text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-white/35 dark:decoration-white/15 dark:hover:text-white/60 dark:hover:decoration-white/30"
+          className="animate-fade-up mt-8 text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-white/50 dark:decoration-white/15 dark:hover:text-white/72 dark:hover:decoration-white/30"
           style={{ animationDelay: "220ms" }}
         >
           See how it works
@@ -431,14 +431,14 @@ export function InputScreen({
         className="animate-fade-up mx-auto mt-16 w-full max-w-2xl text-center"
         style={{ animationDelay: "260ms" }}
       >
-        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-white/25">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/50 dark:text-white/38">
           Six languages, any direction
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {LANGUAGES.map((lang) => (
             <span
               key={lang}
-              className="rounded-full border border-black/10 px-3 py-1 text-[13px] text-ink/60 dark:border-white/10 dark:text-white/50"
+              className="rounded-full border border-black/10 px-3 py-1 text-[13px] text-ink/72 dark:border-white/10 dark:text-white/68"
             >
               {lang}
             </span>
@@ -465,7 +465,7 @@ export function InputScreen({
         className="animate-fade-up mx-auto mt-24 w-full max-w-4xl scroll-mt-20"
         style={{ animationDelay: "280ms" }}
       >
-        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-white/25">How it works</p>
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/50 dark:text-white/38">How it works</p>
         <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-ink dark:text-white sm:text-[2rem]">
           Not translation.
           <br />A rewrite that still means it.
@@ -481,9 +481,9 @@ export function InputScreen({
                 <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                   <path d="M8 5.5v13l11-6.5z" />
                 </svg>
-                <span className="truncate text-[11px] text-ink/45 dark:text-white/35">youtube.com/watch?v=…</span>
+                <span className="truncate text-[11px] text-ink/65 dark:text-white/50">youtube.com/watch?v=…</span>
               </div>
-              <p className="text-[12px] leading-relaxed text-ink/50 dark:text-white/40">
+              <p className="text-[12px] leading-relaxed text-ink/68 dark:text-white/62">
                 Captions land as a draft you read and edit first — a starting point, not a
                 finished adaptation.
               </p>
@@ -512,13 +512,13 @@ export function InputScreen({
           .animate-fade-up the sections above use) since this sits well
           below the fold. */}
       <ScrollReveal className="mx-auto mt-24 w-full max-w-4xl">
-        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-white/25">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/50 dark:text-white/38">
           Under the hood
         </p>
         <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-ink dark:text-white sm:text-[2rem]">
           A real Writers' Room, not one prompt.
         </h2>
-        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-ink/50 dark:text-white/40">
+        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-ink/68 dark:text-white/62">
           Every line goes through the same pipeline: a literal translation to
           anchor against, five differently-angled creative rewrites, then a
           Judge that rules against the anchor and logs every real departure
@@ -537,16 +537,16 @@ export function InputScreen({
           {MUSIC_FAQS.map((faq) => (
             <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.10]">
               <h3 className="font-serif text-[15px] text-ink dark:text-white">{faq.question}</h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-white/45">{faq.answer}</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/70 dark:text-white/65">{faq.answer}</p>
             </div>
           ))}
         </div>
-        <p className="mt-6 text-center text-[13px] text-ink/50 dark:text-white/40">
-          <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
+        <p className="mt-6 text-center text-[13px] text-ink/68 dark:text-white/62">
+          <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-white/20 dark:hover:text-white/78">
             See all FAQs
           </Link>
           {" · "}
-          <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
+          <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-white/20 dark:hover:text-white/78">
             See pricing
           </Link>
         </p>
@@ -574,7 +574,7 @@ function FeatureCard({
         {children}
       </div>
       <h3 className="mt-4 text-[14px] font-medium text-ink/85 dark:text-white/85">{title}</h3>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/50 dark:text-white/40">{description}</p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/68 dark:text-white/62">{description}</p>
     </div>
   );
 }

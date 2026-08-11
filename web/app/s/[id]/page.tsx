@@ -71,7 +71,7 @@ export default function SharedResultPage() {
         <p className="font-serif text-2xl text-ink dark:text-ink-dark">
           This link doesn't lead anywhere anymore.
         </p>
-        <p className="mt-3 text-[15px] text-ink/50 dark:text-ink-dark/50">
+        <p className="mt-3 text-[15px] text-ink/68 dark:text-ink-dark/68">
           The song it pointed to may not have been experienced yet on this
           engine.
         </p>

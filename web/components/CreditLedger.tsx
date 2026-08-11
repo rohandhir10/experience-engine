@@ -54,11 +54,11 @@ function useCredits(): LoadState {
 
 function StatusMessage({ state }: { state: LoadState }) {
   if (state.status === "loading") {
-    return <p className="mt-6 text-[13px] text-ink/40 dark:text-ink-dark/40">Loading…</p>;
+    return <p className="mt-6 text-[13px] text-ink/62 dark:text-ink-dark/62">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
-      <p className="mt-6 text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+      <p className="mt-6 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
         <Link href="/sign-in" className="underline decoration-ink/20 underline-offset-4 hover:decoration-ink/50">
           Sign in
         </Link>{" "}
@@ -93,7 +93,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
   const { balance, transactions } = state.data;
   if (balance === null) {
     return (
-      <p className="mt-6 text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+      <p className="mt-6 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
         Accounts aren&apos;t configured on this deployment yet.
       </p>
     );
@@ -104,11 +104,11 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
   return (
     <div className="mt-6">
       <div className="rounded-2xl border border-black/[0.10] px-7 py-6 dark:border-white/[0.11]">
-        <p className="text-[12px] uppercase tracking-[0.1em] text-ink/40 dark:text-ink-dark/40">
+        <p className="text-[12px] uppercase tracking-[0.1em] text-ink/62 dark:text-ink-dark/62">
           Current balance
         </p>
         <p className="mt-2 font-serif text-3xl text-ink dark:text-ink-dark">
-          {balance.toLocaleString()} <span className="text-[15px] font-sans text-ink/45 dark:text-ink-dark/45">credits</span>
+          {balance.toLocaleString()} <span className="text-[15px] font-sans text-ink/65 dark:text-ink-dark/65">credits</span>
         </p>
         {view === "billing" && (
           <Link
@@ -120,11 +120,11 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
         )}
       </div>
 
-      <h2 className="mt-8 text-[13px] font-medium uppercase tracking-[0.08em] text-ink/40 dark:text-ink-dark/40">
+      <h2 className="mt-8 text-[13px] font-medium uppercase tracking-[0.08em] text-ink/62 dark:text-ink-dark/62">
         {view === "usage" ? "Recent usage" : "History"}
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-3 text-[13px] text-ink/40 dark:text-ink-dark/40">
+        <p className="mt-3 text-[13px] text-ink/62 dark:text-ink-dark/62">
           {view === "usage" ? "No adaptations run yet." : "No transactions yet."}
         </p>
       ) : (
@@ -133,7 +133,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
             <li key={row.id} className="flex items-center justify-between py-3 text-[13px]">
               <div>
                 <p className="text-ink/80 dark:text-ink-dark/80">{REASON_LABELS[row.reason]}</p>
-                <p className="mt-0.5 text-[12px] text-ink/40 dark:text-ink-dark/40">
+                <p className="mt-0.5 text-[12px] text-ink/62 dark:text-ink-dark/62">
                   {formatDate(row.createdAt)}
                 </p>
               </div>
@@ -141,7 +141,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
                 className={
                   row.amount > 0
                     ? "font-medium text-emerald-600 dark:text-emerald-400"
-                    : "font-medium text-ink/70 dark:text-ink-dark/70"
+                    : "font-medium text-ink/78 dark:text-ink-dark/78"
                 }
               >
                 {row.amount > 0 ? "+" : ""}

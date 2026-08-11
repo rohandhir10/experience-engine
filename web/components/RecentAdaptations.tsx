@@ -180,14 +180,14 @@ export function RecentAdaptations({
   );
 
   if (state.status === "loading") {
-    return <p className="mt-4 text-[14px] text-ink/30 dark:text-ink-dark/30">Loading…</p>;
+    return <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
-      <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
         <Link
           href="/sign-in"
-          className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/70"
+          className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/78"
         >
           Sign in
         </Link>{" "}
@@ -197,7 +197,7 @@ export function RecentAdaptations({
   }
   if (state.status === "error") {
     return (
-      <p className="mt-4 text-[14px] text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] text-ink/62 dark:text-ink-dark/62">
         Couldn't load your {favoritesOnly ? "favorites" : "history"} right now — your
         adaptations are still saved.
       </p>
@@ -205,7 +205,7 @@ export function RecentAdaptations({
   }
   if (state.entries.length === 0) {
     return (
-      <p className="mt-4 text-[14px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+      <p className="mt-4 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
         {favoritesOnly
           ? "No favorites yet — star an adaptation to keep it here."
           : "No adaptations yet — the first thing you adapt will show up here."}
@@ -229,7 +229,7 @@ export function RecentAdaptations({
               className={`shrink-0 rounded-full p-1 transition disabled:opacity-40 ${
                 entry.isFavorite
                   ? "text-accent"
-                  : "text-ink/20 hover:text-ink/45 dark:text-ink-dark/20 dark:hover:text-ink-dark/45"
+                  : "text-ink/32 hover:text-ink/65 dark:text-ink-dark/32 dark:hover:text-ink-dark/65"
               }`}
             >
               <StarIcon filled={entry.isFavorite} />
@@ -238,10 +238,10 @@ export function RecentAdaptations({
               href={href}
               className="group flex min-w-0 flex-1 items-baseline justify-between gap-4"
             >
-              <span className="min-w-0 truncate text-[14px] text-ink/75 transition group-hover:text-ink dark:text-ink-dark/75 dark:group-hover:text-ink-dark">
+              <span className="min-w-0 truncate text-[14px] text-ink/80 transition group-hover:text-ink dark:text-ink-dark/80 dark:group-hover:text-ink-dark">
                 {label}
               </span>
-              <span className="shrink-0 text-[12px] text-ink/35 dark:text-ink-dark/35">
+              <span className="shrink-0 text-[12px] text-ink/50 dark:text-ink-dark/50">
                 {[entry.sourceLanguage, entry.targetLanguage].filter(Boolean).join(" → ")}
                 {" · "}
                 {new Date(entry.createdAt).toLocaleDateString()}

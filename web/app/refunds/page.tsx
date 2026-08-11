@@ -24,12 +24,12 @@ export default function RefundsPage() {
           <h1 className="font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Refund &amp; Cancellation Policy
           </h1>
-          <p className="mt-3 text-[13px] text-ink/40 dark:text-ink-dark/40">
+          <p className="mt-3 text-[13px] text-ink/62 dark:text-ink-dark/62">
             Last updated: [DATE] · DRAFT — pending legal review, not yet in effect
           </p>
         </div>
 
-        <div className="mt-10 space-y-9 text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+        <div className="mt-10 space-y-9 text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
           <Section title="1. Failed adaptations — automatic, no request needed">
             <p>
               If you're charged credits for an adaptation and it fails on

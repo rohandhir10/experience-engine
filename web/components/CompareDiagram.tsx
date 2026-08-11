@@ -13,17 +13,17 @@ export function CompareDiagram({
 }) {
   return (
     <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
         {competitorName}
       </p>
       <div className="mt-2.5 flex items-center gap-2.5">
-        <span className="rounded-lg border border-ink/15 px-3 py-2 text-[12.5px] text-ink/70 dark:border-ink-dark/15 dark:text-ink-dark/70">
+        <span className="rounded-lg border border-ink/15 px-3 py-2 text-[12.5px] text-ink/78 dark:border-ink-dark/15 dark:text-ink-dark/78">
           {competitorStep}
         </span>
-        <span className="text-ink/25 dark:text-ink-dark/25" aria-hidden="true">
+        <span className="text-ink/38 dark:text-ink-dark/38" aria-hidden="true">
           →
         </span>
-        <span className="rounded-lg bg-ink/5 px-3 py-2 text-[12.5px] text-ink/50 dark:bg-ink-dark/10 dark:text-ink-dark/50">
+        <span className="rounded-lg bg-ink/5 px-3 py-2 text-[12.5px] text-ink/68 dark:bg-ink-dark/10 dark:text-ink-dark/68">
           Output
         </span>
       </div>
@@ -34,25 +34,25 @@ export function CompareDiagram({
         Castia
       </p>
       <div className="mt-2.5 flex flex-wrap items-center gap-2 gap-y-2.5">
-        <span className="rounded-lg border border-ink/15 px-2.5 py-1.5 text-[11.5px] text-ink/70 dark:border-ink-dark/15 dark:text-ink-dark/70">
+        <span className="rounded-lg border border-ink/15 px-2.5 py-1.5 text-[11.5px] text-ink/78 dark:border-ink-dark/15 dark:text-ink-dark/78">
           Literal anchor
         </span>
-        <span className="text-ink/25 dark:text-ink-dark/25" aria-hidden="true">
+        <span className="text-ink/38 dark:text-ink-dark/38" aria-hidden="true">
           →
         </span>
-        <span className="rounded-lg border border-ink/15 px-2.5 py-1.5 text-[11.5px] text-ink/70 dark:border-ink-dark/15 dark:text-ink-dark/70">
+        <span className="rounded-lg border border-ink/15 px-2.5 py-1.5 text-[11.5px] text-ink/78 dark:border-ink-dark/15 dark:text-ink-dark/78">
           5 rewrites
         </span>
-        <span className="text-ink/25 dark:text-ink-dark/25" aria-hidden="true">
+        <span className="text-ink/38 dark:text-ink-dark/38" aria-hidden="true">
           →
         </span>
         <span className="rounded-lg bg-accent px-2.5 py-1.5 text-[11.5px] font-medium text-paper">
           Judge
         </span>
-        <span className="text-ink/25 dark:text-ink-dark/25" aria-hidden="true">
+        <span className="text-ink/38 dark:text-ink-dark/38" aria-hidden="true">
           →
         </span>
-        <span className="rounded-lg bg-ink/5 px-2.5 py-1.5 text-[11.5px] text-ink/50 dark:bg-ink-dark/10 dark:text-ink-dark/50">
+        <span className="rounded-lg bg-ink/5 px-2.5 py-1.5 text-[11.5px] text-ink/68 dark:bg-ink-dark/10 dark:text-ink-dark/68">
           Output
         </span>
       </div>

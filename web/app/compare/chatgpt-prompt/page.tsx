@@ -57,7 +57,7 @@ export default function CompareChatGptPage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Castia vs. a single ChatGPT prompt.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               "Just ask an LLM to translate it creatively" is a genuinely
               reasonable instinct - a modern chat model can absolutely
               produce a creative rewrite of a line. The question is what
@@ -71,7 +71,7 @@ export default function CompareChatGptPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             What one prompt actually gives you
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             One prompt, one response: a single rewrite, produced in one
             pass, with nothing else to compare it to. If it's good, you
             have no way to tell how good relative to the alternatives the
@@ -80,7 +80,7 @@ export default function CompareChatGptPage() {
             would tell you - the model wasn't asked to check its own work
             against a literal reading, only to produce a creative one.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             This isn't a knock on the model's capability. It's a gap in the
             process: a single generation step has no built-in mechanism for
             catching its own semantic drift, and research on automated
@@ -95,7 +95,7 @@ export default function CompareChatGptPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             What a verified pipeline adds
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Castia runs the same underlying kind of model through three
             distinct roles instead of one prompt: a Translator produces a
             literal anchor first, a Creative Adapter produces five
@@ -105,7 +105,7 @@ export default function CompareChatGptPage() {
             reading. If none of the five earns a genuine improvement, the
             literal anchor ships instead of a manufactured difference.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Using a model to score another model's output against a rubric
             - "LLM-as-a-judge" - is an actively researched evaluation
             approach, not something invented for this comparison: NeurIPS
@@ -127,7 +127,7 @@ export default function CompareChatGptPage() {
             <table className="w-full min-w-[480px] text-left text-[13px]">
               <thead>
                 <tr className="border-b border-black/[0.10] dark:border-white/[0.11]">
-                  <th className="p-4 font-medium text-ink/50 dark:text-ink-dark/50"> </th>
+                  <th className="p-4 font-medium text-ink/68 dark:text-ink-dark/68"> </th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">One ChatGPT prompt</th>
                   <th className="p-4 font-medium text-ink dark:text-ink-dark">Castia</th>
                 </tr>
@@ -141,9 +141,9 @@ export default function CompareChatGptPage() {
                   ["Repeatable / cached", "Re-run from scratch each time", "Same input returns the same verified result"],
                 ].map(([label, gpt, castia]) => (
                   <tr key={label}>
-                    <td className="p-4 text-ink/50 dark:text-ink-dark/50">{label}</td>
-                    <td className="p-4 text-ink/70 dark:text-ink-dark/70">{gpt}</td>
-                    <td className="p-4 text-ink/70 dark:text-ink-dark/70">{castia}</td>
+                    <td className="p-4 text-ink/68 dark:text-ink-dark/68">{label}</td>
+                    <td className="p-4 text-ink/78 dark:text-ink-dark/78">{gpt}</td>
+                    <td className="p-4 text-ink/78 dark:text-ink-dark/78">{castia}</td>
                   </tr>
                 ))}
               </tbody>
@@ -155,7 +155,7 @@ export default function CompareChatGptPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Same prompt, run through both
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             One source line, the same prompt, run through a single ChatGPT
             request and through Castia. Unedited output, side by side.
           </p>
@@ -169,7 +169,7 @@ export default function CompareChatGptPage() {
           <p className="font-serif text-xl text-white sm:text-2xl">
             See the whole pipeline on one line.
           </p>
-          <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/50">
+          <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/68">
             The literal anchor, all five rewrites, and the Judge's reasoning
             - not just the one line a single prompt would have given you.
           </p>
@@ -181,7 +181,7 @@ export default function CompareChatGptPage() {
           </Link>
         </div>
 
-        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Also see{" "}
           <Link href="/compare/google-translate" className="underline decoration-ink/20 underline-offset-4">
             Castia vs. Google Translate

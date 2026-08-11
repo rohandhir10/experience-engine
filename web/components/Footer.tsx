@@ -8,8 +8,8 @@ import Link from "next/link";
  * footer doesn't look like a mistake pasted onto a dark page. */
 export function Footer({ dark }: { dark?: boolean } = {}) {
   const dim = dark
-    ? "text-white/40 hover:text-white/70"
-    : "text-ink/40 hover:text-ink/70 dark:text-ink-dark/40 dark:hover:text-ink-dark/70";
+    ? "text-white/62 hover:text-white/78"
+    : "text-ink/62 hover:text-ink/78 dark:text-ink-dark/62 dark:hover:text-ink-dark/78";
   const border = dark ? "border-white/10" : "border-black/[0.10] dark:border-white/[0.11]";
 
   return (
@@ -63,7 +63,7 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
           DMCA
         </Link>
       </nav>
-      <p className={`mt-4 text-[12px] ${dark ? "text-white/25" : "text-ink/30 dark:text-ink-dark/30"}`}>
+      <p className={`mt-4 text-[12px] ${dark ? "text-white/38" : "text-ink/45 dark:text-ink-dark/45"}`}>
         © {new Date().getFullYear()} Castia
       </p>
     </footer>

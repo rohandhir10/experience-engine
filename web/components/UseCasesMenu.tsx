@@ -37,14 +37,14 @@ export function UseCasesMenu({ forceDark }: { forceDark?: boolean }) {
   }, [open]);
 
   const dim = forceDark
-    ? "text-white/45 hover:text-white/75"
-    : "text-ink/45 hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70";
+    ? "text-white/65 hover:text-white/80"
+    : "text-ink/65 hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78";
   const panel = forceDark
     ? "border-white/10 bg-[#161210]"
     : "border-black/[0.12] bg-paper dark:border-white/[0.12] dark:bg-paper-dark";
   const item = forceDark
-    ? "text-white/70 hover:bg-white/[0.06]"
-    : "text-ink/70 hover:bg-black/[0.03] dark:text-ink-dark/70 dark:hover:bg-white/[0.05]";
+    ? "text-white/78 hover:bg-white/[0.06]"
+    : "text-ink/78 hover:bg-black/[0.03] dark:text-ink-dark/78 dark:hover:bg-white/[0.05]";
 
   return (
     <div ref={ref} className="relative hidden sm:block">

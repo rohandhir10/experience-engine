@@ -22,7 +22,7 @@ export default function SettingsPage() {
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.75rem]">
               API Keys
             </h1>
-            <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+            <p className="mt-2 max-w-prose text-[13px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
               For server-to-server calls to the public API — pass a key as{" "}
               <code className="rounded bg-black/[0.05] px-1 py-0.5 dark:bg-white/10">
                 Authorization: Bearer &lt;key&gt;

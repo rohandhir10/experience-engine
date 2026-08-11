@@ -37,13 +37,13 @@ export function MobileNavMenu({
     };
   }, [open]);
 
-  const iconColor = forceDark ? "text-white/70" : "text-ink/70 dark:text-ink-dark/70";
+  const iconColor = forceDark ? "text-white/78" : "text-ink/78 dark:text-ink-dark/78";
   const panel = forceDark
     ? "border-white/10 bg-[#161210]"
     : "border-black/[0.12] bg-paper dark:border-white/[0.12] dark:bg-paper-dark";
   const item = forceDark
-    ? "text-white/75 hover:bg-white/[0.06]"
-    : "text-ink/75 hover:bg-black/[0.03] dark:text-ink-dark/75 dark:hover:bg-white/[0.05]";
+    ? "text-white/80 hover:bg-white/[0.06]"
+    : "text-ink/80 hover:bg-black/[0.03] dark:text-ink-dark/80 dark:hover:bg-white/[0.05]";
   const divider = forceDark ? "border-white/10" : "border-black/[0.10] dark:border-white/[0.11]";
 
   function close() {

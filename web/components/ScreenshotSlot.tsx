@@ -12,13 +12,13 @@ export function ScreenshotSlot({
 }) {
   return (
     <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-black/15 bg-black/[0.02] p-4 text-center dark:border-white/15 dark:bg-white/[0.02]">
-      <span className="text-[11px] font-medium uppercase tracking-wide text-ink/40 dark:text-ink-dark/40">
+      <span className="text-[11px] font-medium uppercase tracking-wide text-ink/62 dark:text-ink-dark/62">
         {label}
       </span>
-      <span className="text-[11px] text-ink/30 dark:text-ink-dark/30">
+      <span className="text-[11px] text-ink/45 dark:text-ink-dark/45">
         Screenshot pending
       </span>
-      <code className="mt-1 rounded bg-black/[0.04] px-1.5 py-0.5 text-[10px] text-ink/35 dark:bg-white/[0.06] dark:text-ink-dark/40">
+      <code className="mt-1 rounded bg-black/[0.04] px-1.5 py-0.5 text-[10px] text-ink/50 dark:bg-white/[0.06] dark:text-ink-dark/62">
         {path}
       </code>
     </div>

@@ -56,9 +56,9 @@ export function BlogPostShell({
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             {entry.title}
           </h1>
-          <p className="mt-3 text-[12px] text-ink/35 dark:text-ink-dark/35">
+          <p className="mt-3 text-[12px] text-ink/50 dark:text-ink-dark/50">
             By{" "}
-            <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/55 dark:hover:text-ink-dark/55">
+            <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/70 dark:hover:text-ink-dark/70">
               {FOUNDER_NAME}
             </Link>{" "}
             · Published {formatDate(entry.publishedDate)}
@@ -70,7 +70,7 @@ export function BlogPostShell({
 
         <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center sm:p-10">
           <p className="font-serif text-xl text-white sm:text-2xl">{cta.heading}</p>
-          <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/50">{cta.body}</p>
+          <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/68">{cta.body}</p>
           <Link
             href={cta.href}
             className="mt-6 inline-block rounded-full bg-white px-6 py-2.5 text-[13px] font-medium text-black transition active:scale-[0.97]"

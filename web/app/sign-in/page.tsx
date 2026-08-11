@@ -64,7 +64,7 @@ export default async function SignInPage({
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">
               You're signed in.
             </h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               {session.user.email} — your adaptations are saved to your
               history.
             </p>
@@ -83,7 +83,7 @@ export default async function SignInPage({
             >
               <button
                 type="submit"
-                className="w-full rounded-full border border-black/10 px-6 py-3 text-[14px] text-ink/60 transition hover:text-ink dark:border-white/10 dark:text-ink-dark/60 dark:hover:text-ink-dark"
+                className="w-full rounded-full border border-black/10 px-6 py-3 text-[14px] text-ink/72 transition hover:text-ink dark:border-white/10 dark:text-ink-dark/72 dark:hover:text-ink-dark"
               >
                 Sign out
               </button>
@@ -94,7 +94,7 @@ export default async function SignInPage({
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">
               Keep your adaptations.
             </h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               You don't need an account to use CASTIA — sign in to keep a
               history of every song you adapt, on any device.
             </p>
@@ -120,7 +120,7 @@ export default async function SignInPage({
               </form>
             )}
 
-            <div className="mt-6 flex w-full items-center gap-3 text-[12px] text-ink/30 dark:text-ink-dark/30">
+            <div className="mt-6 flex w-full items-center gap-3 text-[12px] text-ink/45 dark:text-ink-dark/45">
               <div className="h-px flex-1 bg-black/[0.08] dark:bg-white/[0.08]" />
               or
               <div className="h-px flex-1 bg-black/[0.08] dark:bg-white/[0.08]" />
@@ -128,7 +128,7 @@ export default async function SignInPage({
 
             <form action={credentialsSignIn} className="mt-6 w-full space-y-3 text-left">
               <div>
-                <label htmlFor="email" className="text-[12px] text-ink/45 dark:text-ink-dark/45">
+                <label htmlFor="email" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
                   Email
                 </label>
                 <input
@@ -141,7 +141,7 @@ export default async function SignInPage({
                 />
               </div>
               <div>
-                <label htmlFor="password" className="text-[12px] text-ink/45 dark:text-ink-dark/45">
+                <label htmlFor="password" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
                   Password
                 </label>
                 <input
@@ -161,7 +161,7 @@ export default async function SignInPage({
               </button>
             </form>
 
-            <p className="mt-6 text-[13px] text-ink/45 dark:text-ink-dark/45">
+            <p className="mt-6 text-[13px] text-ink/65 dark:text-ink-dark/65">
               No account?{" "}
               <Link href="/sign-up" className="underline decoration-ink/20 underline-offset-4">
                 Sign up
@@ -173,7 +173,7 @@ export default async function SignInPage({
             <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">
               Accounts aren't live yet.
             </h1>
-            <p className="mt-3 text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+            <p className="mt-3 text-[14px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
               You don't need one to use CASTIA — every adaptation is free to
               try right now. (Deployment note: set AUTH_SECRET and
               CASTIA_INTERNAL_API_SECRET to enable email sign-in; add
@@ -184,7 +184,7 @@ export default async function SignInPage({
 
         <Link
           href="/music#lyrics"
-          className="mt-6 text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 dark:text-ink-dark/45 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/70"
+          className="mt-6 text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
         >
           Just take me to CASTIA →
         </Link>

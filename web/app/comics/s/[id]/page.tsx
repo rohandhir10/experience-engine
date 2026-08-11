@@ -60,7 +60,7 @@ export default function ComicsSharedResultPage() {
         <p className="font-serif text-2xl text-ink dark:text-ink-dark">
           This link doesn't lead anywhere anymore.
         </p>
-        <p className="mt-3 text-[15px] text-ink/50 dark:text-ink-dark/50">
+        <p className="mt-3 text-[15px] text-ink/68 dark:text-ink-dark/68">
           The chapter it pointed to may not have been adapted yet on this engine.
         </p>
         <Link
@@ -82,7 +82,7 @@ export default function ComicsSharedResultPage() {
             <CopyLinkButton resultId={result.id} basePath="/comics/s" />
             <Link
               href="/comics"
-              className="text-[13px] text-ink/45 transition hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
+              className="text-[13px] text-ink/65 transition hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
             >
               ← Start over
             </Link>
@@ -95,7 +95,7 @@ export default function ComicsSharedResultPage() {
           <p className="text-[12px] uppercase tracking-[0.15em] text-accent">
             {result.chapter_dna.genre_feel} — {result.chapter_dna.tone}
           </p>
-          <p className="mx-auto mt-3 max-w-lg text-[15px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mx-auto mt-3 max-w-lg text-[15px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             {result.chapter_dna.artistic_thesis}
           </p>
         </div>
@@ -106,16 +106,16 @@ export default function ComicsSharedResultPage() {
               key={panel.id}
               className="rounded-2xl border border-black/[0.12] bg-white/70 p-5 dark:border-white/[0.12] dark:bg-white/[0.03]"
             >
-              <p className="text-[11px] uppercase tracking-wide text-ink/35 dark:text-ink-dark/35">
+              <p className="text-[11px] uppercase tracking-wide text-ink/50 dark:text-ink-dark/50">
                 Panel {i + 1}
               </p>
-              <p className="mt-2 text-[13px] italic leading-relaxed text-ink/45 dark:text-ink-dark/45">
+              <p className="mt-2 text-[13px] italic leading-relaxed text-ink/65 dark:text-ink-dark/65">
                 {panel.literal}
               </p>
               <p className="mt-2 text-[15px] leading-relaxed text-ink dark:text-ink-dark">
                 {panel.adapted_text}
               </p>
-              <p className="mt-3 text-[12px] leading-relaxed text-ink/40 dark:text-ink-dark/40">
+              <p className="mt-3 text-[12px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
                 {panel.why}
               </p>
             </div>

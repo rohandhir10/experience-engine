@@ -82,8 +82,8 @@ export function CollectionMenu({
         aria-label={ariaLabel}
         className={`rounded-full px-2 py-1 text-[12px] transition ${
           memberIds.length > 0
-            ? "text-ink/55 dark:text-ink-dark/55"
-            : "text-ink/30 hover:text-ink/60 dark:text-ink-dark/30 dark:hover:text-ink-dark/60"
+            ? "text-ink/70 dark:text-ink-dark/70"
+            : "text-ink/45 hover:text-ink/72 dark:text-ink-dark/45 dark:hover:text-ink-dark/72"
         }`}
       >
         {memberIds.length > 0 ? `In ${memberIds.length}` : emptyLabel}
@@ -102,7 +102,7 @@ export function CollectionMenu({
                   key={collection.id}
                   type="button"
                   onClick={() => onToggle(collection.id, !member)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink/70 transition hover:bg-black/[0.04] dark:text-ink-dark/70 dark:hover:bg-white/[0.06]"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink/78 transition hover:bg-black/[0.04] dark:text-ink-dark/78 dark:hover:bg-white/[0.06]"
                 >
                   <span
                     className={`w-3 shrink-0 text-[11px] ${
@@ -136,7 +136,7 @@ export function CollectionMenu({
                   placeholder="Collection name…"
                   maxLength={100}
                   disabled={busy}
-                  className="w-full rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] text-ink outline-none transition placeholder:text-ink/30 focus:border-black/20 disabled:opacity-50 dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-ink-dark dark:placeholder:text-ink-dark/30"
+                  className="w-full rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] text-ink outline-none transition placeholder:text-ink/45 focus:border-black/20 disabled:opacity-50 dark:border-white/[0.12] dark:bg-white/[0.04] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
                 />
                 {failed && (
                   <p role="alert" className="mt-1 px-1 text-[11px] text-red-500/80">
@@ -155,7 +155,7 @@ export function CollectionMenu({
               <button
                 type="button"
                 onClick={() => setCreating(true)}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink/50 transition hover:bg-black/[0.04] dark:text-ink-dark/50 dark:hover:bg-white/[0.06]"
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink/68 transition hover:bg-black/[0.04] dark:text-ink-dark/68 dark:hover:bg-white/[0.06]"
               >
                 <span className="w-3 shrink-0 text-[13px]" aria-hidden="true">
                   +

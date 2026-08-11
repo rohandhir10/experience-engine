@@ -25,10 +25,10 @@ const LANGUAGES = ["English", "Japanese", "Korean", "Spanish", "Urdu", "Hindi"];
 function LyricLineDiagram() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
         Literal
       </p>
-      <p className="mt-1.5 font-serif text-[15px] leading-snug text-ink/50 line-through decoration-ink/20 dark:text-ink-dark/50 dark:decoration-ink-dark/20">
+      <p className="mt-1.5 font-serif text-[15px] leading-snug text-ink/68 line-through decoration-ink/20 dark:text-ink-dark/68 dark:decoration-ink-dark/20">
         The night doesn't end, it only grows quiet.
       </p>
 
@@ -41,14 +41,14 @@ function LyricLineDiagram() {
         </span>
       </div>
 
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/35 dark:text-ink-dark/35">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
         Adapted
       </p>
       <p className="mt-1.5 font-serif text-[16px] leading-snug text-ink dark:text-ink-dark">
         The night won't end - it just goes quiet.
       </p>
 
-      <p className="mt-5 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/50 dark:border-white/[0.10] dark:text-ink-dark/50">
+      <p className="mt-5 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/68 dark:border-white/[0.10] dark:text-ink-dark/68">
         &ldquo;Kept the near-rhyme on end / quiet, dropped the literal
         &lsquo;grows&rsquo; to make it singable against the melody.&rdquo;
       </p>
@@ -89,7 +89,7 @@ export default function LyricsTranslationPage() {
               <br />
               The adapter has to know why it works.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               The rhyme a line is chasing, the idiom it's leaning on, the
               thing left unsaid on purpose - a word-for-word pass drops all
               of it. Castia adapts across English, Japanese, Korean,
@@ -110,7 +110,7 @@ export default function LyricsTranslationPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Why literal lyric translation falls short
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             A song lyric has to satisfy several demands at once - what it
             means, how it sounds, whether it still scans against the
             melody. Translation research on singable lyrics (Peter Low's
@@ -120,7 +120,7 @@ export default function LyricsTranslationPage() {
             to produce a translation that's technically correct and
             practically unsingable - or just flat, next to the original.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Read more in{" "}
             <Link href="/blog/why-literal-translation-breaks-song-lyrics" className="underline decoration-ink/20 underline-offset-4">
               why literal translation breaks song lyrics
@@ -133,7 +133,7 @@ export default function LyricsTranslationPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Six languages, six different rulebooks
           </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             English, Japanese, Korean, Spanish, Urdu, and Hindi don't share
             one notion of what makes a lyric work — each has its own
             language profile encoding what actually carries structure and
@@ -159,7 +159,7 @@ export default function LyricsTranslationPage() {
               body="Both sit on the same Persianized-versus-Sanskritized axis from opposite sides: choosing ishq or prem for “love,” mohabbat or pyaar, places a line socially and emotionally in a way a single English word for “love” can't distinguish. The ghazal's radif — a whole phrase repeated verbatim at the end of each couplet — is structural, not incidental, and has to survive adaptation the way a chorus hook does."
             />
           </div>
-          <p className="mt-6 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-6 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Every one of these is a real check applied during the Creative
             Adapter and Judge stages of the{" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
@@ -181,19 +181,19 @@ export default function LyricsTranslationPage() {
             {LANGUAGES.map((lang) => (
               <span
                 key={lang}
-                className="rounded-full border border-black/10 px-3.5 py-1.5 text-[13px] text-ink/65 dark:border-white/10 dark:text-ink-dark/65"
+                className="rounded-full border border-black/10 px-3.5 py-1.5 text-[13px] text-ink/75 dark:border-white/10 dark:text-ink-dark/75"
               >
                 {lang}
               </span>
             ))}
           </div>
-          <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+          <p className="mt-4 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Adapt in any direction between them - Japanese to English,
             Spanish to Korean, Hindi to Urdu, and every other pairing.
           </p>
         </section>
 
-        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/45 dark:text-ink-dark/45">
+        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
           Also localizing comic or webtoon dialogue? See{" "}
           <Link href="/manga-webtoon-translation" className="underline decoration-ink/20 underline-offset-4">
             manga &amp; webtoon translation
@@ -219,7 +219,7 @@ function LangNote({ lang, body }: { lang: string; body: string }) {
   return (
     <div className="border-l-2 border-black/10 pl-5 dark:border-white/10">
       <h3 className="font-serif text-[15px] text-ink dark:text-ink-dark">{lang}</h3>
-      <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+      <p className="mt-1.5 max-w-prose text-[13.5px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
         {body}
       </p>
     </div>

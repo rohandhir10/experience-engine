@@ -44,7 +44,7 @@ export default function AlternateHomepage() {
             <br />
             Not just the words.
           </h1>
-          <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-white/70">
+          <p className="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-white/78">
             Six languages, any direction. Every real change logged with a reason —
             not a translation you have to take on faith.
           </p>
@@ -84,7 +84,7 @@ export default function AlternateHomepage() {
           Built to keep what a song is actually doing,
           <span className="text-accent"> not just what it says.</span>
         </h2>
-        <p className="text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+        <p className="text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
           Most translation tools optimize for word-for-word accuracy and lose
           everything that made the song worth adapting — the repetition, the
           restraint, the specific image the writer chose on purpose. CASTIA
@@ -96,7 +96,7 @@ export default function AlternateHomepage() {
       {/* Big screenshot showcase, tabbed by audience — the reference's
           "frontier research, deployed in every conversation" section. */}
       <div className="mx-auto mt-20 max-w-5xl rounded-3xl bg-black/[0.02] p-8 dark:bg-white/[0.02] sm:p-12">
-        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-ink-dark/35">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/50 dark:text-ink-dark/50">
           One engine, several reasons to use it
         </p>
         <div className="mt-8 grid gap-10 sm:grid-cols-2 sm:items-center">
@@ -126,7 +126,7 @@ export default function AlternateHomepage() {
           ].map((fact) => (
             <span
               key={fact}
-              className="rounded-full border border-black/[0.12] px-3 py-1 text-[12px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50"
+              className="rounded-full border border-black/[0.12] px-3 py-1 text-[12px] text-ink/68 dark:border-white/[0.12] dark:text-ink-dark/68"
             >
               {fact}
             </span>
@@ -142,7 +142,7 @@ export default function AlternateHomepage() {
           Not one model guessing.
           <br />A room that has to agree.
         </h2>
-        <p className="mt-3 max-w-xl text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+        <p className="mt-3 max-w-xl text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
           A literal translation is generated first and never discarded — every
           later step is checked against it, not just asked to "sound better."
         </p>
@@ -160,7 +160,7 @@ export default function AlternateHomepage() {
             Every claim is checked in code, not just asked of the model.
           </h2>
         </div>
-        <p className="text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+        <p className="text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
           A deterministic pass compares the shipped line against the literal
           anchor: is every real change accounted for, is the reason given for
           it real, does a repeated line actually still repeat. Nothing here
@@ -178,7 +178,7 @@ export default function AlternateHomepage() {
             <h2 className="font-serif text-[1.6rem] leading-[1.3] text-ink dark:text-ink-dark">
               Keep what you find.
             </h2>
-            <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+            <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
               Star a result or file it into a collection — it's there next
               time, tied to your account, not lost in a chat history.
             </p>
@@ -189,15 +189,15 @@ export default function AlternateHomepage() {
                 <path d="M12 3.5l2.6 5.3 5.9.85-4.25 4.15 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.65l5.9-.85z" />
               </svg>
               <div className="flex flex-wrap gap-1.5">
-                <span className="rounded-full border border-black/[0.12] px-2 py-0.5 text-[11px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50">
+                <span className="rounded-full border border-black/[0.12] px-2 py-0.5 text-[11px] text-ink/68 dark:border-white/[0.12] dark:text-ink-dark/68">
                   Hindi Rock
                 </span>
-                <span className="rounded-full border border-black/[0.12] px-2 py-0.5 text-[11px] text-ink/50 dark:border-white/[0.12] dark:text-ink-dark/50">
+                <span className="rounded-full border border-black/[0.12] px-2 py-0.5 text-[11px] text-ink/68 dark:border-white/[0.12] dark:text-ink-dark/68">
                   Covers
                 </span>
               </div>
             </div>
-            <p className="mt-3 text-[11px] text-ink/35 dark:text-ink-dark/35">
+            <p className="mt-3 text-[11px] text-ink/50 dark:text-ink-dark/50">
               {LANGUAGES.length} languages supported, any pairing.
             </p>
           </div>
@@ -218,25 +218,25 @@ export default function AlternateHomepage() {
           </Link>
           <Link
             href="/sign-in"
-            className="rounded-full border border-black/10 px-7 py-3 text-[14px] text-ink/70 transition hover:text-ink dark:border-white/10 dark:text-ink-dark/70 dark:hover:text-ink-dark"
+            className="rounded-full border border-black/10 px-7 py-3 text-[14px] text-ink/78 transition hover:text-ink dark:border-white/10 dark:text-ink-dark/78 dark:hover:text-ink-dark"
           >
             Sign in
           </Link>
         </div>
       </div>
 
-      <footer className="mx-auto mt-20 max-w-5xl border-t border-black/[0.10] pt-8 text-center text-[12px] text-ink/35 dark:border-white/[0.10] dark:text-ink-dark/35">
+      <footer className="mx-auto mt-20 max-w-5xl border-t border-black/[0.10] pt-8 text-center text-[12px] text-ink/50 dark:border-white/[0.10] dark:text-ink-dark/50">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          <Link href="/" className="hover:text-ink/60 dark:hover:text-ink-dark/60">
+          <Link href="/" className="hover:text-ink/72 dark:hover:text-ink-dark/72">
             Home
           </Link>
-          <Link href="/pricing" className="hover:text-ink/60 dark:hover:text-ink-dark/60">
+          <Link href="/pricing" className="hover:text-ink/72 dark:hover:text-ink-dark/72">
             Pricing
           </Link>
-          <Link href="/sign-in" className="hover:text-ink/60 dark:hover:text-ink-dark/60">
+          <Link href="/sign-in" className="hover:text-ink/72 dark:hover:text-ink-dark/72">
             Sign in
           </Link>
-          <Link href="/dashboard" className="hover:text-ink/60 dark:hover:text-ink-dark/60">
+          <Link href="/dashboard" className="hover:text-ink/72 dark:hover:text-ink-dark/72">
             Dashboard
           </Link>
         </div>

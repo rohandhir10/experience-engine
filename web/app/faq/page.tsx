@@ -29,7 +29,7 @@ export default function FaqPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Frequently asked questions.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
             For the full pipeline explanation, see{" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
               how it works
@@ -50,7 +50,7 @@ export default function FaqPage() {
                     <h3 className="font-serif text-lg text-ink dark:text-ink-dark">
                       {faq.question}
                     </h3>
-                    <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/60 dark:text-ink-dark/60">
+                    <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
                       {faq.answer}
                     </p>
                   </div>

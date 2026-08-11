@@ -20,7 +20,7 @@ export function TargetLanguageSelect({
 }) {
   return (
     <label className="inline-flex items-center gap-2 text-[13px]">
-      <span className={dark ? "text-white/40" : "text-ink/40 dark:text-ink-dark/40"}>
+      <span className={dark ? "text-white/62" : "text-ink/62 dark:text-ink-dark/62"}>
         {label}
       </span>
       <select
