@@ -50,6 +50,23 @@ const config: Config = {
       maxWidth: {
         prose: "42rem",
       },
+      // Tailwind's default opacity scale only defines multiples of 5
+      // (…/60, /65, /70…) - a slash value outside that scale (e.g.
+      // text-ink/62) silently generates NO CSS at all, no build error,
+      // no warning. That's a real bug this site hit: several rounds of
+      // contrast fixes landed on odd values like /62, /68, /72, /78 (a
+      // sweep script's rounding), and every one of those classes was
+      // dropped from the compiled stylesheet - the element just fell
+      // back to whichever OTHER color utility on it still compiled
+      // (e.g. only the light-mode `text-ink/75` half of a
+      // "text-ink/75 dark:text-white/62" pair), which is exactly how
+      // text ends up rendering in the wrong theme's color and blending
+      // into the background. Filling in every integer 0-100 here means
+      // any `/NN` slash value already written anywhere in the codebase
+      // compiles, and this can't happen again for a future value either.
+      opacity: Object.fromEntries(
+        Array.from({ length: 101 }, (_, n) => [String(n), String(n / 100)])
+      ),
     },
   },
   // Class-based, not "media": a manual toggle (components/ThemeToggle.tsx)
