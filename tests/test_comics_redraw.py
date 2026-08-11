@@ -18,10 +18,12 @@ from engine.comics_redraw import (
     FONTS_BOLD,
     RedrawError,
     _clamp_bbox,
+    _estimate_text_boldness,
     _estimate_text_color,
     _fit_text,
     _merge_overlapping_regions,
     _parse_emphasis,
+    _render_text_mask,
     _resolve_bold_font_path,
     _resolve_font_path,
     _wrap_text,
@@ -186,6 +188,76 @@ def test_estimate_text_color_falls_back_to_black_for_a_blank_dark_region():
     image = _bubble_image(bubble_color=(20, 20, 20))
     bbox = {"x": 60, "y": 50, "width": 180, "height": 60}  # no text drawn
     assert _estimate_text_color(image, bbox) == (0, 0, 0)
+
+
+# ---------------------------------------------------------------------------
+# _estimate_text_boldness
+# ---------------------------------------------------------------------------
+
+
+def _rendered_text_region(font_path, size: int, text: str = "Original", pad: int = 20) -> tuple[Image.Image, dict]:
+    """A bubble-sized image with `text` rendered at `size` near its
+    center, plus the bbox around it - a real (synthetic) speech bubble
+    crop, not a mock, so this exercises the same pixel path
+    _estimate_text_boldness runs against in production."""
+    font = ImageFont.truetype(str(font_path), size)
+    probe = ImageDraw.Draw(Image.new("RGB", (10, 10), "white"))
+    left, top, right, bottom = probe.textbbox((0, 0), text, font=font)
+    width, height = right - left + pad * 2, bottom - top + pad * 2
+    image = Image.new("RGB", (width, height), "white")
+    ImageDraw.Draw(image).text((pad - left, pad - top), text, font=font, fill="black")
+    bbox = {"x": 0, "y": 0, "width": width, "height": height}
+    return image, bbox
+
+
+# The calibration this module's own docstring cites: every real font size
+# this heuristic claims to handle, both bundled families that have a real
+# bold variant (FONTS_BOLD), both weights. A regression here means the
+# module's disclosed accuracy claim has gone stale.
+@pytest.mark.parametrize("family", ["comic-neue", "liberation-sans"])
+@pytest.mark.parametrize("size", [32, 48, 64])
+@pytest.mark.parametrize("weight,expected_bold", [("regular", False), ("bold", True)])
+def test_estimate_text_boldness_correctly_classifies_real_fonts_at_reliable_sizes(
+    family, size, weight, expected_bold
+):
+    font_path = FONTS[family] if weight == "regular" else FONTS_BOLD[family]
+    image, bbox = _rendered_text_region(font_path, size)
+    assert _estimate_text_boldness(image, bbox, family) is expected_bold
+
+
+def test_estimate_text_boldness_declines_below_the_calibrated_size_floor():
+    """Below ~28px of measured text height, calibration found the signal
+    genuinely unreliable (small-text bold strokes are only 1-2px wider
+    than regular, inside typical antialiasing noise) - this asserts the
+    floor is enforced (defaults to False) rather than silently guessing,
+    not that small bold text happens to classify correctly."""
+    image, bbox = _rendered_text_region(FONTS_BOLD["comic-neue"], 12)
+    assert _estimate_text_boldness(image, bbox, "comic-neue") is False
+
+
+def test_estimate_text_boldness_returns_false_for_a_family_with_no_bold_reference():
+    """patrick-hand has no bundled bold file - nothing to be bold
+    RELATIVE TO, so this must decline rather than compare against some
+    other family's bold weight."""
+    image, bbox = _rendered_text_region(FONTS["patrick-hand"], 40)
+    assert _estimate_text_boldness(image, bbox, "patrick-hand") is False
+
+
+def test_estimate_text_boldness_falls_back_to_default_font_for_an_unknown_name():
+    image, bbox = _rendered_text_region(FONTS_BOLD[DEFAULT_FONT], 40)
+    assert _estimate_text_boldness(image, bbox, "not-a-real-font") is True
+
+
+def test_estimate_text_boldness_returns_false_for_a_blank_region():
+    image = Image.new("RGB", (100, 60), "white")
+    bbox = {"x": 0, "y": 0, "width": 100, "height": 60}
+    assert _estimate_text_boldness(image, bbox, DEFAULT_FONT) is False
+
+
+def test_render_text_mask_produces_a_resolvable_mask_for_real_text():
+    mask = _render_text_mask("Reference text", FONTS[DEFAULT_FONT], 40)
+    assert mask is not None
+    assert mask.sum() > 0
 
 
 # ---------------------------------------------------------------------------
@@ -526,6 +598,11 @@ def test_redraw_panel_a_per_region_font_overrides_the_default(monkeypatch):
         return real_draw(image, bbox, text, color, font_path, bold_font_path)
 
     monkeypatch.setattr(comics_redraw, "_draw_text_in_region", spy_draw)
+    # This test is about per-region font-override plumbing, not boldness
+    # detection - the bubble fixture has no real rendered text in it, so
+    # stub boldness out rather than let an incidental mask (the bubble
+    # rectangle's own edge) drive which font path gets recorded.
+    monkeypatch.setattr(comics_redraw, "_estimate_text_boldness", lambda *a, **k: False)
 
     image = _bubble_image(400, 200)
     redraw_panel(

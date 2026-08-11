@@ -211,38 +211,174 @@ def _clamp_bbox(bbox: dict, image_size: tuple[int, int], padding: int = 0) -> tu
     return left, top, right, bottom
 
 
-def _estimate_text_color(image: Image.Image, bbox: dict) -> tuple[int, int, int]:
-    """Guesses the original text's color by sampling the MINORITY
-    luminance cluster inside the (un-inpainted) region, not simply the
-    darker one. A bubble's interior fill dominates the region's pixel
-    count; the text is whatever smaller cluster sits on top of it -
-    dark text on a light bubble (the common case, minority = dark) or
-    light text on a dark bubble (minority = light). Picking "darkest"
-    unconditionally, as this used to, guessed backwards on exactly the
-    second case: it would sample the dark BUBBLE as "the text".
-
-    Must be called BEFORE _inpaint_regions erases the very pixels this
-    reads. Falls back to plain black if the region is a single uniform
-    tone (no second cluster at all - a blank region with no text),
-    rather than raising - color is a cosmetic guess, not something
-    worth failing the whole redraw over.
+def _text_mask(crop: np.ndarray) -> np.ndarray | None:
+    """The MINORITY luminance cluster inside a (un-inpainted) region crop
+    - shared by _estimate_text_color and _estimate_text_boldness below,
+    since both need the same "which pixels are text, not bubble fill"
+    guess. A bubble's interior fill dominates the region's pixel count;
+    the text is whatever smaller cluster sits on top of it - dark text
+    on a light bubble (the common case, minority = dark) or light text
+    on a dark bubble (minority = light). Picking "darkest" unconditionally
+    guesses backwards on exactly the second case: it would treat the dark
+    BUBBLE itself as "the text". None when the crop is empty or a single
+    uniform tone (no second cluster at all - a blank region with no text).
     """
-    left, top, right, bottom = _clamp_bbox(bbox, image.size)
-    crop = np.asarray(image.crop((left, top, right, bottom)), dtype=np.float64)
     if crop.size == 0:
-        return (0, 0, 0)
-
+        return None
     luminance = (0.299 * crop[..., 0] + 0.587 * crop[..., 1] + 0.114 * crop[..., 2]) / 255.0
     dark_mask = luminance < _DARK_LUMINANCE_THRESHOLD
     light_mask = ~dark_mask
     dark_count = int(dark_mask.sum())
     light_count = int(light_mask.sum())
     if dark_count == 0 or light_count == 0:
-        return (0, 0, 0)
+        return None
+    return dark_mask if dark_count <= light_count else light_mask
 
-    text_mask = dark_mask if dark_count <= light_count else light_mask
-    r, g, b = crop[text_mask].mean(axis=0)
+
+def _estimate_text_color(image: Image.Image, bbox: dict) -> tuple[int, int, int]:
+    """Guesses the original text's color by sampling _text_mask's
+    minority luminance cluster. Must be called BEFORE _inpaint_regions
+    erases the very pixels this reads. Falls back to plain black when
+    _text_mask finds no resolvable text (a blank region), rather than
+    raising - color is a cosmetic guess, not something worth failing the
+    whole redraw over.
+    """
+    left, top, right, bottom = _clamp_bbox(bbox, image.size)
+    crop = np.asarray(image.crop((left, top, right, bottom)), dtype=np.float64)
+    mask = _text_mask(crop)
+    if mask is None:
+        return (0, 0, 0)
+    r, g, b = crop[mask].mean(axis=0)
     return (int(r), int(g), int(b))
+
+
+# A first attempt at this heuristic compared each region's stroke
+# thickness (erosion-survival ratio, then a cv2.distanceTransform mean)
+# against ONE fixed absolute threshold. Calibrating that against the
+# bundled regular/bold font pairs across a realistic size range (16-64px)
+# showed it doesn't generalize AT ALL: real fonts draw small text with
+# proportionally thicker strokes for legibility ("optical sizing"), so a
+# threshold tuned at one size misreads bold as regular at small sizes and
+# regular as bold at large ones - true even when comparing against the
+# font's OWN known render size, so this is a genuine property of font
+# design, not a measurement bug.
+#
+# What actually works: render this SAME family's regular and bold weights
+# at a matching size and compare the crop's stroke width to each -
+# relative comparison sidesteps the optical-sizing problem entirely
+# because both references are drawn at the same size as each other. The
+# one remaining problem is that the true original point size isn't known
+# at redraw time - only the crop's own pixel dimensions are. Using the
+# crop's raw measured mask height AS the reference point-size parameter
+# doesn't work either (mask height in pixels and PIL's point-size
+# argument aren't the same unit, and the gap grows with size); searching
+# for a reference size whose OWN measured mask height matches the crop's
+# does. Calibrated the same way (bundled font pairs, 16-64px, both
+# families) - see tests/test_comics_redraw.py for the exact figures. That
+# calibration also found a real floor: below ~28px of measured mask
+# height, the signal is unreliable regardless of method (small-text bold
+# strokes are only 1-2px wider than regular, inside typical antialiasing
+# noise), so this floor is enforced below rather than pretending the
+# signal holds at any size.
+_MIN_BOLDNESS_MASK_HEIGHT = 28
+
+_BOLDNESS_REFERENCE_TEXT = "Reference text"
+
+
+def _stroke_width(mask: np.ndarray) -> float:
+    """Mean distance-to-nearest-background-pixel over all text pixels -
+    a real proxy for stroke half-width (a thick stroke's interior pixels
+    sit farther from any edge than a thin stroke's). Requires cv2
+    (already a hard dependency, engine/comics_inpaint.py)."""
+    import cv2
+
+    foreground = mask.astype(np.uint8) * 255
+    distance = cv2.distanceTransform(foreground, cv2.DIST_L2, 3)
+    values = distance[mask]
+    return float(values.mean()) if len(values) else 0.0
+
+
+def _mask_height(mask: np.ndarray) -> int:
+    rows = np.any(mask, axis=1)
+    indices = np.where(rows)[0]
+    return int(indices[-1] - indices[0] + 1) if len(indices) else 0
+
+
+def _render_text_mask(text: str, font_path: Path, size: int) -> np.ndarray | None:
+    font = ImageFont.truetype(str(font_path), size)
+    probe = ImageDraw.Draw(Image.new("RGB", (10, 10), "white"))
+    left, top, right, bottom = probe.textbbox((0, 0), text, font=font)
+    pad = 10
+    width, height = right - left + pad * 2, bottom - top + pad * 2
+    canvas = Image.new("RGB", (max(width, 1), max(height, 1)), "white")
+    ImageDraw.Draw(canvas).text((pad - left, pad - top), text, font=font, fill="black")
+    return _text_mask(np.asarray(canvas, dtype=np.float64))
+
+
+def _find_reference_size(font_path: Path, target_mask_height: int) -> int:
+    """Binary-searches for a point size whose OWN rendered mask height
+    (of _BOLDNESS_REFERENCE_TEXT, not the original crop's text - only the
+    height needs to line up, the glyphs don't) matches target_mask_height
+    - so the two references below are compared to the crop like-for-like
+    (measured pixel height to measured pixel height), rather than feeding
+    a pixel-height number into a point-size argument as if they were the
+    same unit, which is what made the first version of this unreliable
+    (see the module comment above)."""
+    lo, hi, best = _MIN_FONT_SIZE, _MAX_FONT_SIZE, _MIN_FONT_SIZE
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        mask = _render_text_mask(_BOLDNESS_REFERENCE_TEXT, font_path, mid)
+        height = _mask_height(mask) if mask is not None else 0
+        best = mid
+        if height < target_mask_height:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return best
+
+
+def _estimate_text_boldness(image: Image.Image, bbox: dict, font: str | None = None) -> bool:
+    """True if this region's original lettering looks bold (thick-
+    stroked) relative to a same-family, same-size regular/bold reference
+    pair rendered from `font` (falls back to DEFAULT_FONT, same as
+    _resolve_font_path) - a real, calibrated proxy for STROKE THICKNESS
+    ONLY, not font identification, and not a claim about which specific
+    font the original used (see this module's docstring for why that
+    remains genuinely out of scope). Requires a bundled bold variant to
+    compare against (FONTS_BOLD) - a family with none (patrick-hand) has
+    no reference to be bold RELATIVE TO, so this returns False for it,
+    same as _resolve_bold_font_path's own fallback.
+
+    Must be called BEFORE _inpaint_regions erases the pixels this reads,
+    same requirement as _estimate_text_color. Returns False (regular) for
+    a region with no resolvable text mask, no bundled bold reference, or
+    a measured mask height below _MIN_BOLDNESS_MASK_HEIGHT - calibration
+    (tests/test_comics_redraw.py) found the signal genuinely unreliable
+    below that floor, and a heuristic with no real signal should default
+    to the less visually loud choice, not guess bold.
+    """
+    key = font if font in FONTS_BOLD else DEFAULT_FONT
+    if key not in FONTS_BOLD:
+        return False
+    left, top, right, bottom = _clamp_bbox(bbox, image.size)
+    crop = np.asarray(image.crop((left, top, right, bottom)), dtype=np.float64)
+    mask = _text_mask(crop)
+    if mask is None:
+        return False
+    height = _mask_height(mask)
+    if height < _MIN_BOLDNESS_MASK_HEIGHT:
+        return False
+    original_stroke = _stroke_width(mask)
+
+    reference_size = _find_reference_size(FONTS[key], height)
+    regular_mask = _render_text_mask(_BOLDNESS_REFERENCE_TEXT, FONTS[key], reference_size)
+    bold_mask = _render_text_mask(_BOLDNESS_REFERENCE_TEXT, FONTS_BOLD[key], reference_size)
+    if regular_mask is None or bold_mask is None:
+        return False
+    regular_stroke = _stroke_width(regular_mask)
+    bold_stroke = _stroke_width(bold_mask)
+
+    return abs(original_stroke - bold_stroke) < abs(original_stroke - regular_stroke)
 
 
 def build_region_mask(image_size: tuple[int, int], bboxes: list[dict]) -> Image.Image:
@@ -499,13 +635,16 @@ def redraw_panel(image_bytes: bytes, regions: list[dict], default_font: str | No
     bboxes = [r["bbox"] for r in regions]
 
     text_colors = [_estimate_text_color(image, bbox) for bbox in bboxes]
+    text_boldness = [
+        _estimate_text_boldness(image, r["bbox"], r.get("font") or default_font) for r in regions
+    ]
 
     inpainted, _method = _inpaint_regions(image, bboxes)
 
-    for region, color in zip(regions, text_colors):
+    for region, color, is_bold in zip(regions, text_colors, text_boldness):
         chosen_font = region.get("font") or default_font
-        font_path = _resolve_font_path(chosen_font)
         bold_font_path = _resolve_bold_font_path(chosen_font)
+        font_path = bold_font_path if is_bold else _resolve_font_path(chosen_font)
         _draw_text_in_region(
             inpainted, region["bbox"], region["adapted_text"], color, font_path, bold_font_path
         )
@@ -535,13 +674,16 @@ def redraw_panel_detailed(
     image = _load_image(image_bytes)
     bboxes = [r["bbox"] for r in regions]
     text_colors = [_estimate_text_color(image, bbox) for bbox in bboxes]
+    text_boldness = [
+        _estimate_text_boldness(image, r["bbox"], r.get("font") or default_font) for r in regions
+    ]
 
     inpainted, method = _inpaint_regions(image, bboxes)
 
-    for region, color in zip(regions, text_colors):
+    for region, color, is_bold in zip(regions, text_colors, text_boldness):
         chosen_font = region.get("font") or default_font
-        font_path = _resolve_font_path(chosen_font)
         bold_font_path = _resolve_bold_font_path(chosen_font)
+        font_path = bold_font_path if is_bold else _resolve_font_path(chosen_font)
         _draw_text_in_region(
             inpainted, region["bbox"], region["adapted_text"], color, font_path, bold_font_path
         )

@@ -2763,7 +2763,11 @@ previous two entries said so explicitly).
   it silently would produce a visibly broken smudge). The font never
   matches the original comic's lettering — that was flagged as
   aspirational marketing copy when this was scoped, and still isn't a
-  real capability. No persistence/caching/share-link — unlike
+  real capability (**partially closed** for the one narrow piece of it
+  that's actually feasible without real font-ID ML — see "Bold-weight
+  detection for redrawn lettering" below: auto-picking bold vs. regular
+  weight per region, not matching the original typeface). No
+  persistence/caching/share-link — unlike
   `/api/comics/adapt`, this is a pure synchronous transform; redrawing
   the same panel twice re-runs the whole pipeline both times.
 - **Real visual verification, not just unit tests:** built two synthetic
@@ -5157,3 +5161,102 @@ fetch test proving `kind` actually reaches the JSON body sent to the
 server). Full suite: 1185 Python passed (1169 pre-existing + 16 new),
 190 Vitest passed (188 pre-existing + 2 new), `tsc --noEmit` and
 `next build` clean.
+
+## Bold-weight detection for redrawn lettering
+
+**The gap, and why it isn't "font-matching":** the next item queued off
+"Comics image redraw/typesetting"'s disclosed limitation was "the font
+never matches the original comic's lettering." Read literally, that's not
+a scoping gap to close - matching a specific comic's actual typeface from
+a pixel crop is a real font-identification ML problem (something like
+WhatTheFont), not something a heuristic image-processing pass can
+honestly claim, and shipping a plausible-looking guess at that would be
+exactly the kind of overclaiming this project's docstrings have
+repeatedly refused to do elsewhere. What IS a real, scoped capability:
+detecting whether the ORIGINAL lettering in a region reads as bold
+(thick-stroked, typically a shout or emphasis) versus regular weight, and
+picking the matching weight from the font family already being drawn
+with - a real signal about the source art, not a claim about which font
+it used.
+
+**Two heuristics were built, calibrated, and the first one thrown out
+before it ever touched production code** - the same "verify before
+shipping" discipline this project has applied throughout: build a
+plausible heuristic, then run it against real rendered data from the
+actual bundled fonts before writing a single test that would just
+enshrine a wrong assumption.
+
+1. **First attempt (discarded):** stroke thickness via one 4-connected
+   binary erosion pass, or a `cv2.distanceTransform` mean, compared
+   against ONE fixed absolute threshold. Calibrating this against the
+   bundled `comic-neue`/`liberation-sans` regular/bold pairs across a
+   realistic size range (16-64px) - not just the one size it happened to
+   look right at - showed it doesn't generalize at all: real fonts draw
+   small text with proportionally thicker strokes for legibility ("optical
+   sizing"), so a fixed threshold misreads bold as regular at small sizes
+   and regular as bold at large ones. Confirmed this was a genuine
+   property of font design, not a measurement bug, by re-running the same
+   check normalized against the TRUE KNOWN render size instead of a
+   measured one - still not scale-invariant.
+2. **What actually shipped:** a RELATIVE comparison instead of an
+   absolute threshold. `_estimate_text_boldness` (`engine/
+   comics_redraw.py`) renders the SAME font family's regular and bold
+   weights at a matching size and checks which one the region's own
+   stroke width sits closer to - this sidesteps optical sizing entirely
+   because both references are drawn at the same size as each other, not
+   compared against a fixed number. The one remaining problem: the
+   original's true point size isn't known at redraw time, only the crop's
+   own pixel height. Using that raw pixel height directly as the
+   reference renders' point-size argument doesn't work (pixel height and
+   PIL's point-size unit aren't the same thing, and the gap widens with
+   size - this alone dropped accuracy to 65%, nearly all of it "real bold
+   text at larger point sizes" false-negatives). The fix:
+   `_find_reference_size` binary-searches for a font size whose OWN
+   measured mask height matches the crop's, so the comparison is
+   pixel-height-to-pixel-height, not pixel-height-to-point-size. Full
+   calibration matrix (2 font families x 5 sizes x 2 true weights, all 20
+   cases using the real bundled fonts) after this fix: **100% correct at
+   every size >= 32px** (12/12), but bold at 16px still misreads as
+   regular in 2 of 4 cases - small bold strokes are only 1-2px wider than
+   regular, inside typical antialiasing noise, a real floor, not a
+   fixable bug.
+- **The floor is enforced, not hidden:** `_MIN_BOLDNESS_MASK_HEIGHT = 28`
+  (px) - below it, `_estimate_text_boldness` returns `False` (the less
+  visually loud, safer default) rather than guessing. This is a real,
+  disclosed accuracy limit, matching this project's standing rule: when a
+  heuristic's signal genuinely doesn't hold, say where it stops working
+  rather than shipping it everywhere and hoping.
+- **What it does NOT do:** does not identify or match the original
+  typeface - only its weight, and only relative to whichever bundled
+  family is already selected for that region (falls back to `False` for
+  `patrick-hand`, which has no bundled bold file to compare against -
+  nothing to be bold RELATIVE TO). Not tested against any real
+  photographed/scanned comic lettering - every accuracy figure above
+  comes from the bundled fonts rendering their own text, the same
+  disclosed synthetic-only coverage gap the rest of this module carries.
+- **Wired into both `redraw_panel` and `redraw_panel_detailed`:** each
+  region's boldness is estimated from the original (pre-inpaint) pixels
+  alongside the existing text-color estimate, then used to pick the
+  region's base font weight - a region estimated bold draws its whole
+  line in the bold font, not just **emphasis**-marked words (the Judge's
+  own explicit bold markup, `_parse_emphasis`, is unrelated and still
+  layered on top independently).
+- **Tier 1** for the mechanism (deterministic, calibrated, tested against
+  real rendered output) with a disclosed accuracy floor below 28px mask
+  height; **Tier 0** for how it performs on real (non-synthetic) comic
+  lettering, same caveat the rest of this module already carries.
+- **Verified:** 9 new `tests/test_comics_redraw.py` tests - real/bold
+  correctly classified for both bundled families with a bold variant at
+  every size >= 32px (the exact matrix cited above), the size floor
+  enforced rather than guessed at 12px, `patrick-hand` (no bold file)
+  declining rather than borrowing another family's reference, an unknown
+  font name falling back to `DEFAULT_FONT`'s bold reference, a blank
+  region declining, and `_render_text_mask` producing a real mask for
+  real text. One pre-existing test (`test_redraw_panel_a_per_region_
+  font_overrides_the_default`) was updated to stub boldness out, since
+  its synthetic bubble fixture has no real rendered text in it and its
+  actual point was font-override plumbing, not boldness accuracy. Full
+  suite: 1202 Python passed, `pytest tests/` clean. No frontend changes
+  needed - font selection already flows through the existing per-region
+  `font` field end to end, and boldness is chosen automatically
+  server-side alongside the existing color estimate.
