@@ -396,8 +396,18 @@ export default function ComicsPage() {
 
         <div className="mt-10">
           {panels.length === 0 && (
-            <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-              <div>
+            <div>
+              {/* Single column, not the old two-column [hero | pipeline]
+                  grid: that pairing left the hero column tall and dense
+                  while the wide-but-short pipeline card left a large,
+                  unbalanced pocket of empty space beneath it (real
+                  feedback, not a hypothetical). The dropzone - the actual
+                  primary action on this page - stays glued directly under
+                  the headline instead of being pulled out to its own
+                  full-width row, and the pipeline explainer becomes its
+                  own full-width band below instead, where it has room to
+                  breathe (and for icons - see ComicsPipelineDiagram.tsx). */}
+              <div className="max-w-xl">
                 <div className="flex items-center gap-2.5">
                   <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
                     Give every character their own voice.
@@ -406,7 +416,10 @@ export default function ComicsPage() {
                     Beta
                   </span>
                 </div>
-                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+                {/* text-ink/65, not the original /50 - that read as low-
+                    contrast on the actual value proposition, not just
+                    "editorial." */}
+                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/65 dark:text-ink-dark/60">
                   Upload a chapter's panels and Castia reads every speech
                   bubble, keeps each character's voice consistent from the
                   first page to the last, and shows the literal reading
@@ -448,12 +461,12 @@ export default function ComicsPage() {
                   comment for the full reasoning and why how-it-works's
                   usage is different (paired with an identical dark card
                   right above it, not standing alone). */}
-              <div className="rounded-2xl border border-black/[0.06] bg-black/[0.015] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
+              <div className="mt-14 rounded-2xl border border-black/[0.06] bg-black/[0.015] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
                 <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                   What happens to a panel
                 </p>
-                <div className="mt-4">
+                <div className="mt-5">
                   <ComicsPipelineDiagram dark={false} />
                 </div>
               </div>

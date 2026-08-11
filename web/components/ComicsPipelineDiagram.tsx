@@ -1,9 +1,57 @@
-const STAGES: { title: string; description: string }[] = [
-  { title: "Panel upload", description: "One image per panel, in reading order" },
-  { title: "OCR", description: "Google Cloud Vision reads each bubble's text and position" },
-  { title: "Chapter DNA", description: "Genre, tone, and cast profile for the whole chapter" },
-  { title: "Writers' Room", description: "The same Translator → Adapter → Judge pipeline as music" },
-  { title: "Adapted script", description: "Literal, adapted line, and why — per panel" },
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 15V4M8 8l4-4 4 4" />
+      <path d="M4 15v2a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-2" />
+    </svg>
+  );
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="2.5" />
+    </svg>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <circle cx="9" cy="6" r="2" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <circle cx="15" cy="12" r="2" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+      <circle cx="7" cy="18" r="2" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+const STAGES: { title: string; description: string; Icon: () => JSX.Element }[] = [
+  { title: "Panel upload", description: "One image per panel, in reading order", Icon: UploadIcon },
+  { title: "OCR", description: "Google Cloud Vision reads each bubble's text and position", Icon: EyeIcon },
+  { title: "Chapter DNA", description: "Genre, tone, and cast profile for the whole chapter", Icon: SlidersIcon },
+  { title: "Writers' Room", description: "The same Translator → Adapter → Judge pipeline as music", Icon: PenIcon },
+  { title: "Adapted script", description: "Literal, adapted line, and why — per panel", Icon: CheckIcon },
 ];
 
 /** The real comics pipeline, honestly labeled - deliberately not the
@@ -38,11 +86,13 @@ const STAGES: { title: string; description: string }[] = [
  * The first `dark={false}` pass just inverted the dark palette to
  * near-white-on-white (bg-black/[0.02], border-black/[0.08]) - correct
  * on contrast, but flat and characterless next to the dark version's
- * white-on-navy presence. The numbered accent badges below (numeral in
- * a tinted accent circle, per stage) and the warmer per-card surface
- * are what actually carried the dark version's visual weight - not the
- * dark background itself - so the light branch gets its own equivalent
- * instead of a literal-inverse recolor. */
+ * white-on-navy presence. A numbered accent badge per stage plus a
+ * warmer per-card surface fixed that; per-step icons (this pass) replace
+ * the numeral inside that same badge, since "which of five nearly-
+ * identical text blocks am I reading" is exactly what a visual anchor
+ * fixes and a numeral doesn't. Both changes stay behind `!dark` so
+ * how-it-works's paired dark cards - which need to stay pixel-identical,
+ * per the reasoning above - are untouched by construction. */
 export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
   return (
     <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-stretch sm:gap-0">
@@ -56,8 +106,8 @@ export function ComicsPipelineDiagram({ dark = true }: { dark?: boolean }) {
             }
           >
             {!dark && (
-              <span className="mb-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-accent/10 text-[10px] font-semibold text-accent dark:hidden">
-                {i + 1}
+              <span className="mb-2.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-accent/10 text-accent dark:hidden">
+                <stage.Icon />
               </span>
             )}
             <p className={dark ? "text-[13px] font-medium text-white/90" : "text-[13px] font-medium text-ink dark:text-white/90"}>
