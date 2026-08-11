@@ -17,6 +17,14 @@ type LoadState =
   | { status: "error" }
   | { status: "ready"; collections: Collection[] };
 
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6z" />
+    </svg>
+  );
+}
+
 /** Collections: create, rename, delete, and file adaptations into them.
  *
  * Ownership of both sides of every membership write is enforced upstream
@@ -171,10 +179,15 @@ export function CollectionsManager() {
       </form>
 
       {state.collections.length === 0 ? (
-        <p className="mt-6 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
-          No collections yet — make one above to start grouping your
-          adaptations.
-        </p>
+        <div className="mt-6 flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-black/[0.13] px-6 py-10 text-center dark:border-white/[0.14]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/40 dark:bg-white/[0.06] dark:text-ink-dark/40">
+            <FolderIcon />
+          </span>
+          <p className="text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
+            No collections yet — make one above to start grouping your
+            adaptations.
+          </p>
+        </div>
       ) : (
         <ul className="mt-6 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
           {state.collections.map((collection) => (

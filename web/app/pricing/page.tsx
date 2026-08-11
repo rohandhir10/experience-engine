@@ -250,12 +250,19 @@ export default function PricingPage() {
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             Studio &amp; Enterprise
           </h2>
+          {/* Dashed border + dimmed everything, not the same solid-border
+              full-opacity card the live tiers above use - matching that
+              treatment made "Coming soon" easy to miss at a glance (real
+              feedback: these read as purchasable at the same weight as
+              Starter/Growth/Bulk/Creator). Same "not live yet" visual
+              language as PanelUploader's dropzone and DashboardSidebar's
+              "Soon" rows use elsewhere, applied here for the same reason. */}
           <div className="mt-6 grid gap-5 sm:grid-cols-2">
-            <div className="rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11]">
-              <p className="font-serif text-xl text-ink dark:text-ink-dark">
+            <div className="rounded-2xl border border-dashed border-black/[0.15] px-7 py-8 opacity-60 dark:border-white/20">
+              <p className="font-serif text-xl text-ink/70 dark:text-ink-dark/70">
                 Studio
               </p>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
                 For teams shipping adaptations at volume.
               </p>
               <ul className="mt-5 space-y-2">
@@ -263,22 +270,22 @@ export default function PricingPage() {
                   (f) => (
                     <li
                       key={f}
-                      className="text-[13px] leading-relaxed text-ink/72 dark:text-ink-dark/72"
+                      className="text-[13px] leading-relaxed text-ink/60 dark:text-ink-dark/60"
                     >
                       {f}
                     </li>
                   )
                 )}
               </ul>
-              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/45 dark:text-ink-dark/45">
+              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
                 Coming soon
               </p>
             </div>
-            <div className="rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11]">
-              <p className="font-serif text-xl text-ink dark:text-ink-dark">
+            <div className="rounded-2xl border border-dashed border-black/[0.15] px-7 py-8 opacity-60 dark:border-white/20">
+              <p className="font-serif text-xl text-ink/70 dark:text-ink-dark/70">
                 Enterprise
               </p>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-ink-dark/55">
                 Custom volume, SLAs, and support.
               </p>
               <ul className="mt-5 space-y-2">
@@ -286,14 +293,14 @@ export default function PricingPage() {
                   (f) => (
                     <li
                       key={f}
-                      className="text-[13px] leading-relaxed text-ink/72 dark:text-ink-dark/72"
+                      className="text-[13px] leading-relaxed text-ink/60 dark:text-ink-dark/60"
                     >
                       {f}
                     </li>
                   )
                 )}
               </ul>
-              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/45 dark:text-ink-dark/45">
+              <p className="mt-6 text-[12px] uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
                 Coming soon
               </p>
             </div>

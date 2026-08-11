@@ -25,6 +25,15 @@ function formatDate(iso: string): string {
   });
 }
 
+function LedgerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 3h9l4 4v14H6z" />
+      <path d="M14 3v5h5M9 12h6M9 16h6" />
+    </svg>
+  );
+}
+
 function useCredits(): LoadState {
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
@@ -124,9 +133,14 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
         {view === "usage" ? "Recent usage" : "History"}
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-3 text-[13px] text-ink/62 dark:text-ink-dark/62">
-          {view === "usage" ? "No adaptations run yet." : "No transactions yet."}
-        </p>
+        <div className="mt-3 flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-black/[0.13] px-6 py-9 text-center dark:border-white/[0.14]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/40 dark:bg-white/[0.06] dark:text-ink-dark/40">
+            <LedgerIcon />
+          </span>
+          <p className="text-[13px] text-ink/62 dark:text-ink-dark/62">
+            {view === "usage" ? "No adaptations run yet." : "No transactions yet."}
+          </p>
+        </div>
       ) : (
         <ul className="mt-3 divide-y divide-black/[0.09] dark:divide-white/[0.09]">
           {rows.map((row) => (

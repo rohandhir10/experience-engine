@@ -205,11 +205,16 @@ export function RecentAdaptations({
   }
   if (state.entries.length === 0) {
     return (
-      <p className="mt-4 text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
-        {favoritesOnly
-          ? "No favorites yet — star an adaptation to keep it here."
-          : "No adaptations yet — the first thing you adapt will show up here."}
-      </p>
+      <div className="mt-4 flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-black/[0.13] px-6 py-10 text-center dark:border-white/[0.14]">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/40 dark:bg-white/[0.06] dark:text-ink-dark/40">
+          <StarIcon filled={false} />
+        </span>
+        <p className="text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
+          {favoritesOnly
+            ? "No favorites yet — star an adaptation to keep it here."
+            : "No adaptations yet — the first thing you adapt will show up here."}
+        </p>
+      </div>
     );
   }
   return (
