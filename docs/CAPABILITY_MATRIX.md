@@ -5563,3 +5563,59 @@ be:
   Playwright screenshots of `/music` in both light and dark mode confirm
   the headline now reads as part of the same typographic system as the
   rest of the site, at the same size/weight balance as the homepage's h1.
+
+## Design pass, round 2: /sign-up was missing Google, and its own metadata
+
+Continued the visual audit across the rest of the site's pages
+(`/comics`, `/faq`, `/about`, `/glossary`, `/blog`, `/sign-in`,
+`/sign-up`, the `/compare/*` pages, `/lyrics-translation`, `/manga-
+webtoon-translation`, `/docs/api`) - real screenshots in both themes,
+with scroll-triggered content actually scrolled into view first (the
+lesson from round 1's false leads). Most of these pages are clean and
+consistent; two real gaps turned up on `/sign-up`, and one more false
+lead got ruled out on `/docs/api`.
+
+- **`/sign-up` had no Google option at all - `/sign-in` did.**
+  `app/sign-up/page.tsx` was a `"use client"` component with only email/
+  password; `app/sign-in/page.tsx` offers "Continue with Google" plus
+  email/password. A visitor who landed on `/sign-up` directly (not by
+  clicking through from sign-in) had no visible sign a faster path
+  existed - they'd have to guess that clicking "Sign in" (confusing
+  wording for someone who doesn't have an account yet) was actually the
+  way to sign up with Google, since NextAuth's Google provider upserts
+  the account on first use. Fixed by splitting the page: `app/sign-up/
+  page.tsx` is now a server component (needed to read
+  `process.env.AUTH_GOOGLE_ID` and define the `"use server"`
+  `signIn("google", ...)` action, neither available in a client file),
+  passing `googleConfigured`/`googleSignUp` down as props to a new
+  `SignUpForm.tsx` client component that owns the actual email/password
+  state - a Server Action passed as a prop is a supported Next.js App
+  Router pattern, not a workaround. Verified by temporarily hardcoding
+  `googleConfigured = true` (this sandbox has no real `AUTH_GOOGLE_ID`
+  to test against) to screenshot the button rendering correctly in both
+  themes with the exact same layout as `/sign-in`, then reverting to the
+  real `Boolean(process.env.AUTH_GOOGLE_ID)` check before committing -
+  confirmed via `git diff` that no trace of the hardcoded test value
+  remained.
+- **`/sign-up` had no `metadata` export at all** - `/sign-in` has a real
+  `title`/`description`/`robots: { index: false }`. Missing entirely
+  meant `/sign-up` fell back to the root layout's generic title and,
+  more importantly, had no `noindex` - a real search-engine-visibility
+  gap for a page that should stay out of results the same way every
+  other auth page already does. Added matching metadata.
+- **Ruled out, not a bug:** `/docs/api`'s JSON response code samples
+  looked cut off mid-line in a full-page screenshot. Checked in a live
+  browser via `scrollWidth`/`clientWidth` - the block genuinely is wider
+  than its container (1105px content in a 766px box) and already has
+  `overflow-x-auto`, so a real visitor sees a normal scrollable code
+  block, same pattern GitHub/most docs sites use, not a rendering defect.
+- **Tier 1** - a real feature-parity gap (a whole sign-in method missing
+  from one form) and a real metadata gap, both mechanical fixes once
+  found, not judgment calls.
+- **Verified:** `tsc --noEmit` and a fresh `next build` clean (the
+  `/sign-up` bundle grew from 1.84 kB to 3.74 kB, confirming the new
+  code actually compiled in, not just added and left unreferenced); full
+  209-test Vitest suite unaffected (no existing test touches this page).
+  No existing test suite covered `/sign-up` at all before this, so
+  nothing needed updating - the verification here was the real-browser
+  screenshot check described above.
