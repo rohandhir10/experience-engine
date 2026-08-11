@@ -5405,3 +5405,116 @@ untouched panel as a heavily-edited one.
   the Remove confirm dialog's exact message, and confirmed dismissing it
   keeps the panel while accepting it removes it - not just asserted from
   the code.
+
+## Comics workspace UX, round 2: the remaining seven audit findings
+
+Closed most of the rest of the same audit's findings from the round
+above - real fixes for six of the seven, and one real DEAD-CODE BUG found
+while investigating a seventh that turned out to matter more than the
+finding it was filed under. One finding, re-examined, turned out not to
+be a bug at all - corrected rather than "fixed" with unnecessary code.
+
+**A real bug found investigating "reading order is easy to miss":**
+`engine/comics_ocr.py::sort_reading_order` already auto-corrects reading
+order right-to-left for a Japanese chapter (a real, tested, previously-
+shipped capability - see "Real reading-order sorting for the base OCR
+path" above) via its own `language` parameter, threaded all the way
+through `lib/comicsOcr.ts::runPanelOcr`'s optional second argument and
+`server/main.py`'s OCR endpoint. Nothing in `app/comics/page.tsx` ever
+actually PASSED it - `ocrPanel` called `runPanelOcr(panel.file)` with no
+language argument at all, so a real, shipped, tested server-side fix was
+unreachable dead code in production, exactly the "built and tested but
+never actually reachable by real users" pattern this project has caught
+before (chorus-repeat detection, earlier this session). Fixed by passing
+`sourceLanguage` (which reflects either the human's own "From" choice or
+an earlier panel's auto-detected language by the time any panel past the
+first one runs OCR) into every `runPanelOcr` call. `PanelWorkspace.tsx`'s
+reading-order copy, which flatly said Vision's ordering was "wrong for
+manga's right-to-left reading" with no caveat, is corrected to disclose
+what's actually true now: auto-corrected for Japanese once the language
+is known, still not guaranteed for anything else. This single fix is a
+bigger win than the "make the review step easier to notice" framing the
+original audit finding suggested - most real Japanese chapters now get
+correct order without the human intervention that finding was about
+making easier to find.
+
+**Disabled-button clarity ("Adapt chapter"/"Run OCR on all panels" gave
+no reason why).** Both buttons now carry a `title` tooltip explaining the
+disabled state, and "Adapt chapter" additionally shows the same
+explanation as always-visible text below the button row (a hover-only
+tooltip is invisible on touch and easy to miss even with a mouse) -
+`hasAnyBubbles`/`hasPanelsPendingOcr` are now named consts read by both
+the `disabled` prop and the explanatory text, so they can't drift apart.
+
+**The invisible Series field.** A signed-out visitor used to see nothing
+where the Series field would be - a real feature (character voice memory
+across chapters) with zero visible sign it existed. Now shows a real
+"Sign in to remember character voices across chapters of the same
+series" line with a working link in the field's place, since
+`server/main.py` genuinely has nothing to show INSTEAD of the field for
+an anonymous request (no owner to persist a character bible against) -
+this explains the absence rather than inventing a fake preview of it.
+
+**The Original/Redrawn view resetting every panel switch.**
+`PanelWorkspace.tsx`'s `imageView` was one shared piece of state, reset
+to "original" on every navigation - reviewing a redraw meant re-clicking
+"Redrawn" every single time you came back to that panel. Now
+`imageViewByPanel: Record<panelId, "original" | "redrawn">` remembers
+each panel's own last-viewed tab; a panel with no entry yet (never
+visited, or no redraw result to view) still defaults to "original",
+same as before this existed.
+
+**Redraw text-source ambiguity.** `resolveRedrawRegionText`'s three
+sources (a human override, a real per-region adaptation result, or nothing)
+produced visually identical text with no sign of which one was showing -
+editing a region, then rerunning OCR (which nulls the override, per
+`ocrRerunWouldDiscardWork`'s own docstring), used to silently repopulate
+the same-looking box from a different source. New
+`lib/comicsRedraw.ts::resolveRedrawRegionTextSource` (pure, tested) and a
+small caption above each redraw textarea now say plainly which source is
+showing: "Your own edit" / "From the chapter adaptation" / "Nothing here
+yet." Separately, "Fill in at least one region's adapted text first" (the
+error when nothing at all is filled in) now names the actual empty
+region(s) by number instead of leaving the human to check every textarea
+by hand, and distinguishes "every region here is SFX/background, none
+can be redrawn" from "some regions are just empty" - two different
+problems that used to share one message.
+
+**Re-examined and corrected, not fixed: the panel-count-limit error.**
+The original audit finding claimed a real rejection past
+`MAX_COMICS_PANELS` "surfaces only as the generic AdaptRequestError
+message text, not a distinguishable case." Reading `server/main.py`
+closely (rather than trusting the audit's claim) found this isn't true:
+the endpoint already raises a 413 with a specific, actionable detail
+message ("That's over the 100-panel limit for one chapter. Try a shorter
+chapter or a single episode."), and `lib/comicsAdapt.ts`'s
+`AdaptRequestError` already reads `body.detail` when `body.error` is
+absent - exactly FastAPI's `HTTPException(detail=...)` shape. The
+specific message was already reaching the user; nothing was broken. No
+code changed for this finding - shipping a fix for a bug that isn't
+real would itself be a fabrication, the same discipline this project
+applies to claiming a capability that doesn't exist.
+
+**Not changed: the two upload-error surfaces (`PanelUploader.tsx`'s
+`conversionErrors` block vs. `page.tsx`'s `addMoreError` line).** Checked
+their actual styling side by side - both are `text-[12px] text-red-600/80
+dark:text-red-400/80`, functionally identical; the only difference
+(`leading-relaxed`, multi-line wrapping) exists because they sit in
+genuinely different layouts (an empty-state dropzone vs. a loaded-state
+toolbar row), not because of inconsistent design. Lowest-priority finding
+in the original audit and, on inspection, not worth forcing into
+artificial pixel-parity across two different contexts.
+
+- **Tier 1** - every fix here is deterministic UI/state logic or a real
+  wiring bug fix, no LLM judgment involved.
+- **Verified:** 5 new `lib/comicsRedraw.test.ts` tests for
+  `resolveRedrawRegionTextSource` (override wins even when explicitly
+  cleared to empty string, real per-region result, the single-region flat
+  fallback, empty for an untouched multi-region panel, and explicit
+  agreement with `resolveRedrawRegionText` on which cases are actually
+  empty). Full suite: 209 Vitest passed (204 pre-existing + 5 new), `tsc
+  --noEmit` and a fresh `next build` both clean. Browser-verified with
+  Playwright against the real production build: uploaded a panel,
+  confirmed "Adapt chapter" is disabled with both the tooltip and the
+  inline explanatory text present, and confirmed the Series sign-in
+  message renders and links correctly for a signed-out session.

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { UNSAFE_REDRAW_KINDS, redrawPanel, resolveRedrawRegionText } from "./comicsRedraw";
+import {
+  UNSAFE_REDRAW_KINDS,
+  redrawPanel,
+  resolveRedrawRegionText,
+  resolveRedrawRegionTextSource,
+} from "./comicsRedraw";
 
 function panel(overrides: {
   redrawRegionTexts?: (string | null)[] | null;
@@ -85,6 +90,48 @@ describe("resolveRedrawRegionText", () => {
   it("returns empty for a panel with no OCR regions at all", () => {
     const p = panel({ ocrRegions: null, adaptedText: "something" });
     expect(resolveRedrawRegionText(p, 0)).toBe("");
+  });
+});
+
+describe("resolveRedrawRegionTextSource", () => {
+  it("is 'override' when a human override is present, even an empty-string one", () => {
+    const p = panel({
+      ocrRegions: [region],
+      regionAdaptedTexts: ["real result"],
+      redrawRegionTexts: ["typed override"],
+    });
+    expect(resolveRedrawRegionTextSource(p, 0)).toBe("override");
+
+    const cleared = panel({
+      ocrRegions: [region],
+      regionAdaptedTexts: ["real result"],
+      redrawRegionTexts: [""],
+    });
+    expect(resolveRedrawRegionTextSource(cleared, 0)).toBe("override");
+  });
+
+  it("is 'adaptation' for a real per-region result with no override", () => {
+    const p = panel({ ocrRegions: [region], regionAdaptedTexts: ["real result"] });
+    expect(resolveRedrawRegionTextSource(p, 0)).toBe("adaptation");
+  });
+
+  it("is 'adaptation' for the single-region flat-text fallback", () => {
+    const p = panel({ ocrRegions: [region], adaptedText: "flat adapted text" });
+    expect(resolveRedrawRegionTextSource(p, 0)).toBe("adaptation");
+  });
+
+  it("is 'empty' for a multi-region panel with nothing filled in yet", () => {
+    const p = panel({ ocrRegions: [region, region] });
+    expect(resolveRedrawRegionTextSource(p, 0)).toBe("empty");
+    expect(resolveRedrawRegionTextSource(p, 1)).toBe("empty");
+  });
+
+  it("agrees with resolveRedrawRegionText on which cases are actually empty", () => {
+    const p = panel({ ocrRegions: [region, region], regionAdaptedTexts: ["filled", null] });
+    expect(resolveRedrawRegionText(p, 0) === "").toBe(false);
+    expect(resolveRedrawRegionTextSource(p, 0)).not.toBe("empty");
+    expect(resolveRedrawRegionText(p, 1) === "").toBe(true);
+    expect(resolveRedrawRegionTextSource(p, 1)).toBe("empty");
   });
 });
 

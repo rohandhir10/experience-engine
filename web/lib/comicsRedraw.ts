@@ -59,6 +59,26 @@ export function resolveRedrawRegionText(
   return "";
 }
 
+export type RedrawRegionTextSource = "override" | "adaptation" | "empty";
+
+/** Which of resolveRedrawRegionText's three sources actually filled this
+ * region's box - a real gap this closes: editing a region's redraw text,
+ * then rerunning OCR (which nulls redrawRegionTexts - see
+ * ocrRerunWouldDiscardWork's own docstring in lib/comics-types.ts) used
+ * to silently repopulate the same-looking textarea from a DIFFERENT
+ * source with no visible sign anything had changed. Shown as a small
+ * caption next to each textarea (PanelWorkspace.tsx) rather than left
+ * implicit in identical-looking text. */
+export function resolveRedrawRegionTextSource(
+  panel: Pick<ComicPanel, "redrawRegionTexts" | "ocrRegions" | "adaptedText" | "regionAdaptedTexts">,
+  index: number
+): RedrawRegionTextSource {
+  if (panel.redrawRegionTexts?.[index] != null) return "override";
+  if (panel.regionAdaptedTexts?.[index] != null) return "adaptation";
+  if (panel.ocrRegions?.length === 1 && panel.adaptedText) return "adaptation";
+  return "empty";
+}
+
 export type RedrawResult = {
   dataUrl: string;
   // server/cache.py::comics_redraw_content_id - a real, content-addressed

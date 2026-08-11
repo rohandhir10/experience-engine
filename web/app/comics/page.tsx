@@ -59,9 +59,12 @@ const COMICS_FAQS = comicsFaqs();
 // (app/comics/layout.tsx), just not flagged with a badge here: SFX
 // text over textured artwork isn't redrawn (speech bubbles only, see
 // engine/comics_redraw.py), OCR reading order is a plain top-to-bottom
-// guess unless a text detector service is configured, and cross-
-// chapter character memory (the Series field below) matches
-// characters by exact name only, not visually.
+// guess unless a text detector service is configured OR the chapter's
+// language is known to be Japanese (engine/comics_ocr.py::sort_reading_order
+// auto-corrects right-to-left for that one language, once ocrPanel below
+// actually sends its language hint), and cross-chapter character memory
+// (the Series field below) matches characters by exact name only, not
+// visually.
 // "Adapt chapter" runs via
 // /api/comics/adapt/start + jobs/[jobId] (lib/comicsAdapt.ts) - the
 // same background-job/poll pattern music's /api/adapt/start already
@@ -213,7 +216,18 @@ export default function ComicsPage() {
       redrawMessage: null,
     });
     try {
-      const result = await runPanelOcr(panel.file);
+      // Real fix for a bug found auditing this page, not a hypothetical:
+      // engine/comics_ocr.py::sort_reading_order already auto-corrects
+      // reading order right-to-left for a Japanese chapter (its own
+      // `language` parameter, wired all the way through runPanelOcr's
+      // optional second argument) - but nothing here ever actually SENT
+      // it, so that server-side fix was dead code in production. This
+      // panel's own detected language isn't known before its first OCR
+      // call, but `sourceLanguage` already reflects an earlier panel's
+      // detection (or the human's own "From" choice) by the time any
+      // LATER panel's OCR runs - "English" (the untouched default) is a
+      // safe no-op to send, same as sending nothing.
+      const result = await runPanelOcr(panel.file, sourceLanguage);
       updatePanel(id, {
         ocrStatus: "done",
         ocrRegions: result.regions,
@@ -281,9 +295,24 @@ export default function ComicsPage() {
       .filter((r) => r.adaptedText && !UNSAFE_REDRAW_KINDS.has(r.kind ?? ""));
 
     if (!regionsToSend.length) {
+      // Names the actual empty region(s) rather than a generic "fill in
+      // a region" message - a real gap: a panel with several regions
+      // gave no way to tell WHICH one was still blank without checking
+      // each textarea by hand. Only counts regions that are actually
+      // empty, not ones skipped for being an unsafe SFX/background kind
+      // (those were never going to redraw regardless of text).
+      const emptyIndexes = panel.ocrRegions
+        .map((region, i) => ({ i, safe: !UNSAFE_REDRAW_KINDS.has(region.kind ?? "") }))
+        .filter(({ i, safe }) => safe && !resolveRedrawRegionText(panel, i).trim())
+        .map(({ i }) => i + 1);
       updatePanel(id, {
         redrawStatus: "error",
-        redrawMessage: "Fill in at least one region's adapted text first.",
+        redrawMessage:
+          emptyIndexes.length > 0
+            ? `Region${emptyIndexes.length > 1 ? "s" : ""} ${emptyIndexes.join(", ")} ${
+                emptyIndexes.length > 1 ? "have" : "has"
+              } no text to redraw yet - fill in at least one.`
+            : "Every region here is a sound effect or background - none of them can be redrawn.",
       });
       return;
     }
@@ -327,6 +356,13 @@ export default function ComicsPage() {
   function reorderPanels(fromIndex: number, toIndex: number) {
     setPanels((prev) => moveItem(prev, fromIndex, toIndex));
   }
+
+  // Named rather than inlined into their buttons' `disabled` props below,
+  // since both are now also read by the explanatory title/hint text next
+  // to each button - a disabled button with no visible reason why was one
+  // of the real friction points a UX audit of this page found.
+  const hasPanelsPendingOcr = panels.some((p) => p.ocrStatus === "idle" || p.ocrStatus === "error");
+  const hasAnyBubbles = panels.some((p) => panelToChapterBubbles(p).length > 0);
 
   const chapterLanguage = guessChapterLanguage(panels);
 
@@ -646,7 +682,7 @@ export default function ComicsPage() {
                     }
                   }}
                 />
-                {signedIn && (
+                {signedIn ? (
                   <label
                     className="inline-flex items-center gap-2 text-[13px]"
                     title="Same name as a previous chapter reuses that series' saved character voices/honorifics instead of guessing them fresh. Leave blank for no cross-chapter memory."
@@ -660,6 +696,24 @@ export default function ComicsPage() {
                       className="rounded-full border border-black/[0.12] bg-white/70 px-3 py-1.5 text-[13px] text-ink placeholder:text-ink/45 outline-none transition focus:border-black/20 dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
                     />
                   </label>
+                ) : (
+                  // Previously this field just didn't exist for a signed-
+                  // out visitor - a real feature (character voice memory
+                  // across chapters) with no visible sign it existed at
+                  // all, let alone why. server/main.py silently ignores
+                  // series_name from an anonymous request (no owner to
+                  // persist a character bible against), so there's
+                  // nothing to show INSTEAD of the field - just why it's
+                  // missing.
+                  <p className="text-[12px] text-ink/55 dark:text-ink-dark/55">
+                    <Link
+                      href="/sign-in"
+                      className="underline decoration-ink/20 underline-offset-4 hover:text-ink/75 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/75"
+                    >
+                      Sign in
+                    </Link>{" "}
+                    to remember character voices across chapters of the same series.
+                  </p>
                 )}
                 {/* Reading a chapter one panel at a time meant one click
                     and one full round trip per panel; this runs the
@@ -669,9 +723,11 @@ export default function ComicsPage() {
                 <button
                   type="button"
                   onClick={runOcrForAllPanels}
-                  disabled={
-                    batchOcrRunning ||
-                    !panels.some((p) => p.ocrStatus === "idle" || p.ocrStatus === "error")
+                  disabled={batchOcrRunning || !hasPanelsPendingOcr}
+                  title={
+                    !batchOcrRunning && !hasPanelsPendingOcr
+                      ? "Every panel already has an OCR result - use a panel's own \"Rerun OCR\" to redo one."
+                      : undefined
                   }
                   className="rounded-full border border-black/10 px-5 py-2 text-[13px] font-medium transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15"
                 >
@@ -682,7 +738,12 @@ export default function ComicsPage() {
                 <button
                   type="button"
                   onClick={adaptWholeChapter}
-                  disabled={adaptStatus === "running" || !panels.some((p) => panelToChapterBubbles(p).length > 0)}
+                  disabled={adaptStatus === "running" || !hasAnyBubbles}
+                  title={
+                    adaptStatus !== "running" && !hasAnyBubbles
+                      ? "Run OCR or type dialogue into at least one panel first - there's nothing to adapt yet."
+                      : undefined
+                  }
                   className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {adaptStatus === "running"
@@ -700,6 +761,17 @@ export default function ComicsPage() {
                 <p className="mt-2 text-[12px] text-ink/75 dark:text-ink-dark/75">
                   {adaptProgress.message} · the panels below fill in as each one finishes - keep
                   reviewing or editing while the rest adapt.
+                </p>
+              )}
+              {/* A disabled "Adapt chapter" carries a title tooltip too
+                  (hover-only, easy to miss and not discoverable at all on
+                  touch), so the same explanation is repeated here as
+                  plain, always-visible text - a real gap a UX audit
+                  found: a first-time user who clicks Adapt before running
+                  OCR used to get a dead, unexplained grayed-out button. */}
+              {adaptStatus !== "running" && !hasAnyBubbles && (
+                <p className="mt-2 text-[12px] text-ink/62 dark:text-ink-dark/62">
+                  Run OCR or type dialogue into at least one panel before adapting the chapter.
                 </p>
               )}
 

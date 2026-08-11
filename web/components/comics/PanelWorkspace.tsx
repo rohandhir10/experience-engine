@@ -7,7 +7,11 @@ import {
   panelAdaptStatus,
   type ComicPanel,
 } from "@/lib/comics-types";
-import { FONT_OPTIONS, resolveRedrawRegionText } from "@/lib/comicsRedraw";
+import {
+  FONT_OPTIONS,
+  resolveRedrawRegionText,
+  resolveRedrawRegionTextSource,
+} from "@/lib/comicsRedraw";
 import { PanelStatusBadge } from "./PanelStatusBadge";
 
 /** Panel-by-panel review: a thumbnail rail to jump between panels, the
@@ -25,10 +29,12 @@ import { PanelStatusBadge } from "./PanelStatusBadge";
  * do without scrolling back and forth). One frame, one toggle; the
  * OCR-box overlay only ever applies to the Original tab, since those
  * boxes describe the original image's regions and have no meaning
- * against the redrawn composite. Resets to "original" on every panel
- * switch - a view choice on one panel isn't a meaningful default for a
- * different one, and a panel with no redraw result yet has nothing to
- * default "redrawn" to anyway.
+ * against the redrawn composite. Remembered PER PANEL (imageViewByPanel
+ * below), not one shared toggle - switching away from a panel and back
+ * shows whatever tab you last had it on, rather than always snapping
+ * back to "original" (a real friction point: reviewing a redraw used to
+ * mean re-clicking "Redrawn" every time). A panel with no entry yet - a
+ * fresh one, or one with no redraw result - defaults to "original".
  *
  * Reading order: Cloud Vision returns detected regions sorted by plain
  * top-to-bottom/left-to-right position (see engine/comics_ocr.py's
@@ -69,22 +75,32 @@ export function PanelWorkspace({
   const [activeId, setActiveId] = useState(panels[0]?.id);
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number } | null>(null);
   // Which image the main frame shows - "original" (with OCR region
-  // boxes overlaid) or "redrawn" (the typeset result). Reset to
-  // "original" on every panel switch below, same as naturalSize - a
-  // view choice made on one panel isn't a meaningful default for a
-  // different panel, and could otherwise silently show a stale
-  // "redrawn" tab on a panel that has no redraw result at all yet.
-  const [imageView, setImageView] = useState<"original" | "redrawn">("original");
+  // boxes overlaid) or "redrawn" (the typeset result) - keyed PER PANEL
+  // rather than one shared piece of state, so switching away from and
+  // back to a panel remembers its own last-viewed tab instead of always
+  // snapping back to "original" (a real friction point found auditing
+  // this page: reviewing a redraw meant re-clicking "Redrawn" every
+  // single time you came back to that panel). A panel with no entry yet
+  // defaults to "original" below, same as before this existed - a fresh
+  // panel (or one with no redraw result) has nothing meaningful to
+  // remember.
+  const [imageViewByPanel, setImageViewByPanel] = useState<Record<string, "original" | "redrawn">>(
+    {}
+  );
   const activeIndex = panels.findIndex((p) => p.id === activeId);
   const active = panels[activeIndex] ?? panels[0];
+  const imageView = (active && imageViewByPanel[active.id]) ?? "original";
 
   if (!active) return null;
+
+  function setImageView(view: "original" | "redrawn") {
+    setImageViewByPanel((prev) => ({ ...prev, [active.id]: view }));
+  }
 
   function goTo(index: number) {
     const clamped = Math.max(0, Math.min(panels.length - 1, index));
     setActiveId(panels[clamped].id);
     setNaturalSize(null);
-    setImageView("original");
   }
 
   function moveRegion(fromIndex: number, toIndex: number) {
@@ -146,7 +162,6 @@ export function PanelWorkspace({
             onClick={() => {
               setActiveId(panel.id);
               setNaturalSize(null);
-              setImageView("original");
             }}
             className={`relative shrink-0 overflow-hidden rounded-lg border transition ${
               panel.id === active.id
@@ -339,9 +354,10 @@ export function PanelWorkspace({
               <div className="mt-4">
                 <p className="text-[13px] font-medium text-ink dark:text-ink-dark">Reading order</p>
                 <p className="mt-0.5 text-[11px] text-ink/62 dark:text-ink-dark/62">
-                  Vision sorts bubbles top-to-bottom, left-to-right — wrong for manga's
-                  right-to-left reading, and not guaranteed correct for any multi-bubble
-                  panel. Fix the order here before it feeds anything downstream.
+                  Vision sorts bubbles top-to-bottom, left-to-right — automatically
+                  adjusted right-to-left for Japanese chapters once the language is
+                  known, but not guaranteed correct for any multi-bubble panel. Fix the
+                  order here before it feeds anything downstream.
                 </p>
                 <ol className="mt-2 flex flex-col gap-1.5">
                   {active.ocrRegions.map((region, i) => (
@@ -419,6 +435,20 @@ export function PanelWorkspace({
                         {i + 1}
                       </span>
                       <div className="min-w-0 flex-1">
+                        {/* Which of resolveRedrawRegionText's three
+                            sources actually filled this box - a real gap
+                            this closes: editing this text, then rerunning
+                            OCR, used to silently repopulate it from a
+                            DIFFERENT source with no visible sign anything
+                            changed (see resolveRedrawRegionTextSource's
+                            own docstring). */}
+                        <p className="mb-0.5 text-[10px] text-ink/50 dark:text-ink-dark/50">
+                          {resolveRedrawRegionTextSource(active, i) === "override"
+                            ? "Your own edit"
+                            : resolveRedrawRegionTextSource(active, i) === "adaptation"
+                              ? "From the chapter adaptation"
+                              : "Nothing here yet — type this bubble's line to redraw it"}
+                        </p>
                         <textarea
                           value={resolveRedrawRegionText(active, i)}
                           onChange={(e) => setRedrawRegionText(i, e.target.value)}
