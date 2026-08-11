@@ -410,9 +410,15 @@ function MediumTile({
   children: React.ReactNode;
 }) {
   return (
+    // Resting state stays neutral - both tiles are meant to read as
+    // equal choices (see this file's top comment), so an accent fill
+    // at rest would tilt one over the other by nothing more than paint
+    // order. The accent shows up on hover instead: it's the one moment
+    // the two tiles ARE asymmetric (you're about to click exactly one
+    // of them), so that's when the color that means "go" belongs.
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-black/[0.12] bg-black/[0.015] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-black/[0.15] hover:bg-black/[0.03] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.15)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-white/[0.05] dark:hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
+      className="group flex flex-col rounded-2xl border border-black/[0.12] bg-black/[0.015] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-accent/40 hover:bg-black/[0.03] hover:shadow-[0_24px_48px_-24px_rgba(184,86,46,0.18)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-accent/50 dark:hover:bg-white/[0.05] dark:hover:shadow-[0_24px_48px_-24px_rgba(184,86,46,0.35)]"
     >
       <div className="overflow-hidden rounded-lg">{children}</div>
       <div className="mt-4 flex items-center gap-2">
