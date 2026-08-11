@@ -178,7 +178,14 @@ export function InputScreen({
           </button>
         </div>
 
-        <h1 className="animate-fade-up mt-5 text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-ink dark:text-white sm:text-[2.9rem]">
+        {/* font-serif, not font-semibold sans - this was the one h1 on
+            the whole site rendering in the plain sans fallback while
+            every other page's h1 (home, comics, pricing, about, sign-in,
+            the whole content library) uses the serif editorial voice.
+            Real inconsistency on the flagship product page, not a
+            deliberate choice - nothing here ever argued for treating
+            this headline differently. */}
+        <h1 className="animate-fade-up mt-5 font-serif text-[2.3rem] leading-[1.1] tracking-tight text-ink dark:text-white sm:text-[2.9rem]">
           {PERSONA_HEADLINES[persona][0]}
           <br />
           {PERSONA_HEADLINES[persona][1]}

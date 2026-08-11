@@ -5518,3 +5518,48 @@ artificial pixel-parity across two different contexts.
   confirmed "Adapt chapter" is disabled with both the tooltip and the
   inline explanatory text present, and confirmed the Series sign-in
   message renders and links correctly for a signed-out session.
+
+## /music's headline: the one h1 on the site not using the serif voice
+
+A visual design pass across the marketing pages (`/`, `/music`,
+`/pricing`, `/how-it-works`) - real Playwright screenshots in both
+themes, not just reading the code - turned up one genuine inconsistency
+worth fixing, after two things that looked like bugs turned out not to
+be:
+
+- **Two false leads, checked and ruled out before touching anything:**
+  a homepage full-page screenshot showed a huge blank gap between the
+  comparison table and the footer - turned out to be `ScrollReveal`'s
+  IntersectionObserver-gated sections never firing because Playwright's
+  full-page capture resizes the viewport instead of actually scrolling;
+  confirmed by re-capturing WITH incremental scroll, which showed every
+  section rendering exactly as authored. A pricing-page screenshot
+  showed a stray diagonal gradient patch far down the page - turned out
+  to be `AmbientGlow.tsx`'s `position: fixed` decorative blobs, which
+  Playwright's full-page algorithm re-lays-out against the full document
+  height instead of the real viewport; confirmed by capturing a normal
+  (non-full-page) screenshot at that scroll position, which showed the
+  glow exactly where a real visitor would see it - pinned near the
+  viewport's top-left, never drifting down the page. Neither was a real
+  product bug, and neither got "fixed."
+- **The real one:** `components/InputScreen.tsx`'s h1 - "Adapt the
+  feeling. Not just the words." on `/music`, the actual flagship product
+  page - was the only h1 on the entire site rendering in the plain sans
+  fallback (`font-semibold`, no `font-serif`) instead of the serif
+  editorial voice every other h1 site-wide uses: the homepage, `/comics`,
+  `/pricing`, `/about`, `/faq`, `/glossary`, every legal page, sign-in/
+  sign-up, the blog. No comment or design rationale anywhere argued for
+  treating this one headline differently - it read as an oversight, not
+  a choice, confirmed by grepping every `<h1` on the site and finding
+  this the sole outlier. Fixed by adding `font-serif` and dropping the
+  now-redundant `font-semibold` (serif headlines site-wide don't need an
+  artificial bold weight; only the sans fallback did).
+- **Tier 1** - a class-name fix, not a judgment call once the
+  inconsistency itself was found.
+- **Verified:** grepped every `<h1` across `app/` and `components/` to
+  confirm this really was the only sans one (18 matches, 17 already
+  `font-serif`). `tsc --noEmit` and a fresh `next build` both clean;
+  full 209-test Vitest suite unaffected (no test asserts on this class).
+  Playwright screenshots of `/music` in both light and dark mode confirm
+  the headline now reads as part of the same typographic system as the
+  rest of the site, at the same size/weight balance as the homepage's h1.
