@@ -27,6 +27,7 @@ from engine.comics_ocr import (
     _block_text,
     _detected_languages,
     extract_text_regions,
+    sort_reading_order,
 )
 
 
@@ -112,6 +113,84 @@ def test_bounding_box_handles_missing_vertices():
     assert _bounding_box([]) == {"x": 0, "y": 0, "width": 0, "height": 0}
 
 
+def _region(text: str, x: int, y: int, width: int = 50, height: int = 20) -> dict:
+    return {"text": text, "bbox": {"x": x, "y": y, "width": width, "height": height}}
+
+
+def test_sort_reading_order_empty_list():
+    assert sort_reading_order([]) == []
+
+
+def test_sort_reading_order_single_region_unchanged():
+    regions = [_region("only", 10, 10)]
+    assert sort_reading_order(regions) == regions
+
+
+def test_sort_reading_order_orders_separate_rows_top_to_bottom():
+    # No vertical overlap at all - "bottom" is far below "top" even
+    # though it's positioned further LEFT, which a naive left-to-right-
+    # only sort would get wrong.
+    top = _region("top", x=200, y=0)
+    bottom = _region("bottom", x=0, y=500)
+    ordered = sort_reading_order([bottom, top])
+    assert [r["text"] for r in ordered] == ["top", "bottom"]
+
+
+def test_sort_reading_order_same_row_left_to_right_by_default():
+    left = _region("left", x=0, y=0)
+    right = _region("right", x=200, y=5)  # overlapping y-range = same row
+    ordered = sort_reading_order([right, left])
+    assert [r["text"] for r in ordered] == ["left", "right"]
+
+
+def test_sort_reading_order_same_row_right_to_left_for_japanese():
+    left = _region("left", x=0, y=0)
+    right = _region("right", x=200, y=5)
+    ordered = sort_reading_order([left, right], language="Japanese")
+    assert [r["text"] for r in ordered] == ["right", "left"]
+
+
+def test_sort_reading_order_only_japanese_triggers_right_to_left():
+    left = _region("left", x=0, y=0)
+    right = _region("right", x=200, y=5)
+    for language in ["Korean", "English", "Hindi", "Spanish", "Urdu", None]:
+        ordered = sort_reading_order([left, right], language=language)
+        assert [r["text"] for r in ordered] == ["left", "right"], language
+
+
+def test_sort_reading_order_three_regions_two_rows():
+    # A row of two (left-to-right), then a separate row below.
+    top_left = _region("top_left", x=0, y=0)
+    top_right = _region("top_right", x=200, y=5)
+    bottom = _region("bottom", x=0, y=400)
+    ordered = sort_reading_order([bottom, top_right, top_left])
+    assert [r["text"] for r in ordered] == ["top_left", "top_right", "bottom"]
+
+
+def test_sort_reading_order_below_overlap_threshold_becomes_separate_rows():
+    # Two regions whose y-ranges overlap only slightly (well under the
+    # 0.5 threshold of the shorter region's height) must NOT merge into
+    # one row - each is its own row, ordered by vertical position.
+    a = _region("a", x=200, y=0, height=20)  # spans y=0..20
+    b = _region("b", x=0, y=18, height=20)  # spans y=18..38, overlap=2/20=0.1
+    ordered = sort_reading_order([b, a])
+    assert [r["text"] for r in ordered] == ["a", "b"]
+
+
+def test_sort_reading_order_at_or_above_threshold_merges_into_one_row():
+    # Overlap of 10/20 = 0.5, exactly at the threshold - same row, so x
+    # order (right region first, since b is further right) applies.
+    a = _region("a", x=0, y=0, height=20)  # spans y=0..20
+    b = _region("b", x=200, y=10, height=20)  # spans y=10..30, overlap=10/20=0.5
+    ordered = sort_reading_order([a, b])
+    assert [r["text"] for r in ordered] == ["a", "b"]
+
+
+def test_sort_reading_order_is_stable_for_already_ordered_input():
+    regions = [_region("one", 0, 0), _region("two", 100, 0), _region("three", 200, 0)]
+    assert [r["text"] for r in sort_reading_order(regions)] == ["one", "two", "three"]
+
+
 def test_extracts_real_looking_blocks_with_scaled_confidence(monkeypatch):
     blocks = [
         _block(
@@ -139,6 +218,55 @@ def test_extracts_real_looking_blocks_with_scaled_confidence(monkeypatch):
     assert result["regions"][0]["bbox"] == {"x": 10, "y": 10, "width": 100, "height": 20}
     assert "HELLO THERE" in result["full_text"]
     assert result["warning"] is None
+
+
+def test_extract_text_regions_orders_a_japanese_row_right_to_left(monkeypatch):
+    # Two blocks in the same row (overlapping y-range), "LEFT" drawn on
+    # the left of the panel and "RIGHT" on the right - Vision itself
+    # returns them in an arbitrary order (left block first here), and
+    # only sort_reading_order should be responsible for correcting it.
+    blocks = [
+        _block(
+            ["LEFT"],
+            [{"x": 10, "y": 10}, {"x": 60, "y": 10}, {"x": 60, "y": 30}, {"x": 10, "y": 30}],
+            0.9,
+        ),
+        _block(
+            ["RIGHT"],
+            [{"x": 300, "y": 12}, {"x": 350, "y": 12}, {"x": 350, "y": 32}, {"x": 300, "y": 32}],
+            0.9,
+        ),
+    ]
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(200, _vision_success_response(blocks)),
+    )
+    result = extract_text_regions(b"fake-image-bytes", language="Japanese")
+    assert [r["text"] for r in result["regions"]] == ["RIGHT", "LEFT"]
+    assert result["full_text"].index("RIGHT") < result["full_text"].index("LEFT")
+
+
+def test_extract_text_regions_keeps_left_to_right_for_non_japanese(monkeypatch):
+    blocks = [
+        _block(
+            ["LEFT"],
+            [{"x": 10, "y": 10}, {"x": 60, "y": 10}, {"x": 60, "y": 30}, {"x": 10, "y": 30}],
+            0.9,
+        ),
+        _block(
+            ["RIGHT"],
+            [{"x": 300, "y": 12}, {"x": 350, "y": 12}, {"x": 350, "y": 32}, {"x": 300, "y": 32}],
+            0.9,
+        ),
+    ]
+    monkeypatch.setattr(
+        comics_ocr.httpx,
+        "post",
+        lambda *a, **k: _FakeResponse(200, _vision_success_response(blocks)),
+    )
+    result = extract_text_regions(b"fake-image-bytes", language="Korean")
+    assert [r["text"] for r in result["regions"]] == ["LEFT", "RIGHT"]
 
 
 def test_request_is_authenticated_with_a_bearer_token(monkeypatch):

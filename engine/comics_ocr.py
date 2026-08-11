@@ -40,10 +40,20 @@ ingestion module in this project:
     has regardless of provider. Every region carries Vision's own
     per-block confidence so a low-confidence result can be flagged
     rather than silently trusted.
-  - Reading order is a plain top-to-bottom, left-to-right ordering of
-    detected blocks, not a real guess at panel/bubble reading order -
-    which can run right-to-left or in a Z-pattern across multiple
-    bubbles. The human reviewing the draft is expected to reorder it.
+  - Reading order (`sort_reading_order`, below) groups detected blocks
+    into rows by vertical overlap, orders rows top-to-bottom, and orders
+    each row right-to-left for `language="Japanese"` or left-to-right
+    otherwise - real, deterministic, and meaningfully better than no
+    ordering logic at all (which is what this module had before), but
+    still a geometric heuristic, not a solved problem: a genuine
+    Z-pattern layout (bubbles that must be read out of simple row order)
+    or a vertically-set manga column can still come out wrong. The human
+    reviewing the draft is still expected to check and reorder it. This
+    is the base OCR-only path's reading order specifically - when a real
+    text detector is configured (`CASTIA_TEXT_DETECTOR_URL`,
+    `engine/comics_read.py`), that path already has a stronger signal
+    (the vision-LLM narrative pass's own reported `reading_index`) and
+    doesn't use this function at all.
 """
 from __future__ import annotations
 
@@ -305,6 +315,70 @@ def _bounding_box(vertices: list[dict]) -> dict:
     return {"x": x, "y": y, "width": max(xs) - x, "height": max(ys) - y}
 
 
+# Only Japanese, deliberately - it's the one language in _LANGUAGE_HINTS
+# with a well-established right-to-left manga reading convention. Urdu's
+# SCRIPT reads right-to-left, but nothing in this codebase establishes
+# that Urdu comics use a manga-style right-to-left PANEL/bubble reading
+# order (a different question from text direction within a line), so
+# extending this there would be an unfounded guess, not a documented
+# convention like Japanese manga's.
+_RIGHT_TO_LEFT_LANGUAGES = frozenset({"Japanese"})
+
+# Two regions count as "the same row" once their vertical spans overlap
+# by at least this fraction of the shorter region's height. Conservative
+# on purpose: a real manga page's bubbles are rarely in a strict grid,
+# and a too-eager row merge would pull two genuinely sequential bubbles
+# (one just above and overlapping the other) into the same row, scrambling
+# their left-right order instead of preserving their real top-to-bottom
+# sequence.
+_ROW_OVERLAP_THRESHOLD = 0.5
+
+
+def sort_reading_order(regions: list[dict], language: str | None = None) -> list[dict]:
+    """Orders `regions` (each carrying a "bbox": {x, y, width, height})
+    into a real, deterministic reading-order guess: groups regions into
+    rows by vertical overlap, orders rows top-to-bottom, then orders each
+    row's regions right-to-left for a language in _RIGHT_TO_LEFT_LANGUAGES
+    (Japanese) or left-to-right otherwise.
+
+    A geometric heuristic, not a solved problem - see this module's
+    docstring for what it can't fix (a genuine Z-pattern layout, a
+    vertically-set manga column). Meaningfully better than the total
+    absence of ordering logic this module had before, not a claim of
+    correctness on every real page.
+    """
+    if not regions:
+        return []
+    right_to_left = language in _RIGHT_TO_LEFT_LANGUAGES
+
+    rows: list[dict] = []  # each: {"top", "bottom", "regions": [...]}
+    for region in sorted(regions, key=lambda r: r["bbox"]["y"]):
+        bbox = region["bbox"]
+        top, bottom = bbox["y"], bbox["y"] + bbox["height"]
+        placed_row = None
+        for row in rows:
+            overlap = min(bottom, row["bottom"]) - max(top, row["top"])
+            if overlap <= 0:
+                continue
+            shorter = min(bottom - top, row["bottom"] - row["top"])
+            if shorter > 0 and overlap / shorter >= _ROW_OVERLAP_THRESHOLD:
+                placed_row = row
+                break
+        if placed_row is None:
+            rows.append({"top": top, "bottom": bottom, "regions": [region]})
+        else:
+            placed_row["regions"].append(region)
+            placed_row["top"] = min(placed_row["top"], top)
+            placed_row["bottom"] = max(placed_row["bottom"], bottom)
+
+    rows.sort(key=lambda row: row["top"])
+    ordered: list[dict] = []
+    for row in rows:
+        row["regions"].sort(key=lambda r: r["bbox"]["x"], reverse=right_to_left)
+        ordered.extend(row["regions"])
+    return ordered
+
+
 def _detected_languages(page: dict) -> list[dict]:
     """Reads Vision's own page-level script/language detection
     (page.property.detectedLanguages), sorted most-confident first. This
@@ -424,6 +498,12 @@ def extract_text_regions(image_bytes: bytes, language: str | None = None) -> dic
         confidence = round(block.get("confidence", 0.0) * 100, 1)
         regions.append({"text": text, "bbox": _bounding_box(vertices), "confidence": confidence})
 
+    # Vision's own block order otherwise has no documented reading-order
+    # guarantee this codebase can rely on - see this module's docstring
+    # and sort_reading_order's own docstring for what this can and can't
+    # fix. Sorted before full_text is built, so the joined text reflects
+    # the same order as `regions`.
+    regions = sort_reading_order(regions, language=language)
     full_text = "\n\n".join(r["text"] for r in regions)
 
     warning = None

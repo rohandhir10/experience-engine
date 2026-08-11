@@ -5029,3 +5029,67 @@ against). Two existing test fixtures (`_FakeEngineResult` in
 attribute added to match the real `EngineResult` shape this feature now
 reads. Full suite: 1157 passed (1140 pre-existing + 17 new), zero
 regressions.
+
+## Real reading-order sorting for the base OCR path
+
+**The gap, found while looking for a well-scoped comics-engine fix**:
+`engine/comics_ocr.py::extract_text_regions`'s docstring claimed
+"Reading order is a plain top-to-bottom, left-to-right ordering of
+detected blocks" — but no code anywhere in this module actually did
+that. `regions` was built by iterating Cloud Vision's own API response
+blocks in whatever order Vision happened to return them, with zero
+explicit sort. For left-to-right content that's usually close enough to
+pass unnoticed; for Japanese manga (conventionally read right-to-left)
+it's frequently just wrong, silently.
+
+Note this is specifically the BASE OCR-only path's gap. The more
+advanced two-step path (`engine/comics_read.py`, active when
+`CASTIA_TEXT_DETECTOR_URL` is configured) already has a real, stronger
+solution — the vision-LLM narrative pass reports its own
+`reading_index` per region, and `assemble()` sorts by that instead of
+geometry, specifically because (per that code's own comment) "geometry
+alone guesses it badly for right-to-left and Z-pattern layouts." This
+fix doesn't touch that path at all; it closes the gap in the simpler,
+currently-default path that had no reading-order logic whatsoever.
+
+**The fix** (`engine/comics_ocr.py::sort_reading_order`): a
+deterministic geometric heuristic, not a claim of solving reading order
+in general (comics reading order is disclosed elsewhere in this
+codebase — `engine/comics_align.py` — as "genuinely unsolved"). Groups
+detected regions into rows by vertical (y-range) overlap — two regions
+count as the same row once they share at least half of the shorter
+region's height, conservative on purpose so a real manga page's loosely
+row-based (not strictly gridded) bubbles don't get scrambled by an
+over-eager merge — orders rows top-to-bottom, then orders each row
+right-to-left for `language="Japanese"` (the one language in this
+codebase's `_LANGUAGE_HINTS` roster with a well-established
+right-to-left manga convention) or left-to-right otherwise. Wired into
+`extract_text_regions` right after `regions` is built, before
+`full_text` is joined, so both the region list and the joined text
+reflect the same real order.
+
+**Deliberately narrow scope, stated honestly**: only Japanese triggers
+right-to-left ordering. Urdu's script reads right-to-left, but nothing
+in this codebase establishes that Urdu comics use a manga-style
+right-to-left PANEL/bubble reading convention (a different question
+from text direction within a line) — extending this to Urdu would have
+been an unfounded guess, not a documented convention the way Japanese
+manga's is. A genuine Z-pattern layout, or a page whose bubbles
+genuinely aren't arranged in rows at all, can still come out wrong —
+this is a real improvement over "no ordering logic at all," not a
+solved problem, and the human reviewing the draft is still expected to
+check and reorder it, same as before this fix.
+
+**Verified**: 12 new tests in `tests/test_comics_ocr.py` — pure
+`sort_reading_order` unit tests (empty/single-region edge cases,
+separate-row top-to-bottom ordering even when a lower region sits
+further left, same-row left-to-right by default, same-row right-to-left
+specifically for Japanese, every OTHER supported language confirmed to
+stay left-to-right, a three-region two-row case, the row-overlap
+threshold's exact boundary tested both just-below — regions correctly
+kept as separate rows — and at-or-above — regions correctly merged into
+one row) — plus two integration tests through the real
+`extract_text_regions` function (mocked Cloud Vision response) proving
+the sort actually applies end-to-end for a Japanese panel and stays
+left-to-right for a non-Japanese one. Full suite: 1169 passed (1157
+pre-existing + 12 new), zero regressions.
