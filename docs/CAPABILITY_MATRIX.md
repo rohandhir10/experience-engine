@@ -4011,11 +4011,18 @@ nor a non-2xx response ever raises. Full suite green: 1011 pytest.
 
 ## Deliberately deferred out of Phase 3
 
-- **Genre-aware calibration (originally "Phase 3C").** Building a
-  configurable-threshold mechanism now, with no genre-labeled corpus to
-  calibrate it against, would ship an abstraction nobody consumes — the
-  same reasoning that gated the `evidence_tier` field on Phase 2 existing
-  first. Deferred until real corpus data exists.
+- **Genre-aware calibration (originally "Phase 3C").** **Still
+  deferred, correctly** — see "Genre-aware calibration: starting the
+  corpus, not the calibration" below. This gap was never missing
+  engineering; it's missing DATA (a genre-labeled corpus large enough
+  to learn real per-genre rhyme/repetition norms from), and building a
+  configurable-threshold mechanism now would still ship an abstraction
+  nobody consumes — the same reasoning that gated the `evidence_tier`
+  field on Phase 2 existing first. What changed: `server/genre_corpus.py`
+  now accumulates that corpus, best-effort, from every real production
+  song. Calibration itself remains exactly as deferred as it was —
+  correctly, since there still isn't a corpus yet, only the pipe that
+  will eventually fill one.
 - ~~**Chorus-with-variation.**~~ **Closed** — see "Chorus-with-variation:
   whole-section repeat detection" below. `SectionInput.varies_from` +
   `engine/recurrence.py::detect_section_repeats` now give a near-repeated
@@ -4932,3 +4939,93 @@ same as every pre-existing caller), a client surfaces the finding as a
 warning that never flips `report.passed`, and the check is skipped
 outright when `source_language` or `source_sections` aren't present.
 Full suite: 1140 passed (1128 pre-existing + 12 new), zero regressions.
+
+## Genre-aware calibration: starting the corpus, not the calibration
+
+**Why this gap is different from the two above it**: chorus-with-
+variation and cross-language fidelity were both real engineering gaps —
+missing schema, missing orchestration, missing a check. Genre-aware
+calibration is missing DATA. `verify.py` already computes
+`rhyme_density` (per section) and `phoneme_repetition_similarity` (per
+song) and deliberately never turns either into a pass/fail signal,
+because what counts as "enough rhyme" genuinely varies by genre (a
+Hindi film couplet and a plain-spoken English indie lyric have opposite
+defaults) and there is no real corpus to learn those per-genre norms
+from. Building a "configurable calibration mechanism" with no real
+calibration data behind it would just be an elaborate way of shipping
+made-up threshold numbers — the fabricated-confidence failure this
+codebase's own no-fabrication discipline exists to rule out everywhere
+else. Flagged back to the user before writing anything, and confirmed:
+build toward a real corpus, not a calibration mechanism.
+
+**The real, practical problem with the obvious approach**: Song DNA's
+`genre_feel` is deliberately free text, not an enum
+(`engine/models.py::SongDNA`'s own docstring, about `genre_feel`'s
+sibling field `poetic_register`: forcing a fixed vocabulary "would
+eventually mis-classify a real song into the nearest wrong bucket
+rather than describing it accurately"). That's the right call for an
+adaptation PROMPT, where precision matters and feeds real user-facing
+output. It's the wrong shape for a CORPUS: logging raw `genre_feel`
+strings would just accumulate a pile of near-duplicates ("melancholic
+pop ballad" vs. "wistful pop song") that can never be grouped into
+anything at all — silently defeating the entire point without ever
+throwing an error.
+
+**The fix — collection infrastructure, explicitly not calibration**:
+
+1. `server/genre_corpus.py::classify_genre_bucket` — a small,
+   deterministic, keyword-based classifier mapping free-text
+   `genre_feel` to one of 8 coarse buckets (pop, ballad, hip_hop_rap,
+   rock, folk_traditional, devotional_spiritual, rnb_soul,
+   electronic_dance) or `"other"`. Deliberately NOT an LLM call (zero
+   added cost, unlike the cross-language fidelity check above) and
+   deliberately NOT touching Song DNA's own schema or prompts — this
+   classification exists only to make real songs groupable for later
+   human inspection, and is never fed back into any adaptation-facing
+   prompt. An ambiguous `genre_feel` landing in `"other"` is the
+   correct, honest outcome, not a bug to chase.
+2. `server/db_models.py::GenreCalibrationSample` (migration
+   `0010_add_genre_calibration_samples`) — one row per real song
+   adaptation: `genre_feel`, `genre_bucket`, source/target language,
+   mean `rhyme_density` across the song's sections (excluding, not
+   zeroing, sections where it wasn't computable), section count, and
+   `phoneme_repetition_similarity`. Not a foreign key into
+   `cached_results` on purpose — this table stays a complete,
+   self-sufficient snapshot even if that row is later evicted.
+3. `server/genre_corpus.py::record_calibration_sample` — called once,
+   right after `verify_result` in `server/main.py`, same "best-effort,
+   never allowed to fail the real request" discipline
+   `_record_history` already holds itself to. No-ops entirely when no
+   database is configured.
+4. `server/genre_corpus.py::summarize_corpus` — descriptive statistics
+   only (count, mean rhyme_density/phoneme_repetition_similarity per
+   bucket) for a human to eyeball once real samples accumulate. No
+   pass/fail field exists in its output and none should ever be added
+   to it directly — turning accumulated data into real calibration is
+   a deliberate future decision made by a person looking at real
+   numbers, not something this function decides on its own.
+
+**What this explicitly does NOT do**: calibrate anything, set any
+threshold, or change verify.py's behavior in any way. A brand-new
+deployment's corpus starts empty and `summarize_corpus()` returns `[]`
+— honestly, not as an error. The deferred-gap entry above stays marked
+deferred, on purpose: this closes "there's no way to ever start
+collecting the data," not "the data now exists."
+
+**Verified**: 17 new tests (`tests/test_genre_corpus.py`) covering
+classification (each bucket, case-insensitivity, specific-before-generic
+priority ordering, `"other"` fallback), and — against a real sqlite
+database, same pattern `tests/test_character_bibles.py` already
+established — record/summarize round-tripping, `None` rhyme_density
+values excluded from the mean rather than zeroed, multi-sample grouping
+by bucket, a no-database no-op, a broken-database connection degrading
+to a swallowed exception rather than a crash, and an explicit check that
+`summarize_corpus`'s output never contains a pass/fail-shaped key.
+`tests/test_migrations.py` extended with the new table in both the
+fresh-database and pre-existing-database migration paths (the same two
+starting states every prior migration in this chain has to prove itself
+against). Two existing test fixtures (`_FakeEngineResult` in
+`test_server.py` and `test_v1_api.py`) needed a `.dna.genre_feel`
+attribute added to match the real `EngineResult` shape this feature now
+reads. Full suite: 1157 passed (1140 pre-existing + 17 new), zero
+regressions.

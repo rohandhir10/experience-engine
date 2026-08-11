@@ -113,7 +113,7 @@ from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
 
-from . import accounts, api_keys, cache, character_bibles, credits, db, emailing, jobs, monitoring, paddle, password_auth, quota, task_queue
+from . import accounts, api_keys, cache, character_bibles, credits, db, emailing, genre_corpus, jobs, monitoring, paddle, password_auth, quota, task_queue
 from .mapping import _explain_why, _translator_text, to_experience_result
 
 logging.basicConfig(
@@ -1943,6 +1943,14 @@ def _run_adaptation(
         len(errors),
         len(warnings),
         ", ".join(sorted({f.law for f in errors + warnings})),
+    )
+
+    # Best-effort corpus collection for docs/CAPABILITY_MATRIX.md's
+    # "Genre-aware calibration" deferred gap - see server/genre_corpus.py's
+    # module docstring for why this only accumulates data and calibrates
+    # nothing. Never allowed to affect the actual response either way.
+    genre_corpus.record_calibration_sample(
+        result_id, engine_result.dna.genre_feel, source_language, target_language, report
     )
 
     # Song-level (a correlation needs the whole song's sections, not one),

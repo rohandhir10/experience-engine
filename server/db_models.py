@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -426,4 +426,55 @@ class CharacterBibleEntry(Base):
     # list[str], same shape as engine/models.py::CharacterVoice.relationships.
     relationships: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class GenreCalibrationSample(Base):
+    """One row per completed song adaptation, capturing exactly what a
+    future genre-aware calibration mechanism would need real per-genre
+    norms from (docs/CAPABILITY_MATRIX.md's "Genre-aware calibration"
+    deferred gap — blocked, as of this table's introduction, on there
+    being no genre-labeled corpus at all). Nothing here calibrates
+    anything: this only starts accumulating the corpus that gap has been
+    blocked on. Written best-effort, once per real song adaptation
+    (server/genre_corpus.py::record_calibration_sample) — a failure to
+    write one of these must never fail the actual user request it's
+    piggybacking on, same discipline server/main.py's history recording
+    already holds itself to.
+
+    `genre_bucket` is a COARSE, deterministic, keyword-based
+    classification of Song DNA's free-text `genre_feel`
+    (server/genre_corpus.py::classify_genre_bucket) — `genre_feel`
+    itself stays free text at the engine layer on purpose
+    (engine/models.py::SongDNA's own docstring: forcing genre_feel's
+    sibling field poetic_register into a fixed vocabulary "would
+    eventually mis-classify a real song into the nearest wrong bucket
+    rather than describing it accurately"). That tradeoff is the wrong
+    one for an adaptation PROMPT, where precision matters and feeds
+    real user-facing output. It's the right one here, where the only
+    alternative is a pile of near-duplicate strings ("melancholic pop
+    ballad" vs. "wistful pop song") that could never be aggregated into
+    anything at all — approximate on purpose, disclosed as such, and
+    never fed back into any adaptation-facing prompt.
+    """
+
+    __tablename__ = "genre_calibration_samples"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    # Not a foreign key into cached_results on purpose - this table must
+    # keep working even if that row is later evicted/expired; the
+    # sample's own columns are a complete, self-sufficient snapshot.
+    result_id: Mapped[str] = mapped_column(String, nullable=False)
+    genre_feel: Mapped[str] = mapped_column(Text, nullable=False)
+    genre_bucket: Mapped[str] = mapped_column(String, nullable=False)
+    source_language: Mapped[str] = mapped_column(String, nullable=False)
+    target_language: Mapped[str] = mapped_column(String, nullable=False)
+    # Mean of SectionVerification.rhyme_density across this song's
+    # sections where it was actually computable - None (not 0.0)
+    # excluded from the mean, and None here too if no section in the
+    # song had a computable value at all. Same for
+    # phoneme_repetition_similarity, which is already song-level.
+    mean_rhyme_density: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rhyme_density_section_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    phoneme_repetition_similarity: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

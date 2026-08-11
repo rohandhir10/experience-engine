@@ -27,10 +27,15 @@ class _FakeClient:
         raise AssertionError("run_engine is monkeypatched; the real client should never be called")
 
 
+class _FakeSongDNA:
+    genre_feel = "test genre"
+
+
 class _FakeEngineResult:
     def __init__(self, sections=None, source_sections=None):
         self._sections = sections or []
         self._source_sections = source_sections or []
+        self.dna = _FakeSongDNA()
 
     def to_dict(self) -> dict:
         return {"sections": self._sections, "source_sections": self._source_sections}

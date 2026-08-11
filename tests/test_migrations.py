@@ -30,6 +30,7 @@ def test_migrate_to_head_succeeds_on_a_fresh_database(tmp_path, monkeypatch):
     assert {
         "adaptations", "api_keys", "api_key_usage", "monthly_quota_usage",
         "credit_transactions", "paddle_processed_events", "character_bible_entries",
+        "genre_calibration_samples",
     } <= tables
     assert "medium" in {c["name"] for c in insp.get_columns("adaptations")}
     assert "credits" in {c["name"] for c in insp.get_columns("users")}
@@ -102,4 +103,11 @@ def test_migrate_to_head_succeeds_on_a_preexisting_pre_migration_database(tmp_pa
         "id", "user_id", "series_name", "series_name_key", "character_name",
         "character_name_key", "voice_description", "honorific_register",
         "relationships", "updated_at", "created_at",
+    }
+    # 0010 runs in this same chain too, same reasoning as 0009 above.
+    assert "genre_calibration_samples" in insp.get_table_names()
+    assert {c["name"] for c in insp.get_columns("genre_calibration_samples")} == {
+        "id", "result_id", "genre_feel", "genre_bucket", "source_language",
+        "target_language", "mean_rhyme_density", "rhyme_density_section_count",
+        "phoneme_repetition_similarity", "created_at",
     }
