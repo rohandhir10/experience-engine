@@ -423,16 +423,22 @@ export default function ComicsPage() {
                     Beta
                   </span>
                 </div>
-                {/* text-ink/75, not the original /50 - that read as low-
-                    contrast on the actual value proposition, not just
-                    "editorial." */}
+                {/* Short and human, not the old single run-on sentence
+                    justifying itself - real feedback that the hero read
+                    as descriptive/salesy. The dropped mechanism detail
+                    (speech-bubble OCR, per-character voice consistency,
+                    the shared Writers' Room pipeline) isn't gone from the
+                    page: it's one scroll down in the "What happens to a
+                    panel" storyboard, and this layout's own meta
+                    description (app/comics/layout.tsx) already carries
+                    the fuller version for search results and AI-generated
+                    summaries - that was always the structural source for
+                    that job, not this paragraph. text-ink/75, not the
+                    original /50 - that read as low-contrast on the actual
+                    value proposition, not just "editorial." */}
                 <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/72">
-                  Upload a chapter's panels and Castia reads every speech
-                  bubble, keeps each character's voice consistent from the
-                  first page to the last, and shows the literal reading
-                  next to the adapted line for every change — the same
-                  Writers' Room pipeline the music side runs on, not a
-                  separate, lesser engine.
+                  Upload your chapter, and every character keeps their
+                  voice — panel after panel.
                 </p>
                 {/* A real byline (linking to the one page with a real
                     Person bio) plus a real, hand-bumped edit date - see

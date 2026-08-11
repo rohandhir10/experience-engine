@@ -104,19 +104,23 @@ export default function Home() {
           </span>
           .
         </h1>
-        {/* A self-contained answer to "what does Castia do" - the whole
-            mechanism in one sentence, so it stands on its own whether a
-            reader lands here from a search result or an AI-generated
-            summary quotes it directly, without needing the rest of the
-            page for context. */}
+        {/* Short and human, not the old four-sentence mechanism dump -
+            real feedback that the hero read as descriptive/salesy rather
+            than a simple line. The full "what does Castia do" answer
+            still exists for search results and AI-generated summaries:
+            it's the JSON-LD description just above (webPageJsonLd call
+            at the top of this file), which was always the structural
+            source for that job, not this paragraph - and the mechanism
+            itself (Writers' Room stages, literal anchor, Judge) is still
+            explained in full one scroll down in "How does the Writers'
+            Room actually work?". Nothing here got deleted from the page,
+            just un-front-loaded from the first thing a visitor reads. */}
         <p
           className="animate-fade-up mt-4 max-w-md text-[14px] leading-relaxed text-ink/72 dark:text-white/62"
           style={{ animationDelay: "80ms" }}
         >
-          Castia rewrites song lyrics and comic dialogue across six languages
-          through a three-stage Writers' Room — one literal anchor, five
-          creative rewrites, and a Judge that picks a winner and states why.
-          Not a word-for-word pass. Choose what you're adapting below.
+          Not a literal translation — a rewrite that still sounds like you.
+          Choose what you're adapting below.
         </p>
         {/* A real byline (linking to the one page with a real Person bio -
             app/about/page.tsx) plus a real, hand-bumped edit date - see
@@ -201,9 +205,8 @@ export default function Home() {
               </span>
             </div>
             <p className="text-[12px] leading-relaxed text-ink/68 dark:text-white/62">
-              Upload panel images, review the extracted dialogue, then adapt it —
-              a starting draft you read before anything ships, same as every
-              language pair here.
+              Upload panel images and review the extracted dialogue before
+              you adapt it — same as every language pair here.
             </p>
           </div>
         </MediumTile>
