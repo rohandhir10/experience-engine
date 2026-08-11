@@ -35,7 +35,7 @@ export default function Post() {
         label: "See how it works",
       }}
     >
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         BLEU has been the default automated metric for judging machine
         translation quality for two decades - it's fast, cheap, and gives
         you a single number. It was also never built to tell you whether a
@@ -46,7 +46,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         What BLEU actually measures
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         BLEU scores a candidate translation by how many of its word
         sequences overlap with one or more human reference translations.
         Callison-Burch, Osborne, and Koehn's 2006 EACL paper,{" "}
@@ -59,7 +59,7 @@ export default function Post() {
         worse than a translation that's closer to the reference wording
         but reads more awkwardly.
       </p>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         That's a fundamental mismatch for creative adaptation specifically:
         the entire point of a creative rewrite is to depart from the most
         literal wording on purpose. A metric that rewards closeness to one
@@ -70,7 +70,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Using a model to judge a model
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         One alternative that's gotten real research attention is
         "LLM-as-a-judge" - having a language model score or rank other
         outputs against a rubric, instead of a fixed formula like BLEU.
@@ -81,7 +81,7 @@ export default function Post() {
         reports over 80% agreement, comparable to the agreement level
         between two human raters.
       </p>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         The same paper is just as clear about the catch: LLM judges carry
         real, documented biases - favoring longer answers regardless of
         quality, favoring whichever position an answer appears in, and
@@ -93,7 +93,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Why a Judge needs an anchor
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         Castia's Judge stage is built around that specific caveat: it
         doesn't rank rewrites purely on open-ended preference, which is
         where position and verbosity bias creep in unchecked - it scores

@@ -17,7 +17,7 @@ export function PipelineDiagram() {
         <div key={stage.title} className="flex flex-1 items-center gap-0">
           <div className="flex-1 rounded-xl border border-black/[0.12] bg-white/70 p-4 dark:border-white/[0.12] dark:bg-white/[0.03]">
             <p className="text-[13px] font-medium text-ink dark:text-ink-dark">{stage.title}</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+            <p className="mt-1 text-[11px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
               {stage.description}
             </p>
           </div>

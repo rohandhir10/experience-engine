@@ -49,7 +49,7 @@ function CandidateDiagram() {
   const others = [1, 2, 3, 4];
   return (
     <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/68 dark:text-ink-dark/68">
         Five rewrites, scored against the anchor
       </p>
       <div className="mt-4 space-y-2">
@@ -128,7 +128,7 @@ export default function HowItWorksPage() {
               <br />
               One wins, and it has to say why.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
               Every line — whether it's a song lyric or a comic panel's
               dialogue — goes through the same three-stage pipeline below,
               and every departure from a literal translation ships with a
@@ -197,7 +197,7 @@ export default function HowItWorksPage() {
         </section>
 
         <div className="mt-14 rounded-2xl bg-[#181310] p-8 sm:p-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-white/38">Music</p>
+          <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">Music</p>
           <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
             Source lyrics in, verified output out.
           </h2>
@@ -215,7 +215,7 @@ export default function HowItWorksPage() {
         </div>
 
         <div className="mt-8 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-white/38">
+          <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">
             Webtoons &amp; comics
           </p>
           <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">

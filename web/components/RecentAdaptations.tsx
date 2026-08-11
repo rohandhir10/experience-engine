@@ -180,7 +180,7 @@ export function RecentAdaptations({
   );
 
   if (state.status === "loading") {
-    return <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>;
+    return <p className="mt-4 text-[14px] text-ink/65 dark:text-ink-dark/65">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
@@ -206,7 +206,7 @@ export function RecentAdaptations({
   if (state.entries.length === 0) {
     return (
       <div className="mt-4 flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-black/[0.13] px-6 py-10 text-center dark:border-white/[0.14]">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/40 dark:bg-white/[0.06] dark:text-ink-dark/40">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/62 dark:bg-white/[0.06] dark:text-ink-dark/62">
           <StarIcon filled={false} />
         </span>
         <p className="text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
@@ -234,7 +234,7 @@ export function RecentAdaptations({
               className={`shrink-0 rounded-full p-1 transition disabled:opacity-40 ${
                 entry.isFavorite
                   ? "text-accent"
-                  : "text-ink/32 hover:text-ink/65 dark:text-ink-dark/32 dark:hover:text-ink-dark/65"
+                  : "text-ink/32 hover:text-ink/75 dark:text-ink-dark/32 dark:hover:text-ink-dark/75"
               }`}
             >
               <StarIcon filled={entry.isFavorite} />
@@ -246,7 +246,7 @@ export function RecentAdaptations({
               <span className="min-w-0 truncate text-[14px] text-ink/80 transition group-hover:text-ink dark:text-ink-dark/80 dark:group-hover:text-ink-dark">
                 {label}
               </span>
-              <span className="shrink-0 text-[12px] text-ink/50 dark:text-ink-dark/50">
+              <span className="shrink-0 text-[12px] text-ink/68 dark:text-ink-dark/68">
                 {[entry.sourceLanguage, entry.targetLanguage].filter(Boolean).join(" → ")}
                 {" · "}
                 {new Date(entry.createdAt).toLocaleDateString()}

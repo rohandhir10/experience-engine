@@ -82,8 +82,8 @@ export function CollectionMenu({
         aria-label={ariaLabel}
         className={`rounded-full px-2 py-1 text-[12px] transition ${
           memberIds.length > 0
-            ? "text-ink/70 dark:text-ink-dark/70"
-            : "text-ink/45 hover:text-ink/72 dark:text-ink-dark/45 dark:hover:text-ink-dark/72"
+            ? "text-ink/78 dark:text-ink-dark/78"
+            : "text-ink/65 hover:text-ink/72 dark:text-ink-dark/65 dark:hover:text-ink-dark/72"
         }`}
       >
         {memberIds.length > 0 ? `In ${memberIds.length}` : emptyLabel}

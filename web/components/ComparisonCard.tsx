@@ -69,7 +69,7 @@ export const ComparisonCard = forwardRef<
 
       {showOriginal && original && (
         <div className="mt-6 space-y-1 border-b border-black/[0.09] pb-6 dark:border-white/[0.09]">
-          <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-ink/45 dark:text-ink-dark/45">
+          <p className="text-[11px] font-medium uppercase tracking-[0.15em] text-ink/65 dark:text-ink-dark/65">
             Original
           </p>
           <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
@@ -83,7 +83,7 @@ export const ComparisonCard = forwardRef<
           <span className="inline-flex items-center rounded-md border border-black/[0.13] px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.15em] text-ink/62 dark:border-white/[0.15] dark:text-ink-dark/62">
             [ Literal ]
           </span>
-          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+          <p className="max-w-prose whitespace-pre-line text-[15px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
             {section.literal}
           </p>
         </div>
@@ -111,8 +111,8 @@ export const ComparisonCard = forwardRef<
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${
               section.singability.closeMatch
-                ? "bg-black/[0.03] text-ink/65 dark:bg-white/[0.04] dark:text-ink-dark/65"
-                : "bg-black/[0.03] text-ink/70 dark:bg-white/[0.04] dark:text-ink-dark/70"
+                ? "bg-black/[0.03] text-ink/75 dark:bg-white/[0.04] dark:text-ink-dark/75"
+                : "bg-black/[0.03] text-ink/78 dark:bg-white/[0.04] dark:text-ink-dark/78"
             }`}
           >
             <span aria-hidden>♪</span>

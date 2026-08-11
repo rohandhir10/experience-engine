@@ -120,7 +120,7 @@ export default async function SignInPage({
               </form>
             )}
 
-            <div className="mt-6 flex w-full items-center gap-3 text-[12px] text-ink/45 dark:text-ink-dark/45">
+            <div className="mt-6 flex w-full items-center gap-3 text-[12px] text-ink/65 dark:text-ink-dark/65">
               <div className="h-px flex-1 bg-black/[0.08] dark:bg-white/[0.08]" />
               or
               <div className="h-px flex-1 bg-black/[0.08] dark:bg-white/[0.08]" />
@@ -128,7 +128,7 @@ export default async function SignInPage({
 
             <form action={credentialsSignIn} className="mt-6 w-full space-y-3 text-left">
               <div>
-                <label htmlFor="email" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
+                <label htmlFor="email" className="text-[12px] text-ink/75 dark:text-ink-dark/75">
                   Email
                 </label>
                 <input
@@ -141,7 +141,7 @@ export default async function SignInPage({
                 />
               </div>
               <div>
-                <label htmlFor="password" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
+                <label htmlFor="password" className="text-[12px] text-ink/75 dark:text-ink-dark/75">
                   Password
                 </label>
                 <input
@@ -161,7 +161,7 @@ export default async function SignInPage({
               </button>
             </form>
 
-            <p className="mt-6 text-[13px] text-ink/65 dark:text-ink-dark/65">
+            <p className="mt-6 text-[13px] text-ink/75 dark:text-ink-dark/75">
               No account?{" "}
               <Link href="/sign-up" className="underline decoration-ink/20 underline-offset-4">
                 Sign up
@@ -184,7 +184,7 @@ export default async function SignInPage({
 
         <Link
           href="/music#lyrics"
-          className="mt-6 text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
+          className="mt-6 text-[13px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
         >
           Just take me to CASTIA →
         </Link>

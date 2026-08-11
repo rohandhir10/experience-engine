@@ -161,7 +161,7 @@ export function PanelUploader({
         <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
           Drop chapter images, a PDF, or a ZIP here
         </p>
-        <p className="max-w-sm text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="max-w-sm text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           JPG, PNG, or WebP panel slices, in any order — they'll be sorted by file name once
           they're in. A PDF works too: each page becomes its own panel automatically. So does a
           ZIP of pre-sliced images — the standard hand-off for a webtoon episode.

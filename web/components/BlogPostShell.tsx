@@ -56,9 +56,9 @@ export function BlogPostShell({
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             {entry.title}
           </h1>
-          <p className="mt-3 text-[12px] text-ink/50 dark:text-ink-dark/50">
+          <p className="mt-3 text-[12px] text-ink/68 dark:text-ink-dark/68">
             By{" "}
-            <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/70 dark:hover:text-ink-dark/70">
+            <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/78 dark:hover:text-ink-dark/78">
               {FOUNDER_NAME}
             </Link>{" "}
             · Published {formatDate(entry.publishedDate)}

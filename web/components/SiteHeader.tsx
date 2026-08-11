@@ -41,7 +41,7 @@ export function SiteHeader({
   // lines even at a 1280px desktop width, not just on mobile.
   minimal?: boolean;
 }) {
-  const dim = forceDark ? "text-white/65 hover:text-white/80" : "text-ink/65 hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78";
+  const dim = forceDark ? "text-white/75 hover:text-white/80" : "text-ink/75 hover:text-ink/78 dark:text-ink-dark/75 dark:hover:text-ink-dark/78";
   const navLink = `text-[13px] transition ${dim}`;
 
   return (
@@ -79,7 +79,7 @@ export function SiteHeader({
           <Link
             href="/docs/api"
             className={`hidden items-center gap-1.5 text-[13px] transition sm:inline-flex ${
-              forceDark ? "text-white/38 hover:text-white/68" : "text-ink/45 hover:text-ink/70 dark:text-ink-dark/45 dark:hover:text-ink-dark/70"
+              forceDark ? "text-white/62 hover:text-white/78" : "text-ink/65 hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
             }`}
           >
             API

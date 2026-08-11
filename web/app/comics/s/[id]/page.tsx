@@ -82,7 +82,7 @@ export default function ComicsSharedResultPage() {
             <CopyLinkButton resultId={result.id} basePath="/comics/s" />
             <Link
               href="/comics"
-              className="text-[13px] text-ink/65 transition hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
+              className="text-[13px] text-ink/75 transition hover:text-ink/78 dark:text-ink-dark/75 dark:hover:text-ink-dark/78"
             >
               ← Start over
             </Link>
@@ -106,10 +106,10 @@ export default function ComicsSharedResultPage() {
               key={panel.id}
               className="rounded-2xl border border-black/[0.12] bg-white/70 p-5 dark:border-white/[0.12] dark:bg-white/[0.03]"
             >
-              <p className="text-[11px] uppercase tracking-wide text-ink/50 dark:text-ink-dark/50">
+              <p className="text-[11px] uppercase tracking-wide text-ink/68 dark:text-ink-dark/68">
                 Panel {i + 1}
               </p>
-              <p className="mt-2 text-[13px] italic leading-relaxed text-ink/65 dark:text-ink-dark/65">
+              <p className="mt-2 text-[13px] italic leading-relaxed text-ink/75 dark:text-ink-dark/75">
                 {panel.literal}
               </p>
               <p className="mt-2 text-[15px] leading-relaxed text-ink dark:text-ink-dark">

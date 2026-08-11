@@ -56,7 +56,7 @@ export default function CompareChatGptPage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Castia vs. a single ChatGPT prompt.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
               "Just ask an LLM to translate it creatively" is a genuinely
               reasonable instinct - a modern chat model can absolutely
               produce a creative rewrite of a line. The question is what
@@ -179,7 +179,7 @@ export default function CompareChatGptPage() {
           </Link>
         </div>
 
-        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Also see{" "}
           <Link href="/compare/google-translate" className="underline decoration-ink/20 underline-offset-4">
             Castia vs. Google Translate

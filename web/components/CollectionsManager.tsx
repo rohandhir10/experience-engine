@@ -121,7 +121,7 @@ export function CollectionsManager() {
   }
 
   if (state.status === "loading") {
-    return <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>;
+    return <p className="mt-4 text-[14px] text-ink/65 dark:text-ink-dark/65">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
@@ -180,7 +180,7 @@ export function CollectionsManager() {
 
       {state.collections.length === 0 ? (
         <div className="mt-6 flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-black/[0.13] px-6 py-10 text-center dark:border-white/[0.14]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/40 dark:bg-white/[0.06] dark:text-ink-dark/40">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/62 dark:bg-white/[0.06] dark:text-ink-dark/62">
             <FolderIcon />
           </span>
           <p className="text-[14px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
@@ -200,7 +200,7 @@ export function CollectionsManager() {
                 <span className="block truncate text-[14px] text-ink/80 transition hover:text-ink dark:text-ink-dark/80 dark:hover:text-ink-dark">
                   {collection.name}
                 </span>
-                <span className="text-[12px] text-ink/50 dark:text-ink-dark/50">
+                <span className="text-[12px] text-ink/68 dark:text-ink-dark/68">
                   {collection.count} {collection.count === 1 ? "song" : "songs"}
                 </span>
               </button>
@@ -303,7 +303,7 @@ function CollectionDetail({
       <button
         type="button"
         onClick={onBack}
-        className="text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
+        className="text-[13px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
       >
         ← All collections
       </button>
@@ -313,7 +313,7 @@ function CollectionDetail({
       </h2>
 
       {members === null ? (
-        <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>
+        <p className="mt-4 text-[14px] text-ink/65 dark:text-ink-dark/65">Loading…</p>
       ) : members.length === 0 ? (
         <p className="mt-4 text-[14px] text-ink/62 dark:text-ink-dark/62">
           Nothing in this collection yet.

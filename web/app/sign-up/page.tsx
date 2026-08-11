@@ -78,7 +78,7 @@ export default function SignUpPage() {
 
             <form onSubmit={handleSubmit} className="mt-8 w-full space-y-3 text-left">
               <div>
-                <label htmlFor="email" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
+                <label htmlFor="email" className="text-[12px] text-ink/75 dark:text-ink-dark/75">
                   Email
                 </label>
                 <input
@@ -92,7 +92,7 @@ export default function SignUpPage() {
                 />
               </div>
               <div>
-                <label htmlFor="password" className="text-[12px] text-ink/65 dark:text-ink-dark/65">
+                <label htmlFor="password" className="text-[12px] text-ink/75 dark:text-ink-dark/75">
                   Password
                 </label>
                 <input
@@ -105,7 +105,7 @@ export default function SignUpPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-black/10 bg-transparent px-3.5 py-2.5 text-[14px] text-ink outline-none focus:border-ink/30 dark:border-white/10 dark:text-ink-dark dark:focus:border-ink-dark/30"
                 />
-                <p className="mt-1 text-[12px] text-ink/50 dark:text-ink-dark/50">At least 8 characters.</p>
+                <p className="mt-1 text-[12px] text-ink/68 dark:text-ink-dark/68">At least 8 characters.</p>
               </div>
 
               {status.kind === "error" && (
@@ -121,7 +121,7 @@ export default function SignUpPage() {
               </button>
             </form>
 
-            <p className="mt-6 text-[13px] text-ink/65 dark:text-ink-dark/65">
+            <p className="mt-6 text-[13px] text-ink/75 dark:text-ink-dark/75">
               Already have an account?{" "}
               <Link href="/sign-in" className="underline decoration-ink/20 underline-offset-4">
                 Sign in
@@ -132,7 +132,7 @@ export default function SignUpPage() {
 
         <Link
           href="/music#lyrics"
-          className="mt-6 text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
+          className="mt-6 text-[13px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
         >
           Just take me to CASTIA →
         </Link>

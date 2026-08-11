@@ -20,7 +20,7 @@ export function MockWindow({ label, children }: { label: string; children: React
         <span className="h-2 w-2 rounded-full bg-white/15" />
         <span className="h-2 w-2 rounded-full bg-white/15" />
         <span className="h-2 w-2 rounded-full bg-white/15" />
-        <span className="ml-2 truncate text-[10px] text-white/45">{label}</span>
+        <span className="ml-2 truncate text-[10px] text-white/65">{label}</span>
       </div>
       <div className="p-4">{children}</div>
     </div>

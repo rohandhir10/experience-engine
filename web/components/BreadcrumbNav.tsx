@@ -7,7 +7,7 @@ import Link from "next/link";
  * answer might land someone on directly, skipping the homepage. */
 export function BreadcrumbNav({ items }: { items: { name: string; path?: string }[] }) {
   return (
-    <nav className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink/50 dark:text-ink-dark/50">
+    <nav className="flex flex-wrap items-center gap-1.5 text-[12px] text-ink/68 dark:text-ink-dark/68">
       {items.map((item, index) => (
         <span key={item.name} className="flex items-center gap-1.5">
           {index > 0 && <span aria-hidden="true">/</span>}

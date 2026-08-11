@@ -63,7 +63,7 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
           DMCA
         </Link>
       </nav>
-      <p className={`mt-4 text-[12px] ${dark ? "text-white/38" : "text-ink/45 dark:text-ink-dark/45"}`}>
+      <p className={`mt-4 text-[12px] ${dark ? "text-white/62" : "text-ink/65 dark:text-ink-dark/65"}`}>
         © {new Date().getFullYear()} Castia
       </p>
     </footer>

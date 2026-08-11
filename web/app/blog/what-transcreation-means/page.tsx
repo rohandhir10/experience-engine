@@ -35,7 +35,7 @@ export default function Post() {
         label: "See how it works",
       }}
     >
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         "Transcreation" gets used loosely, but it has an actual origin and
         an actual definition in the localization industry - and it names
         precisely the gap between translating words and adapting a
@@ -45,7 +45,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Where the term comes from
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         GALA (the Globalization and Localization Association, one of the
         industry's main trade bodies) describes transcreation as going a
         step further than localization: where localization adapts
@@ -63,7 +63,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Not just marketing copy
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         The term is most associated with advertising - a slogan built
         around a pun or a cultural reference has to be rebuilt from
         scratch in another language, not translated, or it simply stops
@@ -78,7 +78,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Making the tradeoff on purpose
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         The risk in transcreation is the same risk in any adaptation that
         departs from the literal: without something to check it against,
         a rewrite can drift from what the source actually meant, not just

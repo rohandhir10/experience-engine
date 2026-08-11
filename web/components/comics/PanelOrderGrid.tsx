@@ -45,7 +45,7 @@ export function PanelOrderGrid({
 
   return (
     <div className="mt-6">
-      <p className="text-[13px] text-ink/65 dark:text-ink-dark/65">
+      <p className="text-[13px] text-ink/75 dark:text-ink-dark/75">
         Page order - drag to fix, or use the arrows, before adapting the chapter.
       </p>
       <div className="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">

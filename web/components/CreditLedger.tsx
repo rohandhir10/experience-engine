@@ -67,7 +67,7 @@ function StatusMessage({ state }: { state: LoadState }) {
   }
   if (state.status === "signed-out") {
     return (
-      <p className="mt-6 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="mt-6 text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         <Link href="/sign-in" className="underline decoration-ink/20 underline-offset-4 hover:decoration-ink/50">
           Sign in
         </Link>{" "}
@@ -102,7 +102,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
   const { balance, transactions } = state.data;
   if (balance === null) {
     return (
-      <p className="mt-6 text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+      <p className="mt-6 text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
         Accounts aren&apos;t configured on this deployment yet.
       </p>
     );
@@ -117,7 +117,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
           Current balance
         </p>
         <p className="mt-2 font-serif text-3xl text-ink dark:text-ink-dark">
-          {balance.toLocaleString()} <span className="text-[15px] font-sans text-ink/65 dark:text-ink-dark/65">credits</span>
+          {balance.toLocaleString()} <span className="text-[15px] font-sans text-ink/75 dark:text-ink-dark/75">credits</span>
         </p>
         {view === "billing" && (
           <Link
@@ -134,7 +134,7 @@ export function CreditLedger({ view }: { view: "billing" | "usage" }) {
       </h2>
       {rows.length === 0 ? (
         <div className="mt-3 flex flex-col items-center gap-2.5 rounded-2xl border border-dashed border-black/[0.13] px-6 py-9 text-center dark:border-white/[0.14]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/40 dark:bg-white/[0.06] dark:text-ink-dark/40">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[0.04] text-ink/62 dark:bg-white/[0.06] dark:text-ink-dark/62">
             <LedgerIcon />
           </span>
           <p className="text-[13px] text-ink/62 dark:text-ink-dark/62">

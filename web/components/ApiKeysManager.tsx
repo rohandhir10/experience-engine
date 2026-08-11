@@ -97,7 +97,7 @@ export function ApiKeysManager() {
   }
 
   if (state.status === "loading") {
-    return <p className="mt-4 text-[14px] text-ink/45 dark:text-ink-dark/45">Loading…</p>;
+    return <p className="mt-4 text-[14px] text-ink/65 dark:text-ink-dark/65">Loading…</p>;
   }
   if (state.status === "signed-out") {
     return (
@@ -178,9 +178,9 @@ export function ApiKeysManager() {
               <div className="min-w-0">
                 <p className="truncate text-[14px] text-ink/80 dark:text-ink-dark/80">
                   {key.name}{" "}
-                  <span className="text-ink/50 dark:text-ink-dark/50">{key.prefix}…</span>
+                  <span className="text-ink/68 dark:text-ink-dark/68">{key.prefix}…</span>
                 </p>
-                <p className="mt-0.5 text-[12px] text-ink/50 dark:text-ink-dark/50">
+                <p className="mt-0.5 text-[12px] text-ink/68 dark:text-ink-dark/68">
                   {key.revokedAt
                     ? `Revoked ${new Date(key.revokedAt).toLocaleDateString()}`
                     : key.lastUsedAt

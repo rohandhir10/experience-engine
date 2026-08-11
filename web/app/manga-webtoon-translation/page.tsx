@@ -82,7 +82,7 @@ function PanelDiagram() {
         </div>
       </div>
 
-      <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] uppercase tracking-[0.1em] text-ink/45 dark:text-ink-dark/45">
+      <p className="absolute bottom-3 left-0 right-0 text-center text-[10px] uppercase tracking-[0.1em] text-ink/65 dark:text-ink-dark/65">
         Reading order, detected
       </p>
     </div>
@@ -118,7 +118,7 @@ export default function MangaWebtoonTranslationPage() {
               <br />
               Neither is the voice.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
               Upload a chapter, and Castia reads every bubble in order —
               then keeps each character sounding like themselves, panel to
               panel. Currently in Beta.
@@ -184,7 +184,7 @@ export default function MangaWebtoonTranslationPage() {
         </section>
 
         <div className="mt-14 rounded-2xl border border-black/[0.12] bg-black/[0.02] p-6 dark:border-white/[0.12] dark:bg-white/[0.03] sm:p-7">
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
+          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-ink/68 dark:text-ink-dark/68">
             What Beta actually means here
           </p>
           <p className="mt-2.5 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
@@ -235,7 +235,7 @@ export default function MangaWebtoonTranslationPage() {
 
         <SourceList sources={SOURCES} />
 
-        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Working with song lyrics instead? See{" "}
           <Link href="/lyrics-translation" className="underline decoration-ink/20 underline-offset-4">
             song lyric translation

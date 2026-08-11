@@ -41,7 +41,7 @@ export default function AboutPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             About Castia
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             Castia is built and run by {FOUNDER_NAME}.
           </p>
         </div>
@@ -83,7 +83,7 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <p className="mt-12 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-12 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Questions about the product? Start with the{" "}
           <Link href="/faq" className="underline decoration-ink/20 underline-offset-4">
             FAQ

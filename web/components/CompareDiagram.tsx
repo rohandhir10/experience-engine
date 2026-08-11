@@ -13,7 +13,7 @@ export function CompareDiagram({
 }) {
   return (
     <div className="rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/68 dark:text-ink-dark/68">
         {competitorName}
       </p>
       <div className="mt-2.5 flex items-center gap-2.5">
@@ -30,7 +30,7 @@ export function CompareDiagram({
 
       <div className="my-5 border-t border-dashed border-black/10 dark:border-white/10" />
 
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-accent/70">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-accent">
         Castia
       </p>
       <div className="mt-2.5 flex flex-wrap items-center gap-2 gap-y-2.5">

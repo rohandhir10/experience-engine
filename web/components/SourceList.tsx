@@ -11,7 +11,7 @@ export function SourceList({ sources }: { sources: { name: string; url: string; 
       </h2>
       <ul className="mt-4 space-y-2.5">
         {sources.map((s) => (
-          <li key={s.url} className="text-[13px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+          <li key={s.url} className="text-[13px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             <a
               href={s.url}
               target="_blank"

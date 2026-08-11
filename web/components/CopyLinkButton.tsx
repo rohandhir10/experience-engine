@@ -29,7 +29,7 @@ export function CopyLinkButton({
   return (
     <button
       onClick={handleCopy}
-      className="text-[13px] text-ink/65 transition hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
+      className="text-[13px] text-ink/75 transition hover:text-ink/78 dark:text-ink-dark/75 dark:hover:text-ink-dark/78"
     >
       {copied ? "Copied" : "Share"}
     </button>

@@ -152,7 +152,7 @@ export default function GlossaryPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Localization &amp; translation glossary.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             The terms that actually matter for judging whether a
             translation or adaptation is good - not a marketing glossary,
             the working vocabulary behind{" "}
@@ -166,7 +166,7 @@ export default function GlossaryPage() {
         <div className="mt-12 space-y-14">
           {TERM_CATEGORIES.map((category) => (
             <section key={category}>
-              <h2 className="text-[11px] font-medium uppercase tracking-[0.1em] text-accent/70">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.1em] text-accent">
                 {category}
               </h2>
               <div className="mt-5 space-y-9">

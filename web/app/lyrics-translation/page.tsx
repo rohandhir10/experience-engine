@@ -25,7 +25,7 @@ const LANGUAGES = ["English", "Japanese", "Korean", "Spanish", "Urdu", "Hindi"];
 function LyricLineDiagram() {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-black/[0.12] bg-paper p-6 dark:border-white/[0.12] dark:bg-paper-dark sm:p-7">
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/68 dark:text-ink-dark/68">
         Literal
       </p>
       <p className="mt-1.5 font-serif text-[15px] leading-snug text-ink/68 line-through decoration-ink/20 dark:text-ink-dark/68 dark:decoration-ink-dark/20">
@@ -41,7 +41,7 @@ function LyricLineDiagram() {
         </span>
       </div>
 
-      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/50 dark:text-ink-dark/50">
+      <p className="text-[10px] font-medium uppercase tracking-[0.1em] text-ink/68 dark:text-ink-dark/68">
         Adapted
       </p>
       <p className="mt-1.5 font-serif text-[16px] leading-snug text-ink dark:text-ink-dark">
@@ -89,7 +89,7 @@ export default function LyricsTranslationPage() {
               <br />
               The adapter has to know why it works.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
               A word-for-word pass drops the rhyme, the idiom, the thing
               left unsaid on purpose. Castia adapts across six languages,
               in any direction, and shows its work on every line.
@@ -179,7 +179,7 @@ export default function LyricsTranslationPage() {
             {LANGUAGES.map((lang) => (
               <span
                 key={lang}
-                className="rounded-full border border-black/10 px-3.5 py-1.5 text-[13px] text-ink/75 dark:border-white/10 dark:text-ink-dark/75"
+                className="rounded-full border border-black/10 px-3.5 py-1.5 text-[13px] text-ink/80 dark:border-white/10 dark:text-ink-dark/80"
               >
                 {lang}
               </span>
@@ -191,7 +191,7 @@ export default function LyricsTranslationPage() {
           </p>
         </section>
 
-        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-14 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Also localizing comic or webtoon dialogue? See{" "}
           <Link href="/manga-webtoon-translation" className="underline decoration-ink/20 underline-offset-4">
             manga &amp; webtoon translation

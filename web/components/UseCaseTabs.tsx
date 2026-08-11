@@ -50,7 +50,7 @@ export function UseCaseTabs() {
           </button>
         ))}
       </div>
-      <p className="mt-4 max-w-md text-[14px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+      <p className="mt-4 max-w-md text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
         {TABS[active].caption}
       </p>
     </div>

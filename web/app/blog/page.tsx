@@ -63,7 +63,7 @@ export default function BlogIndexPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Blog.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             Writing on translation and localization research, grounded in
             real sources - not marketing copy dressed up as an article.
             Also see the{" "}
@@ -95,10 +95,10 @@ export default function BlogIndexPage() {
                 <h2 className="mt-4 font-serif text-[1.15rem] leading-snug text-ink dark:text-ink-dark">
                   {post.title}
                 </h2>
-                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
                   {post.description}
                 </p>
-                <div className="mt-5 flex items-center justify-between border-t border-black/[0.08] pt-3 text-[12px] text-ink/50 dark:border-white/10 dark:text-ink-dark/50">
+                <div className="mt-5 flex items-center justify-between border-t border-black/[0.08] pt-3 text-[12px] text-ink/68 dark:border-white/10 dark:text-ink-dark/68">
                   <span>By {FOUNDER_NAME}</span>
                   <span>{formatDate(post.publishedDate)}</span>
                 </div>

@@ -123,7 +123,7 @@ export function SaveControls({ resultId }: { resultId: string }) {
         className={`rounded-full p-1 transition disabled:opacity-40 ${
           isFavorite
             ? "text-accent"
-            : "text-ink/45 hover:text-ink/72 dark:text-ink-dark/45 dark:hover:text-ink-dark/72"
+            : "text-ink/65 hover:text-ink/72 dark:text-ink-dark/65 dark:hover:text-ink-dark/72"
         }`}
       >
         <svg

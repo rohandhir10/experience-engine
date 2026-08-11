@@ -130,7 +130,7 @@ export default function Home() {
             no-fabrication discipline (docs/CAPABILITY_MATRIX.md) rules
             out. */}
         <p
-          className="animate-fade-up mt-3 text-[11.5px] text-ink/50 dark:text-white/45"
+          className="animate-fade-up mt-3 text-[11.5px] text-ink/68 dark:text-white/62"
           style={{ animationDelay: "100ms" }}
         >
           Built by{" "}
@@ -168,7 +168,7 @@ export default function Home() {
                 <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" fill="none" stroke="currentColor" strokeWidth="1.6" />
               </svg>
               <span className="relative flex-1 overflow-hidden">
-                <span className="block truncate text-[11px] text-ink/65 transition-opacity duration-300 group-hover:opacity-0 dark:text-white/50">
+                <span className="block truncate text-[11px] text-ink/75 transition-opacity duration-300 group-hover:opacity-0 dark:text-white/68">
                   Tera hone laga hoon…
                 </span>
                 <span className="absolute inset-0 block truncate text-[11px] text-accent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -195,7 +195,7 @@ export default function Home() {
                 <path d="M4 4h16v12H7l-3 3V4z" />
               </svg>
               <span className="relative flex-1 overflow-hidden">
-                <span className="block truncate text-[11px] text-ink/65 transition-opacity duration-300 group-hover:opacity-0 dark:text-white/50">
+                <span className="block truncate text-[11px] text-ink/75 transition-opacity duration-300 group-hover:opacity-0 dark:text-white/68">
                   panel-07.png
                 </span>
                 <span className="absolute inset-0 block truncate text-[11px] text-accent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -215,7 +215,7 @@ export default function Home() {
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           How is this different from Google Translate or a single AI prompt?
         </h2>
-        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-ink/70 dark:text-white/65">
+        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-ink/78 dark:text-white/75">
           They're all built to produce one fluent pass and stop there —
           Castia isn't. Real, documented differences, not a marketing claim:
         </p>
@@ -224,10 +224,10 @@ export default function Home() {
           <table className="w-full min-w-[560px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-black/[0.12] dark:border-white/10">
-                <th className="p-4 font-medium text-ink/62 dark:text-white/50"> </th>
-                <th className="p-4 font-medium text-ink/70 dark:text-white/68">Google Translate</th>
-                <th className="p-4 font-medium text-ink/70 dark:text-white/68">DeepL</th>
-                <th className="p-4 font-medium text-ink/70 dark:text-white/68">A single AI prompt</th>
+                <th className="p-4 font-medium text-ink/62 dark:text-white/68"> </th>
+                <th className="p-4 font-medium text-ink/78 dark:text-white/68">Google Translate</th>
+                <th className="p-4 font-medium text-ink/78 dark:text-white/68">DeepL</th>
+                <th className="p-4 font-medium text-ink/78 dark:text-white/68">A single AI prompt</th>
                 <th className="p-4 font-medium text-ink dark:text-white">Castia</th>
               </tr>
             </thead>
@@ -239,10 +239,10 @@ export default function Home() {
                 ["Falls back to literal if nothing earns its keep", "No mechanism", "No mechanism", "No mechanism", "Yes"],
               ].map(([label, gt, dl, gpt, castia]) => (
                 <tr key={label}>
-                  <td className="p-4 align-top text-ink/65 dark:text-white/62">{label}</td>
-                  <td className="p-4 align-top text-ink/72 dark:text-white/70">{gt}</td>
-                  <td className="p-4 align-top text-ink/72 dark:text-white/70">{dl}</td>
-                  <td className="p-4 align-top text-ink/72 dark:text-white/70">{gpt}</td>
+                  <td className="p-4 align-top text-ink/75 dark:text-white/62">{label}</td>
+                  <td className="p-4 align-top text-ink/72 dark:text-white/78">{gt}</td>
+                  <td className="p-4 align-top text-ink/72 dark:text-white/78">{dl}</td>
+                  <td className="p-4 align-top text-ink/72 dark:text-white/78">{gpt}</td>
                   <td className="p-4 align-top font-medium text-ink dark:text-white">{castia}</td>
                 </tr>
               ))}
@@ -259,7 +259,7 @@ export default function Home() {
           </Link>
         </p>
 
-        <p className="mt-3 text-center text-[12.5px] leading-relaxed text-ink/62 dark:text-white/50">
+        <p className="mt-3 text-center text-[12.5px] leading-relaxed text-ink/62 dark:text-white/68">
           The full mechanism, sourced:{" "}
           <Link href="/compare/google-translate" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/72 dark:decoration-white/20 dark:hover:text-white/72">
             vs. Google Translate
@@ -279,7 +279,7 @@ export default function Home() {
         <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           How does the Writers' Room actually work?
         </h2>
-        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-ink/70 dark:text-white/65">
+        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-ink/78 dark:text-white/75">
           Three roles, one line: a translator, a room of writers, an editor.
         </p>
 
@@ -299,7 +299,7 @@ export default function Home() {
             <br />
             Only one writes down why.
           </p>
-          <p className="mx-auto mt-4 max-w-md text-[13px] leading-relaxed text-ink/70 dark:text-white/65">
+          <p className="mx-auto mt-4 max-w-md text-[13px] leading-relaxed text-ink/78 dark:text-white/75">
             No invented details, no unexplained rewrites — a change that
             can't justify itself against the literal reading gets reverted
             before it ships, not just flagged.
@@ -315,7 +315,7 @@ export default function Home() {
           {HOMEPAGE_FAQS.map((faq) => (
             <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.10]">
               <h3 className="font-serif text-[15px] text-ink dark:text-white">{faq.question}</h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink/70 dark:text-white/65">{faq.answer}</p>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/78 dark:text-white/75">{faq.answer}</p>
             </div>
           ))}
         </div>
@@ -375,10 +375,10 @@ function FlowChip({
             : "border-black/[0.12] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]"
       }`}
     >
-      <p className={`font-serif text-[13.5px] ${accent ? "text-ink dark:text-white" : dim ? "text-ink/70 dark:text-white/68" : "text-ink/85 dark:text-white/85"}`}>
+      <p className={`font-serif text-[13.5px] ${accent ? "text-ink dark:text-white" : dim ? "text-ink/78 dark:text-white/68" : "text-ink/85 dark:text-white/85"}`}>
         {title}
       </p>
-      <p className={`mt-1 text-[11px] leading-snug ${dim ? "text-ink/50 dark:text-white/45" : "text-ink/65 dark:text-white/62"}`}>{body}</p>
+      <p className={`mt-1 text-[11px] leading-snug ${dim ? "text-ink/62 dark:text-white/58" : "text-ink/75 dark:text-white/62"}`}>{body}</p>
     </div>
   );
 }
@@ -418,7 +418,7 @@ function MediumTile({
       <div className="mt-4 flex items-center gap-2">
         <h2 className="font-serif text-[1.15rem] text-ink dark:text-white">{title}</h2>
         {continuing && (
-          <span className="text-[11px] text-ink/62 dark:text-white/45">— continue where you left off</span>
+          <span className="text-[11px] text-ink/62 dark:text-white/65">— continue where you left off</span>
         )}
       </div>
       <p className="mt-1.5 text-[13px] leading-relaxed text-ink/68 dark:text-white/62">{tagline}</p>

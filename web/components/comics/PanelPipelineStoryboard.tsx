@@ -207,7 +207,7 @@ function AdaptedScriptArt() {
         <span className="rounded border border-black/10 px-1.5 py-0.5 text-[8.5px] uppercase tracking-wide text-ink/62 dark:border-white/15 dark:text-white/62">
           Literal
         </span>
-        <p className="mt-1 text-[10.5px] leading-snug text-ink/65 dark:text-white/50">
+        <p className="mt-1 text-[10.5px] leading-snug text-ink/75 dark:text-white/68">
           "You are… late. Again."
         </p>
       </div>

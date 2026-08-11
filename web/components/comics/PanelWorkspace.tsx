@@ -166,7 +166,7 @@ export function PanelWorkspace({
               type="button"
               onClick={() => goTo(activeIndex - 1)}
               disabled={activeIndex === 0}
-              className="text-[13px] text-ink/65 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/65 dark:hover:text-ink-dark"
+              className="text-[13px] text-ink/75 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/75 dark:hover:text-ink-dark"
             >
               ← Prev
             </button>
@@ -174,7 +174,7 @@ export function PanelWorkspace({
               type="button"
               onClick={() => goTo(activeIndex + 1)}
               disabled={activeIndex === panels.length - 1}
-              className="text-[13px] text-ink/65 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/65 dark:hover:text-ink-dark"
+              className="text-[13px] text-ink/75 transition hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 dark:text-ink-dark/75 dark:hover:text-ink-dark"
             >
               Next →
             </button>
@@ -339,7 +339,7 @@ export function PanelWorkspace({
                 <button
                   type="button"
                   onClick={applyRegionOrderToExtractedText}
-                  className="mt-2 text-[12px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
+                  className="mt-2 text-[12px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
                 >
                   Apply this order to Extracted text
                 </button>
@@ -415,7 +415,7 @@ export function PanelWorkspace({
                     <a
                       href={active.redrawResultUrl}
                       download={`redrawn-${active.fileName}`}
-                      className="text-[12px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
+                      className="text-[12px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
                     >
                       Download result
                     </a>

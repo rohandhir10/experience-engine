@@ -82,7 +82,7 @@ export function AccountDataControls() {
         <p className="text-[14px] font-medium text-ink dark:text-ink-dark">
           Download your data
         </p>
-        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Everything on this account as a JSON file — your adaptations and their
           full adapted text, collections, credit history, and character bibles.
           API keys are listed by name only; the keys themselves were shown once at
@@ -102,7 +102,7 @@ export function AccountDataControls() {
         <p className="text-[14px] font-medium text-ink dark:text-ink-dark">
           Delete this account
         </p>
-        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Permanently removes your account, adaptation history, collections, API
           keys, credit history and character bibles. Any remaining credit balance
           is forfeited. This cannot be undone — download your data first if you

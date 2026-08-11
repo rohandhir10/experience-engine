@@ -37,8 +37,8 @@ export function UseCasesMenu({ forceDark }: { forceDark?: boolean }) {
   }, [open]);
 
   const dim = forceDark
-    ? "text-white/65 hover:text-white/80"
-    : "text-ink/65 hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78";
+    ? "text-white/75 hover:text-white/80"
+    : "text-ink/75 hover:text-ink/78 dark:text-ink-dark/75 dark:hover:text-ink-dark/78";
   const panel = forceDark
     ? "border-white/10 bg-[#161210]"
     : "border-black/[0.12] bg-paper dark:border-white/[0.12] dark:bg-paper-dark";

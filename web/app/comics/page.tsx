@@ -432,10 +432,10 @@ export default function ComicsPage() {
                     description (app/comics/layout.tsx) already carries
                     the fuller version for search results and AI-generated
                     summaries - that was always the structural source for
-                    that job, not this paragraph. text-ink/75, not the
+                    that job, not this paragraph. text-ink/80, not the
                     original /50 - that read as low-contrast on the actual
                     value proposition, not just "editorial." */}
-                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/72">
+                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/72">
                   Upload your chapter, and every character keeps their
                   voice — panel after panel.
                 </p>
@@ -443,7 +443,7 @@ export default function ComicsPage() {
                     Person bio) plus a real, hand-bumped edit date - see
                     PAGE_UPDATED_DATE above. No photo: none exists, and a
                     stock/generated one would be a fabricated credential. */}
-                <p className="mt-2 text-[11.5px] text-ink/50 dark:text-ink-dark/50">
+                <p className="mt-2 text-[11.5px] text-ink/68 dark:text-ink-dark/68">
                   Built by{" "}
                   <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/72 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/72">
                     {FOUNDER_NAME}
@@ -474,7 +474,7 @@ export default function ComicsPage() {
                   too - five already-bordered storyboard cards inside
                   another bordered card just doubled the chrome. */}
               <div className="mt-14">
-                <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/45">
+                <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/65">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                   What happens to a panel
                 </p>
@@ -487,7 +487,7 @@ export default function ComicsPage() {
 
           {panels.length === 0 && (
             <ScrollReveal className="mx-auto mt-16 w-full max-w-2xl text-center">
-              <p className="flex items-center justify-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/45">
+              <p className="flex items-center justify-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/65">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                 Six languages, any direction
               </p>
@@ -519,11 +519,11 @@ export default function ComicsPage() {
                 {COMICS_FAQS.map((faq) => (
                   <div key={faq.question} className="border-b border-black/[0.10] pb-6 dark:border-white/[0.11]">
                     <h3 className="font-serif text-[15px] text-ink dark:text-ink-dark">{faq.question}</h3>
-                    <p className="mt-2 text-[13px] leading-relaxed text-ink/70 dark:text-ink-dark/70">{faq.answer}</p>
+                    <p className="mt-2 text-[13px] leading-relaxed text-ink/78 dark:text-ink-dark/78">{faq.answer}</p>
                   </div>
                 ))}
               </div>
-              <p className="mt-6 text-center text-[13px] text-ink/65 dark:text-ink-dark/65">
+              <p className="mt-6 text-center text-[13px] text-ink/75 dark:text-ink-dark/75">
                 <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/78 dark:decoration-ink-dark/20 dark:hover:text-ink-dark/78">
                   See all FAQs
                 </Link>
@@ -539,7 +539,7 @@ export default function ComicsPage() {
             <>
               <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-[13px] text-ink/65 dark:text-ink-dark/65">
+                  <p className="text-[13px] text-ink/75 dark:text-ink-dark/75">
                     {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
                   </p>
                   {chapterLanguage && (
@@ -551,7 +551,7 @@ export default function ComicsPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-4">
-                  <label className="cursor-pointer text-[13px] text-ink/65 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78">
+                  <label className="cursor-pointer text-[13px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 hover:decoration-ink/30 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78">
                     Add more
                     <input
                       type="file"
@@ -679,7 +679,7 @@ export default function ComicsPage() {
                 )}
               </div>
               {adaptStatus === "running" && adaptProgress && (
-                <p className="mt-2 text-[12px] text-ink/65 dark:text-ink-dark/65">
+                <p className="mt-2 text-[12px] text-ink/75 dark:text-ink-dark/75">
                   {adaptProgress.message} · the panels below fill in as each one finishes - keep
                   reviewing or editing while the rest adapt.
                 </p>

@@ -87,7 +87,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
               aria-checked={showOriginal}
               aria-label="Show original script"
               onClick={() => setShowOriginal((v) => !v)}
-              className="flex items-center gap-2 rounded-full text-[13px] text-ink/65 transition hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
+              className="flex items-center gap-2 rounded-full text-[13px] text-ink/75 transition hover:text-ink/78 dark:text-ink-dark/75 dark:hover:text-ink-dark/78"
             >
               <span
                 aria-hidden
@@ -117,7 +117,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
 
             <Link
               href="/"
-              className="text-[13px] text-ink/65 transition hover:text-ink/78 dark:text-ink-dark/65 dark:hover:text-ink-dark/78"
+              className="text-[13px] text-ink/75 transition hover:text-ink/78 dark:text-ink-dark/75 dark:hover:text-ink-dark/78"
             >
               ← Start over
             </Link>
@@ -130,7 +130,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
           {result.hook}
         </p>
         {result.phonemeRepetitionSimilarity != null && (
-          <p className="mt-5 text-[12px] leading-relaxed text-ink/50 dark:text-ink-dark/50">
+          <p className="mt-5 text-[12px] leading-relaxed text-ink/68 dark:text-ink-dark/68">
             Repetition pattern:{" "}
             {result.phonemeRepetitionSimilarity >= 0
               ? "follows a literal reading of the lyrics, section by section"
@@ -144,7 +144,7 @@ export function ResultScreen({ result }: { result: ExperienceResult }) {
       {result.videoId && (
         <div className="animate-fade-up mx-auto mt-14 max-w-2xl">
           <YoutubeSyncPlayer videoId={result.videoId} onTimeUpdate={handleTimeUpdate} />
-          <p className="mt-3 text-center text-[12px] text-ink/50 dark:text-ink-dark/50">
+          <p className="mt-3 text-center text-[12px] text-ink/68 dark:text-ink-dark/68">
             The highlighted section below follows the video as it plays.
           </p>
         </div>

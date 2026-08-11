@@ -61,7 +61,7 @@ export default function CompareDeepLPage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Castia vs. DeepL.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
               DeepL has a real, earned reputation for fluent, context-aware
               translation. That reputation is built on a different problem
               than the one Castia is built to solve.
@@ -175,7 +175,7 @@ export default function CompareDeepLPage() {
           </Link>
         </div>
 
-        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Also see{" "}
           <Link href="/compare/google-translate" className="underline decoration-ink/20 underline-offset-4">
             Castia vs. Google Translate

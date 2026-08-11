@@ -62,7 +62,7 @@ export default function CompareGoogleTranslatePage() {
             <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
               Castia vs. Google Translate.
             </h1>
-            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+            <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
               Google Translate is genuinely excellent at what it's built
               for. The honest comparison isn't "which is better" - it's
               which job each one is doing.
@@ -179,7 +179,7 @@ export default function CompareGoogleTranslatePage() {
           </Link>
         </div>
 
-        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/65 dark:text-ink-dark/65">
+        <p className="mt-8 max-w-prose text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
           Also see{" "}
           <Link href="/compare/deepl" className="underline decoration-ink/20 underline-offset-4">
             Castia vs. DeepL

@@ -40,7 +40,7 @@ export default function Post() {
         label: "Try it on a chapter",
       }}
     >
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         Manga and webtoon localization is a real, skilled, two-stage
         industry - translation, then typesetting and lettering - and it's
         one that has been publicly and repeatedly reported as underpaid.
@@ -52,7 +52,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Two jobs, not one
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         Translating the dialogue and typesetting/lettering it back into
         the art are separate skills, usually done by separate people.
         Reporting from Anime News Network on the typesetting/lettering
@@ -65,7 +65,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         What translators have publicly said they're paid
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         Publishers Weekly's 2023 reporting, "Manga Freelancers Say, 'Show
         Me the Money,'" covered freelance manga translators organizing
         (forming the United Workers of Seven Seas with the Communications
@@ -81,7 +81,7 @@ export default function Post() {
         Japanese-to-English translation, which it stated it had since
         moved toward an "industry average."
       </p>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         These are the specific numbers that were publicly reported at the
         time - worth clicking through to the original reporting below
         before quoting them elsewhere, since rates like these are
@@ -91,7 +91,7 @@ export default function Post() {
       <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
         Where an automated pass actually fits
       </h2>
-      <p className="max-w-prose text-[14px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
+      <p className="max-w-prose text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/80">
         None of this makes the case that automation should replace a paid
         professional pipeline on a commercial release - the reporting
         above is, if anything, an argument that the people doing this work

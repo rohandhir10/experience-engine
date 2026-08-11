@@ -29,7 +29,7 @@ export default function FaqPage() {
           <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
             Frequently asked questions.
           </h1>
-          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/70 dark:text-ink-dark/70">
+          <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             For the full pipeline explanation, see{" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
               how it works
@@ -41,7 +41,7 @@ export default function FaqPage() {
         <div className="mt-12 space-y-12">
           {CATEGORIES.map((category) => (
             <section key={category}>
-              <h2 className="text-[11px] font-medium uppercase tracking-[0.1em] text-accent/70">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.1em] text-accent">
                 {category}
               </h2>
               <div className="mt-4 space-y-7">
