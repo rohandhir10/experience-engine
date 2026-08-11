@@ -7,7 +7,7 @@ import { SiteHeader } from "./SiteHeader";
 import { TargetLanguageSelect } from "./TargetLanguageSelect";
 import { YoutubeImportField, type YoutubeDraft } from "./YoutubeImportField";
 import { LyricsFileImportField } from "./LyricsFileImportField";
-import { PipelineDiagramDark } from "./PipelineDiagramDark";
+import { PipelineDiagram } from "./PipelineDiagram";
 import { ScrollReveal } from "./ScrollReveal";
 import { Footer } from "./Footer";
 import { detectSourceLanguage } from "@/lib/detectLanguage";
@@ -121,17 +121,19 @@ export function InputScreen({
   }
 
   return (
-    <main className="min-h-screen bg-paper-dark px-6 pb-28 pt-8 sm:px-10">
-      {/* A dark, always-on-brand shell (not theme-reactive) so the product
-          reads the same regardless of system light/dark mode — matching
-          the reference design. Sign In / Get Started live in the nav, same
-          as every page, but there's no pricing table or feature grid
-          competing with the input itself. Fixed top margin below, not
-          flex-1-centered — same convention as every other page
-          (dashboard/pricing/sign-in all use a fixed mt-*), so the gap
-          before the showcase card stays consistent instead of stretching
-          or shrinking with viewport height. */}
-      <SiteHeader active="music" forceDark />
+    <main className="min-h-screen bg-paper px-6 pb-28 pt-8 dark:bg-paper-dark sm:px-10">
+      {/* Was a permanently-dark shell regardless of the site's own theme
+          toggle - real feedback was that /music (along with the homepage)
+          silently had no light mode at all, unlike every other page on the
+          site. Theme-reactive now, same as /comics and /how-it-works.
+          Sign In / Get Started live in the nav, same as every page, but
+          there's no pricing table or feature grid competing with the
+          input itself. Fixed top margin below, not flex-1-centered — same
+          convention as every other page (dashboard/pricing/sign-in all
+          use a fixed mt-*), so the gap before the showcase card stays
+          consistent instead of stretching or shrinking with viewport
+          height. */}
+      <SiteHeader active="music" />
 
       {/* Two columns from lg up: the real proof (a real captured result,
           see the image below) sits beside the headline instead of only
@@ -149,13 +151,15 @@ export function InputScreen({
             here, since a fan adapting a favorite song and a songwriter
             adapting their own lyrics want to hear a different promise
             first even though what happens next is identical. */}
-        <div className="animate-fade-up flex items-center gap-1 rounded-full border border-white/10 p-1 text-[12px]">
+        <div className="animate-fade-up flex items-center gap-1 rounded-full border border-black/10 p-1 text-[12px] dark:border-white/10">
           <button
             type="button"
             onClick={() => setPersona("fan")}
             aria-pressed={persona === "fan"}
             className={`rounded-full px-3.5 py-1.5 transition ${
-              persona === "fan" ? "bg-white text-black" : "text-white/45 hover:text-white/75"
+              persona === "fan"
+                ? "bg-ink text-paper dark:bg-white dark:text-black"
+                : "text-ink/45 hover:text-ink/75 dark:text-white/45 dark:hover:text-white/75"
             }`}
           >
             Adapting a song I love
@@ -165,20 +169,22 @@ export function InputScreen({
             onClick={() => setPersona("creator")}
             aria-pressed={persona === "creator"}
             className={`rounded-full px-3.5 py-1.5 transition ${
-              persona === "creator" ? "bg-white text-black" : "text-white/45 hover:text-white/75"
+              persona === "creator"
+                ? "bg-ink text-paper dark:bg-white dark:text-black"
+                : "text-ink/45 hover:text-ink/75 dark:text-white/45 dark:hover:text-white/75"
             }`}
           >
             Adapting my own lyrics
           </button>
         </div>
 
-        <h1 className="animate-fade-up mt-5 text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-white sm:text-[2.9rem]">
+        <h1 className="animate-fade-up mt-5 text-[2.3rem] font-semibold leading-[1.1] tracking-tight text-ink dark:text-white sm:text-[2.9rem]">
           {PERSONA_HEADLINES[persona][0]}
           <br />
           {PERSONA_HEADLINES[persona][1]}
         </h1>
         <p
-          className="animate-fade-up mt-4 text-[14px] text-white/40"
+          className="animate-fade-up mt-4 text-[14px] text-ink/55 dark:text-white/40"
           style={{ animationDelay: "80ms" }}
         >
           {sourceHintFor(targetLanguage, sourceLanguage)}
@@ -190,11 +196,11 @@ export function InputScreen({
             and a stock/generated one would be a fabricated credential
             this codebase's no-fabrication discipline rules out. */}
         <p
-          className="animate-fade-up mt-2 text-[11.5px] text-white/25"
+          className="animate-fade-up mt-2 text-[11.5px] text-ink/35 dark:text-white/25"
           style={{ animationDelay: "90ms" }}
         >
           Built by{" "}
-          <Link href="/about" className="underline decoration-white/15 underline-offset-4 hover:text-white/50">
+          <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/55 dark:decoration-white/15 dark:hover:text-white/50">
             {FOUNDER_NAME}
           </Link>
           {" · "}Updated{" "}
@@ -222,7 +228,6 @@ export function InputScreen({
                   setSourceLanguageTouched(true);
                 }}
                 options={LANGUAGES.filter((lang) => lang !== targetLanguage)}
-                dark
               />
             )}
             <TargetLanguageSelect
@@ -236,16 +241,17 @@ export function InputScreen({
                   setSourceLanguage(LANGUAGES.find((lang) => lang !== next) ?? "English");
                 }
               }}
-              dark
             />
           </div>
 
-          <div className="flex items-center gap-1 rounded-full border border-white/10 p-1 text-[13px]">
+          <div className="flex items-center gap-1 rounded-full border border-black/10 p-1 text-[13px] dark:border-white/10">
             <button
               type="button"
               onClick={() => setMode("paste")}
               className={`rounded-full px-4 py-1.5 transition ${
-                mode === "paste" ? "bg-white text-black" : "text-white/50 hover:text-white/80"
+                mode === "paste"
+                  ? "bg-ink text-paper dark:bg-white dark:text-black"
+                  : "text-ink/50 hover:text-ink/80 dark:text-white/50 dark:hover:text-white/80"
               }`}
             >
               Paste lyrics
@@ -254,7 +260,9 @@ export function InputScreen({
               type="button"
               onClick={() => setMode("youtube")}
               className={`rounded-full px-4 py-1.5 transition ${
-                mode === "youtube" ? "bg-white text-black" : "text-white/50 hover:text-white/80"
+                mode === "youtube"
+                  ? "bg-ink text-paper dark:bg-white dark:text-black"
+                  : "text-ink/50 hover:text-ink/80 dark:text-white/50 dark:hover:text-white/80"
               }`}
             >
               From YouTube
@@ -263,7 +271,9 @@ export function InputScreen({
               type="button"
               onClick={() => setMode("file")}
               className={`rounded-full px-4 py-1.5 transition ${
-                mode === "file" ? "bg-white text-black" : "text-white/50 hover:text-white/80"
+                mode === "file"
+                  ? "bg-ink text-paper dark:bg-white dark:text-black"
+                  : "text-ink/50 hover:text-ink/80 dark:text-white/50 dark:hover:text-white/80"
               }`}
             >
               Import .lrc/.srt
@@ -272,9 +282,9 @@ export function InputScreen({
 
           {mode === "youtube" && (
             <div className="w-full max-w-md">
-              <YoutubeImportField dark onImported={handleImported} />
+              <YoutubeImportField onImported={handleImported} />
               {timedDraft && (
-                <p className="mt-3 text-[12px] leading-relaxed text-white/35">
+                <p className="mt-3 text-[12px] leading-relaxed text-ink/45 dark:text-white/35">
                   {timedDraft.warning} Review the text below before adapting it.
                 </p>
               )}
@@ -283,9 +293,9 @@ export function InputScreen({
 
           {mode === "file" && (
             <div className="w-full max-w-md">
-              <LyricsFileImportField dark onImported={handleImported} />
+              <LyricsFileImportField onImported={handleImported} />
               {timedDraft && (
-                <p className="mt-3 text-[12px] leading-relaxed text-white/35">
+                <p className="mt-3 text-[12px] leading-relaxed text-ink/45 dark:text-white/35">
                   {timedDraft.warning} Review the text below before adapting it.
                 </p>
               )}
@@ -334,11 +344,11 @@ export function InputScreen({
             rows={MIN_ROWS}
             autoFocus
             aria-describedby={error ? "lyrics-error" : undefined}
-            className="w-full resize-none overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-5 text-[15px] leading-relaxed text-white placeholder:text-white/25 transition focus:border-white/20"
+            className="w-full resize-none overflow-y-auto rounded-2xl border border-black/10 bg-black/[0.02] px-6 py-5 text-[15px] leading-relaxed text-ink placeholder:text-ink/30 transition focus:border-black/20 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-white/25 dark:focus:border-white/20"
           />
 
           {error && (
-            <p id="lyrics-error" role="alert" className="mt-3 text-[13px] text-red-400/80">
+            <p id="lyrics-error" role="alert" className="mt-3 text-[13px] text-red-500/80 dark:text-red-400/80">
               {error}
             </p>
           )}
@@ -347,16 +357,16 @@ export function InputScreen({
             <button
               type="submit"
               disabled={!text.trim() || loading}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-8 py-3 text-[14px] font-medium text-black transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-ink px-8 py-3 text-[14px] font-medium text-paper transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-30 dark:bg-white dark:text-black"
             >
               {loading && (
-                <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-black/30 border-t-black" />
+                <span className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-paper/30 border-t-paper dark:border-black/30 dark:border-t-black" />
               )}
               {loading ? "Listening" : "Adapt Song"}
             </button>
 
             {text.trim() && !loading && (
-              <span className="animate-fade-up text-[12px] text-white/25">⌘ + Enter</span>
+              <span className="animate-fade-up text-[12px] text-ink/35 dark:text-white/25">⌘ + Enter</span>
             )}
           </div>
         </form>
@@ -371,7 +381,7 @@ export function InputScreen({
             see the banner on the demo page itself for the same reasoning. */}
         <Link
           href="/s/demo"
-          className="animate-fade-up mt-8 text-[13px] text-white/35 underline decoration-white/15 underline-offset-4 transition hover:text-white/60 hover:decoration-white/30"
+          className="animate-fade-up mt-8 text-[13px] text-ink/45 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/70 hover:decoration-ink/30 dark:text-white/35 dark:decoration-white/15 dark:hover:text-white/60 dark:hover:decoration-white/30"
           style={{ animationDelay: "220ms" }}
         >
           See how it works
@@ -394,7 +404,7 @@ export function InputScreen({
       >
         <div
           aria-hidden
-          className="absolute -inset-8 -z-10 rounded-full bg-white/[0.06] blur-3xl"
+          className="absolute -inset-8 -z-10 rounded-full bg-black/[0.04] blur-3xl dark:bg-white/[0.06]"
         />
         <Image
           src="/screenshots/comparison-card.png"
@@ -402,7 +412,7 @@ export function InputScreen({
           width={672}
           height={637}
           priority
-          className="w-full rounded-2xl border border-white/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)]"
+          className="w-full rounded-2xl border border-black/10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.12)] dark:border-white/10 dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)]"
         />
       </div>
       </div>
@@ -421,14 +431,14 @@ export function InputScreen({
         className="animate-fade-up mx-auto mt-16 w-full max-w-2xl text-center"
         style={{ animationDelay: "260ms" }}
       >
-        <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-white/25">
           Six languages, any direction
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {LANGUAGES.map((lang) => (
             <span
               key={lang}
-              className="rounded-full border border-white/10 px-3 py-1 text-[13px] text-white/50"
+              className="rounded-full border border-black/10 px-3 py-1 text-[13px] text-ink/60 dark:border-white/10 dark:text-white/50"
             >
               {lang}
             </span>
@@ -455,8 +465,8 @@ export function InputScreen({
         className="animate-fade-up mx-auto mt-24 w-full max-w-4xl scroll-mt-20"
         style={{ animationDelay: "280ms" }}
       >
-        <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">How it works</p>
-        <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-white sm:text-[2rem]">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-white/25">How it works</p>
+        <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-ink dark:text-white sm:text-[2rem]">
           Not translation.
           <br />A rewrite that still means it.
         </h2>
@@ -466,14 +476,14 @@ export function InputScreen({
             title="Imports straight from YouTube"
             description="Paste a link and the captions come back as reviewable sections — read them over, fix anything, then adapt. Nothing goes out the door unread."
           >
-            <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
+            <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.06] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
+              <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                   <path d="M8 5.5v13l11-6.5z" />
                 </svg>
-                <span className="truncate text-[11px] text-white/35">youtube.com/watch?v=…</span>
+                <span className="truncate text-[11px] text-ink/45 dark:text-white/35">youtube.com/watch?v=…</span>
               </div>
-              <p className="text-[12px] leading-relaxed text-white/40">
+              <p className="text-[12px] leading-relaxed text-ink/50 dark:text-white/40">
                 Captions land as a draft you read and edit first — a starting point, not a
                 finished adaptation.
               </p>
@@ -489,7 +499,7 @@ export function InputScreen({
               alt="The CASTIA dashboard: language pickers and lyric box alongside the sidebar for saved collections"
               width={900}
               height={420}
-              className="w-full rounded-lg border border-white/10"
+              className="w-full rounded-lg border border-black/10 dark:border-white/10"
             />
           </FeatureCard>
         </div>
@@ -502,47 +512,47 @@ export function InputScreen({
           .animate-fade-up the sections above use) since this sits well
           below the fold. */}
       <ScrollReveal className="mx-auto mt-24 w-full max-w-4xl">
-        <p className="text-[12px] uppercase tracking-[0.15em] text-white/25">
+        <p className="text-[12px] uppercase tracking-[0.15em] text-ink/35 dark:text-white/25">
           Under the hood
         </p>
-        <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-white sm:text-[2rem]">
+        <h2 className="mt-3 max-w-lg font-serif text-[1.7rem] leading-[1.25] text-ink dark:text-white sm:text-[2rem]">
           A real Writers' Room, not one prompt.
         </h2>
-        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/40">
+        <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-ink/50 dark:text-white/40">
           Every line goes through the same pipeline: a literal translation to
           anchor against, five differently-angled creative rewrites, then a
           Judge that rules against the anchor and logs every real departure
           with a reason — the same "why" note shown above.
         </p>
         <div className="mt-8">
-          <PipelineDiagramDark />
+          <PipelineDiagram />
         </div>
       </ScrollReveal>
 
       <ScrollReveal className="mx-auto mt-24 w-full max-w-2xl">
-        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           Common questions
         </h2>
         <div className="mt-8 space-y-6">
           {MUSIC_FAQS.map((faq) => (
-            <div key={faq.question} className="border-b border-white/[0.06] pb-6">
-              <h3 className="font-serif text-[15px] text-white">{faq.question}</h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-white/45">{faq.answer}</p>
+            <div key={faq.question} className="border-b border-black/[0.06] pb-6 dark:border-white/[0.06]">
+              <h3 className="font-serif text-[15px] text-ink dark:text-white">{faq.question}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-white/45">{faq.answer}</p>
             </div>
           ))}
         </div>
-        <p className="mt-6 text-center text-[13px] text-white/40">
-          <Link href="/faq" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+        <p className="mt-6 text-center text-[13px] text-ink/50 dark:text-white/40">
+          <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
             See all FAQs
           </Link>
           {" · "}
-          <Link href="/pricing" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+          <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
             See pricing
           </Link>
         </p>
       </ScrollReveal>
 
-      <Footer dark />
+      <Footer />
     </main>
   );
 }
@@ -560,11 +570,11 @@ function FeatureCard({
 }) {
   return (
     <div className={`${span ?? ""} flex flex-col`}>
-      <div className="flex-1 overflow-hidden rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="flex-1 overflow-hidden rounded-xl border border-black/[0.08] bg-black/[0.01] p-3 dark:border-white/10 dark:bg-white/[0.02]">
         {children}
       </div>
-      <h3 className="mt-4 text-[14px] font-medium text-white/85">{title}</h3>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-white/40">{description}</p>
+      <h3 className="mt-4 text-[14px] font-medium text-ink/85 dark:text-white/85">{title}</h3>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/50 dark:text-white/40">{description}</p>
     </div>
   );
 }

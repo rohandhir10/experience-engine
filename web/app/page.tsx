@@ -69,7 +69,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-paper-dark px-6 pb-28 pt-8 sm:px-10">
+    <main className="min-h-screen bg-paper px-6 pb-28 pt-8 dark:bg-paper-dark sm:px-10">
       <JsonLd data={webPageJsonLd({
         path: "/",
         name: "Castia — Adapt the feeling, not just the words",
@@ -79,10 +79,10 @@ export default function Home() {
       })} />
       <JsonLd data={faqPageJsonLd(HOMEPAGE_FAQS)} />
 
-      <SiteHeader active="home" forceDark />
+      <SiteHeader active="home" />
 
       <div className="mx-auto mt-16 flex w-full max-w-3xl flex-col items-center text-center sm:mt-20">
-        <h1 className="animate-fade-up font-serif text-[2.1rem] leading-[1.15] tracking-tight text-white sm:text-[2.6rem]">
+        <h1 className="animate-fade-up font-serif text-[2.1rem] leading-[1.15] tracking-tight text-ink dark:text-white sm:text-[2.6rem]">
           The words are the{" "}
           <span className="relative inline-block whitespace-nowrap">
             easy part
@@ -110,7 +110,7 @@ export default function Home() {
             summary quotes it directly, without needing the rest of the
             page for context. */}
         <p
-          className="animate-fade-up mt-4 max-w-md text-[14px] leading-relaxed text-white/40"
+          className="animate-fade-up mt-4 max-w-md text-[14px] leading-relaxed text-ink/60 dark:text-white/40"
           style={{ animationDelay: "80ms" }}
         >
           Castia rewrites song lyrics and comic dialogue across six languages
@@ -126,11 +126,11 @@ export default function Home() {
             no-fabrication discipline (docs/CAPABILITY_MATRIX.md) rules
             out. */}
         <p
-          className="animate-fade-up mt-3 text-[11.5px] text-white/30"
+          className="animate-fade-up mt-3 text-[11.5px] text-ink/35 dark:text-white/30"
           style={{ animationDelay: "100ms" }}
         >
           Built by{" "}
-          <Link href="/about" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+          <Link href="/about" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/60 dark:decoration-white/20 dark:hover:text-white/60">
             {FOUNDER_NAME}
           </Link>
           {" · "}Updated{" "}
@@ -155,16 +155,16 @@ export default function Home() {
           tagline="Rewrite song lyrics across six languages so they still hit the way the original does."
           continuing={lastMedium === "music"}
         >
-          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-5">
+          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.06] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
             {/* Hovering crossfades the literal reading into the adapted
                 line - a real, small demonstration of the mechanism
                 itself, not decoration for its own sake. */}
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
+            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                 <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" fill="none" stroke="currentColor" strokeWidth="1.6" />
               </svg>
               <span className="relative flex-1 overflow-hidden">
-                <span className="block truncate text-[11px] text-white/35 transition-opacity duration-300 group-hover:opacity-0">
+                <span className="block truncate text-[11px] text-ink/45 transition-opacity duration-300 group-hover:opacity-0 dark:text-white/35">
                   Tera hone laga hoon…
                 </span>
                 <span className="absolute inset-0 block truncate text-[11px] text-accent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -172,7 +172,7 @@ export default function Home() {
                 </span>
               </span>
             </div>
-            <p className="text-[12px] leading-relaxed text-white/40">
+            <p className="text-[12px] leading-relaxed text-ink/50 dark:text-white/40">
               Paste a lyric or import a YouTube link — see the literal
               reading, the adapted line, and why it changed, side by side.
             </p>
@@ -186,13 +186,13 @@ export default function Home() {
           tagline="Adapt comic and webtoon dialogue, panel by panel."
           continuing={lastMedium === "webtoons"}
         >
-          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-white/10 bg-white/[0.03] p-5">
-            <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-white/30">
+          <div className="flex h-full flex-col justify-center gap-3 rounded-lg border border-black/[0.06] bg-black/[0.015] p-5 dark:border-white/10 dark:bg-white/[0.03]">
+            <div className="flex items-center gap-2 rounded-lg border border-black/[0.06] bg-black/[0.015] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 fill-ink/30 dark:fill-white/30">
                 <path d="M4 4h16v12H7l-3 3V4z" />
               </svg>
               <span className="relative flex-1 overflow-hidden">
-                <span className="block truncate text-[11px] text-white/35 transition-opacity duration-300 group-hover:opacity-0">
+                <span className="block truncate text-[11px] text-ink/45 transition-opacity duration-300 group-hover:opacity-0 dark:text-white/35">
                   panel-07.png
                 </span>
                 <span className="absolute inset-0 block truncate text-[11px] text-accent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -200,7 +200,7 @@ export default function Home() {
                 </span>
               </span>
             </div>
-            <p className="text-[12px] leading-relaxed text-white/40">
+            <p className="text-[12px] leading-relaxed text-ink/50 dark:text-white/40">
               Upload panel images, review the extracted dialogue, then adapt it —
               a starting draft you read before anything ships, same as every
               language pair here.
@@ -209,27 +209,27 @@ export default function Home() {
         </MediumTile>
       </div>
 
-      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20">
-        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06] sm:mt-24 sm:pt-20">
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           How is this different from Google Translate or a single AI prompt?
         </h2>
-        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
+        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-ink/55 dark:text-white/45">
           They're all built to produce one fluent pass and stop there —
           Castia isn't. Real, documented differences, not a marketing claim:
         </p>
 
-        <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-black/[0.08] bg-black/[0.01] dark:border-white/10 dark:bg-white/[0.02]">
           <table className="w-full min-w-[560px] text-left text-[13px]">
             <thead>
-              <tr className="border-b border-white/10">
-                <th className="p-4 font-medium text-white/35"> </th>
-                <th className="p-4 font-medium text-white/50">Google Translate</th>
-                <th className="p-4 font-medium text-white/50">DeepL</th>
-                <th className="p-4 font-medium text-white/50">A single AI prompt</th>
-                <th className="p-4 font-medium text-white">Castia</th>
+              <tr className="border-b border-black/[0.08] dark:border-white/10">
+                <th className="p-4 font-medium text-ink/40 dark:text-white/35"> </th>
+                <th className="p-4 font-medium text-ink/55 dark:text-white/50">Google Translate</th>
+                <th className="p-4 font-medium text-ink/55 dark:text-white/50">DeepL</th>
+                <th className="p-4 font-medium text-ink/55 dark:text-white/50">A single AI prompt</th>
+                <th className="p-4 font-medium text-ink dark:text-white">Castia</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/10">
+            <tbody className="divide-y divide-black/[0.08] dark:divide-white/10">
               {[
                 ["Drafts per line", "One", "One", "One", "Six — one literal anchor + five creative rewrites"],
                 ["Verification step", "Not documented", "Not documented", "No mechanism", "A Judge scores every rewrite against the anchor"],
@@ -237,11 +237,11 @@ export default function Home() {
                 ["Falls back to literal if nothing earns its keep", "No mechanism", "No mechanism", "No mechanism", "Yes"],
               ].map(([label, gt, dl, gpt, castia]) => (
                 <tr key={label}>
-                  <td className="p-4 align-top text-white/40">{label}</td>
-                  <td className="p-4 align-top text-white/55">{gt}</td>
-                  <td className="p-4 align-top text-white/55">{dl}</td>
-                  <td className="p-4 align-top text-white/55">{gpt}</td>
-                  <td className="p-4 align-top font-medium text-white">{castia}</td>
+                  <td className="p-4 align-top text-ink/45 dark:text-white/40">{label}</td>
+                  <td className="p-4 align-top text-ink/60 dark:text-white/55">{gt}</td>
+                  <td className="p-4 align-top text-ink/60 dark:text-white/55">{dl}</td>
+                  <td className="p-4 align-top text-ink/60 dark:text-white/55">{gpt}</td>
+                  <td className="p-4 align-top font-medium text-ink dark:text-white">{castia}</td>
                 </tr>
               ))}
             </tbody>
@@ -251,53 +251,53 @@ export default function Home() {
         <p className="mt-6 text-center">
           <Link
             href="/s/demo"
-            className="text-[13px] text-white/70 underline decoration-white/25 underline-offset-4 transition hover:text-white"
+            className="text-[13px] text-ink/75 underline decoration-ink/25 underline-offset-4 transition hover:text-ink dark:text-white/70 dark:decoration-white/25 dark:hover:text-white"
           >
             See a real song result, line by line →
           </Link>
         </p>
 
-        <p className="mt-3 text-center text-[12.5px] leading-relaxed text-white/35">
+        <p className="mt-3 text-center text-[12.5px] leading-relaxed text-ink/40 dark:text-white/35">
           The full mechanism, sourced:{" "}
-          <Link href="/compare/google-translate" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+          <Link href="/compare/google-translate" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/60 dark:decoration-white/20 dark:hover:text-white/60">
             vs. Google Translate
           </Link>
           {" · "}
-          <Link href="/compare/deepl" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+          <Link href="/compare/deepl" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/60 dark:decoration-white/20 dark:hover:text-white/60">
             vs. DeepL
           </Link>
           {" · "}
-          <Link href="/compare/chatgpt-prompt" className="underline decoration-white/20 underline-offset-4 hover:text-white/60">
+          <Link href="/compare/chatgpt-prompt" className="underline decoration-ink/15 underline-offset-4 hover:text-ink/60 dark:decoration-white/20 dark:hover:text-white/60">
             vs. a single ChatGPT prompt
           </Link>
         </p>
       </ScrollReveal>
 
-      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20" delayMs={80}>
-        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-3xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06] sm:mt-24 sm:pt-20" delayMs={80}>
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           How does the Writers' Room actually work?
         </h2>
-        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-white/45">
+        <p className="mx-auto mt-4 max-w-lg text-center text-[13.5px] leading-relaxed text-ink/55 dark:text-white/45">
           Three roles, one line: a translator, a room of writers, an editor.
         </p>
 
         <HomePipelineFlow />
 
-        <p className="mt-6 text-center text-[13px] text-white/40">
-          <Link href="/how-it-works" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+        <p className="mt-6 text-center text-[13px] text-ink/50 dark:text-white/40">
+          <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
             See the full pipeline, including comics
           </Link>
         </p>
       </ScrollReveal>
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl sm:mt-24" delayMs={80}>
-        <div className="rounded-2xl bg-[#181310] p-8 text-center sm:p-12">
-          <p className="font-serif text-[1.35rem] leading-[1.35] text-white sm:text-[1.6rem]">
+        <div className="rounded-2xl border border-black/[0.06] bg-black/[0.02] p-8 text-center dark:border-transparent dark:bg-[#181310] sm:p-12">
+          <p className="font-serif text-[1.35rem] leading-[1.35] text-ink dark:text-white sm:text-[1.6rem]">
             Every AI has an opinion about your words.
             <br />
             Only one writes down why.
           </p>
-          <p className="mx-auto mt-4 max-w-md text-[13px] leading-relaxed text-white/45">
+          <p className="mx-auto mt-4 max-w-md text-[13px] leading-relaxed text-ink/55 dark:text-white/45">
             No invented details, no unexplained rewrites — a change that
             can't justify itself against the literal reading gets reverted
             before it ships, not just flagged.
@@ -305,30 +305,30 @@ export default function Home() {
         </div>
       </ScrollReveal>
 
-      <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-white/[0.06] pt-16 sm:mt-24 sm:pt-20" delayMs={80}>
-        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-white sm:text-[1.9rem]">
+      <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06] sm:mt-24 sm:pt-20" delayMs={80}>
+        <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-white sm:text-[1.9rem]">
           Common questions
         </h2>
         <div className="mt-8 space-y-6">
           {HOMEPAGE_FAQS.map((faq) => (
-            <div key={faq.question} className="border-b border-white/[0.06] pb-6">
-              <h3 className="font-serif text-[15px] text-white">{faq.question}</h3>
-              <p className="mt-2 text-[13px] leading-relaxed text-white/45">{faq.answer}</p>
+            <div key={faq.question} className="border-b border-black/[0.06] pb-6 dark:border-white/[0.06]">
+              <h3 className="font-serif text-[15px] text-ink dark:text-white">{faq.question}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-ink/55 dark:text-white/45">{faq.answer}</p>
             </div>
           ))}
         </div>
-        <p className="mt-6 text-center text-[13px] text-white/40">
-          <Link href="/faq" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+        <p className="mt-6 text-center text-[13px] text-ink/50 dark:text-white/40">
+          <Link href="/faq" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
             See all FAQs
           </Link>
           {" · "}
-          <Link href="/pricing" className="underline decoration-white/20 underline-offset-4 hover:text-white/70">
+          <Link href="/pricing" className="underline decoration-ink/20 underline-offset-4 hover:text-ink/70 dark:decoration-white/20 dark:hover:text-white/70">
             See pricing
           </Link>
         </p>
       </ScrollReveal>
 
-      <Footer dark />
+      <Footer />
     </main>
   );
 }
@@ -366,20 +366,24 @@ function FlowChip({
   return (
     <div
       className={`w-full max-w-[220px] rounded-xl border px-4 py-3 text-center sm:max-w-[160px] ${
-        accent ? "border-accent/40 bg-accent/[0.08]" : dim ? "border-white/[0.06] bg-white/[0.015]" : "border-white/10 bg-white/[0.02]"
+        accent
+          ? "border-accent/40 bg-accent/[0.08]"
+          : dim
+            ? "border-black/[0.05] bg-black/[0.01] dark:border-white/[0.06] dark:bg-white/[0.015]"
+            : "border-black/[0.08] bg-black/[0.015] dark:border-white/10 dark:bg-white/[0.02]"
       }`}
     >
-      <p className={`font-serif text-[13.5px] ${accent ? "text-white" : dim ? "text-white/50" : "text-white/85"}`}>
+      <p className={`font-serif text-[13.5px] ${accent ? "text-ink dark:text-white" : dim ? "text-ink/55 dark:text-white/50" : "text-ink/85 dark:text-white/85"}`}>
         {title}
       </p>
-      <p className={`mt-1 text-[11px] leading-snug ${dim ? "text-white/30" : "text-white/40"}`}>{body}</p>
+      <p className={`mt-1 text-[11px] leading-snug ${dim ? "text-ink/35 dark:text-white/30" : "text-ink/45 dark:text-white/40"}`}>{body}</p>
     </div>
   );
 }
 
 function FlowArrow() {
   return (
-    <span className="text-white/20 rotate-90 sm:rotate-0" aria-hidden="true">
+    <span className="rotate-90 text-ink/25 dark:text-white/20 sm:rotate-0" aria-hidden="true">
       →
     </span>
   );
@@ -408,21 +412,21 @@ function MediumTile({
   return (
     <Link
       href={href}
-      className="group flex flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.05] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
+      className="group flex flex-col rounded-2xl border border-black/[0.08] bg-black/[0.015] p-5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-black/[0.15] hover:bg-black/[0.03] hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.15)] dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-white/[0.05] dark:hover:shadow-[0_24px_48px_-24px_rgba(0,0,0,0.6)]"
     >
       <div className="overflow-hidden rounded-lg">{children}</div>
       <div className="mt-4 flex items-center gap-2">
-        <h2 className="font-serif text-[1.15rem] text-white">{title}</h2>
+        <h2 className="font-serif text-[1.15rem] text-ink dark:text-white">{title}</h2>
         {badge && (
-          <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-white/40">
+          <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/45 dark:bg-white/10 dark:text-white/40">
             {badge}
           </span>
         )}
         {continuing && (
-          <span className="text-[11px] text-white/30">— continue where you left off</span>
+          <span className="text-[11px] text-ink/40 dark:text-white/30">— continue where you left off</span>
         )}
       </div>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-white/40">{tagline}</p>
+      <p className="mt-1.5 text-[13px] leading-relaxed text-ink/50 dark:text-white/40">{tagline}</p>
     </Link>
   );
 }
