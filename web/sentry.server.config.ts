@@ -1,0 +1,7 @@
+// Node server runtime (route handlers, server components).
+import * as Sentry from "@sentry/nextjs";
+import { SENTRY_DSN, sharedSentryOptions } from "@/lib/sentryOptions";
+
+if (SENTRY_DSN) {
+  Sentry.init(sharedSentryOptions);
+}

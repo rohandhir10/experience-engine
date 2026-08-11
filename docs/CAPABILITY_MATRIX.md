@@ -4486,3 +4486,67 @@ carries a `vars` mapping at all (stronger and more durable than checking
 one string's absence). `CASTIA_SENTRY_DSN` added to
 `production_config_problems`. 1111 pytest passing; app verified to boot
 both with and without a DSN configured.
+
+## Frontend error monitoring, and the two hazards specific to a browser
+
+Completes the previous entry: the Python engine reported its errors, the
+Next.js app did not - a React render error, a route-handler throw, or
+anything that broke in a user's browser was seen by nobody.
+
+`@sentry/nextjs` wired across all three runtimes (browser, Node server,
+edge middleware), inert unless `NEXT_PUBLIC_SENTRY_DSN` is set. Shared
+options live in one file (`web/lib/sentryOptions.ts`) rather than being
+copied into three config files, because three near-identical configs is
+exactly how one of them quietly ends up with a lock missing.
+
+**Hazard one: Session Replay.** Sentry's own setup wizard enables it by
+default. It records the DOM as the user interacts - which on /music and
+/comics means recording someone typing or pasting the copyrighted lyrics
+and dialogue they came here to work on, and shipping that to a third
+party. It is left out, with `integrations: []` written explicitly so
+adding it back has to be a deliberate edit rather than an omission
+nobody notices.
+
+**Hazard two: breadcrumbs.** The browser-side equivalent of the
+request-body problem - by default Sentry records console output and
+every fetch, and this app's fetches carry lyrics and panel text.
+`beforeBreadcrumb` keeps only navigation and click crumbs and drops
+everything else, default-deny, so a future SDK version adding a new
+breadcrumb type can't start collecting by surprise.
+
+**The CSP interaction, which would otherwise have failed silently.**
+`middleware.ts` sets a strict CSP whose `connect-src` lists only 'self'
+and Paddle - a browser SDK posting to `sentry.io` would have been
+blocked outright, losing every client-side report with nothing in the
+build or the logs to say so. Rather than punching a third-party host
+into the policy, `tunnelRoute: "/monitoring"` routes events through this
+app's own origin, which `connect-src 'self'` already permits and which
+also survives the ad blockers that block `sentry.io` by name (and so
+would otherwise drop reports from exactly the users most likely to be
+having trouble). Verified in a real browser: SDK alive, zero CSP
+violations, four reports over the same-origin tunnel, zero direct
+sentry.io requests, zero Replay bundles loaded.
+
+`app/global-error.tsx` (new) is the last-resort boundary Next renders
+when an error takes out the root layout - without it, React render
+errors are the one class of failure Sentry never sees, which the build
+warns about. It reports the error and renders a styled recovery screen
+with inline styles, since whatever just failed may have taken the
+stylesheet with it.
+
+**A deployment note worth knowing.** `NEXT_PUBLIC_*` variables are
+inlined at BUILD time, not read at runtime: setting the DSN only in the
+runtime environment leaves the browser SDK completely inert with no
+error anywhere. This was found by testing rather than assumed - an
+earlier verification pass appeared to show the tunnel 404ing, which
+turned out to be a stale build artifact plus a tunnel rewrite that
+correctly only matches the `?o=&p=` query the SDK actually sends. Both
+states are now verified directly: built without a DSN, a triggered
+browser error produces zero network requests; built with one, it
+produces four, all same-origin.
+
+Tests: `web/lib/sentryOptions.test.ts` (13) - the scrubber (request body,
+cookies, credential headers case-insensitively, a whole-payload
+falsification), breadcrumb filtering including the default-deny case,
+and the privacy locks. 174 vitest passing, tsc and next build clean with
+zero warnings.
