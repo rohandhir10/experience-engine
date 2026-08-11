@@ -122,7 +122,7 @@ export function PanelUploader({
       className={`flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-16 text-center transition ${
         dragActive
           ? "border-accent/50 bg-accent/[0.04]"
-          : "border-black/[0.12] dark:border-white/[0.12]"
+          : "border-accent/[0.18] dark:border-white/[0.12]"
       }`}
     >
       <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
@@ -151,7 +151,7 @@ export function PanelUploader({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-full border border-black/[0.1] px-5 py-2 text-[13px] font-medium text-ink/70 transition hover:border-black/20 hover:text-ink dark:border-white/[0.12] dark:text-ink-dark/70 dark:hover:text-ink-dark"
+          className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
         >
           Choose files
         </button>

@@ -402,7 +402,7 @@ export default function ComicsPage() {
                   <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
                     Give every character their own voice.
                   </h1>
-                  <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/35 dark:bg-white/10 dark:text-ink-dark/40">
+                  <span className="rounded-full border border-accent/25 bg-accent/[0.06] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent dark:border-white/10 dark:bg-white/10 dark:text-ink-dark/40">
                     Beta
                   </span>
                 </div>
@@ -449,7 +449,8 @@ export default function ComicsPage() {
                   usage is different (paired with an identical dark card
                   right above it, not standing alone). */}
               <div className="rounded-2xl border border-black/[0.06] bg-black/[0.015] p-6 dark:border-white/[0.08] dark:bg-white/[0.02] sm:p-8">
-                <p className="text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
+                <p className="flex items-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                   What happens to a panel
                 </p>
                 <div className="mt-4">
@@ -461,14 +462,15 @@ export default function ComicsPage() {
 
           {panels.length === 0 && (
             <ScrollReveal className="mx-auto mt-16 w-full max-w-2xl text-center">
-              <p className="text-[12px] uppercase tracking-[0.15em] text-ink/30 dark:text-ink-dark/30">
+              <p className="flex items-center justify-center gap-2 text-[12px] uppercase tracking-[0.15em] text-accent dark:text-ink-dark/30">
+                <span className="h-1.5 w-1.5 rounded-full bg-accent dark:bg-ink-dark/30" aria-hidden="true" />
                 Six languages, any direction
               </p>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 {LANGUAGES.map((lang) => (
                   <span
                     key={lang}
-                    className="rounded-full border border-black/10 px-3 py-1 text-[13px] text-ink/60 dark:border-white/10 dark:text-ink-dark/60"
+                    className="rounded-full border border-accent/20 px-3 py-1 text-[13px] text-ink/60 dark:border-white/10 dark:text-ink-dark/60"
                   >
                     {lang}
                   </span>
@@ -484,7 +486,8 @@ export default function ComicsPage() {
               this marketing/reference material would just be in the way. */}
           {panels.length === 0 && (
             <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl border-t border-black/[0.06] pt-16 dark:border-white/[0.06]">
-              <h2 className="text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-ink-dark sm:text-[1.9rem]">
+              <div className="mx-auto h-[2px] w-8 rounded-full bg-accent/50" aria-hidden="true" />
+              <h2 className="mt-4 text-center font-serif text-[1.6rem] leading-[1.25] text-ink dark:text-ink-dark sm:text-[1.9rem]">
                 Common questions
               </h2>
               <div className="mt-8 space-y-6">
