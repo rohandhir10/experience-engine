@@ -782,6 +782,15 @@ class RedrawRegion(BaseModel):
     # - lets one panel mix fonts (a softer default, a bolder override on
     # one shout) without every region having to name one.
     font: str | None = None
+    # Optional - the same "dialogue" | "sfx" | "narration" | "background"
+    # | "unknown" classification /api/comics/ocr's vision-LLM read pass
+    # can already produce per region (BubbleInput.kind), when the caller
+    # has it. Not required: the base OCR-only path doesn't classify at
+    # all, and a manually-typed region never has one either - both stay
+    # trusted exactly as before this field existed. When present,
+    # engine/comics_redraw.py rejects "sfx"/"background" outright rather
+    # than attempting an inpaint known to produce a broken result.
+    kind: str | None = None
 
 
 @app.post("/api/comics/redraw")
@@ -849,8 +858,27 @@ def comics_redraw_endpoint(
             ),
         )
 
+    # Same reasoning as the unknown-font check above: reject before
+    # spending any per-IP panel quota on a request already guaranteed to
+    # fail (engine/comics_redraw.py::_validate_redrawable would raise
+    # RedrawError for the same regions anyway, but only after the quota
+    # check below).
+    unsafe_kinds = sorted(
+        {(i, r.kind) for i, r in enumerate(validated) if r.kind in comics_redraw.UNSAFE_REDRAW_KINDS}
+    )
+    if unsafe_kinds:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Region(s) {[i for i, _ in unsafe_kinds]} are classified as "
+                f"{sorted({k for _, k in unsafe_kinds})} - SFX and background "
+                "regions are not safe to redraw as speech bubbles. Only "
+                "dialogue/narration/unclassified regions can be redrawn."
+            ),
+        )
+
     region_dicts = [
-        {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text, "font": r.font}
+        {"bbox": r.bbox.model_dump(), "adapted_text": r.adapted_text, "font": r.font, "kind": r.kind}
         for r in validated
     ]
 

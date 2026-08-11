@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { resolveRedrawRegionText } from "./comicsRedraw";
+import { describe, expect, it, vi } from "vitest";
+import { UNSAFE_REDRAW_KINDS, redrawPanel, resolveRedrawRegionText } from "./comicsRedraw";
 
 function panel(overrides: {
   redrawRegionTexts?: (string | null)[] | null;
@@ -85,5 +85,39 @@ describe("resolveRedrawRegionText", () => {
   it("returns empty for a panel with no OCR regions at all", () => {
     const p = panel({ ocrRegions: null, adaptedText: "something" });
     expect(resolveRedrawRegionText(p, 0)).toBe("");
+  });
+});
+
+describe("UNSAFE_REDRAW_KINDS", () => {
+  it("matches engine/comics_redraw.py's UNSAFE_REDRAW_KINDS exactly", () => {
+    expect(UNSAFE_REDRAW_KINDS).toEqual(new Set(["sfx", "background"]));
+  });
+});
+
+describe("redrawPanel", () => {
+  function mockFetchOk() {
+    return vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ image_base64: "abc123", id: "result-id" }),
+    });
+  }
+
+  it("forwards each region's kind in the JSON body sent to the server", async () => {
+    const fetchMock = mockFetchOk();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await redrawPanel(new File([], "panel.png"), [
+      { bbox: region.bbox, adaptedText: "hello", kind: "dialogue" },
+      { bbox: region.bbox, adaptedText: "world" },
+    ]);
+
+    const form = fetchMock.mock.calls[0][1].body as FormData;
+    const sentRegions = JSON.parse(form.get("regions") as string);
+    expect(sentRegions).toEqual([
+      { bbox: region.bbox, adapted_text: "hello", font: null, kind: "dialogue" },
+      { bbox: region.bbox, adapted_text: "world", font: null, kind: null },
+    ]);
+
+    vi.unstubAllGlobals();
   });
 });

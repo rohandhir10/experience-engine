@@ -14,9 +14,18 @@ module in this project:
   into busy, textured artwork is NOT attempted here — inpainting a
   jagged action-line background is a much harder problem, and silently
   attempting it would produce a visibly broken smudge, not a redrawn
-  SFX. Nothing here rejects an SFX-shaped region; the caller is
-  responsible for only sending genuine bubble regions (this module has
-  no way to tell the difference from a bounding box alone).
+  SFX. This module still has no way to tell a bubble from an SFX region
+  from a bounding box alone — but when a region carries an explicit
+  `"kind"` (the same "dialogue" | "sfx" | "narration" | "background" |
+  "unknown" classification engine/comics_vision.py's optional read pass
+  already produces, and engine/comics_adapt.py's `_SKIP_KINDS` already
+  acts on for adaptation), `"sfx"` and `"background"` are rejected with
+  RedrawError before any inpainting runs, same as an unrecognized font
+  name already is at the API boundary — not a guess degraded into a
+  broken smudge. A region with no `"kind"` (the common case: manually-
+  typed regions, or the base OCR-only path, which doesn't classify at
+  all) is unchanged — still trusted, because there is genuinely nothing
+  to validate against.
 - A small, curated set of bundled OFL-licensed fonts (FONTS below,
   engine/assets/fonts/) - Comic Neue by default, with Patrick Hand and
   the original Liberation Sans available as per-region/per-panel
@@ -131,6 +140,44 @@ _DARK_LUMINANCE_THRESHOLD = 0.5
 class RedrawError(Exception):
     """Raised for a malformed image or region — same "fail loudly, don't
     fabricate a result" convention as engine/comics_ocr.py::OcrError."""
+
+
+# Mirrors engine/comics_adapt.py's _SKIP_KINDS exactly - same two kinds
+# that are known NOT to be real, redrawable dialogue. Duplicated rather
+# than imported: comics_redraw.py and comics_adapt.py are deliberately
+# decoupled (one only ever touches pixels, the other only ever touches
+# text - this module's own docstring), and this is a small, stable
+# constant, not shared logic worth a cross-import over.
+#
+# Public (not underscore-prefixed) so server/main.py's endpoint can
+# reject a bad kind at the API boundary, BEFORE spending any per-IP
+# panel quota on a request already guaranteed to fail - the same reason
+# comics_redraw.FONTS is already public and checked the same way there.
+UNSAFE_REDRAW_KINDS = frozenset({"sfx", "background"})
+
+
+def _validate_redrawable(regions: list[dict]) -> None:
+    """Raises RedrawError for any region whose `"kind"` (when present -
+    see this module's docstring for why an absent kind is trusted, not
+    rejected) names a kind known NOT to be safe to inpaint-and-redraw as
+    a bubble. Checked before any inpainting runs, so a caller gets a
+    clear rejection instead of the "visibly broken smudge" this module's
+    docstring warns an SFX/background region would otherwise produce.
+    """
+    bad = [
+        (i, r["kind"])
+        for i, r in enumerate(regions)
+        if r.get("kind") in UNSAFE_REDRAW_KINDS
+    ]
+    if bad:
+        described = ", ".join(f"region {i} (kind={kind!r})" for i, kind in bad)
+        raise RedrawError(
+            f"{described}: SFX and background regions are not safe to "
+            "redraw as speech bubbles - inpainting text baked into "
+            "textured artwork produces a visibly broken result, not a "
+            "clean redraw. Only dialogue/narration/unclassified regions "
+            "can be redrawn."
+        )
 
 
 def _load_image(image_bytes: bytes) -> Image.Image:
@@ -424,7 +471,7 @@ def redraw_panel(image_bytes: bytes, regions: list[dict], default_font: str | No
     region's adapted text back in its own estimated color. Returns a
     new PNG's raw bytes.
 
-    `regions` is `[{"bbox": {"x", "y", "width", "height"}, "adapted_text": str, "font": str | None}, ...]`
+    `regions` is `[{"bbox": {"x", "y", "width", "height"}, "adapted_text": str, "font": str | None, "kind": str | None}, ...]`
     - the same bbox shape engine/comics_ocr.py already produces per
     detected region, paired with whatever adapted line the caller wants
     drawn there (this module has no opinion on where that text came
@@ -435,13 +482,17 @@ def redraw_panel(image_bytes: bytes, regions: list[dict], default_font: str | No
     doesn't specify its own. This is what lets one panel mix fonts (a
     softer one for most dialogue, a bolder override for one shout) while
     still having a single sensible choice apply to every region that
-    doesn't ask for something different.
+    doesn't ask for something different. `kind` is optional too - see
+    _validate_redrawable and this module's own docstring for what it
+    gates and why an absent kind is trusted rather than rejected.
 
-    Raises RedrawError for an unreadable image, an empty regions list,
-    or a region with no area after clamping to the image bounds.
+    Raises RedrawError for an unreadable image, an empty regions list, a
+    region with no area after clamping to the image bounds, or a region
+    whose kind names a known-unsafe-to-redraw region (SFX/background).
     """
     if not regions:
         raise RedrawError("At least one region is required to redraw a panel.")
+    _validate_redrawable(regions)
 
     regions = _merge_overlapping_regions(regions)
     image = _load_image(image_bytes)
@@ -478,6 +529,7 @@ def redraw_panel_detailed(
     """
     if not regions:
         raise RedrawError("At least one region is required to redraw a panel.")
+    _validate_redrawable(regions)
 
     regions = _merge_overlapping_regions(regions)
     image = _load_image(image_bytes)

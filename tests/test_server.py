@@ -837,6 +837,80 @@ def test_comics_redraw_endpoint_rejects_an_unknown_per_region_font():
     assert "totally-made-up" in exc_info.value.detail
 
 
+def test_comics_redraw_endpoint_rejects_an_sfx_region():
+    regions = json.dumps(
+        [
+            {
+                "bbox": {"x": 10, "y": 10, "width": 100, "height": 40},
+                "adapted_text": "BOOM",
+                "kind": "sfx",
+            }
+        ]
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(
+            _FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
+        )
+    assert exc_info.value.status_code == 400
+    assert "sfx" in exc_info.value.detail
+
+
+def test_comics_redraw_endpoint_rejects_a_background_region():
+    regions = json.dumps(
+        [
+            {
+                "bbox": {"x": 10, "y": 10, "width": 100, "height": 40},
+                "adapted_text": "OPEN",
+                "kind": "background",
+            }
+        ]
+    )
+    with pytest.raises(main.HTTPException) as exc_info:
+        main.comics_redraw_endpoint(
+            _FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
+        )
+    assert exc_info.value.status_code == 400
+    assert "background" in exc_info.value.detail
+
+
+def test_comics_redraw_endpoint_rejects_unsafe_kinds_before_spending_quota(monkeypatch):
+    # Same reasoning as the unknown-font check: a request guaranteed to
+    # fail should never cost the caller's per-IP panel allowance.
+    calls = []
+    monkeypatch.setattr(main, "_check_panel_quota", lambda *a, **k: calls.append(1))
+    regions = json.dumps(
+        [
+            {
+                "bbox": {"x": 10, "y": 10, "width": 100, "height": 40},
+                "adapted_text": "BOOM",
+                "kind": "sfx",
+            }
+        ]
+    )
+    with pytest.raises(main.HTTPException):
+        main.comics_redraw_endpoint(
+            _FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
+        )
+    assert calls == []
+
+
+@pytest.mark.parametrize("kind", ["dialogue", "narration", "unknown", None])
+def test_comics_redraw_endpoint_accepts_safe_or_absent_kinds(kind):
+    region = {"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}
+    if kind is not None:
+        region["kind"] = kind
+    regions = json.dumps([region])
+
+    result = main.comics_redraw_endpoint(
+        _FakeRequest(), image=_FakeUploadFile(_real_png_bytes()), regions=regions, default_font=None
+    )
+
+    import base64 as _base64
+
+    decoded = _base64.b64decode(result["image_base64"])
+    assert decoded[:8] == b"\x89PNG\r\n\x1a\n"
+
+
 def test_comics_redraw_endpoint_accepts_a_real_default_font():
     regions = json.dumps(
         [{"bbox": {"x": 10, "y": 10, "width": 100, "height": 40}, "adapted_text": "hello"}]

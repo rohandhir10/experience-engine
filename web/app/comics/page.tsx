@@ -24,7 +24,12 @@ import { resolveImageUploads } from "@/lib/panelUpload";
 import { OCR_BATCH_CONCURRENCY, runWithConcurrency } from "@/lib/concurrency";
 import { guessChapterLanguage } from "@/lib/chapterLanguage";
 import { AdaptRequestError, adaptChapter } from "@/lib/comicsAdapt";
-import { RedrawRequestError, redrawPanel, resolveRedrawRegionText } from "@/lib/comicsRedraw";
+import {
+  RedrawRequestError,
+  UNSAFE_REDRAW_KINDS,
+  redrawPanel,
+  resolveRedrawRegionText,
+} from "@/lib/comicsRedraw";
 import { writeMediumPreference } from "@/lib/mediumPreference";
 import { PanelPipelineStoryboard } from "@/components/comics/PanelPipelineStoryboard";
 import { Footer } from "@/components/Footer";
@@ -258,13 +263,22 @@ export default function ComicsPage() {
     const panel = panels.find((p) => p.id === id);
     if (!panel?.ocrRegions?.length || panel.redrawStatus === "running") return;
 
+    // SFX/background regions are filtered out here, before ever calling
+    // redrawPanel, rather than sent and left for the server to reject -
+    // engine/comics_redraw.py rejects the WHOLE request if any one
+    // region is unsafe (a clear signal for a genuinely bad caller, the
+    // right behavior at the API boundary), which would be a confusing
+    // failure mode here: a panel with mostly real dialogue plus one SFX
+    // region would fail to redraw AT ALL instead of just skipping the
+    // one region that was never going to redraw cleanly anyway.
     const regionsToSend = panel.ocrRegions
       .map((region, i) => ({
         bbox: region.bbox,
         adaptedText: resolveRedrawRegionText(panel, i).trim(),
         font: panel.redrawRegionFonts?.[i] ?? undefined,
+        kind: region.kind,
       }))
-      .filter((r) => r.adaptedText);
+      .filter((r) => r.adaptedText && !UNSAFE_REDRAW_KINDS.has(r.kind ?? ""));
 
     if (!regionsToSend.length) {
       updatePanel(id, {

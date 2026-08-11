@@ -7,7 +7,21 @@ export type RedrawRegionInput = {
   // request's defaultFont (redrawPanel's third argument) - lets one
   // bubble override the panel's default (a bolder font for one shout).
   font?: string;
+  // OcrRegion["kind"], forwarded so server/main.py's comics_redraw_endpoint
+  // (engine/comics_redraw.py::UNSAFE_REDRAW_KINDS) can reject a region
+  // classified "sfx"/"background" server-side too - defense in depth,
+  // since UNSAFE_REDRAW_KINDS below is what actually keeps them out of
+  // regionsToSend in the first place (app/comics/page.tsx).
+  kind?: string;
 };
+
+// Mirrors engine/comics_redraw.py's UNSAFE_REDRAW_KINDS exactly - a
+// region classified this way is known NOT to be safe to inpaint-and-
+// redraw as a bubble (SFX text baked into textured artwork, background
+// signage), so the frontend filters these out before ever calling
+// redrawPanel rather than sending a request the server would 400 on
+// anyway - see app/comics/page.tsx::redrawPanelAction.
+export const UNSAFE_REDRAW_KINDS = new Set(["sfx", "background"]);
 
 // Must match engine/comics_redraw.py's FONTS keys exactly - server/main.py's
 // comics_redraw_endpoint rejects any name not in that registry with a 400,
@@ -81,7 +95,12 @@ export async function redrawPanel(
   form.append(
     "regions",
     JSON.stringify(
-      regions.map((r) => ({ bbox: r.bbox, adapted_text: r.adaptedText, font: r.font ?? null }))
+      regions.map((r) => ({
+        bbox: r.bbox,
+        adapted_text: r.adaptedText,
+        font: r.font ?? null,
+        kind: r.kind ?? null,
+      }))
     )
   );
   if (defaultFont) form.append("default_font", defaultFont);

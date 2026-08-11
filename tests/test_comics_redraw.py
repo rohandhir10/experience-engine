@@ -384,6 +384,56 @@ def test_redraw_panel_rejects_a_region_entirely_outside_the_image():
         )
 
 
+@pytest.mark.parametrize("kind", ["sfx", "background"])
+def test_redraw_panel_rejects_unsafe_kinds(kind):
+    image = _bubble_image(300, 150)
+    bbox = {"x": 60, "y": 50, "width": 180, "height": 60}
+    with pytest.raises(RedrawError, match=kind):
+        redraw_panel(_png_bytes(image), [{"bbox": bbox, "adapted_text": "x", "kind": kind}])
+
+
+@pytest.mark.parametrize("kind", ["dialogue", "narration", "unknown", None])
+def test_redraw_panel_accepts_safe_or_absent_kinds(kind):
+    image = _bubble_image(300, 150)
+    bbox = {"x": 60, "y": 50, "width": 180, "height": 60}
+    region = {"bbox": bbox, "adapted_text": "hello"}
+    if kind is not None:
+        region["kind"] = kind
+    result_bytes = redraw_panel(_png_bytes(image), [region])
+    result = Image.open(io.BytesIO(result_bytes))
+    assert result.format == "PNG"
+
+
+def test_redraw_panel_rejects_unsafe_kind_before_touching_the_image():
+    """A rejected region must fail before any inpainting/decoding work
+    happens - an unreadable image paired with an sfx region should still
+    surface the KIND rejection, not an unrelated image-decoding error,
+    proving the check runs first."""
+    with pytest.raises(RedrawError, match="sfx"):
+        redraw_panel(
+            b"not a real image",
+            [{"bbox": {"x": 0, "y": 0, "width": 10, "height": 10}, "adapted_text": "x", "kind": "sfx"}],
+        )
+
+
+def test_redraw_panel_rejects_unsafe_kind_among_multiple_regions():
+    """One bad region among several good ones still rejects the whole
+    request - a partial redraw silently skipping the bad region would
+    be a worse, more confusing failure mode than a clear upfront 400."""
+    image = _bubble_image(300, 150)
+    good = {"bbox": {"x": 10, "y": 10, "width": 50, "height": 20}, "adapted_text": "fine", "kind": "dialogue"}
+    bad = {"bbox": {"x": 100, "y": 10, "width": 50, "height": 20}, "adapted_text": "boom", "kind": "sfx"}
+    with pytest.raises(RedrawError, match="sfx"):
+        redraw_panel(_png_bytes(image), [good, bad])
+
+
+def test_redraw_panel_detailed_also_rejects_unsafe_kinds():
+    image = _bubble_image(300, 150)
+    bbox = {"x": 60, "y": 50, "width": 180, "height": 60}
+    with pytest.raises(RedrawError, match="background"):
+        redraw_panel_detailed(_png_bytes(image), [{"bbox": bbox, "adapted_text": "x", "kind": "background"}])
+
+
 def test_redraw_panel_composites_a_transparent_panel_onto_white_not_raw_black():
     """The color-fade bug report: a panel with a real alpha channel (a
     ZIP-slice PNG, a PDF page rendered to an RGBA canvas) previously had

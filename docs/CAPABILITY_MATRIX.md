@@ -5093,3 +5093,67 @@ one row) — plus two integration tests through the real
 the sort actually applies end-to-end for a Japanese panel and stays
 left-to-right for a non-Japanese one. Full suite: 1169 passed (1157
 pre-existing + 12 new), zero regressions.
+
+## Redraw rejects SFX/background regions when a kind is known
+
+**The gap**, disclosed plainly since Scope B first shipped ("Comics
+image redraw/typesetting" above): "No validation that a bbox region is
+actually a bubble versus SFX/other art — the caller is trusted to only
+send genuine bubble regions." `engine/comics_redraw.py`'s own docstring
+put it even more plainly: "this module has no way to tell the
+difference from a bounding box alone." That's still true — but it
+turned out to no longer be the whole picture. A classification DOES
+already exist elsewhere in this codebase (`engine/comics_vision.py`'s
+optional read pass produces `"dialogue" | "sfx" | "narration" |
+"background" | "unknown"` per region, and `engine/comics_adapt.py`'s
+`_SKIP_KINDS` already acts on it to skip the Writers' Room for SFX/
+background bubbles) — it just never reached the redraw endpoint at all.
+`RedrawRegion` (`server/main.py`) had no `kind` field, and the real
+frontend caller (`app/comics/page.tsx::redrawPanelAction`) had the
+classification sitting right there on `panel.ocrRegions[i].kind` and
+simply didn't forward it.
+
+**The fix, three layers:**
+
+1. `engine/comics_redraw.py::UNSAFE_REDRAW_KINDS` (`{"sfx",
+   "background"}`, deliberately mirroring `comics_adapt.py`'s
+   `_SKIP_KINDS` exactly rather than importing it — the two modules stay
+   decoupled on purpose, one only ever touches pixels, the other only
+   ever touches text) + `_validate_redrawable`, called from both
+   `redraw_panel` and `redraw_panel_detailed` before any inpainting
+   runs. A region's `"kind"` is optional and still trusted when absent
+   (the base OCR-only path doesn't classify at all, and a manually-typed
+   region never has one) — this closes "a known-bad kind is silently
+   redrawn anyway," not "every region is now verified," which remains
+   exactly as impossible from a bounding box alone as the docstring
+   already said.
+2. `server/main.py`'s `RedrawRegion` gains an optional `kind` field, and
+   the endpoint rejects `"sfx"`/`"background"` regions BEFORE the
+   per-IP panel quota check — same reasoning already applied to an
+   unknown font name: a request already guaranteed to fail shouldn't
+   cost the caller their allowance.
+3. Frontend: `redrawPanelAction` now filters `UNSAFE_REDRAW_KINDS`
+   regions out of `regionsToSend` before ever calling `redrawPanel`,
+   rather than sending them and relying on the server's 400. This
+   matters for real UX, not just correctness: the server (correctly)
+   rejects the WHOLE request if any one region is unsafe, which would
+   make a panel with mostly real dialogue plus one SFX region fail to
+   redraw at all instead of just skipping the one region that was never
+   going to redraw cleanly. `kind` is still forwarded for the surviving
+   (safe) regions too, so the server's own check is real defense in
+   depth, not dead code.
+
+**Verified**: 9 new `tests/test_comics_redraw.py` tests (both unsafe
+kinds rejected with the kind named in the error, every safe/absent kind
+accepted, the check firing before any image decoding happens, one bad
+region among several good ones still rejecting the whole request, and
+`redraw_panel_detailed` covered the same as `redraw_panel`) + 7 new
+`tests/test_server.py` endpoint tests (sfx/background 400s with the
+kind in the message, the quota check confirmed NOT called for a
+rejected request, every safe/absent kind still producing a real PNG) +
+2 new `tests/comicsRedraw.test.ts` tests (the frontend's
+`UNSAFE_REDRAW_KINDS` set matching the backend's exactly, and a mocked-
+fetch test proving `kind` actually reaches the JSON body sent to the
+server). Full suite: 1185 Python passed (1169 pre-existing + 16 new),
+190 Vitest passed (188 pre-existing + 2 new), `tsc --noEmit` and
+`next build` clean.
