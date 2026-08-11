@@ -216,7 +216,7 @@ export default function HowItWorksPage() {
 
         <div className="mt-8 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
           <p className="text-[12px] uppercase tracking-[0.15em] text-white/38">
-            Webtoons &amp; comics (Beta)
+            Webtoons &amp; comics
           </p>
           <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
             OCR, a cast profile, then the identical Writers' Room.

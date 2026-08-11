@@ -9,7 +9,7 @@ type DashboardSection =
   | "settings"
   | "billing";
 
-const NAV_ITEMS: { key: DashboardSection; label: string; href: string; badge?: string }[] = [
+const NAV_ITEMS: { key: DashboardSection; label: string; href: string }[] = [
   { key: "home", label: "Home", href: "/dashboard" },
   { key: "adaptations", label: "Adaptations", href: "/dashboard/adaptations" },
   { key: "favorites", label: "Favorites", href: "/dashboard/favorites" },
@@ -18,11 +18,12 @@ const NAV_ITEMS: { key: DashboardSection; label: string; href: string; badge?: s
   // Labeled "API Keys," not "Settings" - that's the only thing this page
   // actually manages (no profile/password/email/account-deletion page
   // exists anywhere in this app yet), and "Settings" promised more than
-  // it delivered. "Beta" here for the same reason it used to live on a
-  // separate, now-removed duplicate nav row pointing at this identical
-  // URL: server/main.py's /v1/* routes are real but still lack an async
-  // job/poll pattern for a long chapter - see /docs/api.
-  { key: "settings", label: "API Keys", href: "/dashboard/settings", badge: "Beta" },
+  // it delivered. The "Beta" badge that used to sit on this row is gone
+  // (real feedback that it read as clutter) - the gap it disclosed
+  // (server/main.py's /v1/* routes still lack an async job/poll pattern
+  // for a long chapter) is still real and still stated in prose on
+  // /docs/api, just not flagged with a badge here.
+  { key: "settings", label: "API Keys", href: "/dashboard/settings" },
 ];
 
 const BOTTOM_ITEMS: { key: DashboardSection; label: string; href: string }[] = [
@@ -59,19 +60,15 @@ function NavRow({
   href,
   active,
   live,
-  badge,
 }: {
   label: string;
   href: string;
   active: boolean;
   live: boolean;
-  badge?: string;
 }) {
-  // A live section only shows a badge if it explicitly carries one
-  // (e.g. "Beta" on API Keys) - a not-yet-live section always shows
-  // "Soon" regardless, unless it's the active row (no point badging
-  // the page you're already looking at).
-  const shownBadge = badge ?? (!live ? "Soon" : null);
+  // A not-yet-live section shows "Soon" regardless, unless it's the
+  // active row (no point badging the page you're already looking at).
+  const shownBadge = !live ? "Soon" : null;
   return (
     <Link
       href={href}
@@ -110,7 +107,6 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
           href={item.href}
           active={active === item.key}
           live={LIVE_SECTIONS.has(item.key)}
-          badge={item.badge}
         />
       ))}
       <div className="my-2 border-t border-black/[0.09] dark:border-white/[0.09]" />

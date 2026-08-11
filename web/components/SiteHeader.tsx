@@ -65,13 +65,16 @@ export function SiteHeader({
             Pricing
           </Link>
         )}
-        {/* server/main.py's /v1/* routes are real now (keys managed on
-            /dashboard/settings, documented at /docs/api) - "Beta" stays
-            for the same reason DashboardSidebar's matching row does: no
-            async job/poll pattern yet for API callers, same disclosure
-            convention as Webtoons' own "Beta" badge. Points at the docs
-            page rather than straight to key management - a visitor
-            clicking "API" wants to know what it does first. */}
+        {/* server/main.py's /v1/* routes are real (keys managed on
+            /dashboard/settings, documented at /docs/api). The "Beta" pill
+            that used to sit here is gone (real feedback that it read as
+            visual clutter across the nav/tiles/sidebar) - the underlying
+            gap it disclosed (no async job/poll pattern yet for API
+            callers) is still real and still stated in prose on
+            /docs/api itself, just not flagged with a badge in the nav.
+            Points at the docs page rather than straight to key
+            management - a visitor clicking "API" wants to know what it
+            does first. */}
         {!minimal && (
           <Link
             href="/docs/api"
@@ -80,15 +83,6 @@ export function SiteHeader({
             }`}
           >
             API
-            <span
-              className={`rounded-full px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${
-                forceDark
-                  ? "bg-white/10 text-white/85"
-                  : "bg-black/[0.05] text-ink/65 dark:bg-white/10 dark:text-ink-dark/85"
-              }`}
-            >
-              Beta
-            </span>
           </Link>
         )}
 

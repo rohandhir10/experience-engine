@@ -41,18 +41,22 @@ const PAGE_UPDATED_DATE = "2026-08-11";
 const COMICS_FAQS = comicsFaqs();
 
 // Now linked from "/" (the Webtoons tile on the medium-chooser split
-// screen) with a "Beta" badge, rather than reachable only by URL - it
-// earned that entry point once OCR + a real adapt call both existed,
-// per the project's non-fabrication discipline. Save/collections/
-// share-link DO now work the same way they do for music (results are
-// recorded to the same adaptations history with medium="webtoons",
-// RecentAdaptations links per-medium, and this page's CopyLinkButton
-// below is real) - "Beta" now discloses different, still-real gaps
-// instead: SFX text over textured artwork isn't redrawn (speech
-// bubbles only, see engine/comics_redraw.py), OCR reading order is a
-// plain top-to-bottom guess unless a text detector service is
-// configured, and cross-chapter character memory (the Series field
-// below) matches characters by exact name only, not visually.
+// screen), rather than reachable only by URL - it earned that entry
+// point once OCR + a real adapt call both existed, per the project's
+// non-fabrication discipline. Save/collections/share-link DO now work
+// the same way they do for music (results are recorded to the same
+// adaptations history with medium="webtoons", RecentAdaptations links
+// per-medium, and this page's CopyLinkButton below is real). The
+// "Beta" badge that used to sit next to the h1 below is gone (real
+// feedback that it read as clutter across the nav/tiles/sidebar) - the
+// gaps it disclosed are still real and still stated in prose on
+// /manga-webtoon-translation and in this page's own meta description
+// (app/comics/layout.tsx), just not flagged with a badge here: SFX
+// text over textured artwork isn't redrawn (speech bubbles only, see
+// engine/comics_redraw.py), OCR reading order is a plain top-to-bottom
+// guess unless a text detector service is configured, and cross-
+// chapter character memory (the Series field below) matches
+// characters by exact name only, not visually.
 // "Adapt chapter" runs via
 // /api/comics/adapt/start + jobs/[jobId] (lib/comicsAdapt.ts) - the
 // same background-job/poll pattern music's /api/adapt/start already
@@ -415,14 +419,9 @@ export default function ComicsPage() {
                   the pipeline band below stays full-width since it isn't
                   a reading-measure block). */}
               <div className="mx-auto max-w-xl">
-                <div className="flex items-center gap-2.5">
-                  <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
-                    Give every character their own voice.
-                  </h1>
-                  <span className="rounded-full border border-accent/25 bg-accent/[0.06] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-accent dark:border-white/10 dark:bg-white/10 dark:text-ink-dark/85">
-                    Beta
-                  </span>
-                </div>
+                <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
+                  Give every character their own voice.
+                </h1>
                 {/* Short and human, not the old single run-on sentence
                     justifying itself - real feedback that the hero read
                     as descriptive/salesy. The dropped mechanism detail

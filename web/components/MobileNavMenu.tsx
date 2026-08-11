@@ -96,7 +96,7 @@ export function MobileNavMenu({
             <MobileLink href="/how-it-works" onClick={close} className={item}>How it works</MobileLink>
             <MobileLink href="/pricing" onClick={close} className={item} current={active === "pricing"}>Pricing</MobileLink>
             <MobileLink href="/faq" onClick={close} className={item}>FAQ</MobileLink>
-            <MobileLink href="/docs/api" onClick={close} className={item}>API (Beta)</MobileLink>
+            <MobileLink href="/docs/api" onClick={close} className={item}>API</MobileLink>
             <div className={`my-1.5 border-t ${divider}`} />
             <MobileLink href="/sign-in" onClick={close} className={item}>Sign In</MobileLink>
           </nav>

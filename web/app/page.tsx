@@ -43,15 +43,15 @@ const HOMEPAGE_FAQS = homepageFaqs();
 // screen meant to present two equal choices would silently tilt it
 // toward music by sheer weight of content.
 //
-// Webtoons carries a "Beta" pill (DashboardSidebar.tsx's "Soon" pill is
-// the precedent - same honesty convention, different word because this
-// one IS reachable and working, just not yet at full parity: save/
-// collections/share-link and the background-job adapt call all work
-// the same way music's do now, but sound-effect text over artwork
-// isn't redrawn (speech bubbles only) and OCR reading order is a plain
-// guess without a configured text detector. Remove the pill only once
-// those actually close - see docs/CAPABILITY_MATRIX.md for what's
-// tracked as done.
+// The "Beta" pill that used to sit on the Webtoons tile is gone (real
+// feedback that it read as clutter across the nav/tiles/sidebar) - the
+// gaps it disclosed haven't closed (sound-effect text over artwork
+// still isn't redrawn, speech bubbles only, and OCR reading order is
+// still a plain guess without a configured text detector - see
+// docs/CAPABILITY_MATRIX.md for what's tracked as done), they're just
+// not flagged with a badge here anymore. Full disclosure still lives in
+// prose on /manga-webtoon-translation and in /comics' own meta
+// description (app/comics/layout.tsx).
 //
 // No longer auto-redirects a returning visitor straight to /music or
 // /comics - it used to, and the real cost turned out to be worse than
@@ -186,7 +186,6 @@ export default function Home() {
         <MediumTile
           href="/comics"
           title="Webtoons"
-          badge="Beta"
           tagline="Adapt comic and webtoon dialogue, panel by panel."
           continuing={lastMedium === "webtoons"}
         >
@@ -396,14 +395,12 @@ function MediumTile({
   href,
   title,
   tagline,
-  badge,
   continuing,
   children,
 }: {
   href: string;
   title: string;
   tagline: string;
-  badge?: string;
   // True when lib/mediumPreference.ts's stored value matches this tile -
   // the one thing the remembered preference still does now that "/"
   // no longer auto-redirects on it (see this file's top comment): a
@@ -420,11 +417,6 @@ function MediumTile({
       <div className="overflow-hidden rounded-lg">{children}</div>
       <div className="mt-4 flex items-center gap-2">
         <h2 className="font-serif text-[1.15rem] text-ink dark:text-white">{title}</h2>
-        {badge && (
-          <span className="rounded-full bg-black/[0.05] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-ink/65 dark:bg-white/10 dark:text-white/85">
-            {badge}
-          </span>
-        )}
         {continuing && (
           <span className="text-[11px] text-ink/62 dark:text-white/45">— continue where you left off</span>
         )}
