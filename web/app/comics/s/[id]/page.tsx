@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { Logo } from "@/components/Logo";
 
 type ComicsResult = {
   id: string;
@@ -57,6 +58,9 @@ export default function ComicsSharedResultPage() {
   if (!result) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
+        <div className="fixed left-6 top-6 sm:left-10 sm:top-10">
+          <Logo />
+        </div>
         <p className="font-serif text-2xl text-ink dark:text-ink-dark">
           This link doesn't lead anywhere anymore.
         </p>

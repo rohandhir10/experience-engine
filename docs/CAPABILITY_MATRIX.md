@@ -5707,3 +5707,49 @@ disclosed in the code, not an oversight.
   when `CASTIA_TEST_POSTGRES_URL` is set (1208 pre-existing + 1 new),
   1208 passed + 1 skipped when it isn't - the default `pytest` run
   stays exactly as self-contained as before.
+
+## Design pass, round 3: a fully unbranded 404, and an inconsistent invalid-share-link page
+
+Checked the remaining unreviewed pages/states - individual blog posts,
+the rest of the dashboard sidebar (Adaptations, Favorites, both already
+covered by round 2's screenshots but not individually reviewed until
+now), and two dead-end states this project already has a real, on-brand
+design for on the music side but not the comics side.
+
+- **`/comics/s/[id]` for an invalid or expired share link had no
+  `SiteHeader` at all** - `app/comics/s/[id]/page.tsx` only rendered
+  `SiteHeader` inside the "result found" branch; its "not found" branch
+  (`This link doesn't lead anywhere anymore.`) had nothing above the
+  message - no logo, no way back to the site except the one "Adapt a
+  chapter" button. The equivalent music page, `app/s/[id]/page.tsx`,
+  already gets this right: its own "not found" branch renders a fixed
+  `<Logo />` in the corner even without the full nav. Fixed by mirroring
+  that exact pattern into the comics page - same fixed-position `<Logo
+  />`, same place in the markup.
+- **Every unmatched route on the whole site rendered Next.js's own bare
+  default 404** - `<h1>404</h1><p>This page could not be found.</p>`,
+  no styling, no header, no footer, no link anywhere. No `app/not-
+  found.tsx` existed at all. Every other dead-end state this project
+  has (`/s/[id]` and `/comics/s/[id]` for an invalid share link) already
+  gets real, on-brand treatment; a plain mistyped URL - probably the
+  single most common way a real visitor actually hits a 404 - got
+  nothing. Added `app/not-found.tsx`: `SiteHeader` + `Footer` (so the
+  visitor never loses the site's own navigation), a real serif heading,
+  and two ways forward (home, or the FAQ) - not a special one-off
+  design, the same chrome every other page already uses.
+- **Everything else reviewed this round was already clean:** individual
+  blog posts (checked `why-literal-translation-breaks-song-lyrics`
+  specifically - full citation list, consistent typography, working CTA
+  card), and the previously-screenshotted-but-not-individually-reviewed
+  dashboard Adaptations/Favorites empty states, which already match
+  every other dashboard empty state's pattern exactly.
+- **Tier 1** - both fixes are deterministic UI additions matching an
+  existing, already-established pattern elsewhere in the same codebase,
+  not new judgment calls.
+- **Verified:** `tsc --noEmit` and a fresh `next build` both clean (the
+  build output lists a new `/_not-found` route, confirming it actually
+  compiled in - grepped for it directly rather than assumed); full
+  209-test Vitest suite unaffected. Real Playwright screenshots in both
+  themes of the fixed 404 page and the fixed `/comics/s/[id]` invalid-
+  link state, confirmed visually side by side against `/s/[id]`'s
+  existing equivalent state - not just asserted from the diff.
