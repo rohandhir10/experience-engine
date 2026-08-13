@@ -5619,3 +5619,91 @@ lead got ruled out on `/docs/api`.
   No existing test suite covered `/sign-up` at all before this, so
   nothing needed updating - the verification here was the real-browser
   screenshot check described above.
+
+## A real, production-blocking migration bug, found only by actually running a fresh deploy against real Postgres
+
+Asked to review the dashboard's code and create a real test user to
+browse it - doing that required actually running this project's
+migrations against a real database for the first time in this sandbox,
+which surfaced a serious bug nothing had ever caught: **a fresh Postgres
+database can never reach migration head.** `alembic upgrade head`
+against a brand-new local Postgres failed hard with
+`psycopg.errors.StringDataRightTruncation: value too long for type
+character varying(32)`, on `0010_add_genre_calibration_samples` - the
+newest migration, added earlier this session.
+
+**Root cause:** Alembic's own bookkeeping table, `alembic_version`,
+defaults its `version_num` column to `VARCHAR(32)`. Every migration file
+in this project uses its own descriptive filename as its `revision` id
+(e.g. `"0009_add_character_bibles"`) rather than Alembic's usual random
+hash - fine for revisions 0001-0009 (all ≤ 32 characters), but
+`"0010_add_genre_calibration_samples"` is 34. The moment Alembic tries
+to record that it finished this revision, the `UPDATE alembic_version
+SET version_num=...` write itself overflows the column and the whole
+migration aborts.
+
+**Why nothing caught this already:** `tests/test_migrations.py` - the
+one place this project tests its migration chain - runs exclusively
+against SQLite. SQLite's `VARCHAR(32)` is a type *hint*, not an enforced
+constraint, so the exact same overflowing string that crashes Postgres
+writes into SQLite without a complaint. This bug was completely
+invisible to the test suite and would only ever have surfaced the first
+time someone actually stood up a fresh Postgres database and ran
+migrations against it - which, per Railway's deploy model, is exactly
+what a new production environment (or disaster-recovery restore, or a
+second environment for staging) does. Confirmed by actually installing
+and starting a local Postgres 16 in this sandbox and running the real
+migration chain against it, not by reasoning about the code.
+
+**The fix**, in `0010_add_genre_calibration_samples.py`: before doing
+anything else, on Postgres specifically (SQLite doesn't need it and
+doesn't support the same `ALTER COLUMN TYPE` syntax), widen
+`alembic_version.version_num` to `VARCHAR(255)`. This runs inside the
+same transaction as the rest of the migration step, so by the time
+Alembic's own end-of-step bookkeeping write happens, the column is
+already wide enough - and because it's a real, permanent schema change
+to a persistent table, every future migration benefits too, not just
+this one.
+
+**A real regression test, not just a fix.** Since SQLite structurally
+cannot reproduce this bug, no SQLite-based test could ever catch a
+recurrence. Added `test_migrate_to_head_succeeds_on_real_postgres` to
+`tests/test_migrations.py` - opt-in via `CASTIA_TEST_POSTGRES_URL`
+(unset by default, so the ordinary `pytest` run stays exactly as
+self-contained as every other test in this project; it skips cleanly
+without one). Verified the test is actually meaningful, not just
+present: reverted the fix locally, watched this exact test fail with
+the real `StringDataRightTruncation` error, then re-applied the fix and
+watched it pass - the same "prove the test would have caught the bug"
+discipline this project's other regression tests already follow.
+
+**The dashboard itself, and the test user created to review it:**
+registered a real account through `/api/auth/register`, pulled the
+verification link from the server log (no `RESEND_API_KEY` in this
+sandbox - a disclosed, expected local-dev state, not a bug), verified
+it, and signed in for real - `AUTH_TRUST_HOST=true` was needed locally
+(NextAuth rejects an untrusted host by default; Railway's own domain is
+presumably already trusted in production config). Browsed every
+dashboard page (Home, Adaptations, Favorites, Collections, Usage, API
+Keys, Billing) in both themes as a genuinely signed-in user, and created
+a real collection through the actual backend to confirm a populated
+state, not just the empty one. Everything rendered cleanly and
+consistently - no new design issues found. One already-known limitation
+was directly confirmed rather than just re-flagged: `SiteHeader.tsx`
+always shows "Sign In"/"Get Started," even when signed in, by explicit,
+documented design (its own comment: the header renders from both server
+and client component trees, so it can't cheaply read the session without
+a broader refactor - clicking through still correctly lands on a page
+that shows the real signed-in state and a working sign-out). Left
+alone, since it's a deliberate, reasoned scope boundary already
+disclosed in the code, not an oversight.
+
+- **Tier 1** - a real, deterministic infrastructure bug with a
+  deterministic fix; no judgment call once found.
+- **Verified:** the exact real Postgres error, reproduced and then
+  fixed against a real local Postgres 16 database (not assumed from
+  reading the code); the new regression test both passes with the fix
+  and genuinely fails without it. Full suite: 1209 Python tests passed
+  when `CASTIA_TEST_POSTGRES_URL` is set (1208 pre-existing + 1 new),
+  1208 passed + 1 skipped when it isn't - the default `pytest` run
+  stays exactly as self-contained as before.
