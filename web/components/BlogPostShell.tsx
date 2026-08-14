@@ -68,7 +68,11 @@ export function BlogPostShell({
 
         <article className="prose-none mt-10 space-y-6">{children}</article>
 
-        <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center sm:p-10">
+        {/* dark:border-white/[0.12] - this card's fixed dark background
+            (#181310) is the exact same hex as the page's own dark-mode
+            background, confirmed via computed styles - with no border it
+            was completely invisible as a card in dark mode specifically. */}
+        <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center dark:border dark:border-white/[0.12] sm:p-10">
           <p className="font-serif text-xl text-white sm:text-2xl">{cta.heading}</p>
           <p className="mt-2 max-w-md mx-auto text-[13px] leading-relaxed text-white/68">{cta.body}</p>
           <Link

@@ -163,7 +163,11 @@ export default function CompareChatGptPage() {
             component that rendered it (ScreenshotSlot.tsx) had no other
             callers once this and its two sibling pages dropped it, so it
             was deleted rather than left as dead code. */}
-        <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center sm:p-10">
+        {/* dark:border-white/[0.12] - this card's fixed dark background
+            (#181310) is the exact same hex as the page's own dark-mode
+            background, confirmed via computed styles - with no border it
+            was completely invisible as a card in dark mode specifically. */}
+        <div className="mt-14 rounded-2xl bg-[#181310] p-8 text-center dark:border dark:border-white/[0.12] sm:p-10">
           <p className="font-serif text-xl text-white sm:text-2xl">
             See the whole pipeline on one line.
           </p>

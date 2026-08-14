@@ -293,7 +293,13 @@ export default function Home() {
       </ScrollReveal>
 
       <ScrollReveal className="mx-auto mt-20 w-full max-w-2xl sm:mt-24" delayMs={80}>
-        <div className="rounded-2xl border border-black/[0.10] bg-black/[0.02] p-8 text-center dark:border-transparent dark:bg-[#181310] sm:p-12">
+        {/* dark:border-white/[0.12], not dark:border-transparent - this
+            card's dark background (#181310) is the exact same hex as the
+            page's own dark-mode background (paper-dark in tailwind.config.ts),
+            confirmed via computed styles, not just eyeballed - with no
+            border, the card was completely invisible as a distinct
+            element in dark mode, just text floating on the page. */}
+        <div className="rounded-2xl border border-black/[0.10] bg-black/[0.02] p-8 text-center dark:border dark:border-white/[0.12] dark:bg-[#181310] sm:p-12">
           <p className="font-serif text-[1.35rem] leading-[1.35] text-ink dark:text-white sm:text-[1.6rem]">
             Every AI has an opinion about your words.
             <br />

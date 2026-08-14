@@ -5753,3 +5753,54 @@ design for on the music side but not the comics side.
   themes of the fixed 404 page and the fixed `/comics/s/[id]` invalid-
   link state, confirmed visually side by side against `/s/[id]`'s
   existing equivalent state - not just asserted from the diff.
+
+## Design pass, round 4: six dark-mode CTA cards were invisible, by coincidence of an exact hex match
+
+Reviewed the remaining unreviewed blog posts (all three, individually -
+`what-manga-localization-actually-costs`, `what-transcreation-means`,
+`why-bleu-score-cant-judge-creative-translation`) and the mobile
+`/sign-in` layout. All clean. Checking dark mode on one of the new blog
+posts turned up a real, verified rendering bug that had been sitting in
+plain sight since the pages were first built.
+
+**The bug:** every "premium dark card" CTA block across the site - the
+homepage's "Every AI has an opinion about your words" quote, and the
+closing CTA on `/how-it-works`, all three `/compare/*` pages, and (via
+`BlogPostShell.tsx`) all four blog posts - uses a fixed background color,
+`#181310`, meant to read as a bold black card against the page. In dark
+mode, that's the exact same hex as `paper-dark`, this project's own
+dark-mode PAGE background (`tailwind.config.ts`). Not just visually
+similar - confirmed via actual computed styles
+(`getComputedStyle(el).backgroundColor`) that the card and the page
+`<body>` render `rgb(24, 19, 16)`, identically. Five of the six
+instances also had no border at all; the homepage's version had one in
+light mode but explicitly zeroed it out in dark mode
+(`dark:border-transparent`) - the exact opposite of what it needed. The
+practical effect: in dark mode, every one of these CTA cards was
+completely invisible as a distinct element - white text floating
+directly on the page with no card around it at all, on eight page
+instances total.
+
+**The fix:** added a visible hairline border, `dark:border
+dark:border-white/[0.12]` (the same border-opacity convention every
+other bordered card in this codebase already uses), to all six source
+locations - `app/page.tsx`, `app/how-it-works/page.tsx`,
+`app/compare/deepl/page.tsx`, `app/compare/chatgpt-prompt/page.tsx`,
+`app/compare/google-translate/page.tsx`, and
+`components/BlogPostShell.tsx`. Light mode is untouched everywhere -
+the card already has real contrast against the light cream page
+background there, so no border was needed or added.
+- **What this does NOT do:** doesn't change the card's actual fill
+  color (`#181310` is still correct as an intentional "premium black"
+  accent regardless of site theme - the OG-image/icon routes that also
+  use this exact hex are static images, always rendered dark, and were
+  never part of this bug at all) - only adds the missing separation
+  from the page in dark mode specifically.
+- **Tier 1** - a verified color-equality bug with a deterministic fix,
+  not a judgment call.
+- **Verified:** confirmed the exact bug with real computed-style
+  extraction before touching any code (not just eyeballing a
+  screenshot), `tsc --noEmit` and a fresh `next build` both clean, full
+  209-test Vitest suite unaffected, and real Playwright screenshots
+  after the fix (homepage and one blog post, dark mode) confirming
+  every card now renders as a visibly distinct, bordered panel.

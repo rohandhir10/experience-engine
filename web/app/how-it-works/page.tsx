@@ -196,7 +196,13 @@ export default function HowItWorksPage() {
           </p>
         </section>
 
-        <div className="mt-14 rounded-2xl bg-[#181310] p-8 sm:p-10">
+        {/* dark:border-white/[0.12] - this card's fixed dark background
+            (#181310) is the exact same hex as the page's own dark-mode
+            background, confirmed via computed styles - with no border it
+            was completely invisible as a card in dark mode specifically
+            (light mode's cream page background gives it real contrast
+            with no border needed). */}
+        <div className="mt-14 rounded-2xl bg-[#181310] p-8 dark:border dark:border-white/[0.12] sm:p-10">
           <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">Music</p>
           <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
             Source lyrics in, verified output out.
