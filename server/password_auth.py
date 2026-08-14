@@ -46,6 +46,10 @@ logger = logging.getLogger("castia.password_auth")
 _PBKDF2_ITERATIONS = 260_000
 _MIN_PASSWORD_LENGTH = 8
 _TOKEN_TTL = timedelta(hours=24)
+# Shorter than email verification's 24h - a reset link is a live
+# credential to an existing account (not just an activation step), so it
+# sits in an inbox for less time before it stops working.
+_RESET_TOKEN_TTL = timedelta(hours=1)
 
 
 def _use_db() -> bool:
@@ -108,6 +112,20 @@ def _issue_and_send_token(session, user) -> None:
         )
     )
     emailing.send_verification_email(user.email, raw_token)
+
+
+def _issue_and_send_reset_token(session, user) -> None:
+    from .db_models import PasswordResetToken
+
+    raw_token = secrets.token_urlsafe(32)
+    session.add(
+        PasswordResetToken(
+            token_hash=_hash_token(raw_token),
+            user_id=user.id,
+            expires_at=datetime.now(timezone.utc) + _RESET_TOKEN_TTL,
+        )
+    )
+    emailing.send_password_reset_email(user.email, raw_token)
 
 
 def register(email: str, password: str) -> dict | None:
@@ -219,3 +237,63 @@ def resend_verification(email: str) -> dict:
             _issue_and_send_token(session, user)
             session.commit()
     return {"status": "ok"}
+
+
+def request_password_reset(email: str) -> dict:
+    """Always {"status": "ok"} regardless of whether the email exists, is
+    Google-only, or belongs to a password account - same no-enumeration
+    rule as register()/resend_verification() above, and for the same
+    reason: an attacker probing this endpoint must not be able to tell a
+    real password account from a nonexistent or Google-only one just by
+    watching the response. A reset link is only ever issued for an
+    existing password account (google_sub-only rows have no password to
+    reset)."""
+    if not _use_db():
+        return {"status": "ok"}
+
+    from . import db
+    from .db_models import User
+
+    email = email.strip().lower()
+    with db.session_scope() as session:
+        user = session.query(User).filter_by(email=email).one_or_none()
+        if user is not None and user.password_hash is not None:
+            _issue_and_send_reset_token(session, user)
+            session.commit()
+    return {"status": "ok"}
+
+
+def reset_password(raw_token: str, new_password: str) -> dict:
+    """{"status": "ok"} on a real, unexpired, unused token - the password
+    is updated and the token is consumed so the same link can't be
+    replayed. {"status": "invalid"} for anything else (unknown, expired,
+    or already-used token); the caller doesn't get to distinguish which,
+    same as verify_email_token's contract. Also marks the account
+    email_verified - clicking a link that only the inbox owner could have
+    received is exactly as strong a proof of ownership as clicking a
+    verification link is, so an unverified account that resets its
+    password shouldn't stay stuck unverified. Raises ValueError on a
+    too-short new password before touching the database, same as
+    register()."""
+    if len(new_password) < _MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Password must be at least {_MIN_PASSWORD_LENGTH} characters.")
+    if not _use_db():
+        return {"status": "invalid"}
+
+    from . import db
+    from .db_models import PasswordResetToken, User
+
+    with db.session_scope() as session:
+        token = session.get(PasswordResetToken, _hash_token(raw_token))
+        if token is None or token.used_at is not None:
+            return {"status": "invalid"}
+        if _as_aware_utc(token.expires_at) < datetime.now(timezone.utc):
+            return {"status": "invalid"}
+        user = session.get(User, token.user_id)
+        if user is None:
+            return {"status": "invalid"}
+        user.password_hash = hash_password(new_password)
+        user.email_verified = True
+        token.used_at = datetime.now(timezone.utc)
+        session.commit()
+        return {"status": "ok"}

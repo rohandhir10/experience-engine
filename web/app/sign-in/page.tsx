@@ -141,9 +141,17 @@ export default async function SignInPage({
                 />
               </div>
               <div>
-                <label htmlFor="password" className="text-[12px] text-ink/75 dark:text-ink-dark/75">
-                  Password
-                </label>
+                <div className="flex items-baseline justify-between">
+                  <label htmlFor="password" className="text-[12px] text-ink/75 dark:text-ink-dark/75">
+                    Password
+                  </label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-[12px] text-ink/65 underline decoration-ink/15 underline-offset-4 hover:text-ink/78 dark:text-ink-dark/65 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <input
                   id="password"
                   name="password"

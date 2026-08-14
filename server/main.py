@@ -157,6 +157,15 @@ PANEL_DAILY_LIMIT = int(os.environ.get("CASTIA_PANEL_DAILY_LIMIT", "400"))
 PANEL_MONTHLY_LIMIT = int(os.environ.get("CASTIA_PANEL_MONTHLY_LIMIT", "2000"))
 # The quota scope name for the two limits above - see quota._bucket_key.
 PANEL_QUOTA_SCOPE = "panel"
+# Per-IP daily ceiling on /api/auth/forgot-password. That endpoint's
+# response can never reveal whether an email exists (password_auth.py's
+# no-enumeration rule), which also means it can never rate-limit per
+# account - the only lever left to stop it being used to spam a victim's
+# inbox with reset links is capping how many requests one IP can fire in
+# a day. Its own scope (not DAILY_LIMIT's) since this has nothing to do
+# with adaptation cost.
+PASSWORD_RESET_DAILY_LIMIT = int(os.environ.get("CASTIA_PASSWORD_RESET_DAILY_LIMIT", "5"))
+PASSWORD_RESET_QUOTA_SCOPE = "password-reset"
 # A full-resolution chapter-slice PNG can be several megabytes; this caps
 # a single panel upload well above any normal slice, not just above a
 # typical one, so this only ever rejects something clearly wrong (a
@@ -561,6 +570,15 @@ class VerifyEmailRequest(BaseModel):
 
 class ResendVerificationRequest(BaseModel):
     email: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
 
 
 class FavoriteRequest(BaseModel):
@@ -1481,6 +1499,31 @@ def auth_verify_email(request: VerifyEmailRequest, http_request: Request) -> dic
 def auth_resend_verification(request: ResendVerificationRequest, http_request: Request) -> dict:
     _require_internal_secret(http_request)
     return password_auth.resend_verification(request.email)
+
+
+@app.post("/api/auth/forgot-password")
+def auth_forgot_password(request: ForgotPasswordRequest, http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    # See PASSWORD_RESET_DAILY_LIMIT's comment: this is the only lever
+    # available to stop the endpoint being used to spam a victim's inbox,
+    # since the response itself can never reveal whether the email exists.
+    if not quota.check_and_increment(
+        _client_ip(http_request), PASSWORD_RESET_DAILY_LIMIT, scope=PASSWORD_RESET_QUOTA_SCOPE
+    ):
+        raise HTTPException(status_code=429, detail="Too many password reset requests. Try again tomorrow.")
+    return password_auth.request_password_reset(request.email)
+
+
+@app.post("/api/auth/reset-password")
+def auth_reset_password(request: ResetPasswordRequest, http_request: Request) -> dict:
+    _require_internal_secret(http_request)
+    try:
+        result = password_auth.reset_password(request.token, request.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if result["status"] != "ok":
+        raise HTTPException(status_code=400, detail="This reset link is invalid or has expired.")
+    return result
 
 
 @app.post("/webhooks/paddle")

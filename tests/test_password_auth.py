@@ -34,6 +34,17 @@ def sent_emails(monkeypatch):
     return sent
 
 
+@pytest.fixture()
+def sent_reset_emails(monkeypatch):
+    """Same as sent_emails, for send_password_reset_email - lets tests
+    grab the real raw token a forgot-password request generated."""
+    sent: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        password_auth.emailing, "send_password_reset_email", lambda to, token: sent.append((to, token))
+    )
+    return sent
+
+
 def _make_user(email: str, *, password_hash: str | None = None, google_sub: str | None = None, verified: bool = False):
     from server.db_models import User
 
@@ -196,3 +207,86 @@ class TestResendVerification:
         result = password_auth.resend_verification("done@example.com")
         assert result == {"status": "ok"}
         assert len(sent_emails) == 1  # no second send
+
+
+class TestRequestPasswordReset:
+    def test_sends_a_reset_link_for_a_real_password_account(self, sqlite_db, sent_emails, sent_reset_emails):
+        password_auth.register("reset@example.com", "a-real-password")
+        result = password_auth.request_password_reset("reset@example.com")
+        assert result == {"status": "ok"}
+        assert len(sent_reset_emails) == 1
+        assert sent_reset_emails[0][0] == "reset@example.com"
+
+    def test_is_a_silent_no_op_for_an_unknown_email(self, sqlite_db, sent_reset_emails):
+        result = password_auth.request_password_reset("nobody@example.com")
+        assert result == {"status": "ok"}
+        assert sent_reset_emails == []
+
+    def test_is_a_silent_no_op_for_a_google_only_account(self, sqlite_db, sent_reset_emails):
+        _make_user("googleuser@example.com", google_sub="sub-abc", verified=True)
+        result = password_auth.request_password_reset("googleuser@example.com")
+        assert result == {"status": "ok"}
+        assert sent_reset_emails == []
+
+    def test_returns_ok_without_a_database(self, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        assert password_auth.request_password_reset("reset@example.com") == {"status": "ok"}
+
+
+class TestResetPassword:
+    def test_valid_token_resets_the_password_and_is_single_use(self, sqlite_db, sent_emails, sent_reset_emails):
+        password_auth.register("reset@example.com", "old-password")
+        password_auth.request_password_reset("reset@example.com")
+        _, raw_token = sent_reset_emails[0]
+
+        result = password_auth.reset_password(raw_token, "brand-new-password")
+        assert result == {"status": "ok"}
+
+        assert password_auth.authenticate("reset@example.com", "brand-new-password")["status"] == "ok"
+        assert password_auth.authenticate("reset@example.com", "old-password")["status"] == "invalid"
+
+        # Same token again: already used, must not succeed twice.
+        assert password_auth.reset_password(raw_token, "another-password")["status"] == "invalid"
+
+    def test_resetting_the_password_also_verifies_the_email(self, sqlite_db, sent_emails, sent_reset_emails):
+        password_auth.register("unverified-reset@example.com", "old-password")
+        password_auth.request_password_reset("unverified-reset@example.com")
+        _, raw_token = sent_reset_emails[0]
+
+        password_auth.reset_password(raw_token, "brand-new-password")
+        result = password_auth.authenticate("unverified-reset@example.com", "brand-new-password")
+        assert result["status"] == "ok"
+
+    def test_unknown_token_is_invalid(self, sqlite_db):
+        assert password_auth.reset_password("not-a-real-token", "brand-new-password") == {"status": "invalid"}
+
+    def test_expired_token_is_invalid(self, sqlite_db, sent_emails, sent_reset_emails):
+        password_auth.register("expired-reset@example.com", "old-password")
+        password_auth.request_password_reset("expired-reset@example.com")
+        _, raw_token = sent_reset_emails[0]
+
+        from server.db_models import PasswordResetToken
+
+        with db.session_scope() as session:
+            token = session.get(PasswordResetToken, password_auth._hash_token(raw_token))
+            token.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+            session.commit()
+
+        assert password_auth.reset_password(raw_token, "brand-new-password") == {"status": "invalid"}
+
+    def test_short_new_password_raises_before_touching_the_database(self, sqlite_db, sent_emails, sent_reset_emails):
+        password_auth.register("shortpw@example.com", "old-password")
+        password_auth.request_password_reset("shortpw@example.com")
+        _, raw_token = sent_reset_emails[0]
+
+        with pytest.raises(ValueError):
+            password_auth.reset_password(raw_token, "short")
+        # The old password still works (account remains unverified, since
+        # the raise happened before any update) - a wrong password against
+        # it is still rejected as invalid.
+        assert password_auth.authenticate("shortpw@example.com", "wrong-password")["status"] == "invalid"
+        assert password_auth.authenticate("shortpw@example.com", "old-password")["status"] == "unverified"
+
+    def test_returns_invalid_without_a_database(self, monkeypatch):
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        assert password_auth.reset_password("whatever", "brand-new-password") == {"status": "invalid"}

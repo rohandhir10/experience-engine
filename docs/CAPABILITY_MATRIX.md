@@ -5804,3 +5804,72 @@ background there, so no border was needed or added.
   209-test Vitest suite unaffected, and real Playwright screenshots
   after the fix (homepage and one blog post, dark mode) confirming
   every card now renders as a visibly distinct, bordered panel.
+
+## Forgot/reset password, closing the one account-recovery gap in email/password sign-up
+
+Email/password accounts (`server/password_auth.py`) had register, verify,
+login, and resend-verification, but no way back in for someone who
+forgot their password - the only account-recovery path this product
+shipped without one. Built end to end, mirroring the exact security
+shape the verification-token flow already established rather than
+inventing a new one.
+
+**Backend:** a new `PasswordResetToken` model
+(`server/db_models.py`) - identical shape to `EmailVerificationToken`
+(hashed-token primary key, `user_id` FK, `expires_at`, single-use
+`used_at`) but a 1-hour TTL instead of 24 hours, since a reset link is a
+live credential to an existing account, not just an activation step.
+Migration `0011_add_password_reset_tokens` creates the table (verified
+against both a fresh SQLite db and a real local Postgres 16 instance,
+given `0010`'s migration bug earlier in this doc - this revision's own
+id is well under the now-widened `VARCHAR(255)` ceiling either way).
+`password_auth.request_password_reset(email)` and `reset_password(token,
+new_password)` follow register()/verify_email_token()'s conventions
+exactly: `request_password_reset` always returns `{"status": "ok"}`
+regardless of whether the email exists, is Google-only, or belongs to a
+real password account (same no-enumeration rule the rest of the module
+already follows) and only actually issues a token for a real password
+account; `reset_password` rejects an unknown/expired/already-used token
+identically as `{"status": "invalid"}`, and on success also flips
+`email_verified` to true - clicking a link only the inbox owner could
+have received is exactly as strong a proof of address ownership as
+clicking a verification link is, so a reset shouldn't leave an
+unverified account stuck unverified. `server/emailing.py` gained
+`send_password_reset_email` + `password_reset_link`; the Resend-call
+logic itself was generalized into one shared `_send()` helper instead of
+duplicating the whole `httpx.post`/error-handling block a second time.
+Two new endpoints, `/api/auth/forgot-password` and
+`/api/auth/reset-password`, gated by `_require_internal_secret` like
+every other auth route. `/forgot-password` also gets its own per-IP
+daily quota (`CASTIA_PASSWORD_RESET_DAILY_LIMIT`, default 5, via
+`server/quota.py`'s existing scoped-bucket support) - the one abuse
+vector this endpoint has: since its response can never reveal whether an
+email exists, per-account throttling isn't possible, so per-IP request
+volume is the only lever left to stop it being used to spam a victim's
+inbox with reset links.
+
+**Frontend:** `/forgot-password` (email form, always resolves to the
+same "check your email" state) and `/reset-password` (reads `?token=`
+from the reset link, new-password form, single-use exactly like
+`/verify-email`'s existing client-component/Suspense pattern) plus their
+proxy routes under `app/api/auth/*`. Added a "Forgot password?" link
+next to the password field on `/sign-in`.
+
+- **Tier 1** - deterministic token issuance/consumption and a
+  conventional rate limit, not a judgment call.
+- **Verified:** 10 new backend tests (`tests/test_password_auth.py`, 32
+  total in that file, 1218 passing across the whole backend suite)
+  covering token issuance/expiry/single-use/reuse
+  and the no-enumeration behavior for unknown and Google-only emails;
+  the new migration run against both fresh SQLite and a real local
+  Postgres 16 instance (table + FK confirmed via `\d`); a full manual
+  end-to-end pass against that same real Postgres and a locally-running
+  API server - register → verify → forgot-password → extract the real
+  token from the (Resend-unconfigured) log line → reset-password → login
+  succeeds with the new password, fails with the old one, and a replayed
+  reset token is rejected with 400; the daily rate limit confirmed
+  tripping to 429 on the 5th same-IP request within a UTC day. `tsc
+  --noEmit`, a fresh `next build`, and the full 209-test Vitest suite all
+  clean. The local Postgres database and credentials created for this
+  testing were torn down afterward (`DROP DATABASE`, password cleared,
+  service stopped) - no state left behind.

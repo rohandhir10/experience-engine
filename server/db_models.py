@@ -374,6 +374,32 @@ class EmailVerificationToken(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class PasswordResetToken(Base):
+    """One row per outstanding "reset your password" link
+    (server/password_auth.py). Same shape and same reasoning as
+    EmailVerificationToken above - only the SHA-256 hash of the actual
+    token is stored, so a database read alone can never mint a valid
+    link, and a fast hash is fine since the token itself is 32 random
+    bytes of entropy, not a low-entropy secret.
+
+    Single-use: reset_password sets used_at, and the row is never reused
+    after that even if the same link is clicked twice. Expired (now >
+    expires_at) or already-used tokens are rejected identically - the
+    caller only needs to know the link no longer works, not why. A
+    shorter TTL than email verification (see _RESET_TOKEN_TTL) since a
+    reset link sitting unused in an inbox is a real credential, not just
+    an activation step.
+    """
+
+    __tablename__ = "password_reset_tokens"
+
+    token_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class CharacterBibleEntry(Base):
     """One character's persisted voice, in one user's one comics series -
     the cross-chapter memory engine/comics_adapt.py's CharacterVoice

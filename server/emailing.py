@@ -1,5 +1,5 @@
-"""Outbound transactional email - today, exactly one message type
-(email/password sign-up verification, server/password_auth.py).
+"""Outbound transactional email - two message types today, both from
+server/password_auth.py: sign-up verification and password reset.
 
 Sends via Resend (https://resend.com) when RESEND_API_KEY is set, the
 same opt-in-via-env-var convention PADDLE_WEBHOOK_SECRET already
@@ -40,6 +40,10 @@ def verification_link(token: str) -> str:
     return f"{WEB_APP_URL}/verify-email?token={token}"
 
 
+def password_reset_link(token: str) -> str:
+    return f"{WEB_APP_URL}/reset-password?token={token}"
+
+
 def _verification_email_html(link: str) -> str:
     return (
         "<p>Verify your email for Castia by clicking the link below:</p>"
@@ -48,25 +52,32 @@ def _verification_email_html(link: str) -> str:
     )
 
 
-def send_verification_email(to_email: str, token: str) -> None:
-    """Called once per registration/resend with a freshly minted raw
-    token (server/password_auth.py holds only its hash - this is the one
-    place the raw value exists outside the user's inbox). Never raises:
-    a delivery failure here should never take down a signup request that
-    otherwise succeeded, so a Resend error is logged, not propagated -
-    see the module docstring for why this degrades to logging instead of
-    silently pretending to succeed.
-    """
-    link = verification_link(token)
-    subject = "Verify your email for Castia"
+def _password_reset_email_html(link: str) -> str:
+    return (
+        "<p>Reset your Castia password by clicking the link below. "
+        "This link expires in 1 hour.</p>"
+        f'<p><a href="{link}">{link}</a></p>'
+        "<p>If you didn't request this, you can ignore this email - your "
+        "password won't change unless you click the link above and "
+        "choose a new one.</p>"
+    )
 
+
+def _send(to_email: str, subject: str, html: str, link: str) -> None:
+    """Shared Resend call for every message type this module sends.
+    Never raises: a delivery failure here should never take down the
+    request that triggered it, so a Resend error is logged, not
+    propagated - see the module docstring for why this degrades to
+    logging instead of silently pretending to succeed. `link` is passed
+    separately (rather than re-extracted from `html`) purely so the
+    no-provider/failure log lines below can print it plainly.
+    """
     api_key = os.environ.get("RESEND_API_KEY")
     if not api_key:
         logger.info(
-            "verification email (RESEND_API_KEY not set - not actually sent): "
-            "to=%s subject=%r link=%s",
-            to_email,
+            "%s (RESEND_API_KEY not set - not actually sent): to=%s link=%s",
             subject,
+            to_email,
             link,
         )
         return
@@ -81,25 +92,40 @@ def send_verification_email(to_email: str, token: str) -> None:
                 "from": EMAIL_FROM,
                 "to": [to_email],
                 "subject": subject,
-                "html": _verification_email_html(link),
+                "html": html,
             },
             timeout=10.0,
         )
         response.raise_for_status()
         # Deliberately no link/token in this line - once a real send
-        # succeeds, the raw verification link shouldn't linger in server
-        # logs the way it does in the no-provider fallback above, which
-        # only ever logs it because logging IS the delivery mechanism at
-        # that point.
-        logger.info("verification email sent via Resend: to=%s", to_email)
+        # succeeds, the raw link shouldn't linger in server logs the way
+        # it does in the no-provider fallback above, which only ever logs
+        # it because logging IS the delivery mechanism at that point.
+        logger.info("%s sent via Resend: to=%s", subject, to_email)
     except Exception as exc:  # noqa: BLE001 - deliberately broad; see docstring
         # Still logs the link on failure - a delivery error must not
-        # strand the user with no way to verify, so the same fallback the
+        # strand the user with no way to act, so the same fallback the
         # no-provider path always offers stays available here too.
         logger.warning(
-            "verification email failed to send via Resend (%s): to=%s subject=%r link=%s",
+            "%s failed to send via Resend (%s): to=%s link=%s",
+            subject,
             exc,
             to_email,
-            subject,
             link,
         )
+
+
+def send_verification_email(to_email: str, token: str) -> None:
+    """Called once per registration/resend with a freshly minted raw
+    token (server/password_auth.py holds only its hash - this is the one
+    place the raw value exists outside the user's inbox)."""
+    link = verification_link(token)
+    _send(to_email, "Verify your email for Castia", _verification_email_html(link), link)
+
+
+def send_password_reset_email(to_email: str, token: str) -> None:
+    """Called once per forgot-password request with a freshly minted raw
+    token (server/password_auth.py holds only its hash - this is the one
+    place the raw value exists outside the user's inbox)."""
+    link = password_reset_link(token)
+    _send(to_email, "Reset your Castia password", _password_reset_email_html(link), link)
