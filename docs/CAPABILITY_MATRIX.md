@@ -5873,3 +5873,27 @@ next to the password field on `/sign-in`.
   clean. The local Postgres database and credentials created for this
   testing were torn down afterward (`DROP DATABASE`, password cleared,
   service stopped) - no state left behind.
+
+**Follow-up: real browser UI verification.** The pass above exercised
+the API directly (`curl`); a second pass drove the actual pages through
+Playwright against a real Postgres 16 instance, a locally-running
+`uvicorn` API server, and a locally-running `next start` frontend
+(`AUTH_TRUST_HOST=true`, per this project's known local-dev gotcha) -
+clicking through the UI itself rather than calling the endpoints it
+talks to. Confirmed: the "Forgot password?" link on `/sign-in` is
+visible and navigates to `/forgot-password`; submitting that form
+always lands on the same "Check your email" state; the real reset link
+extracted from the (Resend-unconfigured) log line loads `/reset-password`
+and renders the new-password form; a too-short password is blocked by
+the field's own `minLength`; a valid new password shows "Password
+updated" and a working "Sign in" link; signing in through `/sign-in`
+with the new password lands on `/dashboard`; the old password is then
+rejected with the existing "Wrong email or password" message; replaying
+the same reset token a second time correctly shows "This reset link is
+invalid or has expired"; visiting `/reset-password` with no token at
+all shows the same "That link isn't valid" state `/verify-email`
+already uses for its own invalid-token case; and both `/forgot-password`
+and `/reset-password` render cleanly in dark mode
+(`colorScheme: "dark"`), matching the rest of the site's design system.
+All local Postgres/backend/frontend processes and database state from
+this pass were torn down afterward as well.
