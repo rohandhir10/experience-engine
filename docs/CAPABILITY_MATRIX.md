@@ -6051,3 +6051,49 @@ turn is a fast, correct no-op.
   cores, so production hardware with dedicated cores per side should see
   at least this much improvement, not less. All local Postgres/backend
   processes and database state from this pass were torn down afterward.
+
+## Fixed an X-Forwarded-For IP-spoofing bypass on every per-IP quota check
+
+Last open item from the security/scalability/capacity audit.
+`_client_ip` (`server/main.py`) is what every anti-abuse/cost quota in
+this file is bucketed under - `/api/adapt`, `/api/comics/adapt`,
+`/api/comics/ocr`, `/api/comics/redraw`, and the auth endpoints' daily
+limits. For requests through the Next.js proxy this was already solid
+(X-Castia-Client-IP, trusted only alongside the internal secret). The
+gap was the fallback for DIRECT callers - anyone hitting this service's
+own public URL straight, which `/api/adapt` and the two per-panel comics
+endpoints allow with no secret at all by design: the old code trusted
+`x-forwarded-for.split(",")[0]`, the LEFTMOST entry. A legitimate
+reverse proxy (Railway's edge, same as nginx's `proxy_add_x_forwarded_for`
+convention) *appends* its own observed peer address to the right end of
+that header - it never removes what arrived ahead of it - so the
+leftmost entry for a direct caller is whatever THEY put there. Anyone
+could send `X-Forwarded-For: <anything>` and rotate it per request to
+get a fresh IP-quota allowance every time, for free, on every metered
+endpoint in this file.
+
+**The fix:** trust only the rightmost `CASTIA_TRUSTED_PROXY_HOPS`
+entries (default 1 - Railway's edge is the only reverse proxy this
+deployment sits behind for direct traffic today), since those are the
+only entries an untrusted client cannot fabricate. Tunable the same way
+every other constant in this file is, with an explicit warning in its
+own comment that raising it too high walks back toward the same
+vulnerability one hop at a time.
+- **Tier 1** - a deterministic parsing fix (which index in a header to
+  trust), not a judgment call.
+- **Verified:** updated `tests/test_client_ip.py`'s existing
+  direct-caller test (it previously asserted the vulnerable leftmost
+  behavior as correct) and added 3 new tests - a spoofed/rotating
+  leftmost entry no longer wins, `CASTIA_TRUSTED_PROXY_HOPS` is honored
+  for a deeper trusted-proxy chain, and a single untouched entry still
+  works. 12/12 pass in that file, full suite green (1223 passed, 2
+  skipped). Then reproduced the exact exploit against a real running
+  instance (Postgres-backed, `CASTIA_DAILY_LIMIT=2`): 5 requests to
+  `/api/adapt` with a different fabricated leftmost IP each time but the
+  same real rightmost address returned exactly 2 successes (the
+  configured limit) then 429 for the rest, regardless of the rotating
+  fake value - and a request with a genuinely different rightmost
+  address got its own fresh allowance, confirming the fix separates
+  real users correctly rather than over-merging everyone. Local
+  Postgres/backend processes and database state from this verification
+  were torn down afterward.

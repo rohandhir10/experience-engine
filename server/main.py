@@ -405,6 +405,31 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# How many reverse-proxy hops sit between the internet and this service
+# for a DIRECT (non-proxied) caller - see _client_ip's x-forwarded-for
+# fallback below. Every hop that legitimately forwards a request
+# *appends* its own observed peer address to the end of the header
+# (standard `proxy_add_x_forwarded_for`-style behavior, e.g. nginx/most
+# platform edges including Railway's), so the entries a client can
+# freely fabricate are the ones on the LEFT, not the right - only the
+# rightmost TRUSTED_PROXY_HOPS entries were actually appended by proxies
+# this deployment trusts.
+#
+# Default 1: Railway's own edge is the only reverse proxy this
+# deployment sits behind for direct traffic (browser-facing requests
+# through the Next.js proxy never reach this fallback at all - see
+# X-Castia-Client-IP below). Trusting index 0 instead (this function's
+# previous behavior) let anyone hitting this service's public URL
+# directly fabricate an X-Forwarded-For header and rotate the claimed
+# address per request to bypass every IP-based quota check in this
+# file for free - found during a security audit, not from an incident.
+# Tune via CASTIA_TRUSTED_PROXY_HOPS if that chain ever grows another
+# hop (e.g. an additional load balancer in front of Railway's edge) -
+# get this wrong in the other direction (too high) and it degrades back
+# toward the same vulnerability, one hop at a time.
+TRUSTED_PROXY_HOPS = int(os.environ.get("CASTIA_TRUSTED_PROXY_HOPS", "1"))
+
+
 def _client_ip(request: Request) -> str:
     """The address a request's quota (server/quota.py) is bucketed under.
 
@@ -425,9 +450,12 @@ def _client_ip(request: Request) -> str:
     evidence of anything and must fall through to the peer address.
     Otherwise quota would be opt-out for anyone who reads this file.
 
-    Direct callers (the public /v1 API, called server-to-server rather
-    than through the proxy) still reach here via the platform's own edge
-    proxy and are still read from x-forwarded-for, unchanged.
+    Direct callers (the public /v1 API, and anyone who calls the
+    browser-facing endpoints straight against this service's own public
+    URL instead of through the Next.js proxy) still reach here via the
+    platform's own edge proxy and are read from x-forwarded-for - see
+    TRUSTED_PROXY_HOPS above for why only its rightmost entries are ever
+    trusted.
     """
     if INTERNAL_API_SECRET and request.headers.get("x-castia-internal-secret") == INTERNAL_API_SECRET:
         forwarded_client = (request.headers.get("x-castia-client-ip") or "").strip()
@@ -436,7 +464,10 @@ def _client_ip(request: Request) -> str:
 
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        hops = [hop.strip() for hop in forwarded.split(",") if hop.strip()]
+        if hops:
+            index = max(0, len(hops) - TRUSTED_PROXY_HOPS)
+            return hops[index]
     return request.client.host if request.client else "unknown"
 
 

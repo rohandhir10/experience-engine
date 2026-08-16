@@ -125,8 +125,57 @@ def test_blank_forwarded_client_ip_falls_through_rather_than_bucketing_everyone_
 def test_still_falls_back_to_x_forwarded_for_for_direct_callers():
     """The public /v1 API is called server-to-server, not through the
     Next.js proxy, and reaches FastAPI through the platform's own edge
-    proxy - which sets x-forwarded-for. That path is unchanged."""
+    proxy - which sets x-forwarded-for. That path is unchanged - only
+    which entry within it is trusted changed (see the spoofing tests
+    below): with TRUSTED_PROXY_HOPS=1 (the default), the RIGHTMOST entry
+    is the one the trusted edge proxy itself appended."""
     ip = main._client_ip(_FakeRequest({"x-forwarded-for": "203.0.113.9, 70.41.3.18"}))
+    assert ip == "70.41.3.18"
+
+
+# --- The X-Forwarded-For quota-bypass this file's tests were extended
+# to cover: a direct (non-proxied) caller can freely set ANY value in
+# x-forwarded-for. Trusting the leftmost entry (this function's
+# behavior before this fix) let such a caller rotate a fabricated
+# address per request and bypass every IP-based quota check in this
+# file for free - the rightmost TRUSTED_PROXY_HOPS entries are the only
+# ones an untrusted client cannot fabricate, since a legitimate reverse
+# proxy appends (never replaces) its own observed peer address there.
+
+
+def test_a_spoofed_leftmost_entry_does_not_win():
+    """The attack this function used to be vulnerable to: fabricate a
+    fake leading entry, rotate it per request, and the real IP - which
+    the trusted edge proxy itself appended on the right - must still be
+    what quota actually buckets under."""
+    ip = main._client_ip(
+        _FakeRequest({"x-forwarded-for": "6.6.6.6, 203.0.113.55"})
+    )
+    assert ip == "203.0.113.55"
+
+    # Rotating the fabricated value changes nothing - the trusted,
+    # attacker-uncontrollable rightmost entry stays the same.
+    ip_again = main._client_ip(
+        _FakeRequest({"x-forwarded-for": "9.9.9.9, 203.0.113.55"})
+    )
+    assert ip_again == ip == "203.0.113.55"
+
+
+def test_trusted_proxy_hops_is_tunable_for_a_deeper_proxy_chain(monkeypatch):
+    """If a deployment ever sits behind two trusted reverse proxies
+    instead of one, the second-from-right entry is the one to trust -
+    tunable via CASTIA_TRUSTED_PROXY_HOPS rather than hardcoded."""
+    monkeypatch.setattr(main, "TRUSTED_PROXY_HOPS", 2)
+    ip = main._client_ip(
+        _FakeRequest({"x-forwarded-for": "6.6.6.6, 203.0.113.55, 70.41.3.18"})
+    )
+    assert ip == "203.0.113.55"
+
+
+def test_a_single_entry_is_trusted_as_is():
+    """No spoofed prefix at all - the one entry present is the trusted
+    edge proxy's own observed peer address."""
+    ip = main._client_ip(_FakeRequest({"x-forwarded-for": "203.0.113.9"}))
     assert ip == "203.0.113.9"
 
 
