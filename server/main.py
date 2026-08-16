@@ -105,13 +105,13 @@ from pydantic import BaseModel, ValidationError
 from engine import comics_align, comics_ocr, comics_read, comics_vision, config
 from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
-from engine.comics_adapt import adapt_chapter, character_bible_updates, merge_character_bible
+from engine.comics_adapt import ChapterTimeoutError, adapt_chapter, character_bible_updates, merge_character_bible
 from engine.comics_ocr import OcrError
 from engine import comics_redraw
 from engine.comics_redraw import RedrawError, redraw_panel_detailed
 from engine.llm_client import LLMError, create_default_client, create_vision_client
 from engine.models import SUPPORTED_LANGUAGES, BubbleInput, ChapterInput, SectionInput, SongInput
-from engine.pipeline import run_engine
+from engine.pipeline import EngineTimeoutError, run_engine
 from engine.text_ingest import split_into_sections
 from engine.verify import verify_result
 from engine.youtube_ingest import IngestError
@@ -1441,11 +1441,34 @@ def _comics_adapt_or_serve_cached(
             status_code=502,
             detail="The engine hit a problem processing this chapter. Try again in a moment.",
         ) from exc
+    except ChapterTimeoutError as exc:
+        # Deliberately BEFORE the generic RuntimeError branch below, and
+        # deliberately verbatim: ChapterTimeoutError is a RuntimeError
+        # subclass whose message is written FOR the end user and is
+        # genuinely actionable ("...(3/40 panels finished). Try again, or
+        # with fewer panels."). Blanket-genericizing every RuntimeError
+        # destroyed it - caught by tests/test_comics_adapt_jobs.py rather
+        # than by reading the code.
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        logger.error("comics adapt timed out: %s", exc)
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     except RuntimeError as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
+        # Generic, same as the LLMError branch above - a RuntimeError that
+        # reaches HERE (the timeout subclass is handled above) is a
+        # deployment/configuration problem: engine/config.py raises
+        # "OPENAI_API_KEY is not set. Export it before running the
+        # engine..." for a missing provider key, which is developer-facing
+        # detail an end user can neither act on nor should see. The real
+        # message still goes to the log line above, and to Sentry via
+        # server/monitoring.py - same split /health/db uses.
         logger.error("comics adapt configuration failure: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=500,
+            detail="This chapter couldn't be adapted right now. Try again in a moment.",
+        ) from exc
 
     return {"id": result_id, **payload}
 
@@ -1512,11 +1535,20 @@ def _run_comics_job_body(
         jobs.set_error(
             job_id, "The engine hit a problem processing this chapter. Try again in a moment."
         )
+    except ChapterTimeoutError as exc:
+        # Verbatim and before the generic branch - see the matching
+        # comment on /api/comics/adapt above.
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        logger.error("comics job id=%s timed out: %s", job_id, exc)
+        jobs.set_error(job_id, str(exc))
     except RuntimeError as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
+        # Generic for the poller, detailed in the log - see the matching
+        # comment on /api/comics/adapt's RuntimeError branch above.
         logger.error("comics job id=%s configuration failure: %s", job_id, exc)
-        jobs.set_error(job_id, str(exc))
+        jobs.set_error(job_id, "This chapter couldn't be adapted right now. Try again in a moment.")
     except Exception as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
@@ -2332,11 +2364,24 @@ def _adapt_or_serve_cached(
             status_code=502,
             detail="The engine hit a problem processing this song. Try again in a moment.",
         ) from exc
+    except EngineTimeoutError as exc:
+        # Verbatim and before the generic branch - see the matching
+        # comment on /api/comics/adapt above.
+        if debited is not None:
+            credits.refund(user_id, debited, reference=result_id)
+        logger.error("%s id=%s timed out: %s", log_prefix, result_id, exc)
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
     except RuntimeError as exc:
         if debited is not None:
             credits.refund(user_id, debited, reference=result_id)
+        # Generic for the caller, detailed in the log - see the matching
+        # comment on /api/comics/adapt's RuntimeError branch above for
+        # why the raw text must not reach a browser.
         logger.error("%s id=%s configuration failure: %s", log_prefix, result_id, exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=500,
+            detail="This song couldn't be adapted right now. Try again in a moment.",
+        ) from exc
 
 
 @app.post("/api/adapt")
@@ -2447,9 +2492,16 @@ def _run_job_body(
         jobs.set_error(
             job_id, "The engine hit a problem processing this song. Try again in a moment."
         )
-    except RuntimeError as exc:
-        logger.error("job id=%s configuration failure: %s", job_id, exc)
+    except EngineTimeoutError as exc:
+        # Verbatim and before the generic branch - see the matching
+        # comment on /api/comics/adapt above.
+        logger.error("job id=%s timed out: %s", job_id, exc)
         jobs.set_error(job_id, str(exc))
+    except RuntimeError as exc:
+        # Generic for the poller, detailed in the log - see the matching
+        # comment on /api/comics/adapt's RuntimeError branch above.
+        logger.error("job id=%s configuration failure: %s", job_id, exc)
+        jobs.set_error(job_id, "This song couldn't be adapted right now. Try again in a moment.")
     except Exception as exc:
         # A background thread's uncaught exception is otherwise silent -
         # nothing re-raises it anywhere the poller would see. Whoever's

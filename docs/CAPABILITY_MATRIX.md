@@ -6159,3 +6159,87 @@ real and worth closing rather than leaving on a list.
   planted in a simulated driver exception. `pip-audit -r requirements.txt`
   now reports zero known vulnerabilities (previously one, for
   deep-translator). Full suite green (1228 passed, 2 skipped).
+
+## Two real UI/UX flow bugs, found by walking the signed-in app in a browser
+
+A deep UI/UX pass drove every flow through a real Chromium browser against
+the full stack (real Postgres, real API, fresh `next build`, a real
+registered + verified test user) - 33 routes crawled with console/network
+capture, plus auth, dashboard, mobile at five widths, and keyboard/focus
+behavior. Most of it held up (details in the "ruled out" note below). Two
+things did not, and neither was visible from reading the code.
+
+**1. A signed-in user could not sign out from anywhere in the app.**
+Verified across all seven `/dashboard/*` pages: zero sign-out controls.
+Meanwhile `SiteHeader` still renders "Sign In" and a "Get Started" CTA to
+a signed-in visitor on every page - a tradeoff that component documents
+deliberately (it's rendered from both server and client trees, so it
+can't read the session without a broader refactor). The *combined*
+effect was not deliberate: the only sign-out button in the product lived
+on `/sign-in`, which a signed-in person could only reach by clicking a
+link labelled **"Sign In"**, and nothing anywhere told them which account
+they were in (the email appeared on `/dashboard/settings` only).
+Fixed with a new `components/DashboardAccountPanel.tsx` - "Signed in as
+&lt;email&gt;" plus a real Sign out, at the bottom of the dashboard sidebar.
+A small client component for the same reason `MediumSwitcher`/
+`UseCasesMenu` are: `DashboardSidebar` is imported by
+`app/dashboard/page.tsx`, which is `"use client"`, so the sidebar itself
+can't become async or hold a server action; `useSession()` avoids
+threading a prop through five server pages and one client page, and
+`SessionProvider` is already mounted app-wide. This deliberately does
+not touch `SiteHeader` - that refactor is real, separate, and still open.
+
+**2. Raw internal configuration errors were shown to end users.**
+Submitting a lyric on `/music` against a misconfigured engine rendered
+this, in red, under the textarea, to an ordinary visitor: *"OPENAI_API_KEY
+is not set. Export it before running the engine, e.g.: export
+OPENAI_API_KEY=..."* - an env var name and a shell command, useless to
+the reader and leaking internals. Four instances in `server/main.py`
+(`/api/adapt`, `/api/comics/adapt`, and both background-job paths), and
+in every one the `except LLMError` branch immediately above already did
+it correctly. Same class as the `/health/db` leak fixed in the entry
+above; same fix - keep the `logger.error`, send a generic message.
+- **A real regression this introduced, caught by the existing suite:**
+  the first version genericized *every* `RuntimeError`, which silently
+  destroyed the timeout messages. `EngineTimeoutError`/`ChapterTimeoutError`
+  are `RuntimeError` subclasses *on purpose* (so the existing handler
+  refunds credits with no new except clause), and their messages are
+  written FOR the user and genuinely actionable - *"This song is taking
+  longer than the configured time limit (1/2 sections finished). Try
+  again, or with fewer sections."* Five tests failed and named exactly
+  that. The shipped fix catches the two timeout subclasses explicitly
+  (verbatim, now a 504) *before* the generic branch, so only true
+  configuration failures are genericized.
+- **Tier 1** - a missing control and an error-message routing fix,
+  neither a judgment call.
+- **Verified:** 2 new backend tests pinning the generic message + proving
+  the real detail still reaches the log; 3 existing tests updated - they
+  had asserted the leak as intended behavior (`test_job_reports_runtime_error_verbatim`
+  was named for it), same situation as the X-Forwarded-For test two
+  entries above. Falsification-checked by reverting the fix and watching
+  the new test fail on the real key-bearing string. Full suite green
+  (1230 passed, 2 skipped), `tsc --noEmit` clean, fresh `next build`
+  clean, 209 Vitest tests unaffected. Then re-verified both fixes in a
+  real browser against real Postgres: sign-out present and visible on all
+  7 dashboard pages with the email shown, clicking it genuinely ends the
+  session (`/dashboard` afterwards redirects to `/sign-in`), and the
+  `/music` failure now shows *"This song couldn't be adapted right now.
+  Try again in a moment."* with `OPENAI_API_KEY` absent from the page and
+  still present in the server log. Local Postgres/API/frontend processes
+  and database state torn down afterward.
+- **Also found, not fixed (smaller, and no user asked for them yet):** no
+  skip-to-content link and `<main>` wrapping the site nav/footer on every
+  page (WCAG 2.4.1, ~7 nav tab-stops before content); `/s/[id]` and
+  `/comics/s/[id]`'s invalid-link state has no heading at all while the
+  404 page and `/verify-email` both use a real `<h1>`; `/dashboard/settings`
+  is titled "Settings" but its only `<h1>` is "API Keys".
+- **Ruled out rather than reported** (verified false leads, in this
+  file's usual discipline): focus rings are genuinely visible (proved by
+  diffing computed styles focused vs unfocused - `outline: none` is
+  replaced by a real box-shadow/border change); mobile horizontal
+  overflow is nil (actual `scrollX` stayed 0 at 320/360/375/390/414 -
+  the wide elements are clipped decorative glows); `/comics`'s
+  "unlabeled" file inputs are `display: none`, unfocusable, and proxied
+  by properly-labelled buttons - the correct pattern; and the
+  `_rsc=`-suffixed "failed requests" on every page are Next.js prefetch
+  cancellations, not errors.

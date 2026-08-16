@@ -2005,3 +2005,53 @@ def test_no_detector_configured_keeps_the_original_single_step_path(monkeypatch)
         },
     )
     assert main.comics_ocr_endpoint(_FakeRequest(), image=_FakeUploadFile(b"bytes"), language=None)["regions"] == []
+
+
+# ---------------------------------------------------------------------------
+# Configuration failures must not leak internal detail to the caller
+# ---------------------------------------------------------------------------
+# engine/config.py raises RuntimeError("OPENAI_API_KEY is not set. Export it
+# before running the engine, e.g.: export OPENAI_API_KEY=...") when a provider
+# key is missing. That string used to be passed straight through to the
+# browser as the HTTP `detail` - confirmed in a real browser, rendered in red
+# under the textarea on /music to an ordinary visitor. It's developer-facing
+# (an env var name and a shell command), useless to the person reading it, and
+# leaks internal detail - the same class as the /health/db leak fixed earlier.
+# The LLMError branch beside each of these already did the right thing; these
+# tests pin the RuntimeError branches to matching behavior.
+
+
+def _runtime_error_engine(monkeypatch, message: str):
+    def boom(*a, **k):
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(main, "run_engine", boom)
+    monkeypatch.setattr(main, "create_default_client", lambda model=None: _FakeClient())
+
+
+def test_adapt_does_not_leak_a_configuration_error_to_the_caller(monkeypatch):
+    secret = "OPENAI_API_KEY is not set. Export it before running the engine, e.g.: export OPENAI_API_KEY=sk-123"
+    _runtime_error_engine(monkeypatch, secret)
+
+    request = main.AdaptRequest(text="some lyrics")
+    with pytest.raises(main.HTTPException) as exc:
+        main.adapt(request, _FakeRequest())
+
+    assert exc.value.status_code == 500
+    assert "OPENAI_API_KEY" not in str(exc.value.detail)
+    assert "export" not in str(exc.value.detail).lower()
+    assert exc.value.detail == "This song couldn't be adapted right now. Try again in a moment."
+
+
+def test_adapt_still_logs_the_real_configuration_error_server_side(monkeypatch, caplog):
+    """Generic for the user, complete for the operator - the detail has to
+    survive somewhere, it just must not be the response body."""
+    secret = "OPENAI_API_KEY is not set. Export it before running the engine"
+    _runtime_error_engine(monkeypatch, secret)
+
+    request = main.AdaptRequest(text="some lyrics")
+    with caplog.at_level("ERROR"):
+        with pytest.raises(main.HTTPException):
+            main.adapt(request, _FakeRequest())
+
+    assert "OPENAI_API_KEY" in caplog.text

@@ -127,7 +127,12 @@ def test_song_job_error_propagates_through_the_queue(client, monkeypatch, fake_q
 
     status = client.get(f"/api/adapt/jobs/{job_id}").json()
     assert status["status"] == "error"
-    assert status["error"] == "OPENAI_API_KEY not set"
+    # Generic, not the raw configuration message - see
+    # tests/test_server_jobs.py::test_job_reports_a_configuration_error_generically
+    # for why. What matters HERE is that an error propagates through the
+    # queue at all, which it still does.
+    assert "OPENAI_API_KEY" not in status["error"]
+    assert status["error"] == "This song couldn't be adapted right now. Try again in a moment."
 
 
 def test_falls_back_to_a_thread_when_redis_url_is_unset(client, monkeypatch):

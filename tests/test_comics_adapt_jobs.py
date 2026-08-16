@@ -136,7 +136,11 @@ def test_comics_job_reports_llm_error_as_a_friendly_message(client, monkeypatch)
     assert "upstream exploded" not in settled["error"]
 
 
-def test_comics_job_reports_runtime_error_verbatim(client, monkeypatch):
+def test_comics_job_reports_a_configuration_error_generically(client, monkeypatch):
+    """The comics counterpart of test_server_jobs.py's equivalent - see
+    that test's docstring for why the raw message must not reach the
+    poller, and why the ChapterTimeoutError test below still asserts a
+    verbatim one."""
     monkeypatch.setattr(main.cache, "get", lambda result_id: None)
 
     def _raise(*a, **k):
@@ -148,12 +152,9 @@ def test_comics_job_reports_runtime_error_verbatim(client, monkeypatch):
     job_id = response.json()["job_id"]
 
     settled = _poll_until_settled(client, job_id)
-    assert settled == {
-        "status": "error",
-        "result": None,
-        "error": "OPENAI_API_KEY not set",
-        "progress": None,
-    }
+    assert settled["status"] == "error"
+    assert "OPENAI_API_KEY" not in settled["error"]
+    assert settled["error"] == "This chapter couldn't be adapted right now. Try again in a moment."
 
 
 def test_comics_job_reports_a_chapter_timeout_as_a_clean_error(client, monkeypatch):

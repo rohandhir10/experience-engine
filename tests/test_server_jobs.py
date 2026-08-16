@@ -151,10 +151,18 @@ def test_job_reports_capacity_error_when_no_run_slot_frees_up_in_time(client, mo
             main._run_slots.release()
 
 
-def test_job_reports_runtime_error_verbatim(client, monkeypatch):
-    """RuntimeError is a configuration failure (e.g. a missing API key) -
-    /api/adapt surfaces its message directly rather than a generic one,
-    and the job path preserves that."""
+def test_job_reports_a_configuration_error_generically(client, monkeypatch):
+    """This test used to assert the OPENAI_API_KEY message reached the
+    poller VERBATIM, on the reasoning that a configuration failure should
+    surface its own message. Walking the signed-out product in a real
+    browser showed what that actually looks like to a visitor: "OPENAI_API_KEY
+    is not set. Export it before running the engine, e.g.: export
+    OPENAI_API_KEY=..." rendered in red under the textarea on /music - an
+    env var name and a shell command, useless to the reader and leaking
+    internals. The detail belongs in the log (asserted below), not the
+    response. Timeout messages ARE still verbatim - they're written for
+    the user and actionable - see the EngineTimeoutError test beneath
+    this one."""
     monkeypatch.setattr(main.cache, "get", lambda result_id: None)
     monkeypatch.setattr(main.cache, "find_similar", lambda *a, **k: None)
 
@@ -167,12 +175,9 @@ def test_job_reports_runtime_error_verbatim(client, monkeypatch):
     job_id = response.json()["job_id"]
 
     settled = _poll_until_settled(client, job_id)
-    assert settled == {
-        "status": "error",
-        "result": None,
-        "error": "OPENAI_API_KEY not set",
-        "progress": None,
-    }
+    assert settled["status"] == "error"
+    assert "OPENAI_API_KEY" not in settled["error"]
+    assert settled["error"] == "This song couldn't be adapted right now. Try again in a moment."
 
 
 def test_job_reports_an_engine_timeout_as_a_clean_error(client, monkeypatch):

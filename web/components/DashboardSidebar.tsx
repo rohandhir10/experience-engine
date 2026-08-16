@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DashboardAccountPanel } from "./DashboardAccountPanel";
 
 type DashboardSection =
   | "home"
@@ -119,6 +120,11 @@ export function DashboardSidebar({ active = "home" }: { active?: DashboardSectio
           live={LIVE_SECTIONS.has(item.key)}
         />
       ))}
+      {/* Which account you're in, and the way out - see that component's
+          docstring for why neither existed anywhere in the signed-in app
+          before, and why it has to be a client component rather than
+          part of this server-renderable one. */}
+      <DashboardAccountPanel />
     </nav>
   );
 }
