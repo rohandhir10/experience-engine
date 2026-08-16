@@ -5897,3 +5897,74 @@ and `/reset-password` render cleanly in dark mode
 (`colorScheme: "dark"`), matching the rest of the site's design system.
 All local Postgres/backend/frontend processes and database state from
 this pass were torn down afterward as well.
+
+## Fixed an unauthenticated CPU-exhaustion DoS on /api/auth/login and /api/auth/register
+
+A full security/scalability/capacity audit of the whole codebase (server,
+engine, web) found one real high-severity gap, empirically confirmed
+before any code changed: `/api/auth/login` and `/api/auth/register` had
+no rate limit of any kind, and every call to either one runs a real
+PBKDF2-HMAC-SHA256 hash at `password_auth._PBKDF2_ITERATIONS` (260,000
+iterations) - `register()` hashes the new password, and `authenticate()`
+hashes something even for a completely nonexistent email
+(`password_auth._DUMMY_HASH`, the timing-safety trick so a guess against
+a real account and a guess against no account at all take the same
+time). That's deliberate, real CPU cost per request, with nothing
+capping how many times one caller could trigger it. `_require_internal_secret`
+only proves a request came from the Next.js server, which is true for
+every real visitor too - it's not a per-caller throttle.
+
+**Confirmed as a real, working DoS before fixing anything:** local load
+test against a Postgres-backed instance running the exact single-Uvicorn-
+process config the Dockerfile uses (4 CPU cores). Firing 100 concurrent
+`/api/auth/login` requests (fake credentials, no botnet, one machine)
+pushed p50 latency from a healthy baseline to 4.9s and max to 12.5s,
+while throughput stayed flat at ~13-19 req/s regardless of concurrency
+(4 through 100) - the textbook signature of CPU saturation, not I/O
+wait, since PBKDF2 at this iteration count pins a core per concurrent
+hash. A second test confirmed the blast radius reaches beyond the auth
+endpoints themselves: with a 100-concurrent login flood running for 15s,
+a "bystander" client polling `/health` (trivial, no DB/CPU work) every
+300ms saw its worst-case response spike to 6.5 seconds, proving the
+flood starves the shared threadpool/GIL for every other request on the
+same process, not just its own.
+
+**The fix:** the exact same pattern already built and proven for
+`/api/auth/forgot-password` (`server/main.py`'s
+`PASSWORD_RESET_DAILY_LIMIT`/`quota.check_and_increment`) - a per-IP
+daily quota, checked via `_client_ip(http_request)` *before* the
+expensive hash runs, so a caller who's already over the limit is
+rejected by one cheap atomic Postgres UPSERT instead of paying for
+another 260,000-iteration hash. Two new constants,
+`AUTH_REGISTER_DAILY_LIMIT` (default 20) and `AUTH_LOGIN_DAILY_LIMIT`
+(default 50, both tunable via `CASTIA_AUTH_REGISTER_DAILY_LIMIT`/
+`CASTIA_AUTH_LOGIN_DAILY_LIMIT`) with their own quota scopes
+(`auth-register`/`auth-login`) so they never share a bucket with the
+adaptation/panel quotas. Register's default is lower than login's
+deliberately: real signups from one IP are rare even behind a shared/
+NAT'd connection, while login happens every session and needs more
+headroom for something like an office or campus network's shared
+address. Both are starting guesses in the same spirit as every other
+quota constant in this file, not measured ceilings.
+- **What this does NOT fully solve:** there's no sub-day granularity in
+  `quota.py` (only day and month), so this bounds total daily damage per
+  IP, not how much a single quick burst *up to* that daily ceiling can
+  still degrade latency in the moment - the same honest limitation
+  `PASSWORD_RESET_DAILY_LIMIT` already carries. It measurably helps
+  regardless: see the re-run of the exact same attack below.
+- **Tier 1** - a deterministic quota check reusing an already-proven
+  pattern, not a judgment call.
+- **Verified:** 2 new tests (`tests/test_auth_endpoints.py`) confirm
+  both endpoints return 429 once a caller's daily allowance (monkey-
+  patched small for the test) is spent, and that a legitimate first
+  call still succeeds; full suite green (1220 passed, 1 skipped, up
+  from 1218). Then re-ran the *exact* pre-fix attack against a freshly
+  migrated real Postgres instance running the patched code: a fresh IP's
+  100-concurrent flood now returns `{429: 150, 200: 50}` instead of
+  `{200: 200}` - only the first 50 calls (the new daily allowance) ever
+  reach the expensive hash, throughput rose from 13.6 to 23.6 req/s, and
+  max latency dropped from 12.5s to 8.3s. A second flood against the
+  same already-exhausted IP returned 2,000/2,000 requests as fast 429s
+  (p50 223ms, none reaching PBKDF2 at all) while the bystander `/health`
+  check stayed responsive throughout. Local Postgres/backend processes
+  and database state from this verification were torn down afterward.

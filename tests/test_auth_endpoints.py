@@ -125,3 +125,56 @@ def test_login_wrong_password_is_invalid(sqlite_db, api_client, no_real_emails):
         headers=_headers(),
     )
     assert response.json() == {"status": "invalid"}
+
+
+def test_register_enforces_a_per_ip_daily_limit(sqlite_db, api_client, no_real_emails, monkeypatch):
+    """Every register() call runs a real PBKDF2-260k hash - unbounded,
+    this is a cheap CPU-exhaustion DoS (see AUTH_REGISTER_DAILY_LIMIT's
+    comment in server/main.py). The limit must be checked BEFORE that
+    hash runs, so a caller who's already over it is rejected by one
+    cheap quota check, not by paying for another hash."""
+    monkeypatch.setattr(main, "AUTH_REGISTER_DAILY_LIMIT", 1)
+
+    first = api_client.post(
+        "/api/auth/register",
+        json={"email": "first@example.com", "password": "a-real-password"},
+        headers=_headers(),
+    )
+    assert first.status_code == 200
+
+    second = api_client.post(
+        "/api/auth/register",
+        json={"email": "second@example.com", "password": "a-real-password"},
+        headers=_headers(),
+    )
+    assert second.status_code == 429
+
+
+def test_login_enforces_a_per_ip_daily_limit(sqlite_db, api_client, no_real_emails, monkeypatch):
+    """Same protection as register's, for authenticate() - which runs a
+    real PBKDF2-260k comparison even for a nonexistent email
+    (password_auth._DUMMY_HASH), so an attacker doesn't even need a
+    valid-looking account to trigger the expensive path."""
+    api_client.post(
+        "/api/auth/register",
+        json={"email": "loginlimit@example.com", "password": "a-real-password"},
+        headers=_headers(),
+    )
+    monkeypatch.setattr(main, "AUTH_LOGIN_DAILY_LIMIT", 1)
+
+    first = api_client.post(
+        "/api/auth/login",
+        json={"email": "loginlimit@example.com", "password": "totally-wrong"},
+        headers=_headers(),
+    )
+    assert first.status_code == 200
+    assert first.json() == {"status": "invalid"}
+
+    # Second attempt from the same IP is refused before it even reaches
+    # authenticate() - regardless of whether these credentials are real.
+    second = api_client.post(
+        "/api/auth/login",
+        json={"email": "loginlimit@example.com", "password": "a-real-password"},
+        headers=_headers(),
+    )
+    assert second.status_code == 429

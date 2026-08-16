@@ -166,6 +166,39 @@ PANEL_QUOTA_SCOPE = "panel"
 # with adaptation cost.
 PASSWORD_RESET_DAILY_LIMIT = int(os.environ.get("CASTIA_PASSWORD_RESET_DAILY_LIMIT", "5"))
 PASSWORD_RESET_QUOTA_SCOPE = "password-reset"
+# Per-IP daily ceilings on /api/auth/register and /api/auth/login.
+#
+# Every call to either endpoint runs a PBKDF2-HMAC-SHA256 hash at
+# password_auth._PBKDF2_ITERATIONS (260,000) - register() hashes the new
+# password, and authenticate() hashes something even for an email that
+# doesn't exist (password_auth._DUMMY_HASH, so a nonexistent-account
+# attempt takes the same time as a real one - see that module's
+# docstring). That's deliberate, real CPU cost per request, and neither
+# endpoint had any cap on how many times a single caller could trigger
+# it - confirmed empirically to matter: a local load test at ~60-100
+# concurrent requests (a single unauthenticated machine, no botnet)
+# pushed p50 latency on both endpoints from a few hundred ms to 5-12
+# seconds, and measurably bled into other traffic on the same process
+# (a bystander /health check spiked to 6.5s mid-flood) - a real,
+# cheap, single-machine DoS against sign-up/sign-in specifically.
+#
+# Same fix shape as PASSWORD_RESET_DAILY_LIMIT above: a per-IP daily cap
+# via quota.check_and_increment, checked before the expensive hash runs
+# so a caller who's already hit the limit is rejected by one cheap
+# atomic UPSERT instead of paying for another 260,000-iteration hash.
+# This bounds total daily damage/cost per IP; it does not by itself cap
+# how much a single quick burst up to that ceiling can degrade latency
+# in the moment - there's no sub-day granularity in quota.py to do
+# that, matching PASSWORD_RESET_DAILY_LIMIT's own single-daily-cap
+# shape. Register's default is lower than login's: real signups from
+# one IP are rare even behind shared/NAT'd connections, while login is
+# used every session and needs more headroom for e.g. an office or
+# campus network's shared address. Both are starting guesses, not
+# measured ceilings - tune via the env vars below.
+AUTH_REGISTER_DAILY_LIMIT = int(os.environ.get("CASTIA_AUTH_REGISTER_DAILY_LIMIT", "20"))
+AUTH_LOGIN_DAILY_LIMIT = int(os.environ.get("CASTIA_AUTH_LOGIN_DAILY_LIMIT", "50"))
+AUTH_REGISTER_QUOTA_SCOPE = "auth-register"
+AUTH_LOGIN_QUOTA_SCOPE = "auth-login"
 # A full-resolution chapter-slice PNG can be several megabytes; this caps
 # a single panel upload well above any normal slice, not just above a
 # typical one, so this only ever rejects something clearly wrong (a
@@ -1463,6 +1496,12 @@ def auth_register(request: RegisterRequest, http_request: Request) -> dict:
     rule) - a 400 here means the input itself was invalid (bad email
     shape, too-short password), never "this email is taken"."""
     _require_internal_secret(http_request)
+    # Before the expensive PBKDF2 hash inside register() - see
+    # AUTH_REGISTER_DAILY_LIMIT's comment for why this exists.
+    if not quota.check_and_increment(
+        _client_ip(http_request), AUTH_REGISTER_DAILY_LIMIT, scope=AUTH_REGISTER_QUOTA_SCOPE
+    ):
+        raise HTTPException(status_code=429, detail="Too many signup attempts. Try again tomorrow.")
     try:
         result = password_auth.register(request.email, request.password)
     except ValueError as exc:
@@ -1483,6 +1522,17 @@ def auth_login(request: LoginRequest, http_request: Request) -> dict:
     the caller branches on, so a wrong password and an unreachable
     database don't have to be told apart by HTTP status alone."""
     _require_internal_secret(http_request)
+    # Before the expensive PBKDF2 hash inside authenticate() - runs even
+    # for a nonexistent email (password_auth._DUMMY_HASH) - see
+    # AUTH_LOGIN_DAILY_LIMIT's comment for why this exists. A 429 here
+    # breaks this endpoint's usual "always 200, branch on `status`"
+    # contract, same as the other quota-gated endpoints in this file -
+    # the credentials provider (web/auth.ts) surfaces a non-ok response
+    # as a generic sign-in failure either way.
+    if not quota.check_and_increment(
+        _client_ip(http_request), AUTH_LOGIN_DAILY_LIMIT, scope=AUTH_LOGIN_QUOTA_SCOPE
+    ):
+        raise HTTPException(status_code=429, detail="Too many login attempts. Try again tomorrow.")
     return password_auth.authenticate(request.email, request.password)
 
 
