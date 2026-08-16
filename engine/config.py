@@ -97,6 +97,18 @@ INPAINT_TIMEOUT_SECONDS = float(os.environ.get("CASTIA_INPAINT_TIMEOUT", "60"))
 # body) - that's not the kind of failure a retry fixes.
 INPAINT_MAX_RETRIES = int(os.environ.get("CASTIA_INPAINT_MAX_RETRIES", "1"))
 
+# engine/comics_redraw.py::_load_image - the decoded pixel-count ceiling
+# for an uploaded panel, checked from the header BEFORE the expensive
+# full decode (Image.load()) runs. Pillow's own decompression-bomb guard
+# (PIL.Image.MAX_IMAGE_PIXELS, ~89.5 megapixels) only WARNS below 2x that
+# and only raises past it - a small, highly-compressible file well
+# within server/main.py's MAX_IMAGE_BYTES upload cap can still decode to
+# a large pixel buffer, real CPU/RAM cost per request with no cap of its
+# own. 40 megapixels is generous for a real comic page (a 6000x6666px
+# scan is ~40MP; a typical panel/page image is far smaller) while
+# staying well under Pillow's own default ceiling.
+MAX_IMAGE_PIXELS = int(os.environ.get("CASTIA_MAX_IMAGE_PIXELS", str(40_000_000)))
+
 _API_KEY_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",

@@ -86,6 +86,7 @@ Operational behavior:
 from __future__ import annotations
 
 import base64
+import hmac
 import json
 import logging
 import os
@@ -457,7 +458,7 @@ def _client_ip(request: Request) -> str:
     TRUSTED_PROXY_HOPS above for why only its rightmost entries are ever
     trusted.
     """
-    if INTERNAL_API_SECRET and request.headers.get("x-castia-internal-secret") == INTERNAL_API_SECRET:
+    if INTERNAL_API_SECRET and _secret_matches(request.headers.get("x-castia-internal-secret") or "", INTERNAL_API_SECRET):
         forwarded_client = (request.headers.get("x-castia-client-ip") or "").strip()
         if forwarded_client:
             return forwarded_client
@@ -471,13 +472,25 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _secret_matches(candidate: str, expected: str) -> bool:
+    """Constant-time comparison for the internal secret - same reasoning
+    server/paddle.py's webhook signature check and
+    server/password_auth.py's password verification already apply:
+    a plain `==`/`!=` short-circuits on the first mismatched byte, which
+    leaks a (tiny, but real) timing signal an attacker could in
+    principle use to guess the secret one byte at a time. Every other
+    secret comparison in this codebase already does this; these two
+    (this function's callers) were the one inconsistency."""
+    return hmac.compare_digest(candidate.encode("utf-8"), expected.encode("utf-8"))
+
+
 def _require_internal_secret(request: Request) -> None:
     if not INTERNAL_API_SECRET:
         raise HTTPException(
             status_code=503,
             detail="Accounts are not configured on this deployment (CASTIA_INTERNAL_API_SECRET unset).",
         )
-    if request.headers.get("x-castia-internal-secret") != INTERNAL_API_SECRET:
+    if not _secret_matches(request.headers.get("x-castia-internal-secret") or "", INTERNAL_API_SECRET):
         raise HTTPException(status_code=401, detail="Invalid internal secret.")
 
 
@@ -504,7 +517,7 @@ def _authed_user_id(request: Request) -> str | None:
         return None
     if not INTERNAL_API_SECRET:
         return None
-    if request.headers.get("x-castia-internal-secret") != INTERNAL_API_SECRET:
+    if not _secret_matches(request.headers.get("x-castia-internal-secret") or "", INTERNAL_API_SECRET):
         return None
     return user_id
 
@@ -1926,6 +1939,16 @@ def me_set_favorite(
 
 @app.get("/health/db")
 def health_db() -> dict:
+    """Unauthenticated by design (a hosting platform's health check has
+    no credential to present) - so the failure detail stays server-side
+    only. The real driver exception (which can include the DB host/port,
+    and depending on the psycopg version's error formatting isn't
+    guaranteed not to echo other connection-string detail) goes to
+    logger.exception (and Sentry, via server/monitoring.py, if
+    configured) instead of the response body; any anonymous caller only
+    ever sees a generic "unreachable," matching every other endpoint's
+    convention of never handing raw exception text to an unauthenticated
+    client."""
     from sqlalchemy import text
 
     try:
@@ -1933,7 +1956,8 @@ def health_db() -> dict:
             conn.execute(text("SELECT 1"))
         return {"status": "ok"}
     except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"database unreachable: {exc}") from exc
+        logger.exception("health/db check failed")
+        raise HTTPException(status_code=503, detail="database unreachable") from exc
 
 
 def _validate_adapt_request(request: AdaptRequest) -> tuple[str, str, str]:

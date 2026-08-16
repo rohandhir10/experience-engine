@@ -6097,3 +6097,65 @@ vulnerability one hop at a time.
   real users correctly rather than over-merging everyone. Local
   Postgres/backend processes and database state from this verification
   were torn down afterward.
+
+## Closed the four remaining low-severity items from the security audit
+
+The last open findings from the security/scalability/capacity audit -
+each individually low-severity/low-likelihood, none needing the
+real-infra verification the higher-severity fixes above did, but all
+real and worth closing rather than leaving on a list.
+
+1. **Non-constant-time internal-secret comparison** - `_require_internal_secret`
+   and `_authed_user_id` (`server/main.py`) compared the shared secret
+   with plain `==`/`!=`, unlike `server/paddle.py`'s webhook signature
+   check and `server/password_auth.py`'s password verification, which
+   both already use `hmac.compare_digest` for exactly this reason.
+   Extracted the comparison into one `_secret_matches` helper (also used
+   by `_client_ip`'s `X-Castia-Client-IP` gate, a third spot with the
+   same pattern) so every secret comparison in this file now goes
+   through the same constant-time path.
+2. **Unauthenticated `/health/db` leaked the raw DB exception text** -
+   a hosting platform's health check has no credential to present, so
+   this endpoint has to stay unauthenticated; the fix is that the real
+   exception (which can include host/port and, depending on the
+   driver's error formatting, other connection detail) now goes to
+   `logger.exception` (and Sentry, if configured) instead of the
+   response body, which returns a generic `"database unreachable"` to
+   any anonymous caller - the same convention every other endpoint in
+   this file already follows.
+3. **Pillow decompression-bomb exposure in comic panel redraw** -
+   Pillow's own guard (`PIL.Image.MAX_IMAGE_PIXELS`) only warns below
+   ~89.5 megapixels and only raises past ~179MP, so a small,
+   highly-compressible file well within `MAX_IMAGE_BYTES`'s 15MB upload
+   cap could still decode to a much larger real pixel buffer than its
+   byte size suggests - real CPU/RAM cost per request with no cap of
+   its own. `engine/comics_redraw.py::_load_image` now checks the
+   decoded pixel count against a new, explicit `config.MAX_IMAGE_PIXELS`
+   (default 40 megapixels - generous for a real comic page, well under
+   Pillow's own ceiling) straight from the image header, before the
+   expensive full decode (`image.load()`) ever runs.
+4. **A known-compromised package shipped in the production Docker
+   image** - `deep-translator` (PyPI's own advisory, PYSEC-2022-252, a
+   real account-takeover/malicious-release incident) was in
+   `requirements.txt`, which the Dockerfile installs unconditionally
+   into the production image - `pip install` alone runs a package's
+   setup code, so it doesn't need to be imported by the running server
+   to be unnecessary attack surface in that image. It's only ever used
+   by `benchmark/systems.py` (offline tooling, never copied into the
+   Docker image, never imported by `server/`/`engine/`). Moved to a new
+   `requirements-benchmark.txt` (`-r requirements.txt` plus the one
+   extra package), so running the benchmark suite locally is still one
+   `pip install -r requirements.txt -r requirements-benchmark.txt`,
+   while the production image no longer installs it at all.
+- **Tier 1** - deterministic fixes (a comparison function, an error
+  message, a size check, a dependency-file split), none a judgment
+  call.
+- **Verified:** 5 new tests (`tests/test_health_endpoints.py` - new
+  file, 3 tests; 2 new tests in `tests/test_comics_redraw.py` for the
+  pixel-ceiling rejection/acceptance, using a monkeypatched ceiling
+  against an ordinary small test image rather than constructing a
+  genuinely huge fixture) plus a regression check that `/health/db`'s
+  response body never contains a fake "secret host" marker string
+  planted in a simulated driver exception. `pip-audit -r requirements.txt`
+  now reports zero known vulnerabilities (previously one, for
+  deep-translator). Full suite green (1228 passed, 2 skipped).

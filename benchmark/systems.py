@@ -128,7 +128,7 @@ class GoogleTranslateSystem:
         except ImportError:
             logger.warning(
                 "deep-translator not installed; falling back to manual file "
-                "for google_translate (pip install deep-translator)."
+                "for google_translate (pip install -r requirements-benchmark.txt)."
             )
             return _read_manual(song, "google_translate")
         try:

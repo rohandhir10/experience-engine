@@ -62,7 +62,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from . import comics_inpaint
+from . import comics_inpaint, config
 
 _FONT_DIR = Path(__file__).parent / "assets" / "fonts"
 
@@ -183,7 +183,22 @@ def _validate_redrawable(regions: list[dict]) -> None:
 def _load_image(image_bytes: bytes) -> Image.Image:
     try:
         image = Image.open(io.BytesIO(image_bytes))
+        # Header-only at this point (Image.open is lazy) - checked
+        # BEFORE image.load()'s full decode, so a file that fails this
+        # never pays that decode cost. See config.MAX_IMAGE_PIXELS for
+        # why this exists: Pillow's own decompression-bomb guard only
+        # warns below ~179 megapixels and only raises past it, leaving a
+        # small, highly-compressible file free to decode to a much
+        # larger real pixel buffer than its byte size suggests.
+        pixels = image.size[0] * image.size[1]
+        if pixels > config.MAX_IMAGE_PIXELS:
+            raise RedrawError(
+                f"This image is too large to redraw ({image.size[0]}x{image.size[1]} pixels, "
+                f"{config.MAX_IMAGE_PIXELS:,} pixel limit)."
+            )
         image.load()
+    except RedrawError:
+        raise
     except Exception as exc:
         raise RedrawError(f"Could not read this image: {exc}") from exc
     # comics_inpaint.flatten_to_rgb, not a bare convert("RGB") - a panel

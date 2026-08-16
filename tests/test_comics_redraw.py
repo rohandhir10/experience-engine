@@ -447,6 +447,37 @@ def test_redraw_panel_rejects_unreadable_image_bytes():
         redraw_panel(b"not a real image", [{"bbox": {"x": 0, "y": 0, "width": 10, "height": 10}, "adapted_text": "x"}])
 
 
+def test_redraw_panel_rejects_an_image_over_the_pixel_ceiling(monkeypatch):
+    """Pillow's own decompression-bomb guard only warns below ~89.5MP
+    and only raises past ~179MP - config.MAX_IMAGE_PIXELS is this
+    codebase's own, tighter, explicit ceiling, checked from the image
+    header before the expensive full decode runs. Monkeypatched down
+    (rather than constructing a genuinely huge fixture image) so this
+    test stays fast and exercises the real check against a real,
+    ordinary-sized image."""
+    from engine import config
+
+    monkeypatch.setattr(config, "MAX_IMAGE_PIXELS", 100)
+    image = _bubble_image(300, 150)  # 45,000 pixels - comfortably over the patched ceiling
+    with pytest.raises(RedrawError, match="too large"):
+        redraw_panel(
+            _png_bytes(image),
+            [{"bbox": {"x": 0, "y": 0, "width": 10, "height": 10}, "adapted_text": "x"}],
+        )
+
+
+def test_redraw_panel_accepts_an_image_at_or_under_the_pixel_ceiling(monkeypatch):
+    from engine import config
+
+    monkeypatch.setattr(config, "MAX_IMAGE_PIXELS", 300 * 150)
+    image = _bubble_image(300, 150)
+    # Must not raise.
+    redraw_panel(
+        _png_bytes(image),
+        [{"bbox": {"x": 0, "y": 0, "width": 10, "height": 10}, "adapted_text": "x"}],
+    )
+
+
 def test_redraw_panel_rejects_a_region_entirely_outside_the_image():
     image = _bubble_image(100, 100)
     with pytest.raises(RedrawError):

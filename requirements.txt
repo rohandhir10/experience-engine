@@ -10,7 +10,16 @@ uvicorn[standard]>=0.29.0
 sqlalchemy>=2.0
 psycopg[binary]>=3.1  # Postgres driver for server/db.py; DATABASE_URL is Railway's Postgres plugin
 alembic>=1.13  # schema migrations (server/migrations); replaces the create_all + hand-patch pattern
-deep-translator>=1.11  # benchmark only: Google Translate baseline
+# deep-translator (benchmark/systems.py's google_translate baseline) is
+# NOT listed here - see requirements-benchmark.txt. It was here until a
+# security audit flagged it: PyPI's own advisory for it (PYSEC-2022-252)
+# is a real account-takeover/malicious-release incident, and this file
+# is what the Dockerfile installs into the production image
+# unconditionally - pip install alone runs a package's setup code, so a
+# dependency doesn't need to be imported by the running server to be
+# unnecessary attack surface in that image. benchmark/ is never copied
+# into the Docker image and never imported by server/ or engine/, so
+# production has no need for it at all.
 # Optional: Japanese kanji readings for mora counting. Without it the
 # engine still counts pure-kana text exactly, but declines to guess at
 # kanji-bearing lines rather than undercounting them by ~half.

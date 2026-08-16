@@ -1,0 +1,7 @@
+# Extra dependencies for benchmark/ only - never installed into the
+# production Docker image (see requirements.txt's comment on why
+# deep-translator was moved out of there). Install alongside the main
+# requirements to run the benchmark suite locally:
+#   pip install -r requirements.txt -r requirements-benchmark.txt
+-r requirements.txt
+deep-translator>=1.11  # benchmark/systems.py's google_translate baseline
