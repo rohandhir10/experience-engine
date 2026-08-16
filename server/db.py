@@ -21,9 +21,10 @@ raw `create_all` diff could silently fail to alter).
 from __future__ import annotations
 
 import os
+import zlib
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
@@ -55,16 +56,22 @@ _SessionLocal: sessionmaker | None = None
 
 # Explicit rather than SQLAlchemy's bare defaults (pool_size=5,
 # max_overflow=10) so the actual ceiling is visible and tunable here
-# instead of implied. Sized for today's single-worker deployment (see
-# the Dockerfile) with headroom for /api/adapt/start's background job
+# instead of implied. Headroom for /api/adapt/start's background job
 # threads (server/main.py's MAX_CONCURRENT_RUNS) each holding a
 # connection concurrently, plus normal request traffic — not a measured
-# number, a documented starting point. Also bounded by whatever
-# Railway's managed Postgres plan actually allows (commonly ~20-100
-# connections on hobby/starter tiers): raising POOL_SIZE past that
-# ceiling just moves the failure from "pool exhausted" to "Postgres
-# refused the connection," so check the plan's actual limit before
-# tuning this up for real concurrent traffic.
+# number, a documented starting point.
+#
+# This is PER PROCESS, and the Dockerfile now runs CASTIA_WEB_CONCURRENCY
+# (default 2) independent worker processes, each with its own engine and
+# therefore its own pool — real total connections from this one service
+# are CASTIA_WEB_CONCURRENCY × (POOL_SIZE + MAX_OVERFLOW), not just this
+# number on its own. Also bounded by whatever Railway's managed Postgres
+# plan actually allows (commonly ~20-100 connections on hobby/starter
+# tiers): raising POOL_SIZE, MAX_OVERFLOW, or CASTIA_WEB_CONCURRENCY past
+# that combined ceiling just moves the failure from "pool exhausted" to
+# "Postgres refused the connection," so check the plan's actual limit —
+# and multiply it out against the worker count — before tuning any of
+# the three up for real concurrent traffic.
 POOL_SIZE = int(os.environ.get("CASTIA_DB_POOL_SIZE", "10"))
 MAX_OVERFLOW = int(os.environ.get("CASTIA_DB_MAX_OVERFLOW", "10"))
 
@@ -94,6 +101,14 @@ def create_all() -> None:
     _patch_known_schema_drift()
 
 
+# Arbitrary, fixed advisory-lock key for migrate_to_head() below -
+# derived from a stable string via crc32 (not Python's built-in hash(),
+# which is randomized per-process and would defeat the point of every
+# process agreeing on the same key). The actual number doesn't matter;
+# only that every process computes the same one, forever.
+_MIGRATION_LOCK_KEY = zlib.crc32(b"castia:migrate_to_head")
+
+
 def migrate_to_head() -> None:
     """Runs `alembic upgrade head` programmatically — the startup schema
     path, replacing the bare create_all()+hand-patch pattern this module's
@@ -106,13 +121,49 @@ def migrate_to_head() -> None:
     patch still runs afterwards during the transition: it's idempotent,
     and it's what guarantees the hand-added columns exist on databases
     created before the models declared them.
+
+    Wrapped in a Postgres session-scoped advisory lock (CASTIA_WEB_CONCURRENCY,
+    see the Dockerfile) runs more than one worker PROCESS per container,
+    and every worker independently calls this on its own startup. Each
+    migration's own guard is a check-then-create ("does this table
+    exist? if not, create it") - safe against re-running on an
+    already-migrated database, but NOT safe against two processes
+    checking at the same instant, both seeing "not created yet," and
+    racing to CREATE the same table. Confirmed empirically (not just in
+    theory) to be worse than a clean crash: with this lock removed and 5
+    threads calling this function concurrently against a freshly wiped
+    real Postgres database (tests/test_migrations.py's
+    test_migrate_to_head_is_safe_under_concurrent_workers, which fails
+    fast with this lock in place), the run didn't error out - it hung
+    indefinitely, past a 120-second timeout, with zero output. A DDL
+    conflict that raises is at least visible; one that leaves a
+    connection idle-in-transaction holding a lock forever just makes the
+    whole container look stuck on startup. The advisory lock (Postgres-
+    only - sqlite has no equivalent, and nothing in this test suite
+    exercises concurrent workers against sqlite anyway) makes every
+    concurrent caller queue up and run this one at a time: by the time a
+    waiting worker acquires the lock, the schema is already at head, so
+    its own turn is a fast, correct no-op instead of a race.
     """
     from alembic import command
     from alembic.config import Config
 
-    cfg = Config(str(Path(__file__).parent / "alembic.ini"))
-    command.upgrade(cfg, "head")
-    _patch_known_schema_drift()
+    def _run() -> None:
+        cfg = Config(str(Path(__file__).parent / "alembic.ini"))
+        command.upgrade(cfg, "head")
+        _patch_known_schema_drift()
+
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        _run()
+        return
+
+    with engine.connect() as conn:
+        conn.execute(text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY})
+        try:
+            _run()
+        finally:
+            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY})
 
 
 def _patch_known_schema_drift() -> None:

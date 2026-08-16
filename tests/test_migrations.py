@@ -83,6 +83,63 @@ def test_migrate_to_head_succeeds_on_real_postgres(monkeypatch):
         assert version_column is not None and version_column >= 255
 
 
+@pytest.mark.skipif(
+    not _TEST_POSTGRES_URL,
+    reason="CASTIA_TEST_POSTGRES_URL not set - this test needs a real, disposable Postgres database",
+)
+def test_migrate_to_head_is_safe_under_concurrent_workers(monkeypatch):
+    """server/db.py::migrate_to_head's advisory-lock regression test.
+
+    CASTIA_WEB_CONCURRENCY (Dockerfile) runs more than one uvicorn worker
+    PROCESS, and every worker independently calls migrate_to_head() on
+    its own startup. Each migration's own guard is check-then-create
+    ("does this table exist? if not, create it") - safe against
+    re-running on an already-migrated database, but not against two
+    callers checking at the same instant and racing to CREATE the same
+    table, which crashes the loser with a real Postgres error. Only
+    reproducible against a genuinely fresh (no tables yet) real Postgres
+    database - SQLite can't take the advisory lock at all (Postgres-only
+    feature), and a database already at head has nothing left to race
+    over, which is why this drops every table first.
+    """
+    monkeypatch.setenv("DATABASE_URL", _TEST_POSTGRES_URL)
+    monkeypatch.setattr(db, "_engine", None)
+    monkeypatch.setattr(db, "_SessionLocal", None)
+
+    from sqlalchemy import text
+
+    with db.get_engine().connect() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+        conn.commit()
+
+    import threading
+
+    errors: list[BaseException] = []
+    errors_lock = threading.Lock()
+
+    def worker() -> None:
+        try:
+            db.migrate_to_head()
+        except BaseException as exc:  # noqa: BLE001 - capturing for the assertion below
+            with errors_lock:
+                errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == [], f"concurrent migrate_to_head() calls raised: {errors!r}"
+
+    from sqlalchemy import inspect
+
+    insp = inspect(db.get_engine())
+    assert "users" in insp.get_table_names()
+    assert "password_reset_tokens" in insp.get_table_names()
+
+
 def test_migrate_to_head_succeeds_on_a_fresh_database(tmp_path, monkeypatch):
     db_path = tmp_path / "fresh.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")

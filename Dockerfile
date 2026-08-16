@@ -33,10 +33,25 @@
 # path; unset, both this service and the worker fall back to (or in the
 # worker's case, refuse to start under) the pre-queue in-process
 # threading behavior. See server/task_queue.py's and server/worker.py's
-# own module docstrings for the full picture. Scale real concurrent job
-# capacity by adding replicas of the WORKER service, not this one -
-# server/main.py's own request handling is cheap; the worker is where
-# the actual engine runs happen.
+# own module docstrings for the full picture. Scale actual engine-run
+# throughput (song/chapter generation) by adding replicas of the WORKER
+# service, not this one - that work is already queued off this process
+# when REDIS_URL is set.
+#
+# This service (the web/API tier) still has its own, separate
+# concurrency axis: every request that ISN'T a queued engine run - auth,
+# quota checks, cached-result lookups, dashboard/history, the two
+# synchronous per-panel comics endpoints - is handled right here, and
+# until this was measured, this container ran uvicorn as a single
+# Python process no matter how many CPUs the instance actually had.
+# CASTIA_WEB_CONCURRENCY (default 2, tune to the instance's real vCPU
+# count) runs that many independent worker processes, so a burst of
+# concurrent requests is spread across real cores instead of a single
+# process's GIL and single 40-slot threadpool - see server/main.py's
+# THREADPOOL_SIZE and server/db.py's pool-sizing comments for how those
+# two scale alongside this. Confirmed empirically (docs/CAPABILITY_MATRIX.md)
+# that this materially raises real concurrent-request capacity, not just
+# in theory.
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -49,4 +64,4 @@ COPY server/ server/
 
 EXPOSE 8000
 
-CMD uvicorn server.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD uvicorn server.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${CASTIA_WEB_CONCURRENCY:-2}

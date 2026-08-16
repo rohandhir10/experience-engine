@@ -5968,3 +5968,86 @@ quota constant in this file, not measured ceilings.
   (p50 223ms, none reaching PBKDF2 at all) while the bystander `/health`
   check stayed responsive throughout. Local Postgres/backend processes
   and database state from this verification were torn down afterward.
+
+## Raised real request-handling capacity for the web/API tier: multiple worker processes, a wider threadpool, and a migration race the first change exposed
+
+Follow-up to the security/scalability/capacity audit's other findings:
+the web service ran as a single Uvicorn process no matter how many CPUs
+the instance actually had, and every plain `def` endpoint's sync work
+was capped at AnyIO's default 40-thread-per-process ceiling - neither
+number was ever chosen, just inherited silently. Under real concurrent
+load this meant requests queue behind each other well before the
+process's actual CPU/DB capacity is exhausted - the whole point of
+"does this still work with thousands of concurrent users" being a real
+question worth answering with numbers, not assumptions.
+
+**The three changes:**
+1. **`CASTIA_WEB_CONCURRENCY`** (Dockerfile, default 2): runs that many
+   independent `uvicorn --workers` processes for the web service, so a
+   burst of concurrent requests spreads across real CPU cores instead of
+   one process's GIL. Only the web service - the worker service
+   (server/worker.py) already scales by adding replicas, unaffected by
+   this.
+2. **`CASTIA_THREADPOOL_SIZE`** (`server/main.py`, default 200): raises
+   AnyIO's per-process thread-pool ceiling from its silent default of
+   40, set once at startup via `anyio.to_thread.current_default_thread_limiter()`.
+   Most endpoints here are I/O-bound (a DB round-trip, an LLM/Vision
+   call), not CPU-bound, so the real ceiling on useful concurrency is
+   much higher than 40 - genuinely CPU-bound work (engine runs) is
+   already separately bounded by `MAX_CONCURRENT_RUNS`/the Redis queue,
+   untouched by this.
+3. **Fixed the one endpoint that broke this file's own async/sync
+   discipline**: `paddle_webhook` was `async def` (needed for `await
+   request.body()`) but called synchronous, blocking DB code
+   (`paddle.handle_webhook`) directly inside the coroutine - stalling
+   the *entire* event loop, including `/health`, for the duration of
+   every webhook's DB writes. Routed through `run_in_threadpool`, same
+   as every plain `def` endpoint already gets for free.
+
+**A real bug the first change exposed, found before it could ship:**
+`CASTIA_WEB_CONCURRENCY` means every container now starts more than one
+worker PROCESS, and each one independently calls `db.migrate_to_head()`
+on its own startup. Every migration's own guard is check-then-create
+("does this table exist? if not, create it") - safe against re-running
+on an already-migrated database, but not against two processes checking
+at the same instant and racing to `CREATE` the same table. Confirmed
+this is a real bug, not a theoretical one, and that it's worse than a
+clean crash: reverted the fix locally, dropped a real Postgres
+database's schema entirely, and fired 5 threads at `migrate_to_head()`
+concurrently - it didn't error out, it **hung indefinitely** (past a
+120-second timeout, zero output), an idle-in-transaction connection
+holding a lock forever rather than a visible failure. Fixed with a
+Postgres session-scoped advisory lock (`server/db.py`, Postgres-only -
+SQLite has no equivalent) around the whole migration call, so concurrent
+callers queue and run one at a time instead of racing; by the time a
+waiting worker gets the lock, the schema is already at head, so its
+turn is a fast, correct no-op.
+- **What this does NOT do:** provision more Railway replicas, a bigger
+  Postgres plan, or more actual CPU cores - those are infrastructure
+  decisions this change can't make on its own, and "thousands of
+  simultaneous users" sustained indefinitely also depends on that
+  provisioning being sized to match. What this does do is stop leaving
+  most of a container's real capacity unused before those infra
+  decisions even come into play.
+- **Tier 1** - deterministic concurrency/config changes plus a
+  regression-tested locking fix, not a judgment call.
+- **Verified:** full suite green (1220 passed, 2 skipped - the 2
+  Postgres-only migration tests, including the new concurrency
+  regression test, correctly skip without `CASTIA_TEST_POSTGRES_URL`).
+  The new `test_migrate_to_head_is_safe_under_concurrent_workers`
+  (`tests/test_migrations.py`) drops a real local Postgres database's
+  schema and fires 5 concurrent `migrate_to_head()` calls at it -
+  confirmed it hangs without the advisory lock (reverted locally,
+  reproduced the hang, restored the fix) and passes in 0.6s with it. A
+  real 4-worker container start against real Postgres confirmed no
+  migration conflict of any kind across the 4 independent startups.
+  Capacity re-tested end to end against real Postgres with an async
+  (non-thread-contending) load generator, old config (1 worker,
+  40-thread pool) vs. new (4 workers, 200-thread pool) at 300 concurrent
+  requests: a real DB-backed endpoint (`GET /api/adapt/{id}`, cache-miss
+  path) went from 101.4 to 159.2 req/s (+57%), p50 latency 1.89s → 0.88s,
+  p95 8.2s → 5.6s, max 21.9s → 11.8s - on a shared 4-core sandbox where
+  the load generator itself competes with the server for the same
+  cores, so production hardware with dedicated cores per side should see
+  at least this much improvement, not less. All local Postgres/backend
+  processes and database state from this pass were torn down afterward.

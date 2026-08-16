@@ -95,7 +95,9 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
+import anyio
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
@@ -121,6 +123,24 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("castia.server")
+
+# Every plain `def` endpoint in this file runs in Starlette's threadpool
+# (see this module's docstring above), which is capped by AnyIO's
+# default CapacityLimiter at 40 concurrent threads PER PROCESS - not
+# configured anywhere in this repo before now, just inherited silently.
+# Most of these requests are I/O-bound (a DB round-trip, an LLM/Vision
+# call) rather than CPU-bound, so the real ceiling on how many can be
+# usefully in flight at once is much higher than 40 - 40 just means the
+# 41st concurrent request queues behind the others even though the
+# process has plenty of spare capacity to actually serve it. Raised well
+# past what one process's CPU could ever put to work simultaneously,
+# since the cost of an idle thread waiting on I/O is small; genuinely
+# CPU-bound work (engine runs) is already separately bounded by
+# MAX_CONCURRENT_RUNS/the Redis queue, not by this. Set once at startup
+# in _lifespan (has to run inside the event loop - see anyio's
+# current_default_thread_limiter docs). Starting guess, not a measured
+# ceiling - tune via CASTIA_THREADPOOL_SIZE.
+THREADPOOL_SIZE = int(os.environ.get("CASTIA_THREADPOOL_SIZE", "200"))
 
 MAX_INPUT_CHARS = int(os.environ.get("CASTIA_MAX_INPUT_CHARS", "8000"))
 # Anti-burst only, not a real cost ceiling on its own (see MONTHLY_LIMIT
@@ -350,6 +370,11 @@ async def _lifespan(_app: FastAPI):
     # First, so anything that fails during the rest of startup (the
     # database init below) is itself reported rather than only logged.
     monitoring.init_error_monitoring()
+    # Must run inside a running event loop - current_default_thread_limiter()
+    # is contextvar-scoped per loop, so this can't be set at import time.
+    # See THREADPOOL_SIZE's comment above for why 40 (AnyIO's default) is
+    # too low for this app's mostly-I/O-bound endpoints.
+    anyio.to_thread.current_default_thread_limiter().total_tokens = THREADPOOL_SIZE
     # Best-effort: DATABASE_URL isn't set in local/test environments that
     # never touch Postgres, and nothing on the /api/adapt path depends on
     # it yet, so a missing or unreachable database logs a warning here
@@ -1595,6 +1620,21 @@ async def paddle_webhook(request: Request) -> dict:
     503s if CASTIA_PADDLE_WEBHOOK_SECRET isn't set (webhooks are simply
     off, not silently accepted unverified) - same "off, not insecure"
     convention as INTERNAL_API_SECRET.
+
+    This is the one `async def` endpoint in this file - every other one
+    is plain `def`, which FastAPI dispatches to Starlette's threadpool
+    automatically (see this module's docstring), so a blocking call
+    inside it never stalls the event loop. `await request.body()` needs
+    an actual coroutine to run in, which is the only reason this
+    function is declared `async def` at all - but `paddle.handle_webhook`
+    itself is synchronous, blocking Postgres I/O (server/paddle.py,
+    server/credits.py), and calling it directly here would run that
+    inside THIS coroutine, on the event loop itself - blocking every
+    other request this process is serving (including /health) for the
+    duration of two DB round-trips, the one place in this file that
+    actually broke its own async/sync discipline. Routed through
+    run_in_threadpool for exactly the reason every plain `def` endpoint
+    already gets this for free.
     """
     if not PADDLE_WEBHOOK_SECRET:
         raise HTTPException(
@@ -1604,8 +1644,8 @@ async def paddle_webhook(request: Request) -> dict:
 
     raw_body = await request.body()
     try:
-        paddle.handle_webhook(
-            raw_body, request.headers.get("paddle-signature"), PADDLE_WEBHOOK_SECRET
+        await run_in_threadpool(
+            paddle.handle_webhook, raw_body, request.headers.get("paddle-signature"), PADDLE_WEBHOOK_SECRET
         )
     except paddle.PaddleWebhookError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
