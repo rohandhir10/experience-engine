@@ -68,9 +68,9 @@ export default function SharedResultPage() {
         <div className="fixed left-6 top-6 sm:left-10 sm:top-10">
           <Logo />
         </div>
-        <p className="font-serif text-2xl text-ink dark:text-ink-dark">
+        <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">
           This link doesn't lead anywhere anymore.
-        </p>
+        </h1>
         <p className="mt-3 text-[15px] text-ink/68 dark:text-ink-dark/68">
           The song it pointed to may not have been experienced yet on this
           engine.

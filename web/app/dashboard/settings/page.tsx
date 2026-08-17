@@ -4,7 +4,13 @@ import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { ApiKeysManager } from "@/components/ApiKeysManager";
 import { AccountDataControls } from "@/components/AccountDataControls";
 
-export const metadata = { title: "CASTIA — Settings" };
+// "API Keys," not "Settings" - matches this page's own <h1> and the
+// sidebar nav label below (components/DashboardSidebar.tsx already
+// renamed the nav row for the same reason: API keys are the only thing
+// this page actually manages). The <title> was the one place that
+// rename never reached - found by comparing every dashboard page's own
+// title against its own h1, not by reading this file in isolation.
+export const metadata = { title: "CASTIA — API Keys" };
 
 // No longer a DashboardStub for API keys - the public API
 // (server/main.py's /v1/* routes) is real now. Still nothing else to

@@ -6243,3 +6243,55 @@ above; same fix - keep the `logger.error`, send a generic message.
   by properly-labelled buttons - the correct pattern; and the
   `_rsc=`-suffixed "failed requests" on every page are Next.js prefetch
   cancellations, not errors.
+
+## The three remaining low-severity UI/UX findings, closed
+
+The rest of the deep UI/UX pass's findings - smaller than the sign-out
+gap and the error leak fixed above, but real.
+
+**1. No skip-to-content link; no `<header>` landmark anywhere on the
+site; ~7 tab stops through nav before reaching page content, on every
+page (WCAG 2.4.1 Bypass Blocks).** `SiteHeader` is the first thing
+inside every page's own hand-written `<main>` - true of all ~33 pages
+that render it - so a single-file fix in `SiteHeader.tsx` reaches all of
+them without touching a single page: wrapped its content in a real
+`<header>` element, added a `sr-only`/`focus:not-sr-only` "Skip to
+content" link as the very first thing it renders, and a zero-size
+`tabIndex={-1}` anchor (`#main-content`) as the last - which only ever
+needs to sit "right after the header," wherever that happens to be on
+any given page, since the header itself is always what a page renders
+first. Verified in a real browser: first Tab stop on `/`, `/music`,
+`/pricing`, and `/dashboard` is now the skip link; activating it moves
+focus straight to real page content (confirmed the *next* Tab stop is
+no longer `closest("header")`), skipping the entire nav row in one
+keystroke instead of seven.
+
+**2. Invalid share-link pages (`/s/[id]`, `/comics/s/[id]`) had no
+heading at all** - "This link doesn't lead anywhere anymore." was a
+`<p>`, while the 404 page and `/verify-email`'s own invalid-link state
+both correctly use an `<h1>` for the identical pattern. Changed both to
+`<h1>` - purely a semantic swap, the visible styling is unchanged.
+
+**3. `/dashboard/settings` was titled "Settings" but its own `<h1>` (and
+its sidebar nav row) both say "API Keys"** - the rename that made the
+nav label honest (API keys are the only thing this page manages; no
+other account preferences exist) never reached the page `<title>`.
+Every sibling dashboard page's title already matches its own h1
+exactly; this one now does too.
+
+- **Tier 1** - a shared-component landmark/skip-link addition, two
+  heading-tag swaps, and a title-string fix. None a judgment call.
+- **Verified:** `tsc --noEmit` clean, fresh `next build` clean, full
+  209-test Vitest suite unaffected (no test referenced `SiteHeader`'s
+  internal markup). Re-verified all three live in a real browser against
+  real Postgres: `<header>` count and the skip link's presence checked
+  on 4 pages; pressing Tab once from a fresh page load lands on "Skip to
+  content" every time; activating it and tabbing again lands on real
+  content (not the nav) on every page checked; both invalid-share-link
+  pages now report a real `h1` array instead of an empty one; and
+  `/dashboard/settings`'s `document.title` ("CASTIA — API Keys") and its
+  `h1` ("API Keys") now match, checked while actually signed in. Spot-
+  checked the skip link's rendering in both light and dark mode via
+  screenshot - correctly invisible until focused, visible and legible in
+  both themes once it is. Local Postgres/API/frontend processes and
+  database state torn down afterward.
