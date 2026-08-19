@@ -6453,3 +6453,132 @@ targeted are gone.
 - All local Postgres/uvicorn/next processes killed, scratch database
   dropped, postgres password cleared, postgresql service stopped after
   verification.
+
+## 2026-08-19 - Upgraded Next.js 15.5.23 -> 16.3.1, the deferred follow-up from the 15 upgrade
+
+Closes the deliberate deferral noted in the Next 15 upgrade entry above:
+land on 16 with each of its three real risk areas verified, rather than
+discovered later.
+
+**Highest-priority item, confirmed non-broken:**
+`web/middleware.ts` -> `web/proxy.ts`. Next 16 renamed the middleware
+convention to `proxy` (exported function `proxy`, not `middleware`) - a
+leftover `middleware.ts` is **silently ignored, no error**, so a botched
+migration would have looked identical to a working build while quietly
+dropping every CSP/security header. Migrated via
+`npx @next/codemod@canary middleware-to-proxy .`, then hand-diffed the
+result against the pre-upgrade file: the only change is
+`export function middleware(...)` -> `export function proxy(...)`, byte-
+identical otherwise (CSP nonce logic, `crypto.randomUUID()`, `config.
+matcher`). **Verified live**, not just by trusting the codemod: a real
+request against the built Next 16 app under Turbopack returned the full
+CSP/`X-Frame-Options`/`Referrer-Policy`/`Permissions-Policy`/`X-Content-
+Type-Options` header set unchanged.
+
+**Second risk area, did not reproduce:** the known Turbopack + `@sentry/
+nextjs` crash (`getsentry/sentry-javascript#19367`, `RangeError: Maximum
+call stack size exceeded` from `@opentelemetry/api` duplicated across
+Turbopack chunks). Built and booted this app under Turbopack (the new
+default) at `@sentry/nextjs@10.70.0` (unchanged) with no crash, at build
+time or at real request time. No fallback to `--webpack` was needed;
+noted here in case a future Sentry/Next bump reopens this.
+
+**Dependency bump** (`web/package.json`, via `npx @next/codemod@canary
+upgrade latest`): `next` `15.5.23` -> `16.3.1`, `react`/`react-dom`
+`18.3.x` -> `19.2.8` (pulled in by the Next 16 bump; no incompatible
+patterns found), `eslint-config-next` -> `16.3.1`.
+
+**`next lint` was removed** (not deprecated - the CLI command and the
+`eslint` key in `next.config.mjs` are both gone). `web/package.json`'s
+`"lint"` script now calls `eslint .` directly.
+
+**Rewrote `web/eslint.config.mjs`** to use `eslint-config-next`'s own
+flat-config array directly (`import nextConfig from "eslint-config-
+next"`) instead of the `@eslint/eslintrc` `FlatCompat` shim the Next 15
+upgrade used - the shim's package isn't a dependency of the 16.x config
+package, and 16.x now exports flat config natively, so the shim is no
+longer needed.
+
+**ESLint pinned to `9.39.5`, not the `10.8.1` the upgrade codemod
+initially installed** - `eslint-config-next`'s own bundled `eslint-
+plugin-react@7.37.5` peer-depends on `eslint@^9.7`, not 10, and crashed
+(`TypeError: contextOrFilename.getFilename is not a function`) under
+ESLint 10. `eslint-config-next` itself only requires `eslint>=9.0.0`
+(no upper bound), so ESLint 9 satisfies both the Next 16 floor and the
+plugin's actual compatibility.
+
+**Turning on the newer `eslint-plugin-react-hooks` (bundled with
+`eslint-config-next` 16) surfaced two real findings, handled
+differently:**
+- `components/DeviationText.tsx` mutated an outer `let deviationIndex`
+  counter inside the JSX-building `.map()` - a genuine anti-pattern
+  (render can run twice under React Strict Mode's dev double-invoke,
+  which would silently double-count). Fixed by deriving the per-segment
+  index as a pure `reduce` over `segments` before the render map, instead
+  of mutating a counter during it.
+- `react-hooks/set-state-in-effect` flagged 6 other pre-existing call
+  sites (`components/ScrollReveal.tsx`, `components/ThemeToggle.tsx`,
+  `app/page.tsx`, `app/comics/page.tsx`, `app/s/[id]/page.tsx`, `app/
+  verify-email/page.tsx`), all the same legitimate shape: a mount-only
+  effect reading client-only state (`localStorage`, `matchMedia`, a
+  synchronous demo-data shortcut) to avoid an SSR/client hydration
+  mismatch, with no non-effect alternative for any of them. Disabled the
+  rule in `eslint.config.mjs` with a comment explaining why, the same
+  treatment the Next 15 upgrade gave `react/no-unescaped-entities` for
+  the same reason (a newly-turned-on rule surfacing pre-existing,
+  correct-as-written code, not a bug to chase across N unrelated files).
+
+**React 19 removed the global `JSX` namespace** (`Cannot find namespace
+'JSX'` from `tsc`) - fixed the 3 affected files
+(`app/blog/page.tsx`, `components/ComicsPipelineDiagram.tsx`,
+`components/comics/PanelPipelineStoryboard.tsx`) with an explicit
+`import type { JSX } from "react";`, the React-19-idiomatic replacement.
+
+**The upgrade codemod's own `cache-components-instant-false` sub-
+codemod** added `export const instant = false;` (plus a TODO comment) to
+39 route files - this export only has meaning once `next.config.mjs`
+enables `cacheComponents`, which this app deliberately doesn't (Cache
+Components adoption is out of scope for this upgrade, a feature decision
+not a requirement), so the export just failed the build (`Route segment
+config "instant" requires nextConfig.cacheComponents to be enabled`).
+Removed it from all 39 files - a mechanical revert of the codemod's own
+speculative addition, not a design change.
+
+**CI**: `.github/workflows/ci.yml`'s `node-version` pinned from the
+generic `"20"` to `"20.9"` explicitly (Next 16's real floor), so a future
+runner image update can't silently regress below it.
+
+**Left alone, tracked as a minor unrelated follow-up, not fixed here:**
+`app/logo/route.tsx` explicitly opts into the Edge runtime, which Next 16
+now flags as deprecated at build time (`The Edge Runtime is deprecated.
+You can use the "nodejs" runtime instead.`) - a warning, not an error,
+build succeeds either way, and it's unrelated to any of this upgrade's
+actual risk areas.
+
+**`npm audit` after the bump: 0 vulnerabilities** (down from the 3
+`postcss`/`sharp`-via-`next` findings the Next 15 pass tracked as "only
+fixable by going to 16") - confirmed, not just assumed.
+
+**Verified:**
+- `npx tsc --noEmit` - clean.
+- `npx eslint .` - 0 errors, same 3 pre-existing `<img>`-vs-`next/image`
+  warnings as before (unrelated).
+- Fresh production build (`rm -rf .next && npm run build`) - succeeded
+  under Turbopack (the new default), all 61 routes generated, `Proxy
+  (Middleware)` correctly detected in the route summary.
+- `npx vitest run` - 209/209 passing.
+- Live end-to-end against a freshly stood-up local stack (Postgres 16,
+  `uvicorn server.main:app`, the fresh Turbopack `next start` build),
+  driven with Playwright: sign-up -> email-verify (token scraped from the
+  uvicorn log) -> sign-in -> dashboard access -> a spot-check of the
+  route-handler pattern migrated in the Next 15 pass (collection create/
+  delete, a bogus-id lookup returning a clean 404) -> **the CSP header
+  confirmed present** (the direct check for the proxy-migration silent-
+  failure risk) -> sign-out -> post-sign-out dashboard redirect back to
+  `/sign-in`. All passed. Same `AUTH_TRUST_HOST=true` local-only
+  verification-run workaround as the Next 15 pass (Auth.js's `trustHost`
+  default under `NODE_ENV=production` on a non-standard port, unrelated
+  to the Next version).
+- All local Postgres/uvicorn/next processes killed, scratch database
+  dropped, postgres password cleared, postgresql service stopped after
+  verification.

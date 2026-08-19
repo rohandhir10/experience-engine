@@ -55,7 +55,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Next 16 requires Node >=20.9 - pinned explicitly (not the
+          # generic "20", which resolves to whatever latest 20.x
+          # actions/setup-node ships) so this floor can't silently
+          # regress if a future runner image ships an older 20.x.
+          node-version: "20.9"
           cache: npm
           cache-dependency-path: web/package-lock.json
 

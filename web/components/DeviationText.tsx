@@ -22,7 +22,16 @@ export function DeviationText({
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const segments = splitByDeviations(text, deviations);
 
-  let deviationIndex = -1;
+  // Each deviation segment needs a stable index into `openIndex` - derived
+  // here as a pure fold over `segments` rather than mutating a counter
+  // inside the render map below, since render can run more than once
+  // (React Strict Mode's dev-mode double-invoke) and a mutated outer
+  // variable would silently double-count on the second pass.
+  const deviationIndices = segments.reduce<(number | null)[]>((acc, segment) => {
+    if (segment.type === "text") return [...acc, null];
+    const deviationsSoFar = acc.filter((n) => n !== null).length;
+    return [...acc, deviationsSoFar];
+  }, []);
 
   return (
     <span className="whitespace-pre-line">
@@ -30,8 +39,7 @@ export function DeviationText({
         if (segment.type === "text") {
           return <span key={i}>{segment.text}</span>;
         }
-        deviationIndex += 1;
-        const thisIndex = deviationIndex;
+        const thisIndex = deviationIndices[i]!;
         const isOpen = openIndex === thisIndex;
         return (
           <span key={i} className="relative">

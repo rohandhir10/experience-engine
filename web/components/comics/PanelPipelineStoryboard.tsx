@@ -21,6 +21,8 @@
  * example reused, not two different ones implying two different real
  * results. */
 
+import type { JSX } from "react";
+
 const STEPS: { title: string; description: string; Art: () => JSX.Element }[] = [
   {
     title: "Panel upload",

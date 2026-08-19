@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";

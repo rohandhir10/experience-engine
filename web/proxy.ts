@@ -26,7 +26,7 @@ import { NextRequest, NextResponse } from "next/server";
 // given away the one protection a CSP actually exists to provide against
 // injected/XSS script execution, which isn't an acceptable trade for a
 // product with real user accounts, OAuth, and eventual real payments.
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
 
   const csp = `
