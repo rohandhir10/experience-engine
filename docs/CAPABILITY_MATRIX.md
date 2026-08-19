@@ -6295,3 +6295,75 @@ exactly; this one now does too.
   screenshot - correctly invisible until focused, visible and legible in
   both themes once it is. Local Postgres/API/frontend processes and
   database state torn down afterward.
+
+## 2026-08-19 - Security/capacity re-audit: no code regressions, one tracked dependency finding
+
+Re-ran the full 8-category security-capacity-audit against current
+`main`/this branch's code (not assuming the prior pass's fixes still
+hold - confirmed each by reading the live code):
+
+1. **Auth rate-limiting** (`server/quota.py`, `/api/auth/register`,
+   `/api/auth/login`) - still per-IP AND checked before the expensive
+   PBKDF2 hash in both `password_auth.register`/`authenticate`; both
+   endpoints still gated behind `_require_internal_secret` (no public,
+   unauthenticated route reaches them directly); `AUTH_REGISTER_DAILY_LIMIT`
+   (20) / `AUTH_LOGIN_DAILY_LIMIT` (50) are still sane, non-zero defaults.
+   No drift.
+2. **X-Forwarded-For spoofing** (`server/main.py::_client_ip`) - still
+   trusts exactly the rightmost `TRUSTED_PROXY_HOPS` (default 1) entries,
+   never the attacker-controlled left end; `X-Castia-Client-IP` still only
+   honored alongside a `hmac.compare_digest`-verified internal secret. No
+   drift.
+3. **Timing-unsafe secret comparisons** - `_secret_matches` (internal
+   secret/client-IP/user-id headers), `password_auth.py`'s password check,
+   and `paddle.py`'s webhook signature check all still use
+   `hmac.compare_digest`, not `==`. `server/api_keys.py::resolve_key`
+   looks keys up by hash via an indexed DB query (not a sequential
+   in-process string compare), so it isn't in the same risk class and
+   needs no change. No drift.
+4. **Concurrent-request capacity** - `Dockerfile`'s `uvicorn` `CMD` still
+   wires `--workers ${CASTIA_WEB_CONCURRENCY:-2}`; `_lifespan` still raises
+   the AnyIO threadpool cap via `CASTIA_THREADPOOL_SIZE` (200, well above
+   the 40 default); `server/db.py` pool sizing docstring still correctly
+   frames the real ceiling as `CASTIA_WEB_CONCURRENCY × (POOL_SIZE +
+   MAX_OVERFLOW)`. No drift.
+5. **Migration races** - `server/db.py::migrate_to_head` still wraps
+   `alembic upgrade head` in a `pg_advisory_lock`/`pg_advisory_unlock`
+   pair keyed by `_MIGRATION_LOCK_KEY`, gated to
+   `engine.dialect.name == "postgresql"`. No drift.
+6. **Internal error leakage** - all four adaptation call sites (sync +
+   background job, `/api/adapt` + `/api/comics/adapt`) still catch
+   `EngineTimeoutError`/`ChapterTimeoutError` first and forward their
+   message verbatim (504), then genericize the remaining
+   `RuntimeError`/`Exception` catch while `logger.error`/`logger.exception`
+   the real message server-side. No drift.
+7. **Upload resource-exhaustion** - `engine/comics_redraw.py::_load_image`
+   still checks `image.size` (header-only, before `.load()`'s full decode)
+   against `config.MAX_IMAGE_PIXELS` and rejects oversized claims before
+   paying the decode cost. No drift.
+8. **Dependency hygiene** - `requirements.txt`/`requirements-benchmark.txt`
+   split still holds (`deep-translator` stays out of the production
+   image); `pip list --outdated` shows only routine patch-level bumps
+   (pip, pydantic_core, setuptools) with no known-incident advisories.
+   **Found and NOT auto-fixed:** `npm audit --omit=dev` in `web/` reports
+   ~19 high-severity GHSA advisories against `next@14.2.35` (SSRF in
+   Server Actions, unauthenticated disclosure of internal Server Function
+   endpoints, DoS via Server Components/Image Optimizer, cache poisoning) -
+   confirmed via `npm audit --json` that every one of them requires
+   `next@>=15.5.21`/16.x; `14.2.35` is already the newest release on the
+   14.x line, so there is no in-range patch to bump to. This app's own
+   code (`web/app/sign-up`, `web/app/sign-in` use `"use server"` Server
+   Actions; `web/middleware.ts` runs on every route) makes several of
+   these reachable in principle, not just theoretical. Deliberately not
+   auto-upgraded in this pass: a 14→15/16 major bump is a breaking,
+   whole-app change (App Router/Server Actions/next-auth v5-beta
+   compatibility all need re-verifying) that needs its own dedicated,
+   testable upgrade effort (see the `uiux-deep-flow-test` skill for the
+   real-browser regression pass that upgrade would require), not a blind
+   `npm audit fix --force` inside an unattended audit session. Tracked
+   here as an open follow-up rather than silently dropped.
+
+No other new/regressed issues found in categories 1-7; no code changes
+made this pass. No local Postgres/uvicorn/next processes were stood up
+for this audit (no runtime-shaped fix to verify), so there was nothing
+to tear down.
