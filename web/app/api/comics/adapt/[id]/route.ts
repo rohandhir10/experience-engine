@@ -4,10 +4,8 @@ import { ENGINE_API_URL } from "@/lib/api";
 // Same proxy pattern as app/api/adapt/[id]/route.ts, for the comics
 // share page's GET lookup (app/comics/s/[id]/page.tsx) against
 // server/main.py's GET /api/comics/adapt/{result_id}.
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let upstream: Response;
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/comics/adapt/${params.id}`, {

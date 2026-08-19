@@ -6,8 +6,9 @@ import { engineFetchAsUser } from "@/lib/engineFetch";
 // this route only proves who is asking.
 export async function POST(
   request: NextRequest,
-  { params }: { params: { collectionId: string; resultId: string } }
+  props: { params: Promise<{ collectionId: string; resultId: string }> }
 ) {
+  const params = await props.params;
   const body = await request.json().catch(() => ({}));
   return engineFetchAsUser(
     `/api/me/collections/${encodeURIComponent(params.collectionId)}/adaptations/${encodeURIComponent(params.resultId)}`,

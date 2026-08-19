@@ -1,10 +1,8 @@
 import { NextRequest } from "next/server";
 import { engineFetchAsUser } from "@/lib/engineFetch";
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { collectionId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ collectionId: string }> }) {
+  const params = await props.params;
   const body = await request.json().catch(() => ({}));
   return engineFetchAsUser(
     `/api/me/collections/${encodeURIComponent(params.collectionId)}`,
@@ -14,8 +12,9 @@ export async function PATCH(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { collectionId: string } }
+  props: { params: Promise<{ collectionId: string }> }
 ) {
+  const params = await props.params;
   return engineFetchAsUser(
     `/api/me/collections/${encodeURIComponent(params.collectionId)}`,
     { method: "DELETE" }

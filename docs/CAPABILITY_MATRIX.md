@@ -6367,3 +6367,89 @@ No other new/regressed issues found in categories 1-7; no code changes
 made this pass. No local Postgres/uvicorn/next processes were stood up
 for this audit (no runtime-shaped fix to verify), so there was nothing
 to tear down.
+
+## 2026-08-19 - Upgraded Next.js 14.2.35 -> 15.5.23, closing the tracked dependency follow-up
+
+The dependency finding from the security re-audit above (`next@14.2.35`
+carrying ~19 high-severity GHSA advisories - SSRF in Server Actions,
+unauthenticated disclosure of internal Server Function endpoints, DoS -
+all only fixed at `next@>=15.5.21`) is now closed. Went to Next 15, not
+16: 16 makes Turbopack the default bundler and raises the Node floor to
+20.9+, a bigger, less-tested jump for no extra security benefit since
+15.5.21+ already contains every fix. 16 stays a separate future upgrade.
+
+**What changed** (`web/package.json`):
+- `next`: `^14.2.0` -> `^15.5.23` (pinned to the actual newest 15.5.x
+  patch, not an open `^15.0.0` a future install could resolve below the
+  fixed floor)
+- `eslint-config-next@^15.5.23` + `eslint@^9` added, with a new
+  `web/eslint.config.mjs` (flat config, `next/core-web-vitals` +
+  `next/typescript`) - `next lint` had no config at all before this and
+  was silently non-functional; now restored.
+- `next-auth` stays at `5.0.0-beta.32` - confirmed it's already the
+  newest published Auth.js v5 beta (`npm view next-auth versions`), so
+  there was nothing to bump it to.
+
+**The 11 route handler files** that typed `params` as a plain object
+(`{ params }: { params: { id: string } }`) were migrated to Next 15's
+required `Promise<{ id: string }>` + `await params` via Next's own
+codemod (`npx @next/codemod@canary next-async-request-api .`), then
+hand-verified: `web/app/api/adapt/[id]/route.ts`,
+`web/app/api/adapt/jobs/[jobId]/route.ts`,
+`web/app/api/comics/adapt/[id]/route.ts`,
+`web/app/api/comics/adapt/jobs/[jobId]/route.ts`,
+`web/app/api/comics/redraw/[id]/route.ts`,
+`web/app/api/me/api-keys/[keyId]/route.ts`,
+`web/app/api/me/collections/[collectionId]/route.ts` (both handlers),
+`web/app/api/me/collections/[collectionId]/adaptations/[resultId]/route.ts`,
+`web/app/api/me/adaptations/[resultId]/route.ts`,
+`web/app/api/me/adaptations/[resultId]/favorite/route.ts`,
+`web/app/api/me/adaptations/[resultId]/save/route.ts`. The codemod also
+caught `web/app/sign-in/page.tsx`'s `searchParams` prop, same migration.
+
+Turning on `eslint-config-next` for the first time surfaced ~300
+pre-existing `react/no-unescaped-entities` findings (literal `'`/`"` in
+JSX text across the app) - a cosmetic HTML-entity-escaping preference,
+not a correctness issue, and bulk-editing ~40 unrelated files is a
+separate cleanup, not part of a Next-version bump. Disabled that one rule
+in `eslint.config.mjs` with a comment explaining why, rather than either
+blocking this upgrade on it or leaving `next lint` broken again. The one
+real lint finding, `global-error.tsx` using a plain `<a>` instead of
+`next/link`, is intentional: this file replaces the entire document on a
+root-level render error, so it can't assume the App Router (or `next/
+link`'s own context) survived - suppressed inline with a comment, not
+globally.
+
+**`npm audit`** after the bump: the 4 pre-existing high-severity findings
+drop to 3, all now inherited from `next`'s own bundled `postcss`/`sharp`
+(`GHSA-r28c-9q8g-f849`, `GHSA-f88m-g3jw-g9cj`) rather than from `next`
+itself - `npm audit fix` confirms the only available fix is the Next 16
+bump, out of scope here per the reasoning above. `next`'s own advisory
+listing is otherwise clean; the original SSRF/DoS findings this upgrade
+targeted are gone.
+
+**Verified:**
+- `npx tsc --noEmit` - clean.
+- `npx eslint .` - 0 errors, 3 pre-existing `<img>`-vs-`next/image`
+  warnings left as-is (unrelated to this change).
+- Fresh production build (`rm -rf .next && npm run build`) - succeeded,
+  all 62 routes generated, no new warnings.
+- `npx vitest run` - 209/209 passing.
+- Live end-to-end against a freshly stood-up local stack (Postgres 16,
+  `uvicorn server.main:app`, the fresh `next start` build), driven with
+  Playwright: full sign-up -> email-verify (token scraped from the
+  uvicorn log, no email sandbox in dev) -> sign-in -> dashboard access
+  (server-side `auth()` gate still redirects correctly) -> every one of
+  the 11 migrated route handlers exercised directly (collection
+  create/rename/delete, API key create/delete, adaptation/job lookups by
+  bogus id returning clean 404s/405s instead of crashing, confirming
+  `await params` resolves) -> CSP header/nonce from `web/middleware.ts`
+  confirmed still present and unchanged -> sign-out -> post-sign-out
+  dashboard redirect back to `/sign-in`. All passed. (One local-only
+  wrinkle unrelated to the Next version: Auth.js v5's `trustHost` default
+  is off under `NODE_ENV=production` on a non-standard local port,
+  independent of Next 14 vs 15 - set `AUTH_TRUST_HOST=true` for this
+  verification run only, not a code change.)
+- All local Postgres/uvicorn/next processes killed, scratch database
+  dropped, postgres password cleared, postgresql service stopped after
+  verification.

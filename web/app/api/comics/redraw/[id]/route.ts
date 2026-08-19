@@ -6,10 +6,8 @@ import { ENGINE_API_URL } from "@/lib/api";
 // computed redraw (server/cache.py::comics_redraw_content_id) be fetched
 // again without re-running inpainting, the same way a song or chapter's
 // result_id already can be.
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let upstream: Response;
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/comics/redraw/${params.id}`, {

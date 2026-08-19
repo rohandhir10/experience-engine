@@ -23,11 +23,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 // EmailNotVerifiedError, or next-auth's own default for anything else),
 // which searchParams below turns into a real message instead of a
 // generic "something went wrong."
-export default async function SignInPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; code?: string };
-}) {
+export default async function SignInPage(
+  props: {
+    searchParams: Promise<{ error?: string; code?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth().catch(() => null);
   const configured = Boolean(process.env.AUTH_SECRET);
   const googleConfigured = Boolean(process.env.AUTH_GOOGLE_ID);

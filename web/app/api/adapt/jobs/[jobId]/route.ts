@@ -5,10 +5,8 @@ import { ENGINE_API_URL } from "@/lib/api";
 // each call is a fast in-memory dict lookup on server/main.py's side, so
 // this needs none of /api/adapt/route.ts's AbortController/maxDuration
 // handling.
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { jobId: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ jobId: string }> }) {
+  const params = await props.params;
   let upstream: Response;
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/adapt/jobs/${params.jobId}`);

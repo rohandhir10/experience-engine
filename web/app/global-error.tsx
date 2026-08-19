@@ -86,6 +86,9 @@ export default function GlobalError({
             >
               Try again
             </button>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- this boundary
+                replaces the whole document and can't assume the App Router (or
+                next/link's context) is intact; a plain anchor is the correct choice here */}
             <a
               href="/"
               style={{

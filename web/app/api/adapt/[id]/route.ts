@@ -6,10 +6,8 @@ import { ENGINE_API_URL } from "@/lib/api";
 // directly) so the browser only ever talks to this same-origin Next.js
 // route — no CORS configuration and no NEXT_PUBLIC_ env var needed for
 // what's otherwise a server-only URL.
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   let upstream: Response;
   try {
     upstream = await fetch(`${ENGINE_API_URL}/api/adapt/${params.id}`, {

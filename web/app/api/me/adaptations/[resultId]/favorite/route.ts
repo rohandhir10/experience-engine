@@ -5,10 +5,8 @@ import { engineFetchAsUser } from "@/lib/engineFetch";
 // rows. The engine scopes the write by user id (server/accounts.py::
 // set_favorite), so this route only has to prove WHO is asking - it
 // never has to check ownership itself.
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { resultId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ resultId: string }> }) {
+  const params = await props.params;
   const body = await request.json().catch(() => ({}));
   return engineFetchAsUser(
     `/api/me/adaptations/${encodeURIComponent(params.resultId)}/favorite`,
