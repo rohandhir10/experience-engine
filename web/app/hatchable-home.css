@@ -93,3 +93,35 @@
   .ch-cap-card, .ch-contrast, .ch-step, .ch-audience-grid > div,
   .ch-nav-cta, .ch-text-link, .ch-footer a, .ch-button { transition: none !important; }
 }
+
+
+/* Original manga artwork: two inked character panels with halftone shading.
+   The sprite is original project art, so it ships locally without a third-party
+   image request, hotlink dependency, or licensing ambiguity. */
+.ch-panel-main,
+.ch-frame-1 {
+  background-image: url('/castia-manga-panels.svg');
+  background-size: auto 100%;
+  background-position: left center;
+  background-repeat: no-repeat;
+}
+.ch-panel-side,
+.ch-frame-2 {
+  background-image: url('/castia-manga-panels.svg');
+  background-size: auto 100%;
+  background-position: right center;
+  background-repeat: no-repeat;
+}
+.ch-panel-main::before { content: none; }
+.ch-silhouette { opacity: .2; mix-blend-mode: multiply; }
+.ch-panel-main .ch-speech,
+.ch-panel-side .ch-speech { border: 1px solid rgba(25,23,31,.16); }
+.ch-panel-main .ch-panel-caption,
+.ch-panel-side .ch-panel-caption {
+  background: rgba(25,23,31,.72);
+  padding: 4px 5px;
+  border-radius: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ch-panel-main, .ch-panel-side, .ch-frame-1, .ch-frame-2 { scroll-behavior: auto; }
+}
