@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   description:
     "Paste lyrics or import a YouTube link. Castia adapts English, Hindi, Japanese, Korean, Spanish, and Urdu song lyrics in any direction through a three-stage Writers' Room, not a literal translation.",
   alternates: { canonical: "/music" },
+  robots: { index: false, follow: false },
   openGraph: {
     title: "Castia — Adapt song lyrics across six languages",
     description:
