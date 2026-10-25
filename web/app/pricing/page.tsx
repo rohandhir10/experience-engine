@@ -116,10 +116,10 @@ export default function PricingPage() {
   });
 
   return (
-    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+    <main className="castia-interior min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
       <JsonLd data={breadcrumb} />
       <JsonLd data={product} />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         <SiteHeader active="pricing" />
 
         <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
