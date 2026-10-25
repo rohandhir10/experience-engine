@@ -255,3 +255,46 @@ body:not(:has(.castia-home)) button:focus-visible {
   .castia-panel-thumb, .castia-panel-thumb-image, .castia-panel-tile,
   .castia-panel-tile img, .castia-uploader { transition: none !important; }
 }
+
+/* Readability guard: non-home routes deliberately use the homepage's warm,
+   light paper palette even when the site-wide theme toggle is in dark mode.
+   Keep legacy dark-mode utility classes from pairing pale text with paper
+   surfaces, or painting whole content panels near-black. */
+body:not(:has(.castia-home)) [class*="dark:bg-paper-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-white"],
+body:not(:has(.castia-home)) [class*="dark:bg-gray-"],
+body:not(:has(.castia-home)) [class*="dark:bg-slate-"],
+body:not(:has(.castia-home)) [class*="dark:bg-zinc-"],
+body:not(:has(.castia-home)) [class*="dark:bg-neutral-"] {
+  background-color: #fffdf9 !important;
+}
+
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-black"],
+body:not(:has(.castia-home)) [class*="dark:bg-gray-9"],
+body:not(:has(.castia-home)) [class*="dark:bg-slate-9"],
+body:not(:has(.castia-home)) [class*="dark:bg-zinc-9"],
+body:not(:has(.castia-home)) [class*="dark:bg-neutral-9"] {
+  background-color: rgba(25, 23, 31, .045) !important;
+  color: #19171f !important;
+}
+
+/* On the light theme, muted dark-mode text should remain muted ink rather
+   than becoming near-white. Cover opacity variants as well as exact tokens. */
+body:not(:has(.castia-home)) [class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:text-white"],
+body:not(:has(.castia-home)) [class*="dark:text-gray-"],
+body:not(:has(.castia-home)) [class*="dark:text-slate-"],
+body:not(:has(.castia-home)) [class*="dark:text-zinc-"],
+body:not(:has(.castia-home)) [class*="dark:text-neutral-"] {
+  color: #19171f !important;
+}
+
+/* Keep genuinely ink-filled actions inverted after the general surface reset. */
+body:not(:has(.castia-home)) [class*="bg-ink"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="bg-ink-dark"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="bg-black"][class*="text-white"] {
+  background-color: #19171f !important;
+  color: #fffdf9 !important;
+}
