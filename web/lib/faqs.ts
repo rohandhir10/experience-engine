@@ -31,15 +31,15 @@ export const FAQS: Faq[] = [
   },
   {
     category: "Product",
-    question: "Which languages are supported?",
+    question: "Which languages can I use for comic localization?",
     answer:
-      "English, Hindi, Japanese, Korean, Spanish, and Urdu, in any direction — adapt from any one of these into any other.",
+      "The current engine supports English, Hindi, Japanese, Korean, Spanish, and Urdu. Available directions depend on the deployed language configuration.",
   },
   {
     category: "Product",
     question: "What does CASTIA do for comics and webtoons?",
     answer:
-      "Yes. Upload comic or webtoon panels to detect speech-bubble text, review the extracted dialogue, adapt lines with character and scene context in mind, and optionally redraw panels with the adapted text typeset in. Current limitations include sound-effect text over artwork not being redrawn and OCR reading order being imperfect for some layouts.",
+      "Upload comic or webtoon panels to detect speech-bubble text, review the extracted dialogue, adapt lines with character and scene context in mind, and optionally redraw panels with the adapted text typeset in. Current limitations include sound-effect text over artwork not being redrawn and OCR reading order being imperfect for some layouts.",
   },
   {
     category: "Pricing & access",
