@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import "./globals.css";
+import "./site-theme.css";
 import { AmbientGlow } from "@/components/AmbientGlow";
 import { JsonLd } from "@/components/JsonLd";
 import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
