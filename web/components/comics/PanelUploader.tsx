@@ -168,7 +168,7 @@ export function PanelUploader({
         </p>
 
         {converting && (
-          <p className="text-[12px] text-ink/68 dark:text-ink-dark/68">
+          <p className="castia-conversion-status text-[12px] text-ink/68 dark:text-ink-dark/68" role="status" aria-live="polite">
             Converting {converting}…
           </p>
         )}
