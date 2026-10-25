@@ -122,11 +122,12 @@ export default function PricingPage() {
       <div className="mx-auto max-w-5xl">
         <SiteHeader active="pricing" />
 
-        <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+        <div className="castia-pricing-hero mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <div>
             <BreadcrumbNav items={[{ name: "Home", path: "/" }, { name: "Pricing" }]} />
-            <h1 className="mt-3 font-serif text-3xl text-ink dark:text-ink-dark sm:text-4xl">
-              Pricing.
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Simple, transparent economics</p>
+            <h1 className="mt-3 font-serif text-4xl text-ink dark:text-ink-dark sm:text-5xl">
+              Pricing that scales with your story.
             </h1>
             {/* Short, not the old two-sentence hedge/caveat - the panel
                 beside it (FreeRightNowPanel) already states the same
@@ -144,10 +145,31 @@ export default function PricingPage() {
           <FreeRightNowPanel />
         </div>
 
-        <section className="mt-12">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            How credits work
-          </h2>
+        <section className="castia-credit-explainer mt-16 rounded-3xl border border-black/[0.09] bg-white/45 p-6 dark:border-white/[0.11] dark:bg-white/[0.025] sm:p-8">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">Understand the unit</p>
+              <h2 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">How credits work</h2>
+              <p className="mt-3 text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">Think in pages, not tokens. The estimate below gives you a practical starting point, not a fixed quote.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-black/[0.08] bg-paper/75 p-4 dark:border-white/[0.1] dark:bg-white/[0.035]">
+                <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink/60 dark:text-ink-dark/60">01 / Unit</p>
+                <p className="mt-2 font-serif text-xl text-ink dark:text-ink-dark">1 credit</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-ink/70 dark:text-ink-dark/70">One unit of adaptation work.</p>
+              </div>
+              <div className="rounded-2xl border border-black/[0.08] bg-paper/75 p-4 dark:border-white/[0.1] dark:bg-white/[0.035]">
+                <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink/60 dark:text-ink-dark/60">02 / Typical page</p>
+                <p className="mt-2 font-serif text-xl text-ink dark:text-ink-dark">{PAGE_CREDITS} credits</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-ink/70 dark:text-ink-dark/70">Around five panels, including OCR and optional redraw.</p>
+              </div>
+              <div className="rounded-2xl border border-black/[0.08] bg-paper/75 p-4 dark:border-white/[0.1] dark:bg-white/[0.035]">
+                <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-ink/60 dark:text-ink-dark/60">03 / Actual usage</p>
+                <p className="mt-2 font-serif text-xl text-ink dark:text-ink-dark">Variable</p>
+                <p className="mt-1 text-[12px] leading-relaxed text-ink/70 dark:text-ink-dark/70">Dense pages can cost more; sparse pages can cost less.</p>
+              </div>
+            </div>
+          </div>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             One credit is one unit of adaptation work. A typical five-panel manga or webtoon page runs about {PAGE_CREDITS} credits, including OCR and the optional redraw pass. Dense pages or pages that need hosted redraw can cost more; sparse pages can cost less.
           </p>
@@ -157,12 +179,17 @@ export default function PricingPage() {
             typesetting. At Starter-pack rates, a full page here - translated,
             redrawn, and typeset - costs less than that floor.
           </p>
+        </div>
         </section>
 
-        <section className="mt-12">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Pay-as-you-go credit packs
-          </h2>
+        <section className="castia-price-section mt-16">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">One-time purchase</p>
+              <h2 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">Pay-as-you-go credit packs</h2>
+            </div>
+            <p className="max-w-sm text-[13px] leading-relaxed text-ink/70 dark:text-ink-dark/70">Buy once, use whenever. Pack credits don’t expire.</p>
+          </div>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             Buy credits once, use them whenever. They don't expire and
             they're never charged again on their own.
@@ -171,11 +198,12 @@ export default function PricingPage() {
             {PACKS.map((pack) => (
               <div
                 key={pack.name}
-                className="rounded-2xl border border-black/[0.10] px-6 py-7 dark:border-white/[0.11]"
+                className={`castia-price-card rounded-2xl border px-6 py-7 dark:border-white/[0.11] ${pack.name === "Growth" ? "castia-price-card-featured border-accent/50 bg-accent/[0.055]" : "border-black/[0.10]"}`}
               >
-                <p className="font-serif text-xl text-ink dark:text-ink-dark">
-                  {pack.name}
-                </p>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-serif text-xl text-ink dark:text-ink-dark">{pack.name}</p>
+                  {pack.name === "Growth" ? <span className="rounded-full border border-accent/35 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-accent">Best rate</span> : null}
+                </div>
                 <p className="mt-2 text-2xl text-ink dark:text-ink-dark">
                   ${pack.price}
                 </p>
@@ -196,14 +224,13 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Creator subscription
-          </h2>
+        <section className="castia-price-section mt-16 border-t border-black/[0.09] pt-10 dark:border-white/[0.11]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">For regular releases</p>
+          <h2 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">Creator subscription</h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             For regular use without buying a new pack every time.
           </p>
-          <div className="mt-6 rounded-2xl border border-black/[0.10] px-7 py-8 dark:border-white/[0.11] sm:max-w-sm">
+          <div className="castia-price-card mt-6 rounded-2xl border border-black/[0.10] bg-white/45 px-7 py-8 dark:border-white/[0.11] dark:bg-white/[0.025] sm:max-w-lg">
             <p className="font-serif text-xl text-ink dark:text-ink-dark">
               {SUBSCRIPTION.name}
             </p>
@@ -229,10 +256,9 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="mt-12">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Studio &amp; Enterprise
-          </h2>
+        <section className="castia-price-section mt-16 border-t border-black/[0.09] pt-10 dark:border-white/[0.11]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink/60 dark:text-ink-dark/60">On the roadmap</p>
+          <h2 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">Studio &amp; Enterprise</h2>
           {/* Dashed border, not the same solid-border card the live tiers
               above use - matching that treatment made "Coming soon" easy
               to miss at a glance (real feedback: these read as
@@ -298,10 +324,9 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="mt-12 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            Credits, in detail
-          </h2>
+        <section className="castia-price-section mt-16 border-t border-black/[0.09] pt-10 dark:border-white/[0.11]">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">Good to know</p>
+          <h2 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">Credits, in detail</h2>
           <div className="mt-6 space-y-6">
             <div>
               <h3 className="text-[14px] font-medium text-ink dark:text-ink-dark">
