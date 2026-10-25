@@ -298,3 +298,32 @@ body:not(:has(.castia-home)) [class*="bg-black"][class*="text-white"] {
   background-color: #19171f !important;
   color: #fffdf9 !important;
 }
+
+/* Form controls on the comic workspace and other interior tools must remain
+   readable with the persisted dark-mode class enabled. Browser-default
+   placeholder opacity is too faint for the actual script-editing workflow. */
+body:not(:has(.castia-home)) input::placeholder,
+body:not(:has(.castia-home)) textarea::placeholder {
+  color: #817d88 !important;
+  opacity: 1 !important;
+}
+body:not(:has(.castia-home)) input:disabled,
+body:not(:has(.castia-home)) textarea:disabled,
+body:not(:has(.castia-home)) select:disabled,
+body:not(:has(.castia-home)) button:disabled {
+  color: #817d88 !important;
+  opacity: .72;
+}
+body:not(:has(.castia-home)) .castia-interior,
+body:not(:has(.castia-home)) .castia-workspace {
+  background-color: #f6f3ed;
+  color: #19171f;
+}
+body:not(:has(.castia-home)) .castia-interior input,
+body:not(:has(.castia-home)) .castia-interior textarea,
+body:not(:has(.castia-home)) .castia-workspace input,
+body:not(:has(.castia-home)) .castia-workspace textarea {
+  background-color: #fffdf9 !important;
+  color: #19171f !important;
+  border-color: rgba(25, 23, 31, .18) !important;
+}
