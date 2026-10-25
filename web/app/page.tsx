@@ -34,11 +34,9 @@ export default function Home() {
       <div className="ch-announcement"><span className="ch-pulse" /> BUILT FOR THE PEOPLE WHO BRING STORIES TO THE WORLD <span className="ch-announcement-right">CREATIVE LOCALIZATION, REIMAGINED ↗</span></div>
       <header className="ch-nav ch-wrap">
         <Link className="ch-wordmark" href="/" aria-label="CASTIA home"><span className="ch-mark">C<span>✳</span></span> CASTIA</Link>
-        <nav className={menuOpen ? "ch-nav-links is-open" : "ch-nav-links"} aria-label="Main navigation">
-          <a href="#platform" onClick={() => setMenuOpen(false)}>Platform</a><a href="#workflow" onClick={() => setMenuOpen(false)}>How it works</a><a href="#teams" onClick={() => setMenuOpen(false)}>For teams</a>
-        </nav>
+        <nav className="ch-nav-links" aria-label="Main navigation"><a href="#platform">Platform</a><a href="#workflow">How it works</a><a href="#teams">For teams</a></nav>
         <Link className="ch-nav-cta" href="/comics">Open workspace <span>↗</span></Link>
-        <button className="ch-menu" aria-label="Toggle navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "×" : "☰"}</button>
+        <details className="ch-mobile-nav"><summary aria-label="Open navigation">☰</summary><nav aria-label="Mobile navigation"><a href="#platform">Platform</a><a href="#workflow">How it works</a><a href="#teams">For teams</a></nav></details>
       </header>
 
       <section className="ch-hero ch-wrap">
