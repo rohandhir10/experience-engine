@@ -150,7 +150,9 @@ export default function PricingPage() {
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">Understand the unit</p>
               <h2 className="mt-2 font-serif text-2xl text-ink dark:text-ink-dark">How credits work</h2>
-              <p className="mt-3 text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">Think in pages, not tokens. The estimate below gives you a practical starting point, not a fixed quote.</p>
+              <p className="mt-3 text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
+                One credit is one unit of adaptation work. The page estimate is a practical starting point, not a fixed quote.
+              </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-black/[0.08] bg-paper/75 p-4 dark:border-white/[0.1] dark:bg-white/[0.035]">
@@ -170,16 +172,9 @@ export default function PricingPage() {
               </div>
             </div>
           </div>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
-            One credit is one unit of adaptation work. A typical five-panel manga or webtoon page runs about {PAGE_CREDITS} credits, including OCR and the optional redraw pass. Dense pages or pages that need hosted redraw can cost more; sparse pages can cost less.
+          <p className="mt-6 border-t border-black/[0.08] pt-4 text-[13px] leading-relaxed text-ink/70 dark:border-white/[0.1] dark:text-ink-dark/70">
+            For comparison, professional manga localization freelancers may charge $5/page and up for translation alone, before typesetting. At Starter-pack rates, a full page here — translated, redrawn, and typeset — is estimated below that floor.
           </p>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
-            For comparison: professional manga localization freelancers
-            typically charge $5/page and up just for translation, before
-            typesetting. At Starter-pack rates, a full page here - translated,
-            redrawn, and typeset - costs less than that floor.
-          </p>
-        </div>
         </section>
 
         <section className="castia-price-section mt-16">
