@@ -49,15 +49,19 @@ export default function Home() {
           <div className="ch-hero-actions"><Link className="ch-button ch-button-dark" href="/comics">Explore the workspace <span>↗</span></Link><a className="ch-text-link" href="#workflow"><span className="ch-play">▶</span> See how it works</a></div>
           <div className="ch-proof"><div className="ch-avatars"><span>한</span><span>文</span><span>あ</span></div><p>Made for localization teams<br /><strong>Not just word-for-word translation.</strong></p></div>
         </div>
-        <div className="ch-hero-art" aria-label="Illustrative webtoon localization workspace">
-          <div className="ch-art-top"><span>CASTIA / WORKSPACE 01</span><span className="ch-live"><i /> CONCEPT PREVIEW</span></div>
-          <div className="ch-comic-sheet"><div className="ch-comic-panel ch-panel-main"><div className="ch-sun" /><div className="ch-silhouette" /><div className="ch-speech ch-speech-one">You came back.</div><div className="ch-panel-caption">01 — THE RETURN</div></div><div className="ch-comic-panel ch-panel-side"><div className="ch-speed-lines" /><div className="ch-speech ch-speech-two">I said I would.</div><div className="ch-panel-caption">02 — THE PROMISE</div></div></div>
-          <div className="ch-translation-card"><div className="ch-tc-head"><span className="ch-tc-icon">✳</span><div><strong>Creative fidelity</strong><small>SCENE CONTEXT · DETECTED</small></div><span className="ch-score">92<span>/100</span></span></div>
-            <div className="ch-tc-row"><span className="ch-dot ch-purple" /><div><strong>Character voice</strong><small>Reserved, emotionally guarded</small></div><span className="ch-check">✓</span></div>
-            <div className="ch-tc-row"><span className="ch-dot ch-orange" /><div><strong>Subtext</strong><small>Relief beneath restraint</small></div><span className="ch-check">✓</span></div>
-            <div className="ch-tc-row"><span className="ch-dot ch-green" /><div><strong>Panel continuity</strong><small>Meaning preserved in context</small></div><span className="ch-check">✓</span></div>
-            <div className="ch-tc-foot">ILLUSTRATIVE PRODUCT CONCEPT <span>↗</span></div>
-          </div><div className="ch-floating-note"><span>✧</span> Meaning lives between the lines.</div>
+        <div className="ch-hero-art ch-hero-art-editorial" aria-label="Original cinematic manga-inspired scene with a localization workspace preview">
+          <div className="ch-scene-label"><span>CASTIA / STORY 001</span><span>JP → EN <i /></span></div>
+          <div className="ch-scene-copy"><span>SCENE CONTEXT · 04</span><strong>Some things<br/>don't translate.<br/><em>Until they do.</em></strong></div>
+          <div className="ch-localization-window">
+            <div className="ch-window-top"><span className="ch-window-brand"><b>✳</b> CASTIA STUDIO</span><span>CHAPTER 08 / PANEL 04</span><span className="ch-window-status">REVIEW</span></div>
+            <div className="ch-window-body">
+              <div className="ch-dialogue-source"><small>ORIGINAL · JAPANESE</small><p>また、ここで<br/>会えるといいな。</p><span>Quiet hope · understated</span></div>
+              <div className="ch-dialogue-arrow">↗</div>
+              <div className="ch-dialogue-target"><small>ADAPTATION · ENGLISH</small><p>I hope we can<br/>meet here again.</p><span>Natural · emotionally restrained</span></div>
+            </div>
+            <div className="ch-window-footer"><span><i /> Character voice preserved</span><span>Apply to panel ↗</span></div>
+          </div>
+          <div className="ch-scene-caption">ORIGINAL ARTWORK · LOCALIZATION CONCEPT</div>
         </div>
         <div className="ch-hero-bottom"><span>01 / A BETTER WAY TO LOCALIZE</span><span>LANGUAGE IS ONLY THE BEGINNING ↓</span></div>
       </section>
