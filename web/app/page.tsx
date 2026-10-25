@@ -30,7 +30,9 @@ const capabilities = [
 
 export default function Home() {
   return (
-    <main className="castia-home">\n      <JsonLd data={webPageJsonLd({ path: "/", name: "CASTIA — Every panel. Every feeling. Every language.", description: "Creative webtoon localization that preserves character voice, emotional intent, and panel context across languages.", updatedDate: PAGE_UPDATED_DATE })} />\n      <JsonLd data={faqPageJsonLd(HOMEPAGE_FAQS)} />
+    <main className="castia-home">
+      <JsonLd data={webPageJsonLd({ path: "/", name: "CASTIA — Every panel. Every feeling. Every language.", description: "Creative webtoon localization that preserves character voice, emotional intent, and panel context across languages.", updatedDate: PAGE_UPDATED_DATE })} />
+      <JsonLd data={faqPageJsonLd(HOMEPAGE_FAQS)} />
       <div className="ch-announcement"><span className="ch-pulse" /> BUILT FOR THE PEOPLE WHO BRING STORIES TO THE WORLD <span className="ch-announcement-right">CREATIVE LOCALIZATION, REIMAGINED ↗</span></div>
       <header className="ch-nav ch-wrap">
         <Link className="ch-wordmark" href="/" aria-label="CASTIA home"><span className="ch-mark">C<span>✳</span></span> CASTIA</Link>
