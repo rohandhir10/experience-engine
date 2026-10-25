@@ -37,11 +37,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     compare: 0.6,
   };
 
-  const contentEntries = CONTENT_REGISTRY.map((entry) => ({
+  const contentEntries = CONTENT_REGISTRY
+    .filter((entry) =>
+      entry.path !== "/lyrics-translation" &&
+      entry.path !== "/blog/why-literal-translation-breaks-song-lyrics" &&
+      !entry.path.startsWith("/compare/")
+    )
+    .map((entry) => ({
     url: `${SITE_URL}${entry.path}`,
     lastModified: new Date(entry.updatedDate),
     priority: priorityByKind[entry.kind],
-  }));
+    }));
 
   return [...staticEntries, ...contentEntries];
 }
