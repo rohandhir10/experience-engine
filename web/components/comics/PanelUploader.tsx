@@ -119,7 +119,7 @@ export function PanelUploader({
         setDragActive(false);
         void handleIncoming(e.dataTransfer.files);
       }}
-      className={`relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-dashed px-5 py-12 text-center transition sm:px-8 sm:py-14 ${
+      className={`castia-uploader relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-dashed px-5 py-12 text-center transition sm:px-8 sm:py-14 ${
         dragActive
           ? "border-accent/55 bg-[#f7f1eb] dark:bg-accent/[0.06]"
           : "border-black/[0.14] bg-white/55 hover:border-accent/35 dark:border-white/[0.15] dark:bg-white/[0.02]"
@@ -157,7 +157,7 @@ export function PanelUploader({
           level 0, same as the texture) puts DOM order back in charge, so
           this - coming after the texture in markup - paints on top of it
           rather than being silently hidden underneath. */}
-      <div className="relative flex flex-col items-center gap-4">
+      <div className="castia-uploader-content relative flex flex-col items-center gap-4">
         <p className="font-serif text-[19px] text-ink dark:text-ink-dark">
           Drop chapter images, a PDF, or a ZIP here
         </p>
