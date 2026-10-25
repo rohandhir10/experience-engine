@@ -46,7 +46,7 @@ const TERMS: { term: string; slug: string; definition: string; category: TermCat
     term: "Transcreation",
     slug: "transcreation",
     definition:
-      "A term from the localization industry for recreating a piece of content's intent, tone, and emotional effect in another language, rather than its literal words - accepting that a faithful translation and a faithful adaptation are sometimes different texts. Most closely associated with advertising and creative copy, but the same problem shows up anywhere meaning depends on rhythm, connotation, or wordplay - which is exactly the case for song lyrics and character dialogue.",
+      "A term from the localization industry for recreating a piece of content's intent, tone, and emotional effect in another language, rather than its literal words - accepting that a faithful translation and a faithful adaptation are sometimes different texts. Most closely associated with advertising and creative copy, but the same problem shows up anywhere meaning depends on rhythm, connotation, or wordplay - which is especially important for comic dialogue, character voice, and cultural references.",
     related: { label: "What transcreation means", href: "/blog/what-transcreation-means" },
   },
   {
@@ -62,7 +62,6 @@ const TERMS: { term: string; slug: string; definition: string; category: TermCat
     slug: "sense-for-sense-vs-word-for-word",
     definition:
       "Word-for-word (literal) translation maps each source word to a target-language equivalent in order; sense-for-sense translation renders the overall meaning of a phrase or sentence, reordering or substituting words freely to do it. The distinction goes back to classical translation theory (it's the same tension Cicero and St. Jerome wrote about) and it's the exact axis a literal MT engine and a creative rewrite sit on opposite ends of.",
-    related: { label: "Why literal translation breaks song lyrics", href: "/blog/why-literal-translation-breaks-song-lyrics" },
   },
   {
     category: "Core concepts",
