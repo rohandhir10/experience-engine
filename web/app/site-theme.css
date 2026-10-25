@@ -187,3 +187,71 @@ body:not(:has(.castia-home)) button:focus-visible {
   body:not(:has(.castia-home)) [role="button"],
   body:not(:has(.castia-home)) img { transition: none !important; }
 }
+
+
+/* Comic workspace motion: panel changes feel like moving through a page
+   sequence, while all content remains immediate and editable. */
+@keyframes castia-panel-arrive {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.992); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes castia-panel-tile-arrive {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes castia-region-detect {
+  from { opacity: 0; transform: scale(.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+.castia-panel-frame > img {
+  animation: castia-panel-arrive .38s cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: center;
+}
+.castia-panel-thumb {
+  transition: transform .24s cubic-bezier(.16, 1, .3, 1), border-color .22s ease, box-shadow .22s ease;
+}
+.castia-panel-thumb:hover {
+  transform: translateY(-2px) rotate(-.4deg);
+  box-shadow: 0 7px 18px rgba(25, 23, 31, .09);
+}
+.castia-panel-thumb-image {
+  transition: transform .32s cubic-bezier(.16, 1, .3, 1), filter .24s ease;
+}
+.castia-panel-thumb:hover .castia-panel-thumb-image { transform: scale(1.035); }
+.castia-panel-tile {
+  animation: castia-panel-tile-arrive .42s cubic-bezier(.16, 1, .3, 1) both;
+  transition: transform .26s cubic-bezier(.16, 1, .3, 1), border-color .22s ease, box-shadow .22s ease;
+}
+.castia-panel-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(25, 23, 31, .10);
+}
+.castia-panel-tile img { transition: transform .38s cubic-bezier(.16, 1, .3, 1); }
+.castia-panel-tile:hover img { transform: scale(1.025); }
+.castia-ocr-region {
+  animation: castia-region-detect .28s cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: center;
+}
+.castia-uploader {
+  transition: border-color .24s ease, background-color .24s ease, box-shadow .24s ease, transform .24s cubic-bezier(.16, 1, .3, 1);
+}
+.castia-uploader:has(input:focus-visible) { outline: 2px solid var(--ch-purple); outline-offset: 4px; }
+.castia-uploader-content { z-index: 1; }
+.castia-uploader:hover { border-color: rgba(162, 138, 255, .55); }
+.castia-uploader:has(.castia-conversion-status) { box-shadow: 0 0 0 4px rgba(162, 138, 255, .08); }
+.castia-conversion-status::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--ch-purple);
+  animation: castia-soft-pulse 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .castia-panel-frame > img, .castia-panel-tile, .castia-ocr-region,
+  .castia-conversion-status::before { animation: none !important; }
+  .castia-panel-thumb, .castia-panel-thumb-image, .castia-panel-tile,
+  .castia-panel-tile img, .castia-uploader { transition: none !important; }
+}
