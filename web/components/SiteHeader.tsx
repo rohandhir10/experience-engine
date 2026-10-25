@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
-import { MediumSwitcher } from "./MediumSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { UseCasesMenu } from "./UseCasesMenu";
 import { MobileNavMenu } from "./MobileNavMenu";
@@ -77,11 +76,7 @@ export function SiteHeader({
         <Link href="/">
           <Logo force={forceDark ? "light" : undefined} />
         </Link>
-        <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-4 sm:gap-x-6">
-          {(active === "music" || active === "webtoons") && (
-            <MediumSwitcher active={active} forceDark={forceDark} />
-          )}
-          {!minimal && <UseCasesMenu forceDark={forceDark} />}
+        <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-4 sm:gap-x-6">          {!minimal && <UseCasesMenu forceDark={forceDark} />}
           {!minimal && active !== "pricing" && (
             <Link href="/pricing" className={`hidden sm:inline ${navLink}`}>
               Pricing
@@ -117,13 +112,9 @@ export function SiteHeader({
           </Link>
           <MobileNavMenu active={active} forceDark={forceDark} />
           <Link
-            // Real bug this fixes: this used to hardcode /music#lyrics
-            // everywhere, including on /comics (active="webtoons") - a
-            // webtoons visitor clicking "Get Started" was silently sent
-            // to the music tool instead. On webtoons, the upload area is
-            // already the first thing on the page, so this just points
-            // back at it rather than away from it.
-            href={active === "webtoons" ? "/comics" : "/music#lyrics"}
+            // CASTIA is comics-first. Keep the primary action in the
+            // comic workspace even when someone manually visits /music.
+            href="/comics"
             // Accent, not the neutral ink/paper pairing every other button
             // on the page uses - this is the one link in the header meant
             // to pull the eye, and up to now it looked identical in weight
