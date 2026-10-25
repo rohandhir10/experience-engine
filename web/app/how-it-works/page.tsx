@@ -32,9 +32,8 @@ const SOURCES = [
 // Original artwork, not a screenshot - visualizes the specific mechanism
 // Step 2/3 below describe in prose: five differently-angled rewrites
 // scored against the literal anchor, with one picked and the rest left
-// behind. None of the other diagrams on this page (PipelineDiagramDark,
-// ComicsPipelineDiagram) show this - those are stage-flow diagrams, this
-// is the selection itself.
+// behind. The remaining ComicsPipelineDiagram shows the stage flow;
+// this is the selection itself.
 function CandidateDiagram() {
   const others = [1, 2, 3, 4];
   return (
