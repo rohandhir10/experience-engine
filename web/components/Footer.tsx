@@ -15,14 +15,8 @@ export function Footer({ dark }: { dark?: boolean } = {}) {
   return (
     <footer className={`mx-auto mt-24 w-full max-w-4xl border-t px-0 pt-8 ${border}`}>
       <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px]">
-        <Link href="/music" className={`transition ${dim}`}>
-          Music
-        </Link>
         <Link href="/comics" className={`transition ${dim}`}>
           Webtoons
-        </Link>
-        <Link href="/lyrics-translation" className={`transition ${dim}`}>
-          Lyric translation
         </Link>
         <Link href="/manga-webtoon-translation" className={`transition ${dim}`}>
           Manga &amp; webtoon translation
