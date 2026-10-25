@@ -119,10 +119,10 @@ export function PanelUploader({
         setDragActive(false);
         void handleIncoming(e.dataTransfer.files);
       }}
-      className={`relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border-2 border-dashed px-8 py-16 text-center transition ${
+      className={`relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-2xl border border-dashed px-5 py-12 text-center transition sm:px-8 sm:py-14 ${
         dragActive
-          ? "border-accent/50 bg-accent/[0.04]"
-          : "border-accent/[0.18] bg-black/[0.015] dark:border-white/[0.15] dark:bg-white/[0.02]"
+          ? "border-accent/55 bg-[#f7f1eb] dark:bg-accent/[0.06]"
+          : "border-black/[0.14] bg-white/55 hover:border-accent/35 dark:border-white/[0.15] dark:bg-white/[0.02]"
       }`}
     >
       {/* A halftone screentone texture (classic comic-print dot pattern)
@@ -158,7 +158,7 @@ export function PanelUploader({
           this - coming after the texture in markup - paints on top of it
           rather than being silently hidden underneath. */}
       <div className="relative flex flex-col items-center gap-4">
-        <p className="text-[15px] font-medium text-ink dark:text-ink-dark">
+        <p className="font-serif text-[19px] text-ink dark:text-ink-dark">
           Drop chapter images, a PDF, or a ZIP here
         </p>
         <p className="max-w-sm text-[13px] leading-relaxed text-ink/75 dark:text-ink-dark/75">
@@ -184,7 +184,7 @@ export function PanelUploader({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition hover:brightness-110 active:scale-[0.97]"
+            className="rounded-full bg-accent px-5 py-2.5 text-[13px] font-medium text-white shadow-sm transition hover:brightness-105 active:scale-[0.97]"
           >
             Choose files
           </button>
