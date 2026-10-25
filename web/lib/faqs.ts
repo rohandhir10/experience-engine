@@ -97,6 +97,21 @@ export function homepageFaqs(): Faq[] {
   return faqsFor(HOMEPAGE_FAQ_QUESTIONS);
 }
 
+
+// The legacy /music route remains available by direct URL, but is no longer
+// promoted in the product navigation. Its FAQ subset uses canonical brand
+// answers and avoids reintroducing music-first positioning into CASTIA's core copy.
+export const MUSIC_FAQ_QUESTIONS = [
+  "What does Castia do?",
+  "Which languages are supported?",
+  "How is this different from Google Translate or a single AI prompt?",
+  "Do I need an account?",
+];
+
+export function musicFaqs(): Faq[] {
+  return faqsFor(MUSIC_FAQ_QUESTIONS);
+}
+
 // /comics-specific: swaps the language-roster question for the one a
 // visitor already on the webtoons tool actually has (does this work for
 // comics at all, and what does "Beta" really mean here).
