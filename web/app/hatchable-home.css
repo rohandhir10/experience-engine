@@ -121,3 +121,56 @@
 @media(max-width:850px){.ch-hero-art-editorial{min-height:590px}.ch-scene-copy{top:64px}.ch-localization-window{left:15px;right:15px;bottom:38px}}
 @media(max-width:560px){.ch-hero-art-editorial{min-height:560px}.ch-scene-copy{left:17px;top:62px}.ch-scene-copy strong{font-size:31px}.ch-localization-window{left:10px;right:10px;bottom:35px}.ch-window-top{gap:7px;padding-inline:9px;font-size:6px}.ch-window-body{gap:5px;padding:8px}.ch-dialogue-source,.ch-dialogue-target{padding:9px 7px}.ch-dialogue-source small,.ch-dialogue-target small{font-size:6px}.ch-dialogue-source p,.ch-dialogue-target p{font-size:11px}.ch-dialogue-source span,.ch-dialogue-target span{font-size:7px}.ch-window-footer{padding:0 9px 10px;font-size:7px}}
 @media(prefers-reduced-motion:reduce){.ch-hero-art-editorial .ch-scene-copy,.ch-hero-art-editorial .ch-localization-window{animation:none}}
+
+
+/* CASTIA scroll storytelling — progressive enhancement, no scroll hijacking. */
+@supports (animation-timeline: view()) {
+  .ch-hero-art-editorial {
+    transform-origin: 50% 42%;
+    animation: ch-hero-scroll-expand linear both;
+    animation-timeline: view();
+    animation-range: entry 0% exit 70%;
+    will-change: transform, border-radius;
+  }
+  @keyframes ch-hero-scroll-expand {
+    from { transform: scale(.94); border-radius: 18px; }
+    to { transform: scale(1); border-radius: 2px; }
+  }
+  .ch-section .ch-kicker,
+  .ch-problem-grid > *,
+  .ch-contrast,
+  .ch-step,
+  .ch-cap-card,
+  .ch-audience-grid > div,
+  .ch-quote-wrap > * {
+    animation: ch-scroll-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 32%;
+  }
+  .ch-contrast:nth-child(2),
+  .ch-step:nth-child(2),
+  .ch-cap-card:nth-child(2),
+  .ch-audience-grid > div:nth-child(2) { animation-range: entry 3% entry 38%; }
+  .ch-contrast:nth-child(3),
+  .ch-step:nth-child(3),
+  .ch-cap-card:nth-child(3),
+  .ch-audience-grid > div:nth-child(3) { animation-range: entry 6% entry 44%; }
+  @keyframes ch-scroll-reveal {
+    from { opacity: .35; transform: translateY(22px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ch-hero-art-editorial,
+  .ch-section .ch-kicker,
+  .ch-problem-grid > *,
+  .ch-contrast,
+  .ch-step,
+  .ch-cap-card,
+  .ch-audience-grid > div,
+  .ch-quote-wrap > * {
+    animation: none !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+}
