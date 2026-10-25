@@ -1,10 +1,22 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { webPageJsonLd, faqPageJsonLd } from "@/lib/schema";
 import { homepageFaqs } from "@/lib/faqs";
+
+export const metadata: Metadata = {
+  title: "Webtoon localization that keeps the feeling",
+  description: "Adapt webtoon and comic dialogue with context-aware rewrites, bubble-level review, optional speech-bubble redraw, and clear explanations for changes.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Castia — Webtoon localization that keeps the feeling",
+    description: "Adapt webtoon and comic dialogue with context-aware rewrites, bubble-level review, optional speech-bubble redraw, and clear explanations for changes.",
+    url: "/",
+  },
+};
 
 const PAGE_UPDATED_DATE = "2026-10-25";
 const HOMEPAGE_FAQS = homepageFaqs();
