@@ -7,7 +7,6 @@ import type { ExperienceResult } from "@/lib/types";
 import { Logo } from "@/components/Logo";
 import { ResultScreen } from "@/components/ResultScreen";
 import { LoadingScreen } from "@/components/LoadingScreen";
-import { demoResult } from "@/lib/demo-data";
 
 // Client component: sessionStorage (written by app/page.tsx right after
 // a successful submission) is the fastest source for this page's data
@@ -36,7 +35,7 @@ export default function SharedResultPage() {
 
   useEffect(() => {
     if (id === "demo") {
-      setResult(demoResult);
+      setResult(null);
       setLoading(false);
       return;
     }
@@ -69,17 +68,17 @@ export default function SharedResultPage() {
           <Logo />
         </div>
         <h1 className="font-serif text-2xl text-ink dark:text-ink-dark">
-          This link doesn't lead anywhere anymore.
+          This example is no longer available.
         </h1>
         <p className="mt-3 text-[15px] text-ink/68 dark:text-ink-dark/68">
           The song it pointed to may not have been experienced yet on this
           engine.
         </p>
         <Link
-          href="/"
+          href="/comics"
           className="mt-8 rounded-full bg-ink px-8 py-3 text-[14px] font-medium text-paper transition active:scale-[0.97] dark:bg-ink-dark dark:text-paper-dark"
         >
-          Experience a song
+          Open the webtoon workspace
         </Link>
       </main>
     );
