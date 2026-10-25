@@ -163,7 +163,7 @@ export function PanelWorkspace({
               setActiveId(panel.id);
               setNaturalSize(null);
             }}
-            className={`relative shrink-0 overflow-hidden rounded-lg border transition ${
+            className={`castia-panel-thumb relative shrink-0 overflow-hidden rounded-lg border transition ${
               panel.id === active.id
                 ? "border-accent"
                 : "border-black/[0.12] hover:border-black/20 dark:border-white/[0.13]"
@@ -172,7 +172,7 @@ export function PanelWorkspace({
             <img
               src={panel.previewUrl}
               alt={`Panel ${index + 1}: ${panel.fileName}`}
-              className="h-20 w-20 object-cover sm:h-24 sm:w-full"
+              className="castia-panel-thumb-image h-20 w-20 object-cover sm:h-24 sm:w-full"
             />
             <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
               {index + 1}
@@ -257,7 +257,7 @@ export function PanelWorkspace({
                 </button>
               </div>
             )}
-            <div className="relative overflow-hidden rounded-xl border border-black/[0.10] bg-[#f4f0eb] dark:border-white/[0.12] dark:bg-white/[0.02]">
+            <div className="castia-panel-frame relative overflow-hidden rounded-xl border border-black/[0.10] bg-[#f4f0eb] dark:border-white/[0.12] dark:bg-white/[0.02]">
               {imageView === "redrawn" && active.redrawResultUrl ? (
                 // The actual typeset result - no OCR boxes overlaid,
                 // since those describe the ORIGINAL image's regions and
@@ -289,7 +289,7 @@ export function PanelWorkspace({
                       <div
                         key={i}
                         title={`${region.text} (${region.confidence.toFixed(0)}% confidence)`}
-                        className="absolute border-2 border-accent/70 bg-accent/10"
+                        className="castia-ocr-region absolute border-2 border-accent/70 bg-accent/10"
                         style={{
                           left: `${(region.bbox.x / naturalSize.width) * 100}%`,
                           top: `${(region.bbox.y / naturalSize.height) * 100}%`,
