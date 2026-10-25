@@ -71,8 +71,7 @@ export default function SharedResultPage() {
           This example is no longer available.
         </h1>
         <p className="mt-3 text-[15px] text-ink/68 dark:text-ink-dark/68">
-          The song it pointed to may not have been experienced yet on this
-          engine.
+          This result may have expired or been removed from the cache.
         </p>
         <Link
           href="/comics"
