@@ -15,11 +15,7 @@ export const metadata = {
   alternates: { canonical: entry.path },
 };
 
-// One credit unit throughout this page. Keeping these three numbers in
-// one place means the $/song and $/page figures below are derived, not
-// separately hand-typed - the two can't drift out of sync with each
-// other the way two independently-written numbers could.
-const SONG_CREDITS = 30; // a typical ~6-section song adaptation
+// One credit unit throughout this page. A typical five-panel comic or webtoon page is the pricing reference.
 const PAGE_CREDITS = 50; // a typical 5-panel manga/webtoon page
 
 type Pack = { name: string; price: number; credits: number; blurb: string; priceId?: string };
@@ -60,10 +56,6 @@ const SUBSCRIPTION = {
   blurb: "272 credits delivered every month, at the same rate as Bulk - so subscribing never costs more per credit than buying a pack outright.",
   priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_CREATOR,
 };
-
-function perSong(price: number, credits: number): string {
-  return ((price / credits) * SONG_CREDITS).toFixed(2);
-}
 
 function perPage(price: number, credits: number): string {
   return ((price / credits) * PAGE_CREDITS).toFixed(2);
@@ -157,14 +149,7 @@ export default function PricingPage() {
             How credits work
           </h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
-            One credit is one unit of adaptation work. A typical song
-            (~6 sections) runs about {SONG_CREDITS} credits. A typical
-            manga/webtoon page (~5 panels, including the OCR and redraw
-            pass) runs about {PAGE_CREDITS} credits - typically around
-            $3.50/page at Starter-pack rates, though a very dense page or
-            one that needs the hosted redraw service can run higher, and a
-            sparse one can run lower. Music and comics draw from the same
-            credit balance.
+            One credit is one unit of adaptation work. A typical five-panel manga or webtoon page runs about {PAGE_CREDITS} credits, including OCR and the optional redraw pass. Dense pages or pages that need hosted redraw can cost more; sparse pages can cost less.
           </p>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
             For comparison: professional manga localization freelancers
