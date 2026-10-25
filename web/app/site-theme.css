@@ -70,10 +70,23 @@ body:not(:has(.castia-home)) [class*="dark:bg-black/"] {
   background-color: rgba(25, 23, 31, .045) !important;
 }
 
-body:not(:has(.castia-home)) [class*="text-white"],
+/* White text is only inverted when its old dark surface has been
+   converted to the warm paper surface. Keep ink-filled CTA buttons legible. */
+body:not(:has(.castia-home)) [class*="bg-[#"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="bg-[#"] [class*="text-white"] {
+  color: var(--ch-ink) !important;
+}
+
 body:not(:has(.castia-home)) [class*="dark:text-ink-dark"],
 body:not(:has(.castia-home)) [class*="text-ink-dark"] {
   color: var(--ch-ink) !important;
+}
+
+body:not(:has(.castia-home)) [class*="bg-ink"][class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="bg-ink"] [class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"][class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"] [class*="dark:text-ink-dark"] {
+  color: #f8f4fb !important;
 }
 
 body:not(:has(.castia-home)) [class*="text-accent"] {
