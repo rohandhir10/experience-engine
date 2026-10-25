@@ -2,21 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   FAQS,
   HOMEPAGE_FAQ_QUESTIONS,
-  MUSIC_FAQ_QUESTIONS,
   COMICS_FAQ_QUESTIONS,
   homepageFaqs,
-  musicFaqs,
   comicsFaqs,
   type Faq,
 } from "./faqs";
 
-// One shared block per curated subset, rather than one hand-written test
-// per page - the three subsets (homepage, /music, /comics) all have to
-// satisfy the exact same invariants, and testing them identically is
-// what actually catches a new subset added later without its own tests.
+// One shared block per active curated subset keeps homepage and comics FAQ
+// content tied to the canonical source, without retaining obsolete music UI.
 const SUBSETS: { name: string; questions: string[]; fn: () => Faq[] }[] = [
   { name: "homepageFaqs", questions: HOMEPAGE_FAQ_QUESTIONS, fn: homepageFaqs },
-  { name: "musicFaqs", questions: MUSIC_FAQ_QUESTIONS, fn: musicFaqs },
   { name: "comicsFaqs", questions: COMICS_FAQ_QUESTIONS, fn: comicsFaqs },
 ];
 
@@ -49,7 +44,7 @@ describe.each(SUBSETS)("$name", ({ questions, fn }) => {
   });
 });
 
-describe("the three curated subsets", () => {
+describe("the curated subsets", () => {
   it("all share the anchor question every visitor asks first", () => {
     for (const { questions } of SUBSETS) {
       expect(questions).toContain("What does Castia do?");
@@ -57,9 +52,7 @@ describe("the three curated subsets", () => {
   });
 
   it("are each genuinely different from one another, not the same four questions relabeled", () => {
-    const [home, music, comics] = SUBSETS.map((s) => s.questions.join("|"));
-    expect(home).not.toBe(music);
+    const [home, comics] = SUBSETS.map((s) => s.questions.join("|"));
     expect(home).not.toBe(comics);
-    expect(music).not.toBe(comics);
   });
 });
