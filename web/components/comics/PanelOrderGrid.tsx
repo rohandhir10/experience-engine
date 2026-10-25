@@ -73,7 +73,7 @@ export function PanelOrderGrid({
               setDragIndex(null);
               setDragOverIndex(null);
             }}
-            className={`group relative cursor-grab overflow-hidden rounded-lg border transition active:cursor-grabbing ${
+            className={`castia-panel-tile group relative cursor-grab overflow-hidden rounded-lg border transition active:cursor-grabbing ${
               dragOverIndex === index && dragIndex !== index
                 ? "border-accent"
                 : "border-black/[0.12] dark:border-white/[0.12]"
