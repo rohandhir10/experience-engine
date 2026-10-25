@@ -102,7 +102,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
-from engine import comics_align, comics_ocr, comics_read, comics_vision, config
+from engine import comics_align, comics_local_ocr, comics_ocr, comics_read, comics_vision, config
 from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import ChapterTimeoutError, adapt_chapter, character_bible_updates, merge_character_bible
@@ -752,6 +752,22 @@ def comics_ocr_endpoint(
     # After the size check (a rejected upload never reaches Vision, so it
     # shouldn't spend anyone's allowance) and before any billable call.
     _check_panel_quota(_client_ip(http_request), "reading panels")
+
+    # Local-first OCR avoids a paid OCR request for every uploaded page.
+    # Cloud fallback is separately opt-in to prevent unexpected spend.
+    if os.environ.get("CASTIA_LOCAL_OCR", "1") == "1":
+        try:
+            result = comics_local_ocr.extract_text_regions(image_bytes, language=language)
+            logger.info(
+                "comics_ocr provider=local image=%s regions=%s",
+                getattr(image, "filename", None),
+                len(result.get("regions", [])),
+            )
+            return result
+        except comics_local_ocr.LocalOcrError as exc:
+            if os.environ.get("CASTIA_OCR_CLOUD_FALLBACK", "0") != "1":
+                raise HTTPException(status_code=503, detail=str(exc)) from exc
+            logger.warning("Local OCR unavailable; cloud fallback explicitly enabled: %s", exc)
 
     # Built once, up front, so real usage (its call_log) can be logged no
     # matter which path below actually uses it - previously this cost was
