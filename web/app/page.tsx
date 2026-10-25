@@ -1,214 +1,74 @@
-import type { ReactNode } from "react";
-import type { Metadata } from "next";
+"use client";
+
 import Link from "next/link";
-import { SiteHeader } from "@/components/SiteHeader";
-import { Footer } from "@/components/Footer";
-import { JsonLd } from "@/components/JsonLd";
-import { webPageJsonLd, faqPageJsonLd } from "@/lib/schema";
-import { homepageFaqs } from "@/lib/faqs";
+import { useState } from "react";
+import "./hatchable-home.css";
 
-export const metadata: Metadata = {
-  title: "Webtoon localization that keeps the feeling",
-  description: "Adapt webtoon and comic dialogue with context-aware rewrites, bubble-level review, optional speech-bubble redraw, and clear explanations for changes.",
-  alternates: { canonical: "/" },
-  openGraph: {
-    title: "Castia — Webtoon localization that keeps the feeling",
-    description: "Adapt webtoon and comic dialogue with context-aware rewrites, bubble-level review, optional speech-bubble redraw, and clear explanations for changes.",
-    url: "/",
-  },
-};
+const steps = [
+  { n: "01", title: "Bring the scene", body: "Start with dialogue and the context your team has: character notes, scene summaries, and panel references.", tag: "CONTEXT IN", icon: "▤" },
+  { n: "02", title: "Read between lines", body: "Surface potential issues with voice, tone, cultural nuance, subtext, and consistency across a scene.", tag: "CREATIVE ANALYSIS", icon: "✳" },
+  { n: "03", title: "Compare adaptations", body: "Explore alternatives with clear trade-offs, then let editors and translators make the final call.", tag: "HUMAN IN CONTROL", icon: "↗" },
+  { n: "04", title: "Ship with confidence", body: "Review a structured record of creative choices and consistency checks before publication.", tag: "EDITORIAL QA", icon: "✓" },
+];
 
-const PAGE_UPDATED_DATE = "2026-10-25";
-const HOMEPAGE_FAQS = homepageFaqs();
-
-function ArrowUpRight() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none">
-      <path d="M5 15 15 5M6 5h9v9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function StepNumber({ children }: { children: ReactNode }) {
-  return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/10 bg-white/70 font-mono text-[12px] text-ink/65 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/65">
-      {children}
-    </span>
-  );
-}
+const capabilities = [
+  { n: "A / 01", title: "Character voice, episode to episode", body: "Help flag when a character's diction, formality, or emotional register drifts across a long-running series.", kind: "speech" },
+  { n: "A / 02", title: "Dialogue that fits the panel", body: "Keep the artwork and surrounding scene in view when reviewing a line.", kind: "frames" },
+  { n: "A / 03", title: "Tone, subtext & nuance", body: "Highlight moments where literal meaning and intended feeling may diverge.", kind: "tone" },
+  { n: "A / 04", title: "Alternatives, not one “correct” answer", body: "Compare creative options and their trade-offs instead of accepting a black-box rewrite.", kind: "compare" },
+];
 
 export default function Home() {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <main className="min-h-screen overflow-hidden bg-paper px-5 pb-16 pt-5 text-ink dark:bg-paper-dark dark:text-ink-dark sm:px-8 sm:pt-7">
-      <JsonLd data={webPageJsonLd({
-        path: "/",
-        name: "Castia — Webtoon localization that keeps the feeling",
-        description: "Adapt webtoon and comic dialogue with context-aware rewrites, bubble-level review, optional panel redraw, and clear explanations for each change.",
-        updatedDate: PAGE_UPDATED_DATE,
-      })} />
-      <JsonLd data={faqPageJsonLd(HOMEPAGE_FAQS)} />
+    <main className="castia-home">
+      <div className="ch-announcement"><span className="ch-pulse" /> BUILT FOR THE PEOPLE WHO BRING STORIES TO THE WORLD <span className="ch-announcement-right">CREATIVE LOCALIZATION, REIMAGINED ↗</span></div>
+      <header className="ch-nav ch-wrap">
+        <Link className="ch-wordmark" href="/" aria-label="CASTIA home"><span className="ch-mark">C<span>✳</span></span> CASTIA</Link>
+        <nav className={menuOpen ? "ch-nav-links is-open" : "ch-nav-links"} aria-label="Main navigation">
+          <a href="#platform" onClick={() => setMenuOpen(false)}>Platform</a><a href="#workflow" onClick={() => setMenuOpen(false)}>How it works</a><a href="#teams" onClick={() => setMenuOpen(false)}>For teams</a>
+        </nav>
+        <Link className="ch-nav-cta" href="/comics">Open workspace <span>↗</span></Link>
+        <button className="ch-menu" aria-label="Toggle navigation" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? "×" : "☰"}</button>
+      </header>
 
-      <SiteHeader active="webtoons" />
-
-      <section className="relative mx-auto grid w-full max-w-6xl items-center gap-12 pb-20 pt-16 sm:pb-24 sm:pt-24 lg:grid-cols-[1.03fr_0.97fr] lg:gap-10 lg:pt-28">
-        <div className="relative z-10">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-black/[0.10] bg-white/60 px-3 py-1.5 text-[11px] font-medium tracking-[0.12em] text-ink/65 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/65">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            BUILT FOR WEBTOON DIALOGUE
-          </div>
-          <h1 className="max-w-2xl font-serif text-[2.7rem] leading-[1.04] tracking-[-0.045em] sm:text-6xl lg:text-[4.45rem]">
-            Keep the story.
-            <br />
-            <span className="text-accent">Change the language.</span>
-          </h1>
-          <p className="mt-6 max-w-xl text-[15px] leading-7 text-ink/70 dark:text-white/68 sm:text-base">
-            Localize webtoon dialogue without flattening the character behind it. Castia helps you move from panels to editable, context-aware rewrites—with the original text, adapted lines, and reasons for changes kept together.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link href="/comics" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-accent px-6 text-[14px] font-medium text-white transition hover:brightness-110 active:scale-[0.98]">
-              Open the webtoon workspace <ArrowUpRight />
-            </Link>
-            <Link href="/manga-webtoon-translation" className="inline-flex min-h-12 items-center justify-center rounded-full border border-black/15 px-6 text-[14px] font-medium transition hover:bg-black/[0.035] dark:border-white/15 dark:hover:bg-white/[0.05]">
-              How localization works
-            </Link>
-          </div>
-          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-ink/58 dark:text-white/55">
-            <span className="inline-flex items-center gap-2"><span className="text-accent">✓</span> Start without an account</span>
-            <span className="inline-flex items-center gap-2"><span className="text-accent">✓</span> Review every line</span>
-            <span className="inline-flex items-center gap-2"><span className="text-accent">✓</span> No fabricated quality scores</span>
-          </div>
+      <section className="ch-hero ch-wrap">
+        <div className="ch-hero-copy">
+          <div className="ch-eyebrow"><span /> THE CREATIVE LOCALIZATION ENGINE</div>
+          <h1>Every panel.<br />Every feeling.<br /><em>Every language.</em></h1>
+          <p className="ch-lede">Webtoons travel across borders. Their <strong>heart should travel with them.</strong> CASTIA helps localization teams adapt dialogue with character voice, emotional intent, and panel context intact.</p>
+          <div className="ch-hero-actions"><Link className="ch-button ch-button-dark" href="/comics">Explore the workspace <span>↗</span></Link><a className="ch-text-link" href="#workflow"><span className="ch-play">▶</span> See how it works</a></div>
+          <div className="ch-proof"><div className="ch-avatars"><span>한</span><span>文</span><span>あ</span></div><p>Made for localization teams<br /><strong>Not just word-for-word translation.</strong></p></div>
         </div>
-
-        <div className="relative mx-auto w-full max-w-[560px]">
-          <div aria-hidden="true" className="absolute -inset-8 rounded-[2.5rem] bg-accent/[0.08] blur-3xl" />
-          <div className="relative overflow-hidden rounded-[1.65rem] border border-black/[0.12] bg-[#f7f2ee] p-3 shadow-[0_28px_90px_-42px_rgba(48,35,58,0.36)] dark:border-white/10 dark:bg-[#201d24] sm:p-4">
-            <div className="flex items-center justify-between border-b border-black/10 px-2 pb-3 dark:border-white/10">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-[#d9a1a1]" />
-                <span className="h-2 w-2 rounded-full bg-[#e4c58b]" />
-                <span className="h-2 w-2 rounded-full bg-[#9bbba5]" />
-                <span className="ml-2 text-[11px] font-medium tracking-wide text-ink/55 dark:text-white/55">CHAPTER REVIEW</span>
-              </div>
-              <span className="rounded-full border border-accent/20 bg-accent/[0.08] px-2.5 py-1 text-[10px] text-accent">Preview</span>
-            </div>
-            <div className="grid gap-3 py-3 sm:grid-cols-[0.82fr_1.18fr]">
-              <div className="relative flex min-h-[270px] flex-col justify-between overflow-hidden rounded-xl bg-[#e8d8d5] p-4 dark:bg-[#40323d] sm:min-h-[340px]">
-                <div className="absolute -right-9 top-7 h-40 w-40 rounded-full bg-[#c88c91]/50 blur-sm" />
-                <div className="absolute bottom-[-22px] left-[-8px] h-52 w-40 -rotate-12 rounded-[45%_45%_12%_12%] bg-[#6e526a]" />
-                <div className="absolute bottom-[-18px] right-[-18px] h-44 w-32 rotate-12 rounded-t-[48%] bg-[#9e737f]" />
-                <div className="relative z-10 flex items-start justify-between">
-                  <span className="rounded-full bg-white/75 px-2.5 py-1 text-[10px] font-medium text-[#493a49]">Panel 04</span>
-                  <span className="text-[10px] tracking-[0.16em] text-[#493a49]/65">01 / 06</span>
-                </div>
-                <div className="relative z-10 mx-auto mb-3 max-w-[190px] rounded-[1.2rem] rounded-bl-sm border border-[#6e526a]/15 bg-[#fffaf5] px-4 py-3 text-center text-[12px] leading-5 text-[#473747] shadow-sm">
-                  “帰ってきたんだ…こんなに時間が経ってから。”
-                  <span className="absolute -bottom-2 left-4 h-3 w-3 rotate-45 border-b border-l border-[#6e526a]/15 bg-[#fffaf5]" />
-                </div>
-              </div>
-              <div className="flex min-w-0 flex-col gap-3">
-                <div className="rounded-xl border border-black/[0.09] bg-white/75 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold tracking-[0.13em] text-ink/50 dark:text-white/50">ORIGINAL · JA</span>
-                    <span className="text-[10px] text-ink/45 dark:text-white/45">Original · Japanese</span>
-                  </div>
-                  <p className="mt-3 text-[13px] leading-5 text-ink/80 dark:text-white/80">“You came back… after all this time?”</p>
-                </div>
-                <div className="rounded-xl border border-accent/25 bg-white p-4 dark:bg-[#29232e]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold tracking-[0.13em] text-accent">LOCALIZED · EN</span>
-                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">Editable</span>
-                  </div>
-                  <p className="mt-3 font-serif text-[17px] leading-6 text-ink dark:text-white">“You actually came back… after all this time.”</p>
-                  <p className="mt-3 border-t border-black/[0.08] pt-3 text-[11px] leading-5 text-ink/60 dark:border-white/10 dark:text-white/60">Illustrative example of tone-aware rewriting, not a live engine result.</p>
-                </div>
-                <div className="rounded-xl border border-black/[0.09] bg-white/55 p-3 dark:border-white/10 dark:bg-white/[0.025]">
-                  <div className="flex items-center gap-2 text-[11px] font-medium text-ink/70 dark:text-white/70">
-                    <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 text-accent" fill="none"><path d="M10 2.5 12 7.8l5.5 2.2-5.5 2.2-2 5.3-2-5.3L2.5 10l5.5-2.2L10 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></svg>
-                    Why the wording changes
-                  </div>
-                  <p className="mt-1.5 text-[11px] leading-5 text-ink/58 dark:text-white/55">“Actually” adds disbelief and hurt without spelling out what the character feels.</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-black/10 px-2 pt-3 text-[10px] text-ink/50 dark:border-white/10 dark:text-white/50">
-              <span>Concept preview · sample copy</span>
-              <span>Original → adapted → reason</span>
-            </div>
-          </div>
-          <p className="mt-4 text-center text-[11px] text-ink/45 dark:text-white/45">A visual illustration of the review experience—not a screenshot of a live session.</p>
+        <div className="ch-hero-art" aria-label="Illustrative webtoon localization workspace">
+          <div className="ch-art-top"><span>CASTIA / WORKSPACE 01</span><span className="ch-live"><i /> CONCEPT PREVIEW</span></div>
+          <div className="ch-comic-sheet"><div className="ch-comic-panel ch-panel-main"><div className="ch-sun" /><div className="ch-silhouette" /><div className="ch-speech ch-speech-one">You came back.</div><div className="ch-panel-caption">01 — THE RETURN</div></div><div className="ch-comic-panel ch-panel-side"><div className="ch-speed-lines" /><div className="ch-speech ch-speech-two">I said I would.</div><div className="ch-panel-caption">02 — THE PROMISE</div></div></div>
+          <div className="ch-translation-card"><div className="ch-tc-head"><span className="ch-tc-icon">✳</span><div><strong>Creative fidelity</strong><small>SCENE CONTEXT · DETECTED</small></div><span className="ch-score">92<span>/100</span></span></div>
+            <div className="ch-tc-row"><span className="ch-dot ch-purple" /><div><strong>Character voice</strong><small>Reserved, emotionally guarded</small></div><span className="ch-check">✓</span></div>
+            <div className="ch-tc-row"><span className="ch-dot ch-orange" /><div><strong>Subtext</strong><small>Relief beneath restraint</small></div><span className="ch-check">✓</span></div>
+            <div className="ch-tc-row"><span className="ch-dot ch-green" /><div><strong>Panel continuity</strong><small>Meaning preserved in context</small></div><span className="ch-check">✓</span></div>
+            <div className="ch-tc-foot">ILLUSTRATIVE PRODUCT CONCEPT <span>↗</span></div>
+          </div><div className="ch-floating-note"><span>✧</span> Meaning lives between the lines.</div>
         </div>
+        <div className="ch-hero-bottom"><span>01 / A BETTER WAY TO LOCALIZE</span><span>LANGUAGE IS ONLY THE BEGINNING ↓</span></div>
       </section>
 
-      <section className="mx-auto max-w-6xl border-y border-black/[0.09] py-7 dark:border-white/[0.09]">
-        <div className="grid gap-6 sm:grid-cols-3 sm:gap-8">
-          <div><p className="text-[11px] font-semibold tracking-[0.14em] text-accent">01 / CONTEXT</p><p className="mt-2 text-[14px] font-medium">Keep the character in the line</p><p className="mt-1.5 text-[12px] leading-5 text-ink/60 dark:text-white/58">Dialogue is reviewed as dialogue—not as a string of isolated words.</p></div>
-          <div><p className="text-[11px] font-semibold tracking-[0.14em] text-accent">02 / CONTROL</p><p className="mt-2 text-[14px] font-medium">Keep the human in the loop</p><p className="mt-1.5 text-[12px] leading-5 text-ink/60 dark:text-white/58">Inspect detected text, edit it, and review the adaptation before you use it.</p></div>
-          <div><p className="text-[11px] font-semibold tracking-[0.14em] text-accent">03 / CLARITY</p><p className="mt-2 text-[14px] font-medium">Know why a line changed</p><p className="mt-1.5 text-[12px] leading-5 text-ink/60 dark:text-white/58">See the original, the rewrite, and a plain-language explanation together.</p></div>
-        </div>
+      <div className="ch-marquee"><div className="ch-marquee-inner"><span>CHARACTER VOICE</span><b>✳</b><span>EMOTIONAL FIDELITY</span><b>✳</b><span>PANEL CONTEXT</span><b>✳</b><span>CULTURAL NUANCE</span><b>✳</b><span>CHARACTER VOICE</span><b>✳</b><span>EMOTIONAL FIDELITY</span><b>✳</b></div></div>
+
+      <section className="ch-section ch-wrap" id="platform">
+        <div className="ch-kicker">01 — THE PROBLEM</div><div className="ch-problem-grid"><h2>A translation can be<br />accurate and still feel <em>wrong.</em></h2><div className="ch-copy"><p>A character's hesitation. A joke that only works in context. A confession hidden behind a casual line. In webtoons, meaning is carried by dialogue, artwork, pacing, and everything left unsaid.</p><p>Generic translation tools can miss that. CASTIA is designed to help teams spot the difference—and make more intentional creative choices.</p></div></div>
+        <div className="ch-contrast-grid"><article className="ch-contrast ch-muted"><div className="ch-card-label"><span>↘</span> WORD-FOR-WORD</div><div className="ch-dialogue">“I don't care about you.”</div><p>Literal wording, detached from the scene. The emotional signal may be lost.</p><div className="ch-card-status">SURFACE MEANING ONLY</div></article><article className="ch-contrast ch-vivid"><div className="ch-card-label"><span>✳</span> CONTEXT-AWARE REVIEW</div><div className="ch-dialogue">“It's not like I care.”</div><p>A possible adaptation that keeps the defensive tone and hints at feelings the character won't admit.</p><div className="ch-card-status">INTENT · VOICE · SUBTEXT <span>↗</span></div></article></div>
+        <p className="ch-fineprint">Illustrative example only. The best adaptation depends on the original language, scene, character, and editorial direction.</p>
       </section>
 
-      <section className="mx-auto max-w-6xl py-20 sm:py-24">
-        <div className="max-w-2xl">
-          <p className="text-[11px] font-semibold tracking-[0.16em] text-accent">A WORKFLOW, NOT A TEXT BOX</p>
-          <h2 className="mt-4 font-serif text-3xl leading-tight tracking-[-0.03em] sm:text-4xl">From a chapter of panels to a reviewable localization.</h2>
-          <p className="mt-4 text-[14px] leading-6 text-ink/65 dark:text-white/62">Start with the pages you have. Keep control of the text at every step, and know where the current beta still needs human attention.</p>
-        </div>
-        <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[
-            { n: "01", title: "Upload panels", body: "Add panel images or chapter strips. Castia prepares the images into a reviewable sequence." },
-            { n: "02", title: "Extract dialogue", body: "OCR detects text regions. Check and correct the extracted text before adapting." },
-            { n: "03", title: "Adapt each bubble", body: "Run the adaptation workflow and review the rewritten dialogue alongside its explanation." },
-            { n: "04", title: "Review & export", body: "Make your edits, optionally redraw supported speech bubbles, and export the chapter text." },
-          ].map((step) => (
-            <article key={step.n} className="rounded-2xl border border-black/[0.10] bg-white/45 p-5 dark:border-white/10 dark:bg-white/[0.025]">
-              <StepNumber>{step.n}</StepNumber>
-              <h3 className="mt-5 text-[15px] font-medium">{step.title}</h3>
-              <p className="mt-2 text-[12px] leading-5 text-ink/62 dark:text-white/58">{step.body}</p>
-            </article>
-          ))}
-        </div>
-        <div className="mt-5 rounded-2xl border border-accent/20 bg-accent/[0.045] p-5 sm:flex sm:items-start sm:gap-4">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-accent/20 text-accent" aria-hidden="true">i</span>
-          <div className="mt-3 sm:mt-0">
-            <p className="text-[13px] font-medium">A transparent beta, with real limits</p>
-            <p className="mt-1 text-[12px] leading-5 text-ink/65 dark:text-white/60">Current panel redraw supports speech-bubble text; sound effects embedded in artwork are not redrawn yet. OCR reading order can need correction, and persistent character memory is available when signed in but matches characters by exact name. Human review remains essential.</p>
-            <Link href="/manga-webtoon-translation" className="mt-3 inline-flex items-center gap-1 text-[12px] font-medium text-accent hover:underline">Read the capability details <ArrowUpRight /></Link>
-          </div>
-        </div>
-      </section>
+      <section className="ch-workflow-section" id="workflow"><div className="ch-wrap ch-workflow"><div className="ch-kicker ch-light-kicker">02 — THE WORKFLOW</div><div className="ch-workflow-heading"><h2>Human creativity.<br /><em>Better tools.</em></h2><p>CASTIA is designed to support the people who make localization great—not replace their judgment.</p></div><div className="ch-steps">{steps.map((step) => <article className="ch-step" key={step.n}><span className="ch-step-num">{step.n}</span><div className="ch-step-icon">{step.icon}</div><h3>{step.title}</h3><p>{step.body}</p><span className="ch-step-tag">{step.tag}</span></article>)}</div></div></section>
 
-      <section className="mx-auto max-w-6xl pb-20">
-        <div className="overflow-hidden rounded-[1.75rem] bg-[#29222f] px-6 py-10 text-white sm:px-10 sm:py-12 lg:flex lg:items-center lg:justify-between lg:gap-10">
-          <div className="max-w-xl">
-            <p className="text-[11px] font-semibold tracking-[0.16em] text-[#d4b5e9]">YOUR NEXT CHAPTER</p>
-            <h2 className="mt-4 font-serif text-3xl leading-tight tracking-[-0.03em] sm:text-4xl">Try it on your own panels.</h2>
-            <p className="mt-4 text-[14px] leading-6 text-white/70">Upload a chapter, inspect the extracted dialogue, and decide which rewrites deserve to stay. No need to commit to a black-box result.</p>
-          </div>
-          <div className="mt-7 flex shrink-0 flex-col gap-3 sm:flex-row lg:mt-0 lg:flex-col">
-            <Link href="/comics" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-white px-6 text-[14px] font-medium text-[#29222f] transition hover:bg-white/90">Launch workspace <ArrowUpRight /></Link>
-            <Link href="/pricing" className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/25 px-6 text-[14px] font-medium text-white transition hover:bg-white/[0.08]">See access & pricing</Link>
-          </div>
-        </div>
-      </section>
+      <section className="ch-section ch-wrap" id="teams"><div className="ch-kicker">03 — MADE FOR WEBTOONS</div><div className="ch-cap-heading"><h2>More than translation.<br /><em>A creative safety net.</em></h2><p>Built around the details that make serialized visual stories feel alive.</p></div><div className="ch-cap-grid">{capabilities.map((cap) => <article className="ch-cap-card" key={cap.n}><div className="ch-cap-number">{cap.n}</div><div className={`ch-cap-illustration ch-cap-${cap.kind}`}>{cap.kind === "speech" ? <><span className="ch-bubble ch-bubble-a">…</span><span className="ch-bubble ch-bubble-b">!</span><span className="ch-spark">✳</span></> : cap.kind === "frames" ? <><span className="ch-frame ch-frame-1" /><span className="ch-frame ch-frame-2" /><span className="ch-frame ch-frame-3" /><span className="ch-context-line" /></> : cap.kind === "tone" ? <><span className="ch-tone-circle">♡</span><span className="ch-tone-orbit" /></> : <><span>Original</span><span>Option A</span><span>Option B</span><b>↔</b></>}</div><h3>{cap.title}</h3><p>{cap.body}</p><span className="ch-cap-arrow">↗</span></article>)}</div><div className="ch-cap-disclaimer">These are the product capabilities CASTIA is being designed around; availability depends on the current build. No publisher integrations or performance results are implied.</div></section>
 
-      <section className="mx-auto max-w-3xl border-t border-black/[0.09] pt-14 dark:border-white/[0.09]">
-        <p className="text-[11px] font-semibold tracking-[0.16em] text-accent">QUESTIONS, ANSWERED</p>
-        <h2 className="mt-3 font-serif text-3xl tracking-[-0.03em]">Before you start</h2>
-        <div className="mt-7 divide-y divide-black/10 dark:divide-white/10">
-          {HOMEPAGE_FAQS.map((faq) => (
-            <details key={faq.question} className="group py-4">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[14px] font-medium marker:hidden">
-                {faq.question}
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-black/10 text-ink/55 transition group-open:rotate-45 dark:border-white/10 dark:text-white/55" aria-hidden="true">+</span>
-              </summary>
-              <p className="max-w-2xl pt-3 pr-8 text-[13px] leading-6 text-ink/65 dark:text-white/62">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
-        <p className="mt-7 text-[11px] text-ink/45 dark:text-white/45">Updated <time dateTime={PAGE_UPDATED_DATE}>{new Date(PAGE_UPDATED_DATE + "T00:00:00Z").toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}</time></p>
-      </section>
-
-      <Footer />
+      <section className="ch-quote-section"><div className="ch-wrap ch-quote-wrap"><div className="ch-quote-mark">“</div><blockquote>A great localization doesn't just tell readers what happened. It makes them <em>feel</em> what happened.</blockquote><div className="ch-quote-credit"><span /> THE CASTIA PRINCIPLE</div><div className="ch-quote-decoration">感情<br /><span>FEELING</span></div></div></section>
+      <section className="ch-section ch-wrap ch-audience"><div className="ch-kicker">04 — WHO IT'S FOR</div><h2>For the teams behind<br />the stories we love.</h2><div className="ch-audience-grid"><div><span>01</span><h3>Webtoon publishers</h3><p>Bring editorial consistency to multi-language releases and growing catalogs.</p></div><div><span>02</span><h3>Localization studios</h3><p>Give translators and editors a shared framework for creative quality review.</p></div><div><span>03</span><h3>Independent translators</h3><p>Explore alternatives, document choices, and protect your creative intent.</p></div></div></section>
+      <section className="ch-cta-section"><div className="ch-wrap ch-cta-wrap"><div className="ch-kicker ch-light-kicker">05 — YOUR NEXT CHAPTER</div><h2>Your stories cross borders.<br /><em>Let's keep their soul.</em></h2><p>Bring a chapter into CASTIA, inspect the extracted dialogue, and decide which rewrites deserve to stay. You remain in control at every step.</p><Link className="ch-button ch-button-purple" href="/comics">Open the webtoon workspace <span>↗</span></Link><div className="ch-cta-side-note"><span>✳</span><p>Built for creative fidelity.<br />Designed with humans in control.</p></div></div></section>
+      <footer className="ch-footer"><div className="ch-wrap ch-footer-top"><Link className="ch-wordmark" href="/"><span className="ch-mark">C<span>✳</span></span> CASTIA</Link><p>Creative localization for visual stories.</p><Link href="/comics">Open workspace ↗</Link></div><div className="ch-wrap ch-footer-bottom"><span>© 2026 CASTIA. MADE FOR STORIES THAT TRAVEL.</span><span>AN EARLY PRODUCT CONCEPT · NOT AFFILIATED WITH WEBTOON ENTERTAINMENT</span><a href="#">BACK TO TOP ↑</a></div></footer>
     </main>
   );
 }
