@@ -444,11 +444,11 @@ export default function ComicsPage() {
   }
 
   return (
-    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
-      <div className="mx-auto max-w-5xl">
+    <main className="min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
+      <div className="mx-auto max-w-6xl">
         <SiteHeader active="webtoons" />
 
-        <div className="mt-10">
+        <div className="mt-12 sm:mt-16">
           {panels.length === 0 && (
             <div>
               {/* Single column, not the old two-column [hero | pipeline]
@@ -468,8 +468,9 @@ export default function ComicsPage() {
                   landing on the right (real feedback, not a hypothetical -
                   the pipeline band below stays full-width since it isn't
                   a reading-measure block). */}
-              <div className="mx-auto max-w-xl">
-                <h1 className="font-serif text-2xl text-ink dark:text-ink-dark sm:text-[1.9rem]">
+              <div className="mx-auto max-w-2xl">
+                <p className="mb-4 text-[11px] font-medium uppercase tracking-[0.22em] text-accent">CASTIA / WEBTOON STUDIO</p>
+                <h1 className="max-w-xl font-serif text-3xl leading-[1.12] tracking-[-0.035em] text-ink dark:text-ink-dark sm:text-[2.65rem]">
                   Give every character their own voice.
                 </h1>
                 {/* Short and human, not the old single run-on sentence
@@ -485,7 +486,7 @@ export default function ComicsPage() {
                     that job, not this paragraph. text-ink/80, not the
                     original /50 - that read as low-contrast on the actual
                     value proposition, not just "editorial." */}
-                <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink/80 dark:text-ink-dark/72">
+                <p className="mt-4 max-w-lg text-[15px] leading-7 text-ink/78 dark:text-ink-dark/72">
                   Upload your chapter, and every character keeps their
                   voice — panel after panel.
                 </p>
@@ -508,7 +509,7 @@ export default function ComicsPage() {
                     })}
                   </time>
                 </p>
-                <div className="mt-5">
+                <div className="mt-7">
                   <PanelUploader onFilesSelected={addFiles} />
                 </div>
               </div>
@@ -587,7 +588,7 @@ export default function ComicsPage() {
 
           {panels.length > 0 && (
             <>
-              <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+              <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/[0.09] bg-white/55 px-4 py-4 dark:border-white/[0.10] dark:bg-white/[0.025] sm:px-5">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="text-[13px] text-ink/75 dark:text-ink-dark/75">
                     {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
@@ -617,7 +618,7 @@ export default function ComicsPage() {
                   <button
                     type="button"
                     onClick={exportCsv}
-                    className="rounded-full bg-ink px-5 py-2 text-[13px] font-medium text-paper transition active:scale-[0.97] dark:bg-ink-dark dark:text-paper-dark"
+                    className="rounded-full border border-black/[0.12] bg-paper px-5 py-2 text-[13px] font-medium text-ink transition hover:border-black/25 active:scale-[0.97] dark:border-white/[0.15] dark:bg-paper-dark dark:text-ink-dark"
                   >
                     Export script (.csv)
                   </button>
@@ -729,7 +730,7 @@ export default function ComicsPage() {
                       ? "Every panel already has an OCR result - use a panel's own \"Rerun OCR\" to redo one."
                       : undefined
                   }
-                  className="rounded-full border border-black/10 px-5 py-2 text-[13px] font-medium transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15"
+                  className="rounded-full border border-black/[0.13] bg-white/70 px-4 py-2 text-[12px] font-medium transition hover:border-black/25 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/15 dark:bg-white/[0.03] sm:px-5 sm:text-[13px]"
                 >
                   {batchOcrRunning
                     ? `Reading panels… (${panels.filter((p) => p.ocrStatus === "done").length}/${panels.length})`
@@ -744,7 +745,7 @@ export default function ComicsPage() {
                       ? "Run OCR or type dialogue into at least one panel first - there's nothing to adapt yet."
                       : undefined
                   }
-                  className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-full bg-accent px-5 py-2 text-[13px] font-medium text-white shadow-sm transition hover:brightness-105 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {adaptStatus === "running"
                     ? adaptProgress
