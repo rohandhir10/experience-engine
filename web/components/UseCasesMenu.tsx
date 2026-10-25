@@ -12,8 +12,7 @@ import Link from "next/link";
 // ThemeToggle are (SiteHeader.tsx's doc comment): it needs open/close
 // state, and SiteHeader itself has to stay server-renderable everywhere.
 export const USE_CASES = [
-  { href: "/lyrics-translation", label: "Song lyric translation" },
-  { href: "/manga-webtoon-translation", label: "Manga & webtoon translation" },
+  { href: "/manga-webtoon-translation", label: "Manga & webtoon localization" },
 ];
 
 export function UseCasesMenu({ forceDark }: { forceDark?: boolean }) {
