@@ -15,14 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
   const routes = [
     { path: "/", priority: 1 },
-    { path: "/music", priority: 0.9 },
     { path: "/comics", priority: 0.9 },
     { path: "/how-it-works", priority: 0.8 },
     { path: "/faq", priority: 0.8 },
     { path: "/about", priority: 0.5 },
     { path: "/blog", priority: 0.7 },
     { path: "/pricing", priority: 0.7 },
-    { path: "/s/demo", priority: 0.5 },
   ];
 
   const staticEntries = routes.map(({ path, priority }) => ({
