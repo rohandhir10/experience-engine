@@ -402,3 +402,69 @@ body:not(:has(.castia-home)) .castia-comics-studio button:disabled {
     padding-right: 12px;
   }
 }
+
+/* Uploaded-chapter mode uses the full canvas like a real editor, while the
+   no-upload state remains a centered marketing/entry page. */
+body:not(:has(.castia-home)) .castia-studio-shell {
+  width: 100%;
+}
+body:not(:has(.castia-home)) .castia-studio-session {
+  width: 100%;
+}
+body:not(:has(.castia-home)) .castia-studio-session > div:first-child {
+  box-shadow: 0 4px 18px rgba(25,23,31,.035);
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame {
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame > img {
+  max-height: min(68vh, 820px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-thumb {
+  box-shadow: 0 1px 3px rgba(25,23,31,.04);
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-thumb-image {
+  object-fit: contain;
+  background: #f0ede7;
+}
+body:not(:has(.castia-home)) .castia-studio-session textarea,
+body:not(:has(.castia-home)) .castia-studio-session input:not([type="file"]),
+body:not(:has(.castia-home)) .castia-studio-session select {
+  min-height: 40px;
+  border-radius: 10px;
+}
+body:not(:has(.castia-home)) .castia-studio-session textarea {
+  min-height: 76px;
+}
+body:not(:has(.castia-home)) .castia-studio-session button {
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+body:not(:has(.castia-home)) .castia-studio-session button:focus-visible,
+body:not(:has(.castia-home)) .castia-studio-session input:focus-visible,
+body:not(:has(.castia-home)) .castia-studio-session textarea:focus-visible,
+body:not(:has(.castia-home)) .castia-studio-session select:focus-visible {
+  outline: 2px solid #a28aff;
+  outline-offset: 2px;
+}
+@media (min-width: 1280px) {
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame {
+    min-height: 480px;
+  }
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame > img {
+    max-height: min(72vh, 920px);
+  }
+}
+@media (max-width: 760px) {
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame {
+    min-height: 220px;
+  }
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame > img {
+    max-height: 62vh;
+  }
+}
