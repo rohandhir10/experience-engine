@@ -101,7 +101,8 @@
   background: #f7f4ef;
 }
 .dark .castia-workspace {
-  background: #15131a;
+  background: #f7f4ef;
+  color: #19171f;
 }
 @media (max-width: 640px) {
   .castia-interior > div > header {
