@@ -19,3 +19,92 @@
 @keyframes draw-underline { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
 .animate-draw-underline { stroke-dasharray: 200; animation: draw-underline 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.55s both; }
 @media (prefers-reduced-motion: reduce) { .animate-drift-a, .animate-drift-b, .animate-travel-dot { animation: none; } .animate-draw-underline { animation: none; stroke-dashoffset: 0; } }
+
+
+/* CASTIA interior system: bring the product, documentation and pricing pages
+   into the same editorial language as the homepage without touching it. */
+.castia-interior {
+  --ci-paper: #f6f3ed;
+  --ci-ink: #19171f;
+  --ci-purple: #8870d4;
+  background:
+    radial-gradient(ellipse at 92% 2%, rgba(198,182,255,.16), transparent 29rem),
+    var(--ci-paper);
+  color: var(--ci-ink);
+}
+.dark .castia-interior {
+  --ci-paper: #15131a;
+  --ci-ink: #f6f1fa;
+  background:
+    radial-gradient(ellipse at 92% 2%, rgba(136,112,212,.12), transparent 29rem),
+    var(--ci-paper);
+  color: var(--ci-ink);
+}
+.castia-interior > div {
+  max-width: 1180px;
+}
+.castia-interior > div > header {
+  max-width: none !important;
+  min-height: 76px;
+  padding-bottom: 18px;
+  border-color: rgba(25,23,31,.12);
+}
+.dark .castia-interior > div > header {
+  border-color: rgba(255,255,255,.12);
+}
+.castia-interior h1 {
+  font-family: var(--font-manrope, "DM Sans", ui-sans-serif, system-ui, sans-serif);
+  font-weight: 600;
+  letter-spacing: -.055em;
+  line-height: 1.04;
+}
+.castia-interior h2 {
+  letter-spacing: -.035em;
+}
+.castia-interior a {
+  transition: color .2s ease, border-color .2s ease, background-color .2s ease, transform .2s ease;
+}
+.castia-interior a:focus-visible,
+.castia-interior button:focus-visible {
+  outline: 2px solid #8870d4;
+  outline-offset: 3px;
+}
+.castia-interior pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+}
+.castia-interior code:not(pre code) {
+  border-radius: 5px;
+}
+.castia-interior main, .castia-interior section {
+  scroll-margin-top: 24px;
+}
+.castia-interior .castia-interior-card {
+  border: 1px solid rgba(25,23,31,.11);
+  border-radius: 12px;
+  background: rgba(255,255,255,.58);
+  box-shadow: 0 10px 30px rgba(30,24,40,.035);
+}
+.dark .castia-interior .castia-interior-card {
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.035);
+}
+.castia-interior a:hover {
+  text-underline-offset: 4px;
+}
+.castia-workspace {
+  background: #f7f4ef;
+}
+.dark .castia-workspace {
+  background: #15131a;
+}
+@media (max-width: 640px) {
+  .castia-interior > div > header {
+    min-height: 64px;
+    padding-bottom: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .castia-interior a { transition: none; }
+}
