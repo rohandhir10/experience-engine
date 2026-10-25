@@ -7,9 +7,9 @@ import { SessionProviderWrapper } from "@/components/SessionProviderWrapper";
 import { SITE_URL, SITE_NAME, FOUNDER_NAME, absoluteUrl } from "@/lib/seo";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
-const DEFAULT_TITLE = "Castia — Adapt the feeling, not just the words";
+const DEFAULT_TITLE = "CASTIA — Every panel. Every feeling. Every language.";
 const DEFAULT_DESCRIPTION =
-  "Castia rewrites song lyrics and comic dialogue across six languages through a three-stage Writers' Room (Translator, Creative Adapter, Judge) — not a literal translation, and every change ships with a plain-language reason.";
+  "CASTIA helps webtoon and comic localization teams preserve character voice, emotional intent, cultural nuance, and panel context across languages.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
