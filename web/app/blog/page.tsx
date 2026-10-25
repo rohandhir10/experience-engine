@@ -8,12 +8,15 @@ import { contentByKind } from "@/lib/content";
 import { breadcrumbJsonLd, webPageJsonLd } from "@/lib/schema";
 import { FOUNDER_NAME } from "@/lib/seo";
 
-const posts = contentByKind("blog").slice().sort((a, b) => (a.publishedDate < b.publishedDate ? 1 : -1));
+const posts = contentByKind("blog")
+  .filter((post) => post.slug !== "why-literal-translation-breaks-song-lyrics")
+  .slice()
+  .sort((a, b) => (a.publishedDate < b.publishedDate ? 1 : -1));
 
 export const metadata = {
   title: "Blog",
   description:
-    "Research-grounded writing on translation, localization, and what makes a lyric or a comic line's adaptation actually good.",
+    "Research-grounded writing on comic and webtoon localization, translation quality, and editorial workflows.",
   alternates: { canonical: "/blog" },
 };
 
@@ -29,16 +32,14 @@ function formatDate(iso: string): string {
 // ContentEntry itself, since sitemap.ts/JSON-LD/every other consumer of
 // that registry has no use for a topic label - scoping it here keeps
 // the shared type from growing a field only this one page reads.
-type Topic = "music" | "comics" | "craft";
+type Topic = "comics" | "craft";
 const TOPICS: Record<string, Topic> = {
-  "why-literal-translation-breaks-song-lyrics": "music",
   "what-manga-localization-actually-costs": "comics",
   "why-bleu-score-cant-judge-creative-translation": "craft",
   "what-transcreation-means": "craft",
 };
 
 const TOPIC_META: Record<Topic, { label: string; Icon: () => JSX.Element }> = {
-  music: { label: "Music", Icon: MusicIcon },
   comics: { label: "Comics", Icon: CommentIcon },
   craft: { label: "Craft & research", Icon: CompassIcon },
 };
@@ -111,14 +112,6 @@ export default function BlogIndexPage() {
         <Footer />
       </div>
     </main>
-  );
-}
-
-function MusicIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z" />
-    </svg>
   );
 }
 
