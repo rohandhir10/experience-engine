@@ -56,6 +56,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Local OCR avoids per-page vendor charges. Keep language packs explicit.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       tesseract-ocr tesseract-ocr-eng tesseract-ocr-jpn tesseract-ocr-kor \
+       tesseract-ocr-hin tesseract-ocr-spa tesseract-ocr-urd \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

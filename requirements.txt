@@ -53,3 +53,4 @@ fakeredis>=2.20  # test-only: tests/test_jobs_redis.py, tests/test_task_queue.py
 # still degrades to a no-op if the import fails, since an observability
 # tool must never be able to break the thing it observes.
 sentry-sdk>=2.0
+pytesseract>=0.3.13  # Python wrapper; Tesseract binary is installed in Dockerfile
