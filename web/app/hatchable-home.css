@@ -99,7 +99,7 @@
 
 
 /* Editorial art direction: cinematic original scene, clean localization UI, restrained motion. */
-.ch-hero-art-editorial{min-height:610px;padding:0;border-radius:3px;overflow:hidden;isolation:isolate;position:relative;color:#fbf5ef;background:#252331 url('/castia-manga-panels.svg') center 38%/cover no-repeat;border:1px solid rgba(30,25,39,.16);box-shadow:0 24px 70px rgba(34,26,42,.15)}
+.ch-hero-art-editorial{min-height:610px;padding:0;border-radius:3px;overflow:hidden;isolation:isolate;position:relative;color:#fbf5ef;background:#252331 url('/a_wide_high_resolution_comic_manga_page_collage_i.png') center 38%/cover no-repeat;border:1px solid rgba(30,25,39,.16);box-shadow:0 24px 70px rgba(34,26,42,.15)}
 .ch-hero-art-editorial:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(20,19,31,.03),rgba(20,19,31,.05) 35%,rgba(20,19,31,.28)),linear-gradient(0deg,rgba(17,17,27,.66),transparent 54%);z-index:0;pointer-events:none}
 .ch-scene-label,.ch-scene-copy,.ch-localization-window,.ch-scene-caption{z-index:1}
 .ch-scene-label{position:absolute;top:20px;left:22px;right:22px;display:flex;justify-content:space-between;align-items:center;font:9px var(--ch-mono);letter-spacing:.1em;color:#fff5ee;text-shadow:0 1px 8px #17121b}
