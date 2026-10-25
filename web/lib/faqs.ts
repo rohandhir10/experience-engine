@@ -97,27 +97,6 @@ export function homepageFaqs(): Faq[] {
   return faqsFor(HOMEPAGE_FAQ_QUESTIONS);
 }
 
-// /music-specific: someone already on the lyrics tool wants to know the
-// mechanism and the language roster, not whether comics exist too.
-export const MUSIC_FAQ_QUESTIONS = [
-  "What does Castia do?",
-  "How is this different from Google Translate or a single AI prompt?",
-  "Do I need an account?",
-  "How much does it cost?",
-];
-
-export function musicFaqs(): Faq[] {
-  return faqsFor(MUSIC_FAQ_QUESTIONS).map((faq) =>
-    faq.question === "What does Castia do?"
-      ? {
-          ...faq,
-          answer:
-            "CASTIA adapts song lyrics to preserve feeling, imagery, and voice rather than translating word for word. Each adapted line is shown with a plain-language reason for the creative choice.",
-        }
-      : faq
-  );
-}
-
 // /comics-specific: swaps the language-roster question for the one a
 // visitor already on the webtoons tool actually has (does this work for
 // comics at all, and what does "Beta" really mean here).
