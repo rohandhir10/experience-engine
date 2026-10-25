@@ -31,7 +31,7 @@ export const FAQS: Faq[] = [
   },
   {
     category: "Product",
-    question: "Which languages can I use for comic localization?",
+    question: "Which languages are supported?",
     answer:
       "The current engine supports English, Hindi, Japanese, Korean, Spanish, and Urdu. Available directions depend on the deployed language configuration.",
   },
@@ -107,7 +107,15 @@ export const MUSIC_FAQ_QUESTIONS = [
 ];
 
 export function musicFaqs(): Faq[] {
-  return faqsFor(MUSIC_FAQ_QUESTIONS);
+  return faqsFor(MUSIC_FAQ_QUESTIONS).map((faq) =>
+    faq.question === "What does Castia do?"
+      ? {
+          ...faq,
+          answer:
+            "CASTIA adapts song lyrics to preserve feeling, imagery, and voice rather than translating word for word. Each adapted line is shown with a plain-language reason for the creative choice.",
+        }
+      : faq
+  );
 }
 
 // /comics-specific: swaps the language-roster question for the one a
