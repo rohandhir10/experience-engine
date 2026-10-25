@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Logo } from "./Logo";
-import { ThemeToggle } from "./ThemeToggle";
 import { UseCasesMenu } from "./UseCasesMenu";
 import { MobileNavMenu } from "./MobileNavMenu";
 
@@ -70,7 +69,7 @@ export function SiteHeader({
         }
       >
         <Link href="/">
-          <Logo force={forceDark ? "light" : undefined} />
+          <Logo />
         </Link>
         <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-4 sm:gap-x-6">
           {!minimal && <UseCasesMenu forceDark={forceDark} />}
@@ -101,8 +100,6 @@ export function SiteHeader({
           )}
 
           {right}
-
-          <ThemeToggle forceDark={forceDark} />
 
           <Link href="/sign-in" className={`hidden sm:inline ${navLink}`}>
             Sign In
