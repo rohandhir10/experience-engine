@@ -186,8 +186,7 @@ export default function PricingPage() {
                   {pack.blurb}
                 </p>
                 <p className="mt-4 text-[12px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
-                  ~${perSong(pack.price, pack.credits)}/song · ~$
-                  {perPage(pack.price, pack.credits)}/page
+                  ~${perPage(pack.price, pack.credits)}/page
                 </p>
                 <div className="mt-6">
                   <BuyButton priceId={pack.priceId} label={`Buy ${pack.name}`} />
@@ -222,8 +221,7 @@ export default function PricingPage() {
               {SUBSCRIPTION.blurb}
             </p>
             <p className="mt-4 text-[12px] leading-relaxed text-ink/62 dark:text-ink-dark/62">
-              ~${perSong(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/song · ~$
-              {perPage(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/page
+              ~${perPage(SUBSCRIPTION.price, SUBSCRIPTION.credits)}/page
             </p>
             <div className="mt-6">
               <BuyButton priceId={SUBSCRIPTION.priceId} label="Subscribe" />
