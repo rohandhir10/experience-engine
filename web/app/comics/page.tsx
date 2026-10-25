@@ -445,7 +445,7 @@ export default function ComicsPage() {
 
   return (
     <main className="castia-interior castia-workspace castia-comics-studio min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
-      <div className="mx-auto max-w-6xl">
+      <div className={panels.length > 0 ? "mx-auto max-w-[1600px] castia-studio-shell" : "mx-auto max-w-6xl"}>
         <SiteHeader active="webtoons" />
 
         <div className="mt-12 sm:mt-16">
@@ -587,8 +587,8 @@ export default function ComicsPage() {
           )}
 
           {panels.length > 0 && (
-            <>
-              <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/[0.09] bg-white/55 px-4 py-4 dark:border-white/[0.10] dark:bg-white/[0.025] sm:px-5">
+            <section className="castia-studio-session mt-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-black/[0.09] bg-white/55 px-4 py-3 dark:border-white/[0.10] dark:bg-white/[0.025] sm:px-5">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="text-[13px] text-ink/75 dark:text-ink-dark/75">
                     {panels.length} panel{panels.length === 1 ? "" : "s"} loaded
@@ -786,7 +786,7 @@ export default function ComicsPage() {
                   adapting={adaptStatus === "running"}
                 />
               </div>
-            </>
+            </section>
           )}
         </div>
 
