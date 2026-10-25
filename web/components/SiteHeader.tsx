@@ -15,14 +15,10 @@ import { MobileNavMenu } from "./MobileNavMenu";
  * checkout runs through Paddle once a live account exists, but nothing
  * is charged today (see /pricing's own disclosure).
  *
- * active="music"/"webtoons" (set by /music and /comics respectively)
- * additionally renders MediumSwitcher - a small extracted client
- * component, for the same reason Sign In can't branch on session here:
- * SiteHeader itself stays server-renderable everywhere else, and only
- * the two pages that need an interactive switch pull in the client
- * bit. "/" and every other page pass neither and get no switcher.
- * UseCasesMenu and MobileNavMenu are the same pattern, for the same
- * reason - both need open/close state SiteHeader itself can't hold. */
+ * The global navigation is comics-first; /music remains an unlinked
+ * legacy route for people who enter it directly. UseCasesMenu and
+ * MobileNavMenu keep their own client state so this header stays
+ * server-renderable. */
 export function SiteHeader({
   active,
   right,
@@ -76,7 +72,8 @@ export function SiteHeader({
         <Link href="/">
           <Logo force={forceDark ? "light" : undefined} />
         </Link>
-        <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-4 sm:gap-x-6">          {!minimal && <UseCasesMenu forceDark={forceDark} />}
+        <div className="flex flex-wrap items-center justify-end gap-y-2 gap-x-4 sm:gap-x-6">
+          {!minimal && <UseCasesMenu forceDark={forceDark} />}
           {!minimal && active !== "pricing" && (
             <Link href="/pricing" className={`hidden sm:inline ${navLink}`}>
               Pricing
