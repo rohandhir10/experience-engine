@@ -12,6 +12,7 @@ export const metadata = {
   title: entry.title,
   description: entry.description,
   alternates: { canonical: entry.path },
+  robots: { index: false, follow: false },
 };
 
 const LANGUAGES = ["English", "Japanese", "Korean", "Spanish", "Urdu", "Hindi"];
