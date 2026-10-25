@@ -328,28 +328,19 @@ body:not(:has(.castia-home)) .castia-workspace textarea {
   border-color: rgba(25, 23, 31, .18) !important;
 }
 
-/* Comic translation is a workbench, not a marketing page. Keep the site
-   and its homepage on the warm paper palette, but give this focused tool
-   the dense, dark studio treatment from the approved reference. */
+/* Comic translation workspace: use CASTIA's warm editorial palette while
+   keeping the denser, side-by-side studio workflow. The artwork preview
+   itself remains dark-neutral so comic pages retain their true contrast. */
 body:not(:has(.castia-home)) .castia-comics-studio {
-  --studio-bg: #1f2024;
-  --studio-panel: #292a2f;
-  --studio-field: #202126;
-  --studio-ink: #f1f0f4;
-  --studio-muted: #b2b1bb;
-  --studio-line: rgba(255,255,255,.11);
+  --studio-bg: #f6f3ed;
+  --studio-panel: #fffdf9;
+  --studio-field: #fffdf9;
+  --studio-ink: #19171f;
+  --studio-muted: #817d88;
+  --studio-line: rgba(25, 23, 31, .14);
   background: var(--studio-bg) !important;
   color: var(--studio-ink) !important;
-  color-scheme: dark;
-}
-body:not(:has(.castia-home)) .castia-comics-studio h1,
-body:not(:has(.castia-home)) .castia-comics-studio h2,
-body:not(:has(.castia-home)) .castia-comics-studio h3,
-body:not(:has(.castia-home)) .castia-comics-studio p,
-body:not(:has(.castia-home)) .castia-comics-studio label,
-body:not(:has(.castia-home)) .castia-comics-studio span,
-body:not(:has(.castia-home)) .castia-comics-studio li {
-  color: inherit;
+  color-scheme: light;
 }
 body:not(:has(.castia-home)) .castia-comics-studio h1,
 body:not(:has(.castia-home)) .castia-comics-studio h2,
@@ -359,9 +350,7 @@ body:not(:has(.castia-home)) .castia-comics-studio h3 {
 body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-white"],
 body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-[#fff"],
 body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-paper"],
-body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-[#f"] {
-  background-color: var(--studio-panel) !important;
-}
+body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-[#f"],
 body:not(:has(.castia-home)) .castia-comics-studio [class*="dark:bg-white"] {
   background-color: var(--studio-panel) !important;
 }
@@ -387,25 +376,25 @@ body:not(:has(.castia-home)) .castia-comics-studio select {
 }
 body:not(:has(.castia-home)) .castia-comics-studio input::placeholder,
 body:not(:has(.castia-home)) .castia-comics-studio textarea::placeholder {
-  color: #a5a4ae !important;
+  color: #817d88 !important;
   opacity: 1 !important;
 }
 body:not(:has(.castia-home)) .castia-comics-studio .castia-uploader {
-  background-color: #24252a !important;
-  border-color: rgba(162,138,255,.45) !important;
+  background-color: #fffdf9 !important;
+  border-color: rgba(162, 138, 255, .48) !important;
 }
 body:not(:has(.castia-home)) .castia-comics-studio .castia-panel-frame {
-  background-color: #151619 !important;
+  background-color: #f0ede7 !important;
 }
 body:not(:has(.castia-home)) .castia-comics-studio .castia-panel-thumb {
-  background-color: #24252a;
+  background-color: #fffdf9;
 }
 body:not(:has(.castia-home)) .castia-comics-studio header {
   border-color: var(--studio-line) !important;
 }
 body:not(:has(.castia-home)) .castia-comics-studio button:disabled {
-  color: #aaa8b3 !important;
-  opacity: .55;
+  color: #817d88 !important;
+  opacity: .6;
 }
 @media (max-width: 760px) {
   body:not(:has(.castia-home)) .castia-comics-studio {
