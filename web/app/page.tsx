@@ -101,24 +101,24 @@ export default function Home() {
                   <span className="text-[10px] tracking-[0.16em] text-[#493a49]/65">01 / 06</span>
                 </div>
                 <div className="relative z-10 mx-auto mb-3 max-w-[190px] rounded-[1.2rem] rounded-bl-sm border border-[#6e526a]/15 bg-[#fffaf5] px-4 py-3 text-center text-[12px] leading-5 text-[#473747] shadow-sm">
-                  “You came back… after all this time?”
+                  “帰ってきたんだ…こんなに時間が経ってから。”
                   <span className="absolute -bottom-2 left-4 h-3 w-3 rotate-45 border-b border-l border-[#6e526a]/15 bg-[#fffaf5]" />
                 </div>
               </div>
               <div className="flex min-w-0 flex-col gap-3">
                 <div className="rounded-xl border border-black/[0.09] bg-white/75 p-4 dark:border-white/10 dark:bg-white/[0.04]">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold tracking-[0.13em] text-ink/50 dark:text-white/50">SOURCE TEXT</span>
-                    <span className="text-[10px] text-ink/45 dark:text-white/45">Detected bubble</span>
+                    <span className="text-[10px] font-semibold tracking-[0.13em] text-ink/50 dark:text-white/50">ORIGINAL · JA</span>
+                    <span className="text-[10px] text-ink/45 dark:text-white/45">Original · Japanese</span>
                   </div>
                   <p className="mt-3 text-[13px] leading-5 text-ink/80 dark:text-white/80">“You came back… after all this time?”</p>
                 </div>
                 <div className="rounded-xl border border-accent/25 bg-white p-4 dark:bg-[#29232e]">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold tracking-[0.13em] text-accent">ADAPTED LINE</span>
+                    <span className="text-[10px] font-semibold tracking-[0.13em] text-accent">LOCALIZED · EN</span>
                     <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">Editable</span>
                   </div>
-                  <p className="mt-3 font-serif text-[17px] leading-6 text-ink dark:text-white">“After all this time… you still came back.”</p>
+                  <p className="mt-3 font-serif text-[17px] leading-6 text-ink dark:text-white">“You actually came back… after all this time.”</p>
                   <p className="mt-3 border-t border-black/[0.08] pt-3 text-[11px] leading-5 text-ink/60 dark:border-white/10 dark:text-white/60">Illustrative example of tone-aware rewriting, not a live engine result.</p>
                 </div>
                 <div className="rounded-xl border border-black/[0.09] bg-white/55 p-3 dark:border-white/10 dark:bg-white/[0.025]">
@@ -126,7 +126,7 @@ export default function Home() {
                     <svg viewBox="0 0 20 20" aria-hidden="true" className="h-4 w-4 text-accent" fill="none"><path d="M10 2.5 12 7.8l5.5 2.2-5.5 2.2-2 5.3-2-5.3L2.5 10l5.5-2.2L10 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></svg>
                     Why the wording changes
                   </div>
-                  <p className="mt-1.5 text-[11px] leading-5 text-ink/58 dark:text-white/55">The pause moves to the end to emphasize that the return matters more than the elapsed time.</p>
+                  <p className="mt-1.5 text-[11px] leading-5 text-ink/58 dark:text-white/55">“Actually” adds disbelief and hurt without spelling out what the character feels.</p>
                 </div>
               </div>
             </div>
