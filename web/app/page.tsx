@@ -1,8 +1,18 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { useState } from "react";
+import { JsonLd } from "@/components/JsonLd";
+import { webPageJsonLd, faqPageJsonLd } from "@/lib/schema";
+import { homepageFaqs } from "@/lib/faqs";
 import "./hatchable-home.css";
+
+export const metadata: Metadata = {
+  title: "CASTIA — Every panel. Every feeling. Every language.",
+  description: "Creative webtoon localization that preserves character voice, emotional intent, and panel context across languages.",
+  alternates: { canonical: "/" },
+  openGraph: { title: "CASTIA — Every panel. Every feeling. Every language.", description: "Creative webtoon localization that preserves character voice, emotional intent, and panel context across languages.", url: "/" },
+};
+const PAGE_UPDATED_DATE = "2026-10-25";
+const HOMEPAGE_FAQS = homepageFaqs();
 
 const steps = [
   { n: "01", title: "Bring the scene", body: "Start with dialogue and the context your team has: character notes, scene summaries, and panel references.", tag: "CONTEXT IN", icon: "▤" },
@@ -19,9 +29,8 @@ const capabilities = [
 ];
 
 export default function Home() {
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <main className="castia-home">
+    <main className="castia-home">\n      <JsonLd data={webPageJsonLd({ path: "/", name: "CASTIA — Every panel. Every feeling. Every language.", description: "Creative webtoon localization that preserves character voice, emotional intent, and panel context across languages.", updatedDate: PAGE_UPDATED_DATE })} />\n      <JsonLd data={faqPageJsonLd(HOMEPAGE_FAQS)} />
       <div className="ch-announcement"><span className="ch-pulse" /> BUILT FOR THE PEOPLE WHO BRING STORIES TO THE WORLD <span className="ch-announcement-right">CREATIVE LOCALIZATION, REIMAGINED ↗</span></div>
       <header className="ch-nav ch-wrap">
         <Link className="ch-wordmark" href="/" aria-label="CASTIA home"><span className="ch-mark">C<span>✳</span></span> CASTIA</Link>
