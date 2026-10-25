@@ -32,11 +32,15 @@
     var(--ci-paper);
   color: var(--ci-ink);
 }
+/* Interior routes intentionally stay on CASTIA's light editorial palette.
+   The homepage owns its own art direction; a persisted dark-mode preference
+   must not turn pricing, docs, FAQ, or other interior pages into dark surfaces. */
 .dark .castia-interior {
-  --ci-paper: #15131a;
-  --ci-ink: #f6f1fa;
+  --ci-paper: #f6f3ed;
+  --ci-ink: #19171f;
+  --ci-purple: #8870d4;
   background:
-    radial-gradient(ellipse at 92% 2%, rgba(136,112,212,.12), transparent 29rem),
+    radial-gradient(ellipse at 92% 2%, rgba(198,182,255,.16), transparent 29rem),
     var(--ci-paper);
   color: var(--ci-ink);
 }
