@@ -9,7 +9,7 @@ import { FAQS, FAQ_CATEGORIES as CATEGORIES } from "@/lib/faqs";
 export const metadata = {
   title: "FAQ",
   description:
-    "Answers about how Castia adapts lyrics and comic dialogue, which languages it supports, pricing, the API, and how it differs from translation.",
+    "Answers about comic and webtoon localization, supported languages, pricing, the API, and how CASTIA differs from literal translation.",
   alternates: { canonical: "/faq" },
 };
 
