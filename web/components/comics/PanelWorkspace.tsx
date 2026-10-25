@@ -153,7 +153,7 @@ export function PanelWorkspace({
   ).sort((a, b) => a.localeCompare(b));
 
   return (
-    <div className="flex flex-col gap-8 sm:flex-row">
+    <div className="flex flex-col gap-6 rounded-2xl border border-black/[0.10] bg-white/65 p-3 shadow-[0_8px_28px_rgba(45,32,24,0.035)] dark:border-white/[0.10] dark:bg-white/[0.025] dark:shadow-none sm:flex-row sm:gap-6 sm:p-5">
       <div className="flex gap-2 overflow-x-auto pb-2 sm:w-40 sm:shrink-0 sm:flex-col sm:overflow-visible sm:pb-0">
         {panels.map((panel, index) => (
           <button
@@ -232,7 +232,7 @@ export function PanelWorkspace({
                 to toggle to, so showing an inert "Redrawn" tab would be
                 clicking into an empty state rather than a real view. */}
             {active.redrawResultUrl && (
-              <div className="mb-2 inline-flex rounded-full border border-black/[0.12] p-0.5 text-[12px] dark:border-white/[0.13]">
+              <div className="mb-3 inline-flex rounded-full border border-black/[0.12] bg-white/70 p-0.5 text-[12px] dark:border-white/[0.13] dark:bg-white/[0.03]">
                 <button
                   type="button"
                   onClick={() => setImageView("original")}
@@ -257,7 +257,7 @@ export function PanelWorkspace({
                 </button>
               </div>
             )}
-            <div className="relative overflow-hidden rounded-xl border border-black/[0.12] bg-black/[0.02] dark:border-white/[0.12] dark:bg-white/[0.02]">
+            <div className="relative overflow-hidden rounded-xl border border-black/[0.10] bg-[#f4f0eb] dark:border-white/[0.12] dark:bg-white/[0.02]">
               {imageView === "redrawn" && active.redrawResultUrl ? (
                 // The actual typeset result - no OCR boxes overlaid,
                 // since those describe the ORIGINAL image's regions and
@@ -454,7 +454,7 @@ export function PanelWorkspace({
                           onChange={(e) => setRedrawRegionText(i, e.target.value)}
                           rows={2}
                           placeholder={`Adapted text for region ${i + 1}…`}
-                          className="w-full resize-none rounded-lg border border-black/[0.12] bg-white/70 px-2.5 py-1.5 text-[13px] leading-snug text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
+                          className="w-full resize-none rounded-lg border border-black/[0.12] bg-[#fffdfa] px-3 py-2 text-[13px] leading-relaxed text-ink placeholder:text-ink/45 transition focus:border-accent/50 dark:border-white/[0.12] dark:bg-white/[0.035] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
                         />
                         <select
                           value={active.redrawRegionFonts?.[i] ?? ""}
@@ -523,7 +523,7 @@ export function PanelWorkspace({
                 value={active.voice ?? ""}
                 onChange={(e) => onUpdatePanel(active.id, { voice: e.target.value || null })}
                 placeholder="e.g. Guard Captain"
-                className="mt-1.5 w-full rounded-lg border border-black/[0.12] bg-white/70 px-3 py-2 text-[14px] text-ink placeholder:text-ink/45 transition dark:border-white/[0.12] dark:bg-white/[0.03] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
+                className="mt-1.5 w-full rounded-lg border border-black/[0.12] bg-[#fffdfa] px-3 py-2.5 text-[14px] text-ink placeholder:text-ink/45 transition focus:border-accent/50 dark:border-white/[0.12] dark:bg-white/[0.035] dark:text-ink-dark dark:placeholder:text-ink-dark/45"
               />
               <datalist id="comics-known-voices">
                 {knownVoices.map((voice) => (
