@@ -1,0 +1,118 @@
+/* CASTIA global design system: carry the homepage palette and type scale
+   across every route while leaving the homepage's precise art direction intact. */
+body:not(:has(.castia-home)) {
+  --ch-ink: #19171f;
+  --ch-paper: #f6f3ed;
+  --ch-purple: #a28aff;
+  --ch-lilac: #c6b6ff;
+  --ch-orange: #ff9c70;
+  --ch-muted: #817d88;
+  --ch-line: rgba(25, 23, 31, .14);
+  background: var(--ch-paper) !important;
+  color: var(--ch-ink) !important;
+  font-family: "DM Sans", sans-serif !important;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body:not(:has(.castia-home)) main {
+  color: var(--ch-ink);
+}
+
+body:not(:has(.castia-home)) h1,
+body:not(:has(.castia-home)) h2,
+body:not(:has(.castia-home)) h3,
+body:not(:has(.castia-home)) h4 {
+  font-family: "Manrope", sans-serif !important;
+  letter-spacing: -.045em;
+  color: var(--ch-ink) !important;
+}
+
+body:not(:has(.castia-home)) p,
+body:not(:has(.castia-home)) label,
+body:not(:has(.castia-home)) li,
+body:not(:has(.castia-home)) small {
+  font-family: "DM Sans", sans-serif;
+}
+
+body:not(:has(.castia-home)) a {
+  text-underline-offset: 3px;
+  transition: color .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+body:not(:has(.castia-home)) a:hover {
+  color: #7458ce;
+}
+
+body:not(:has(.castia-home)) [class*="rounded-2xl"],
+body:not(:has(.castia-home)) [class*="rounded-3xl"] {
+  border-radius: 8px !important;
+}
+
+body:not(:has(.castia-home)) [class*="border-black/"],
+body:not(:has(.castia-home)) [class*="border-black["],
+body:not(:has(.castia-home)) [class*="dark:border-white/"] {
+  border-color: var(--ch-line) !important;
+}
+
+/* Neutralize old dark surfaces so tools, dashboard cards, and content pages
+   use the same warm paper system instead of changing theme from route to route. */
+body:not(:has(.castia-home)) [class*="bg-white"],
+body:not(:has(.castia-home)) [class*="bg-paper"],
+body:not(:has(.castia-home)) [class*="dark:bg-white"],
+body:not(:has(.castia-home)) [class*="dark:bg-paper"],
+body:not(:has(.castia-home)) [class*="bg-[#"] {
+  background-color: #fffdf9 !important;
+}
+
+body:not(:has(.castia-home)) [class*="bg-black/"],
+body:not(:has(.castia-home)) [class*="dark:bg-black/"] {
+  background-color: rgba(25, 23, 31, .045) !important;
+}
+
+body:not(:has(.castia-home)) [class*="text-white"],
+body:not(:has(.castia-home)) [class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="text-ink-dark"] {
+  color: var(--ch-ink) !important;
+}
+
+body:not(:has(.castia-home)) [class*="text-accent"] {
+  color: #765bd0 !important;
+}
+
+body:not(:has(.castia-home)) input:not([type="checkbox"]):not([type="radio"]),
+body:not(:has(.castia-home)) textarea,
+body:not(:has(.castia-home)) select {
+  border-color: var(--ch-line) !important;
+  border-radius: 5px !important;
+  background-color: #fffdf9 !important;
+  color: var(--ch-ink) !important;
+  box-shadow: none;
+}
+
+body:not(:has(.castia-home)) input:focus,
+body:not(:has(.castia-home)) textarea:focus,
+body:not(:has(.castia-home)) select:focus {
+  border-color: var(--ch-purple) !important;
+  outline: 2px solid rgba(162, 138, 255, .24);
+  outline-offset: 1px;
+}
+
+body:not(:has(.castia-home)) button {
+  border-radius: 5px;
+}
+
+body:not(:has(.castia-home)) ::selection {
+  background: rgba(162, 138, 255, .32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:not(:has(.castia-home)) *,
+  body:not(:has(.castia-home)) *::before,
+  body:not(:has(.castia-home)) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
