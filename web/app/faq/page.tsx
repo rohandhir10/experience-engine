@@ -9,7 +9,7 @@ import { FAQS, FAQ_CATEGORIES as CATEGORIES } from "@/lib/faqs";
 export const metadata = {
   title: "FAQ",
   description:
-    "Answers about how Castia adapts lyrics and comic dialogue, which languages it supports, pricing, the API, and how it differs from translation.",
+    "Answers about comic and webtoon localization, supported languages, pricing, the API, and how CASTIA differs from literal translation.",
   alternates: { canonical: "/faq" },
 };
 
@@ -18,10 +18,10 @@ export default function FaqPage() {
   const faqJsonLd = faqPageJsonLd(FAQS);
 
   return (
-    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+    <main className="castia-interior min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
       <JsonLd data={breadcrumb} />
       <JsonLd data={faqJsonLd} />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         <SiteHeader />
 
         <div className="mt-10">

@@ -80,9 +80,6 @@ export function MobileNavMenu({
         // button itself sits in the row.
         <div className={`fixed right-4 top-16 z-30 w-72 max-w-[calc(100vw-2rem)] rounded-xl border p-2 shadow-lg ${panel}`}>
           <nav className="flex flex-col gap-0.5 text-[14px]">
-            <MobileLink href="/music" onClick={close} className={item} current={active === "music"}>
-              Music
-            </MobileLink>
             <MobileLink href="/comics" onClick={close} className={item} current={active === "webtoons"}>
               Webtoons
             </MobileLink>

@@ -10,10 +10,8 @@ import {
   type Faq,
 } from "./faqs";
 
-// One shared block per curated subset, rather than one hand-written test
-// per page - the three subsets (homepage, /music, /comics) all have to
-// satisfy the exact same invariants, and testing them identically is
-// what actually catches a new subset added later without its own tests.
+// One shared block per curated subset keeps the active homepage, legacy direct-URL
+// music route, and comics route tied to canonical FAQ content.
 const SUBSETS: { name: string; questions: string[]; fn: () => Faq[] }[] = [
   { name: "homepageFaqs", questions: HOMEPAGE_FAQ_QUESTIONS, fn: homepageFaqs },
   { name: "musicFaqs", questions: MUSIC_FAQ_QUESTIONS, fn: musicFaqs },

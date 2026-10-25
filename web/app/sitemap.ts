@@ -15,14 +15,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
   const routes = [
     { path: "/", priority: 1 },
-    { path: "/music", priority: 0.9 },
     { path: "/comics", priority: 0.9 },
     { path: "/how-it-works", priority: 0.8 },
     { path: "/faq", priority: 0.8 },
     { path: "/about", priority: 0.5 },
     { path: "/blog", priority: 0.7 },
     { path: "/pricing", priority: 0.7 },
-    { path: "/s/demo", priority: 0.5 },
   ];
 
   const staticEntries = routes.map(({ path, priority }) => ({
@@ -39,11 +37,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
     compare: 0.6,
   };
 
-  const contentEntries = CONTENT_REGISTRY.map((entry) => ({
+  const contentEntries = CONTENT_REGISTRY
+    .filter((entry) =>
+      entry.path !== "/lyrics-translation" &&
+      entry.path !== "/blog/why-literal-translation-breaks-song-lyrics" &&
+      !entry.path.startsWith("/compare/")
+    )
+    .map((entry) => ({
     url: `${SITE_URL}${entry.path}`,
     lastModified: new Date(entry.updatedDate),
     priority: priorityByKind[entry.kind],
-  }));
+    }));
 
   return [...staticEntries, ...contentEntries];
 }

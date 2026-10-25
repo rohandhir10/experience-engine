@@ -1,0 +1,470 @@
+/* CASTIA global design system: carry the homepage palette and type scale
+   across every route while leaving the homepage's precise art direction intact. */
+body:not(:has(.castia-home)) {
+  --ch-ink: #19171f;
+  --ch-paper: #f6f3ed;
+  --ch-purple: #a28aff;
+  --ch-lilac: #c6b6ff;
+  --ch-orange: #ff9c70;
+  --ch-muted: #817d88;
+  --ch-line: rgba(25, 23, 31, .14);
+  background: var(--ch-paper) !important;
+  color: var(--ch-ink) !important;
+  font-family: "DM Sans", sans-serif !important;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body:not(:has(.castia-home)) main {
+  color: var(--ch-ink);
+}
+
+body:not(:has(.castia-home)) h1,
+body:not(:has(.castia-home)) h2,
+body:not(:has(.castia-home)) h3,
+body:not(:has(.castia-home)) h4 {
+  font-family: "Manrope", sans-serif !important;
+  letter-spacing: -.045em;
+  color: var(--ch-ink) !important;
+}
+
+body:not(:has(.castia-home)) p,
+body:not(:has(.castia-home)) label,
+body:not(:has(.castia-home)) li,
+body:not(:has(.castia-home)) small {
+  font-family: "DM Sans", sans-serif;
+}
+
+body:not(:has(.castia-home)) a {
+  text-underline-offset: 3px;
+  transition: color .16s ease, border-color .16s ease, background-color .16s ease;
+}
+
+body:not(:has(.castia-home)) a:hover {
+  color: #7458ce;
+}
+
+body:not(:has(.castia-home)) [class*="rounded-2xl"],
+body:not(:has(.castia-home)) [class*="rounded-3xl"] {
+  border-radius: 8px !important;
+}
+
+body:not(:has(.castia-home)) [class*="border-black/"],
+body:not(:has(.castia-home)) [class*="border-black["],
+body:not(:has(.castia-home)) [class*="dark:border-white/"] {
+  border-color: var(--ch-line) !important;
+}
+
+/* Neutralize old dark surfaces so tools, dashboard cards, and content pages
+   use the same warm paper system instead of changing theme from route to route. */
+body:not(:has(.castia-home)) [class*="bg-white"],
+body:not(:has(.castia-home)) [class*="bg-paper"],
+body:not(:has(.castia-home)) [class*="dark:bg-white"],
+body:not(:has(.castia-home)) [class*="dark:bg-paper"],
+body:not(:has(.castia-home)) [class*="bg-[#"] {
+  background-color: #fffdf9 !important;
+}
+
+body:not(:has(.castia-home)) [class*="bg-black/"],
+body:not(:has(.castia-home)) [class*="dark:bg-black/"] {
+  background-color: rgba(25, 23, 31, .045) !important;
+}
+
+/* White text is only inverted when its old dark surface has been
+   converted to the warm paper surface. Keep ink-filled CTA buttons legible. */
+body:not(:has(.castia-home)) [class*="bg-[#"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="bg-[#"] [class*="text-white"] {
+  color: var(--ch-ink) !important;
+}
+
+body:not(:has(.castia-home)) [class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="text-ink-dark"] {
+  color: var(--ch-ink) !important;
+}
+
+body:not(:has(.castia-home)) [class*="bg-ink"][class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="bg-ink"] [class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"][class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"] [class*="dark:text-ink-dark"] {
+  color: #f8f4fb !important;
+}
+
+body:not(:has(.castia-home)) [class*="text-accent"] {
+  color: #765bd0 !important;
+}
+
+body:not(:has(.castia-home)) input:not([type="checkbox"]):not([type="radio"]),
+body:not(:has(.castia-home)) textarea,
+body:not(:has(.castia-home)) select {
+  border-color: var(--ch-line) !important;
+  border-radius: 5px !important;
+  background-color: #fffdf9 !important;
+  color: var(--ch-ink) !important;
+  box-shadow: none;
+}
+
+body:not(:has(.castia-home)) input:focus,
+body:not(:has(.castia-home)) textarea:focus,
+body:not(:has(.castia-home)) select:focus {
+  border-color: var(--ch-purple) !important;
+  outline: 2px solid rgba(162, 138, 255, .24);
+  outline-offset: 1px;
+}
+
+body:not(:has(.castia-home)) button {
+  border-radius: 5px;
+}
+
+body:not(:has(.castia-home)) ::selection {
+  background: rgba(162, 138, 255, .32);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:not(:has(.castia-home)) *,
+  body:not(:has(.castia-home)) *::before,
+  body:not(:has(.castia-home)) *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
+
+/* Motion system: restrained editorial movement, with the comic workspace
+   receiving the strongest tactile feedback. Only animate compositor-friendly
+   properties; avoid layout shifts while uploads/OCR/adaptation are running. */
+@keyframes castia-page-enter {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes castia-card-enter {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(.99); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes castia-soft-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(162, 138, 255, 0); }
+  50% { box-shadow: 0 0 0 5px rgba(162, 138, 255, .10); }
+}
+body:not(:has(.castia-home)) main {
+  animation: castia-page-enter .58s cubic-bezier(.16, 1, .3, 1) both;
+}
+body:not(:has(.castia-home)) main [class*="border-black/"][class*="bg-white"],
+body:not(:has(.castia-home)) main [class*="border-black["][class*="bg-white"] {
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), box-shadow .28s ease, border-color .22s ease;
+}
+body:not(:has(.castia-home)) main [class*="border-black/"][class*="bg-white"]:hover,
+body:not(:has(.castia-home)) main [class*="border-black["][class*="bg-white"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(25, 23, 31, .055);
+  border-color: rgba(162, 138, 255, .42) !important;
+}
+body:not(:has(.castia-home)) button,
+body:not(:has(.castia-home)) [role="button"] {
+  transition: transform .22s cubic-bezier(.16, 1, .3, 1), box-shadow .22s ease, background-color .2s ease, border-color .2s ease, color .2s ease, opacity .2s ease;
+}
+body:not(:has(.castia-home)) button:not(:disabled):hover,
+body:not(:has(.castia-home)) [role="button"]:not([aria-disabled="true"]):hover {
+  transform: translateY(-1px);
+}
+body:not(:has(.castia-home)) button:not(:disabled):active,
+body:not(:has(.castia-home)) [role="button"]:not([aria-disabled="true"]):active {
+  transform: translateY(0) scale(.985);
+}
+body:not(:has(.castia-home)) img {
+  transition: transform .42s cubic-bezier(.16, 1, .3, 1), filter .32s ease;
+}
+body:not(:has(.castia-home)) a:focus-visible,
+body:not(:has(.castia-home)) button:focus-visible {
+  outline: 2px solid var(--ch-purple);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  body:not(:has(.castia-home)) main { animation: none; }
+  body:not(:has(.castia-home)) main [class*="border-black/"][class*="bg-white"],
+  body:not(:has(.castia-home)) main [class*="border-black["][class*="bg-white"],
+  body:not(:has(.castia-home)) button,
+  body:not(:has(.castia-home)) [role="button"],
+  body:not(:has(.castia-home)) img { transition: none !important; }
+}
+
+
+/* Comic workspace motion: panel changes feel like moving through a page
+   sequence, while all content remains immediate and editable. */
+@keyframes castia-panel-arrive {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(.992); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes castia-panel-tile-arrive {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes castia-region-detect {
+  from { opacity: 0; transform: scale(.985); }
+  to { opacity: 1; transform: scale(1); }
+}
+.castia-panel-frame > img {
+  animation: castia-panel-arrive .38s cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: center;
+}
+.castia-panel-thumb {
+  transition: transform .24s cubic-bezier(.16, 1, .3, 1), border-color .22s ease, box-shadow .22s ease;
+}
+.castia-panel-thumb:hover {
+  transform: translateY(-2px) rotate(-.4deg);
+  box-shadow: 0 7px 18px rgba(25, 23, 31, .09);
+}
+.castia-panel-thumb-image {
+  transition: transform .32s cubic-bezier(.16, 1, .3, 1), filter .24s ease;
+}
+.castia-panel-thumb:hover .castia-panel-thumb-image { transform: scale(1.035); }
+.castia-panel-tile {
+  animation: castia-panel-tile-arrive .42s cubic-bezier(.16, 1, .3, 1) both;
+  transition: transform .26s cubic-bezier(.16, 1, .3, 1), border-color .22s ease, box-shadow .22s ease;
+}
+.castia-panel-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(25, 23, 31, .10);
+}
+.castia-panel-tile img { transition: transform .38s cubic-bezier(.16, 1, .3, 1); }
+.castia-panel-tile:hover img { transform: scale(1.025); }
+.castia-ocr-region {
+  animation: castia-region-detect .28s cubic-bezier(.16, 1, .3, 1) both;
+  transform-origin: center;
+}
+.castia-uploader {
+  transition: border-color .24s ease, background-color .24s ease, box-shadow .24s ease, transform .24s cubic-bezier(.16, 1, .3, 1);
+}
+.castia-uploader:has(input:focus-visible) { outline: 2px solid var(--ch-purple); outline-offset: 4px; }
+.castia-uploader-content { z-index: 1; }
+.castia-uploader:hover { border-color: rgba(162, 138, 255, .55); }
+.castia-uploader:has(.castia-conversion-status) { box-shadow: 0 0 0 4px rgba(162, 138, 255, .08); }
+.castia-conversion-status::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--ch-purple);
+  animation: castia-soft-pulse 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .castia-panel-frame > img, .castia-panel-tile, .castia-ocr-region,
+  .castia-conversion-status::before { animation: none !important; }
+  .castia-panel-thumb, .castia-panel-thumb-image, .castia-panel-tile,
+  .castia-panel-tile img, .castia-uploader { transition: none !important; }
+}
+
+/* Readability guard: non-home routes deliberately use the homepage's warm,
+   light paper palette even when the site-wide theme toggle is in dark mode.
+   Keep legacy dark-mode utility classes from pairing pale text with paper
+   surfaces, or painting whole content panels near-black. */
+body:not(:has(.castia-home)) [class*="dark:bg-paper-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-white"],
+body:not(:has(.castia-home)) [class*="dark:bg-gray-"],
+body:not(:has(.castia-home)) [class*="dark:bg-slate-"],
+body:not(:has(.castia-home)) [class*="dark:bg-zinc-"],
+body:not(:has(.castia-home)) [class*="dark:bg-neutral-"] {
+  background-color: #fffdf9 !important;
+}
+
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:bg-black"],
+body:not(:has(.castia-home)) [class*="dark:bg-gray-9"],
+body:not(:has(.castia-home)) [class*="dark:bg-slate-9"],
+body:not(:has(.castia-home)) [class*="dark:bg-zinc-9"],
+body:not(:has(.castia-home)) [class*="dark:bg-neutral-9"] {
+  background-color: rgba(25, 23, 31, .045) !important;
+  color: #19171f !important;
+}
+
+/* On the light theme, muted dark-mode text should remain muted ink rather
+   than becoming near-white. Cover opacity variants as well as exact tokens. */
+body:not(:has(.castia-home)) [class*="dark:text-ink-dark"],
+body:not(:has(.castia-home)) [class*="dark:text-white"],
+body:not(:has(.castia-home)) [class*="dark:text-gray-"],
+body:not(:has(.castia-home)) [class*="dark:text-slate-"],
+body:not(:has(.castia-home)) [class*="dark:text-zinc-"],
+body:not(:has(.castia-home)) [class*="dark:text-neutral-"] {
+  color: #19171f !important;
+}
+
+/* Keep genuinely ink-filled actions inverted after the general surface reset. */
+body:not(:has(.castia-home)) [class*="bg-ink"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="bg-ink-dark"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="dark:bg-ink-dark"][class*="text-white"],
+body:not(:has(.castia-home)) [class*="bg-black"][class*="text-white"] {
+  background-color: #19171f !important;
+  color: #fffdf9 !important;
+}
+
+/* Form controls on the comic workspace and other interior tools must remain
+   readable with the persisted dark-mode class enabled. Browser-default
+   placeholder opacity is too faint for the actual script-editing workflow. */
+body:not(:has(.castia-home)) input::placeholder,
+body:not(:has(.castia-home)) textarea::placeholder {
+  color: #817d88 !important;
+  opacity: 1 !important;
+}
+body:not(:has(.castia-home)) input:disabled,
+body:not(:has(.castia-home)) textarea:disabled,
+body:not(:has(.castia-home)) select:disabled,
+body:not(:has(.castia-home)) button:disabled {
+  color: #817d88 !important;
+  opacity: .72;
+}
+body:not(:has(.castia-home)) .castia-interior,
+body:not(:has(.castia-home)) .castia-workspace {
+  background-color: #f6f3ed;
+  color: #19171f;
+}
+body:not(:has(.castia-home)) .castia-interior input,
+body:not(:has(.castia-home)) .castia-interior textarea,
+body:not(:has(.castia-home)) .castia-workspace input,
+body:not(:has(.castia-home)) .castia-workspace textarea {
+  background-color: #fffdf9 !important;
+  color: #19171f !important;
+  border-color: rgba(25, 23, 31, .18) !important;
+}
+
+/* Comic translation workspace: use CASTIA's warm editorial palette while
+   keeping the denser, side-by-side studio workflow. The artwork preview
+   itself remains dark-neutral so comic pages retain their true contrast. */
+body:not(:has(.castia-home)) .castia-comics-studio {
+  --studio-bg: #f6f3ed;
+  --studio-panel: #fffdf9;
+  --studio-field: #fffdf9;
+  --studio-ink: #19171f;
+  --studio-muted: #817d88;
+  --studio-line: rgba(25, 23, 31, .14);
+  background: var(--studio-bg) !important;
+  color: var(--studio-ink) !important;
+  color-scheme: light;
+}
+body:not(:has(.castia-home)) .castia-comics-studio h1,
+body:not(:has(.castia-home)) .castia-comics-studio h2,
+body:not(:has(.castia-home)) .castia-comics-studio h3 {
+  color: var(--studio-ink) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-white"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-[#fff"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-paper"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="bg-[#f"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="dark:bg-white"] {
+  background-color: var(--studio-panel) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio [class*="border-black"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="dark:border-white"] {
+  border-color: var(--studio-line) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio [class*="text-ink"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="text-ink-dark"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="text-black"] {
+  color: var(--studio-ink) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio [class*="text-ink/"],
+body:not(:has(.castia-home)) .castia-comics-studio [class*="text-ink-dark/"] {
+  color: var(--studio-muted) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio input:not([type="checkbox"]):not([type="radio"]),
+body:not(:has(.castia-home)) .castia-comics-studio textarea,
+body:not(:has(.castia-home)) .castia-comics-studio select {
+  background-color: var(--studio-field) !important;
+  color: var(--studio-ink) !important;
+  border-color: var(--studio-line) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio input::placeholder,
+body:not(:has(.castia-home)) .castia-comics-studio textarea::placeholder {
+  color: #817d88 !important;
+  opacity: 1 !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio .castia-uploader {
+  background-color: #fffdf9 !important;
+  border-color: rgba(162, 138, 255, .48) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio .castia-panel-frame {
+  background-color: #f0ede7 !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio .castia-panel-thumb {
+  background-color: #fffdf9;
+}
+body:not(:has(.castia-home)) .castia-comics-studio header {
+  border-color: var(--studio-line) !important;
+}
+body:not(:has(.castia-home)) .castia-comics-studio button:disabled {
+  color: #817d88 !important;
+  opacity: .6;
+}
+@media (max-width: 760px) {
+  body:not(:has(.castia-home)) .castia-comics-studio {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* Uploaded-chapter mode uses the full canvas like a real editor, while the
+   no-upload state remains a centered marketing/entry page. */
+body:not(:has(.castia-home)) .castia-studio-shell {
+  width: 100%;
+}
+body:not(:has(.castia-home)) .castia-studio-session {
+  width: 100%;
+}
+body:not(:has(.castia-home)) .castia-studio-session > div:first-child {
+  box-shadow: 0 4px 18px rgba(25,23,31,.035);
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame {
+  min-height: 360px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame > img {
+  max-height: min(68vh, 820px);
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-thumb {
+  box-shadow: 0 1px 3px rgba(25,23,31,.04);
+}
+body:not(:has(.castia-home)) .castia-studio-session .castia-panel-thumb-image {
+  object-fit: contain;
+  background: #f0ede7;
+}
+body:not(:has(.castia-home)) .castia-studio-session textarea,
+body:not(:has(.castia-home)) .castia-studio-session input:not([type="file"]),
+body:not(:has(.castia-home)) .castia-studio-session select {
+  min-height: 40px;
+  border-radius: 10px;
+}
+body:not(:has(.castia-home)) .castia-studio-session textarea {
+  min-height: 76px;
+}
+body:not(:has(.castia-home)) .castia-studio-session button {
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+body:not(:has(.castia-home)) .castia-studio-session button:focus-visible,
+body:not(:has(.castia-home)) .castia-studio-session input:focus-visible,
+body:not(:has(.castia-home)) .castia-studio-session textarea:focus-visible,
+body:not(:has(.castia-home)) .castia-studio-session select:focus-visible {
+  outline: 2px solid #a28aff;
+  outline-offset: 2px;
+}
+@media (min-width: 1280px) {
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame {
+    min-height: 480px;
+  }
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame > img {
+    max-height: min(72vh, 920px);
+  }
+}
+@media (max-width: 760px) {
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame {
+    min-height: 220px;
+  }
+  body:not(:has(.castia-home)) .castia-studio-session .castia-panel-frame > img {
+    max-height: 62vh;
+  }
+}

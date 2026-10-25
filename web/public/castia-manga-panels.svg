@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900">
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#c8a7a2"/><stop offset=".42" stop-color="#e6b9a3"/><stop offset="1" stop-color="#77707b"/></linearGradient>
+ <linearGradient id="coat" x2="1" y2="1"><stop stop-color="#45414a"/><stop offset="1" stop-color="#15151b"/></linearGradient>
+ <pattern id="tone" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#17151b" opacity=".5"/></pattern>
+ <pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(28)"><path d="M0 0V9" stroke="#f2d7c6" stroke-width=".8" opacity=".32"/></pattern>
+</defs>
+<rect width="1200" height="900" fill="url(#sky)"/>
+<path d="M0 130L70 85 110 98 190 40 240 75 310 22 360 90 430 48 490 100 560 45 625 90 705 25 760 78 840 44 910 98 980 30 1040 86 1120 55 1200 100V0H0Z" fill="#f1d2c2" opacity=".62"/>
+<path d="M0 310L45 310V205H110V365H155V160H215V360H250V250H300V390H350V190H395V350H440V270H490V400H530V225H575V360H625V300H665V390H710V190H760V370H800V250H850V390H895V175H945V365H990V260H1045V380H1090V220H1140V365H1200V900H0Z" fill="#45414b" stroke="#211f28" stroke-width="4"/>
+<g fill="#d8b3a6" opacity=".8">
+<path d="M65 235h18v30H65zm32 0h18v30H97zm75-50h16v25h-16zm34 0h16v25h-16zm100 90h15v24h-15zm35-70h15v24h-15zm91 10h15v24h-15zm32 0h15v24h-15zm86-5h15v24h-15zm40 70h15v24h-15zm90-45h15v24h-15zm42 0h15v24h-15zm88-45h15v24h-15zm36 0h15v24h-15zm80 75h15v24h-15zm37-105h15v24h-15zm39 0h15v24h-15zm75 75h15v24h-15zm44-55h15v24h-15z"/>
+</g>
+<path d="M0 535L160 490 300 530 430 485 575 520 720 470 850 520 1000 475 1200 520V900H0Z" fill="#2c2b35" stroke="#181820" stroke-width="5"/>
+<g stroke="#b9a4a2" stroke-width="2" opacity=".7" fill="none"><path d="M0 600L1200 570M0 660L1200 640M0 730L1200 700M0 810L1200 785"/><path d="M120 535L35 900M280 520L245 900M480 520L510 900M700 505L765 900M930 500L1040 900"/></g>
+<!-- rooftop railing -->
+<path d="M0 475L1200 475M80 475V680M340 475V650M600 475V660M870 475V640M1110 475V660" stroke="#1a1920" stroke-width="9" fill="none"/>
+<path d="M0 477L1200 477" stroke="#e5b8a7" stroke-width="2" opacity=".8"/>
+<!-- rear figure -->
+<g transform="translate(735 315)">
+ <path d="M-10 70Q-20 8 30 -20Q88 -37 115 22L108 88 62 123 5 103Z" fill="#201e27" stroke="#111117" stroke-width="5"/>
+ <path d="M10 65Q15 10 58 12Q91 17 96 60L81 103 43 116 12 94Z" fill="#b98277" stroke="#31242a" stroke-width="3"/>
+ <path d="M0 45L15 10 35 26 55 0 79 22 108 17 113 52 88 42 69 34 51 50 31 38 15 62Z" fill="#1a1920"/>
+ <path d="M17 72L38 76M57 76L78 68" stroke="#211c24" stroke-width="4" stroke-linecap="round"/>
+ <path d="M32 91L27 101 38 103" fill="none" stroke="#6c4549" stroke-width="2"/>
+ <path d="M12 116L66 118 102 155 136 330 -30 330 -9 160Z" fill="#4b4852" stroke="#17161e" stroke-width="6"/>
+ <path d="M12 123L41 163 68 126" fill="none" stroke="#c2a59e" stroke-width="8"/>
+ <path d="M-1 160L-58 255 -35 270 17 202M94 158L151 247 133 266 79 205" fill="#393742" stroke="#17161e" stroke-width="7"/>
+ <path d="M-15 330L-23 468 23 468 37 330M52 330L67 468 109 468 85 330" fill="#24232c" stroke="#17161e" stroke-width="5"/>
+ <path d="M-25 468L-34 485 27 485 23 468M67 468L62 485 119 485 109 468" fill="#17161e"/>
+</g>
+<!-- foreground character silhouette and textured clothing -->
+<g transform="translate(190 80)">
+ <path d="M135 165Q92 93 132 40Q171 -15 237 15Q293 48 276 141L255 202 167 217Z" fill="#17151c" stroke="#0d0d12" stroke-width="7"/>
+ <path d="M144 141Q137 77 184 63Q232 55 251 112L245 174 202 205 157 180Z" fill="#b98479" stroke="#27212a" stroke-width="5"/>
+ <path d="M128 120Q105 61 153 15L173 42 198 9 214 32 251 10 287 72 268 105 245 74 220 60 197 87 174 68 150 120Z" fill="#17151b" stroke="#0d0d12" stroke-width="5"/>
+ <path d="M151 133L181 139M209 138L236 128" stroke="#29212a" stroke-width="6" stroke-linecap="round"/>
+ <path d="M189 146L181 162 196 164" stroke="#68464c" stroke-width="3" fill="none"/>
+ <path d="M163 183L222 185 255 228 306 520 75 520 94 276Z" fill="url(#coat)" stroke="#0c0c11" stroke-width="8"/>
+ <path d="M166 200L207 253 184 305 143 257Z" fill="#a99c9d" stroke="#25222a" stroke-width="5"/>
+ <path d="M166 200L207 253 184 305 143 257Z" fill="url(#hatch)"/>
+ <path d="M222 186L261 218 236 278 203 245Z" fill="#28252f" stroke="#0e0e14" stroke-width="5"/>
+ <path d="M118 252L42 403 71 427 151 314M254 245L324 390 301 415 230 314" fill="#24222c" stroke="#101016" stroke-width="8"/>
+ <path d="M91 520L75 720 143 720 176 520M180 520L209 720 282 720 263 520" fill="#1b1a22" stroke="#0e0e13" stroke-width="7"/>
+ <path d="M75 720L65 747 149 747 143 720M209 720L204 747 291 747 282 720" fill="#111117" stroke="#08080c" stroke-width="4"/>
+ <!-- scarf fringe and garment ink -->
+ <path d="M159 197Q188 227 224 194L240 226 215 260 185 243 164 276 142 251Z" fill="#6a626c" stroke="#17151d" stroke-width="5"/>
+ <path d="M160 211L225 230M157 225L214 245M151 240L201 259M143 254L187 271" stroke="#c8aaa5" stroke-width="2" opacity=".65"/>
+ <path d="M111 300L142 324 119 349M245 293L220 333 249 351M107 380L138 394M253 385L278 400M109 432L137 446M263 447L287 460" fill="none" stroke="#8e818b" stroke-width="3" opacity=".7"/>
+ <path d="M110 288L284 288M102 305L290 305M95 322L294 322M91 339L296 339" stroke="#b4a0a4" stroke-width="1" opacity=".2"/>
+ <!-- sword and hilt -->
+ <path d="M52 400L-5 690 7 700 71 412Z" fill="#d1b99f" stroke="#17151b" stroke-width="5"/>
+ <path d="M39 422L68 430 76 410 47 400Z" fill="#26222a" stroke="#111116" stroke-width="4"/>
+ <path d="M29 427L67 440M24 446L62 458M20 465L57 477" stroke="#a07c7c" stroke-width="5"/>
+ <path d="M-14 696L19 706 26 691 -5 682Z" fill="#26212a" stroke="#111116" stroke-width="4"/>
+</g>
+<!-- foreground ink shadows and paper grain -->
+<rect width="1200" height="900" fill="url(#tone)" opacity=".35"/>
+<path d="M0 0H1200V900H0Z" fill="none" stroke="#f1d8c9" stroke-width="16" opacity=".3"/>
+<path d="M0 0L300 0 0 260ZM1200 0H930L1200 250ZM0 900V700L200 900ZM1200 900V690L1000 900Z" fill="#15141c" opacity=".13"/>
+</svg>

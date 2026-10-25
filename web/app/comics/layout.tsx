@@ -12,12 +12,12 @@ import { comicsFaqs } from "@/lib/faqs";
 export const metadata: Metadata = {
   title: "Adapt webtoon and comic dialogue",
   description:
-    "Upload comic or webtoon panels. Castia OCRs each bubble, adapts the dialogue through the same Writers' Room pipeline as its music tool, and can redraw the panel with the adapted text typeset in. Beta: sound-effect text over artwork isn't redrawn yet.",
+    "Upload comic or webtoon panels. CASTIA detects dialogue in each bubble, adapts it with character voice and scene context in mind, and can redraw panels with adapted text typeset in. Sound-effect text over artwork isn't redrawn yet.",
   alternates: { canonical: "/comics" },
   openGraph: {
     title: "Castia — Adapt webtoon and comic dialogue",
     description:
-      "Upload comic or webtoon panels. Castia OCRs each bubble and adapts the dialogue through the same Writers' Room pipeline as its music tool.",
+      "Upload comic or webtoon panels. CASTIA detects each dialogue bubble and adapts it with character voice, emotional intent, and panel context in mind.",
     url: "/comics",
   },
 };

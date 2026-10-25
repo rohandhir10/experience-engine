@@ -63,7 +63,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     slug: "google-translate",
     path: "/compare/google-translate",
     kind: "compare",
-    title: "Castia vs. Google Translate for lyrics and dialogue",
+    title: "CASTIA vs. Google Translate for comic dialogue",
     description:
       "What Google Translate is actually built to do, where that's the right tool, and where a literal neural MT pass isn't the same job as adapting a lyric or a character's voice.",
     publishedDate: "2026-08-05",
@@ -73,7 +73,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     slug: "deepl",
     path: "/compare/deepl",
     kind: "compare",
-    title: "Castia vs. DeepL for lyrics and dialogue",
+    title: "CASTIA vs. DeepL for comic dialogue",
     description:
       "DeepL's neural MT is genuinely strong at document and sentence-level accuracy. Here's the specific, real gap between that and adapting a song or a comic panel.",
     publishedDate: "2026-08-05",
@@ -83,7 +83,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     slug: "chatgpt-prompt",
     path: "/compare/chatgpt-prompt",
     kind: "compare",
-    title: "Castia vs. a single ChatGPT prompt",
+    title: "CASTIA vs. a single AI prompt for comic localization",
     description:
       "\"Just ask ChatGPT to translate it creatively\" skips the part that makes a rewrite trustworthy: a verifiable anchor and a stated reason for every change.",
     publishedDate: "2026-08-05",
@@ -113,9 +113,9 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     slug: "how-it-works",
     path: "/how-it-works",
     kind: "guide",
-    title: "How Castia's Writers' Room pipeline actually works",
+    title: "How CASTIA adapts comic and webtoon dialogue",
     description:
-      "The real mechanism behind every adaptation: a literal Translator anchor, five Creative Adapter rewrites, an automated verification pass, and a Judge that scores and explains the winner — for both music and comics.",
+      "How dialogue is extracted from comic panels, adapted with character and scene context, and presented with a plain-language reason for each creative choice.",
     publishedDate: "2026-08-05",
     updatedDate: "2026-08-06",
   },
@@ -125,7 +125,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     kind: "guide",
     title: "Castia pricing",
     description:
-      "Credit-based pricing for song and comic/webtoon adaptation - pay-as-you-go packs, a Creator subscription, and Studio/Enterprise plans. Billing isn't live yet.",
+      "Planned credit-based pricing for comic and webtoon localization, including pay-as-you-go packs and creator plans. Billing is not live yet.",
     publishedDate: "2026-08-05",
     updatedDate: "2026-08-06",
   },
@@ -135,7 +135,7 @@ export const CONTENT_REGISTRY: ContentEntry[] = [
     kind: "guide",
     title: "Castia API reference",
     description:
-      "POST /v1/adapt and /v1/comics/adapt: authenticate with an API key, request/response shapes, rate limits, and real curl examples for adapting song lyrics or comic dialogue programmatically.",
+      "POST /v1/comics/adapt: authenticate with an API key, request and response shapes, rate limits, and examples for adapting comic and webtoon dialogue programmatically.",
     publishedDate: "2026-08-06",
     updatedDate: "2026-08-06",
   },

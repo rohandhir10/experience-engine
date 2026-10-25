@@ -3,107 +3,113 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  ::selection {
-    background: rgba(91, 91, 214, 0.22);
-  }
-
-  :focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(91, 91, 214, 0.35);
-    border-radius: 4px;
-  }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  ::selection { background: rgba(162, 138, 255, 0.28); }
+  :focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(162, 138, 255, 0.42); border-radius: 4px; }
 }
 
-@keyframes fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.animate-fade-up { animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes drift-a { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(6%, 8%) scale(1.08); } }
+@keyframes drift-b { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-8%, -6%) scale(1.1); } }
+.animate-drift-a { animation: drift-a 22s ease-in-out infinite; }
+.animate-drift-b { animation: drift-b 26s ease-in-out infinite; }
+@keyframes travel-dot { 0% { left: 0%; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
+.animate-travel-dot { animation: travel-dot 3.2s linear infinite; }
+@keyframes draw-underline { from { stroke-dashoffset: 200; } to { stroke-dashoffset: 0; } }
+.animate-draw-underline { stroke-dasharray: 200; animation: draw-underline 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.55s both; }
+@media (prefers-reduced-motion: reduce) { .animate-drift-a, .animate-drift-b, .animate-travel-dot { animation: none; } .animate-draw-underline { animation: none; stroke-dashoffset: 0; } }
+
+
+/* CASTIA interior system: bring the product, documentation and pricing pages
+   into the same editorial language as the homepage without touching it. */
+.castia-interior {
+  --ci-paper: #f6f3ed;
+  --ci-ink: #19171f;
+  --ci-purple: #8870d4;
+  background:
+    radial-gradient(ellipse at 92% 2%, rgba(198,182,255,.16), transparent 29rem),
+    var(--ci-paper);
+  color: var(--ci-ink);
+}
+/* Interior routes intentionally stay on CASTIA's light editorial palette.
+   The homepage owns its own art direction; a persisted dark-mode preference
+   must not turn pricing, docs, FAQ, or other interior pages into dark surfaces. */
+.dark .castia-interior {
+  --ci-paper: #f6f3ed;
+  --ci-ink: #19171f;
+  --ci-purple: #8870d4;
+  background:
+    radial-gradient(ellipse at 92% 2%, rgba(198,182,255,.16), transparent 29rem),
+    var(--ci-paper);
+  color: var(--ci-ink);
+}
+.castia-interior > div {
+  max-width: 1180px;
+}
+.castia-interior > div > header {
+  max-width: none !important;
+  min-height: 76px;
+  padding-bottom: 18px;
+  border-color: rgba(25,23,31,.12);
+}
+.dark .castia-interior > div > header {
+  border-color: rgba(255,255,255,.12);
+}
+.castia-interior h1 {
+  font-family: var(--font-manrope, "DM Sans", ui-sans-serif, system-ui, sans-serif);
+  font-weight: 600;
+  letter-spacing: -.055em;
+  line-height: 1.04;
+}
+.castia-interior h2 {
+  letter-spacing: -.035em;
+}
+.castia-interior a {
+  transition: color .2s ease, border-color .2s ease, background-color .2s ease, transform .2s ease;
+}
+.castia-interior a:focus-visible,
+.castia-interior button:focus-visible {
+  outline: 2px solid #8870d4;
+  outline-offset: 3px;
+}
+.castia-interior pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+}
+.castia-interior code:not(pre code) {
+  border-radius: 5px;
+}
+.castia-interior main, .castia-interior section {
+  scroll-margin-top: 24px;
+}
+.castia-interior .castia-interior-card {
+  border: 1px solid rgba(25,23,31,.11);
+  border-radius: 12px;
+  background: rgba(255,255,255,.58);
+  box-shadow: 0 10px 30px rgba(30,24,40,.035);
+}
+.dark .castia-interior .castia-interior-card {
+  border-color: rgba(255,255,255,.12);
+  background: rgba(255,255,255,.035);
+}
+.castia-interior a:hover {
+  text-underline-offset: 4px;
+}
+.castia-workspace {
+  background: #f7f4ef;
+}
+.dark .castia-workspace {
+  background: #f7f4ef;
+  color: #19171f;
+}
+@media (max-width: 640px) {
+  .castia-interior > div > header {
+    min-height: 64px;
+    padding-bottom: 14px;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
-
-.animate-fade-up {
-  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes drift-a {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(6%, 8%) scale(1.08); }
-}
-
-@keyframes drift-b {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-8%, -6%) scale(1.1); }
-}
-
-.animate-drift-a {
-  animation: drift-a 22s ease-in-out infinite;
-}
-
-.animate-drift-b {
-  animation: drift-b 26s ease-in-out infinite;
-}
-
-/* A single glowing dot traveling left-to-right along an architecture
-   diagram's connecting line, looping - purely decorative motion meant
-   to read as "an active engine," not a claim about real per-request
-   telemetry (nothing here is wired to an actual request). */
-@keyframes travel-dot {
-  0% {
-    left: 0%;
-    opacity: 0;
-  }
-  8% {
-    opacity: 1;
-  }
-  92% {
-    opacity: 1;
-  }
-  100% {
-    left: 100%;
-    opacity: 0;
-  }
-}
-
-.animate-travel-dot {
-  animation: travel-dot 3.2s linear infinite;
-}
-
-/* A hand-drawn underline stroke that draws itself in once, under a
-   single emphasized word/phrase (homepage H1) - real, crafted motion
-   tied to a specific piece of type, not a generic entrance effect.
-   Paired with an SVG `pathLength="200"` on the path itself so this
-   works regardless of the path's actual on-screen geometry. */
-@keyframes draw-underline {
-  from {
-    stroke-dashoffset: 200;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-.animate-draw-underline {
-  stroke-dasharray: 200;
-  animation: draw-underline 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.55s both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .animate-drift-a,
-  .animate-drift-b,
-  .animate-travel-dot {
-    animation: none;
-  }
-  .animate-draw-underline {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
+  .castia-interior a { transition: none; }
 }

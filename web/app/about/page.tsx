@@ -55,9 +55,7 @@ export default function AboutPage() {
               that the site read as text-heavy; this page's own meta
               description above is untouched. */}
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            Castia adapts lyrics and comic dialogue across six languages
-            through three stages that check each other's work, not a
-            single translation pass — the full mechanism is on{" "}
+            CASTIA helps webtoon and comic localization teams adapt dialogue across languages while preserving character voice, emotional intent, and panel context. The workflow compares alternatives and explains creative changes — the full mechanism is on{" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
               how it works
             </Link>

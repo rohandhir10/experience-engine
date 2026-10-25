@@ -55,11 +55,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # Next 16 requires Node >=20.9 - pinned explicitly (not the
-          # generic "20", which resolves to whatever latest 20.x
-          # actions/setup-node ships) so this floor can't silently
-          # regress if a future runner image ships an older 20.x.
-          node-version: "20.9"
+          # The locked frontend toolchain includes pdfjs-dist 6 and
+          # Vite/Rolldown, which require Node >=22.13. Pin the compatible
+          # floor explicitly so CI doesn't install dependencies on an
+          # unsupported runtime and then fail before tests can run.
+          node-version: "22.13.0"
           cache: npm
           cache-dependency-path: web/package-lock.json
 

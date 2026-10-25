@@ -34,19 +34,19 @@ function StarIcon({ filled }: { filled: boolean }) {
  * /api/me/adaptations (which returns signedIn:false rather than an error
  * for anonymous visitors — history is an account perk, not a
  * requirement). Each entry links to whichever share page its own medium
- * uses — /s/[id] for music, /comics/s/[id] for webtoons — since this
- * combined list can now genuinely contain both (see
- * server/accounts.py::list_adaptations's medium=None default).
+ * uses /comics/s/[id] for webtoon adaptations. The default view is
+ * intentionally comics-only; the legacy music route is not exposed in
+ * dashboard history navigation.
  *
  * favoritesOnly drives both the query and the empty-state copy, so the
  * dashboard's "Recent" list and the Favorites page are the same
  * component rather than two that can drift apart. `medium`, when
  * passed, narrows to just that one — omitted (the default, and what
  * every caller passes today), both mediums show together in one
- * timeline, no filter control exists yet to change that. */
+ * timeline. The dashboard passes the webtoons medium explicitly. */
 export function RecentAdaptations({
   favoritesOnly = false,
-  medium,
+  medium = "webtoons",
 }: {
   favoritesOnly?: boolean;
   medium?: "music" | "webtoons";

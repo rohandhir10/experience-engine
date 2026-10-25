@@ -4,7 +4,6 @@ import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
-import { LANGUAGES } from "@/lib/languages";
 import { breadcrumbJsonLd, articleJsonLd } from "@/lib/schema";
 
 const entry = contentByPath("/docs/api")!;
@@ -14,33 +13,6 @@ export const metadata = {
   description: entry.description,
   alternates: { canonical: entry.path },
 };
-
-const ADAPT_REQUEST = `curl https://api.usecastia.com/v1/adapt \\
-  -H "Authorization: Bearer castia_sk_..." \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "text": "Tera hone laga hoon...",
-    "source_language": "Hindi",
-    "target_language": "English"
-  }'`;
-
-const ADAPT_RESPONSE = `{
-  "id": "a1b2c3d4...",
-  "hook": "Slowly becoming yours...",
-  "sourceLanguage": "Hindi",
-  "targetLanguage": "English",
-  "sections": [
-    {
-      "id": "section-1",
-      "literal": "I am slowly becoming yours",
-      "aura": "Slowly, I'm becoming yours",
-      "why": "Kept the confession's exact meaning; reordered only for natural English stress."
-    }
-  ],
-  "original": [{ "id": "section-1", "text": "Tera hone laga hoon..." }],
-  "phonemeRepetitionSimilarity": 0.82,
-  "poeticRegister": "romantic, plainspoken"
-}`;
 
 const COMICS_REQUEST = `curl https://api.usecastia.com/v1/comics/adapt \\
   -H "Authorization: Bearer castia_sk_..." \\
@@ -94,10 +66,10 @@ export default function ApiDocsPage() {
   });
 
   return (
-    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+    <main className="castia-interior min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
       <JsonLd data={breadcrumb} />
       <JsonLd data={article} />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         <SiteHeader />
 
         <div className="mt-10">
@@ -106,16 +78,11 @@ export default function ApiDocsPage() {
             API reference.
           </h1>
           <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
-            Two endpoints, both requiring an API key: <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">POST /v1/adapt</code> for
-            song lyrics and <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">POST /v1/comics/adapt</code> for
-            comic/webtoon dialogue. Both run the identical Translator → Creative
-            Adapter → Judge pipeline the product itself uses — see{" "}
+            The comic localization endpoint requires an API key: <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">POST /v1/comics/adapt</code> adapts comic and webtoon dialogue. It uses the same structured review process as the product workspace — see {" "}
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
               how it works
             </Link>{" "}
-            for the mechanism. Currently Beta: both endpoints are functional and
-            gated by real per-key quotas, but there's no published SDK and
-            requests are synchronous only (more on that below).
+            for the mechanism. The endpoint is functional and gated by real per-key quotas, but there's no published SDK and requests are synchronous only (more on that below).
           </p>
         </div>
 
@@ -187,23 +154,6 @@ export default function ApiDocsPage() {
 
         <section className="mt-14 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
           <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
-            POST /v1/adapt
-          </h2>
-          <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            Adapts a song lyric. <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">text</code> is
-            the only required field — <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">target_language</code> defaults
-            to English, and <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">source_language</code> is
-            only required when the target isn't English (auto-detect only
-            covers the "anything → English" direction). Supported languages,
-            either side of a direction:{" "}
-            {LANGUAGES.join(", ")}.
-          </p>
-          <CodeBlock label="Request">{ADAPT_REQUEST}</CodeBlock>
-          <CodeBlock label="Response (200)">{ADAPT_RESPONSE}</CodeBlock>
-        </section>
-
-        <section className="mt-14 border-t border-black/[0.10] pt-10 dark:border-white/[0.11]">
-          <h2 className="font-serif text-xl text-ink dark:text-ink-dark">
             POST /v1/comics/adapt
           </h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
@@ -228,15 +178,7 @@ export default function ApiDocsPage() {
             Known limitations
           </h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            Both endpoints are synchronous — the request blocks until the
-            full pipeline finishes, with no job/poll pattern yet for API
-            callers (the browser-facing app has one internally; it isn't
-            exposed on <code className="rounded bg-black/[0.05] px-1.5 py-0.5 text-[13px] dark:bg-white/10">/v1/*</code> yet).
-            A short lyric or a few panels finishes well within a typical
-            client timeout; a long multi-section song or a large chapter can
-            take minutes, so set your HTTP client's timeout generously or
-            keep individual requests small until an async job endpoint
-            ships here too.
+            The endpoint is synchronous — the request blocks until the full chapter pipeline finishes, with no job/poll pattern yet for API callers (the browser-facing app has one internally; it isn't exposed on the API yet). Large chapters can take minutes, so set your HTTP client's timeout generously or keep individual requests small until an async job endpoint ships here too.
           </p>
         </section>
 

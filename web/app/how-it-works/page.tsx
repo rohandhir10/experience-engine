@@ -3,7 +3,6 @@ import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
-import { PipelineDiagramDark } from "@/components/PipelineDiagramDark";
 import { ComicsPipelineDiagram } from "@/components/ComicsPipelineDiagram";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
@@ -17,10 +16,6 @@ export const metadata = {
   alternates: { canonical: entry.path },
 };
 
-// Same three citations the /compare pages use - legitimate to reuse here
-// too, since this page makes the same underlying claim (why one fluent
-// pass isn't enough for a lyric or a character's voice) in more depth,
-// not a marketing sentence being pasted twice.
 const SOURCES = [
   {
     name: "Wu et al., \"Google's Neural Machine Translation System\" (2016), Google Research / arXiv",
@@ -31,20 +26,14 @@ const SOURCES = [
     name: "Callison-Burch, Osborne & Koehn, \"Re-evaluating the Role of BLEU in Machine Translation Research\" (EACL 2006)",
     url: "https://aclanthology.org/E06-1032/",
     note: "why an automated closeness score doesn't reliably track human-judged quality - the reason a Judge stage exists instead of a metric",
-  },
-  {
-    name: "Low, P., \"Singable Translations of Songs\" (2003), Perspectives: Studies in Translatology",
-    url: "https://www.tandfonline.com/doi/abs/10.1080/0907676X.2003.9961466",
-    note: "the \"Pentathlon Principle\" - five demands a singable lyric has to balance at once",
-  },
+  }
 ];
 
 // Original artwork, not a screenshot - visualizes the specific mechanism
 // Step 2/3 below describe in prose: five differently-angled rewrites
 // scored against the literal anchor, with one picked and the rest left
-// behind. None of the other diagrams on this page (PipelineDiagramDark,
-// ComicsPipelineDiagram) show this - those are stage-flow diagrams, this
-// is the selection itself.
+// behind. The remaining ComicsPipelineDiagram shows the stage flow;
+// this is the selection itself.
 function CandidateDiagram() {
   const others = [1, 2, 3, 4];
   return (
@@ -58,7 +47,7 @@ function CandidateDiagram() {
             ✓
           </span>
           <p className="font-serif text-[13px] leading-snug text-ink dark:text-ink-dark">
-            &ldquo;The night won&rsquo;t end - it just goes quiet.&rdquo;
+            &ldquo;You came back. I knew you would.&rdquo;
           </p>
         </div>
         {others.map((i) => (
@@ -71,8 +60,7 @@ function CandidateDiagram() {
         ))}
       </div>
       <p className="mt-4 border-t border-black/[0.10] pt-4 text-[12.5px] italic leading-relaxed text-ink/68 dark:border-white/[0.10] dark:text-ink-dark/68">
-        &ldquo;Kept the near-rhyme, dropped the literal &lsquo;grows&rsquo;
-        to make it singable against the melody.&rdquo;
+        &ldquo;Kept the character&rsquo;s guarded tone while making the line sound natural in this scene.&rdquo;
       </p>
     </div>
   );
@@ -93,9 +81,9 @@ export default function HowItWorksPage() {
   });
   const howTo = howToJsonLd({
     path: entry.path,
-    name: "How Castia adapts a line of dialogue or lyric",
+    name: "How CASTIA adapts comic dialogue",
     description:
-      "The three-stage pipeline every line runs through before it ships, whether the source is a song lyric or a comic panel's dialogue.",
+      "The review process for comic and webtoon dialogue, from extracted text to an adaptation with an explicit rationale.",
     steps: [
       {
         name: "Translator",
@@ -113,11 +101,11 @@ export default function HowItWorksPage() {
   });
 
   return (
-    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+    <main className="castia-interior min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
       <JsonLd data={breadcrumb} />
       <JsonLd data={article} />
       <JsonLd data={howTo} />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         <SiteHeader />
 
         <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
@@ -129,10 +117,7 @@ export default function HowItWorksPage() {
               One wins, and it has to say why.
             </h1>
             <p className="mt-4 max-w-prose text-[15px] leading-relaxed text-ink/78 dark:text-ink-dark/78">
-              Every line — whether it's a song lyric or a comic panel's
-              dialogue — goes through the same three-stage pipeline below,
-              and every departure from a literal translation ships with a
-              plain-language reason instead of a silent rewrite.
+              Every dialogue line goes through a structured review process. Each adaptation is checked against the source and comes with a plain-language reason for creative changes.
             </p>
           </div>
           <CandidateDiagram />
@@ -161,17 +146,7 @@ export default function HowItWorksPage() {
             Why five rewrites and a Judge, not one pass
           </h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            A standard neural machine translation system — the kind behind
-            Google Translate and DeepL — is architecturally built to decode
-            a single, most-probable target-language sentence and return it.
-            That's the right design for sentence-level accuracy, and it's
-            not the design a lyric needs: translation researcher Peter
-            Low's "Pentathlon Principle" names five demands a singable lyric
-            translation has to balance at once — singability, sense,
-            naturalness, rhythm, and rhyme — and argues that optimizing for
-            literal accuracy alone actively produces worse lyric
-            translations. A single-pass system has no mechanism for making
-            that tradeoff on purpose.
+            A fluent translation can still miss what makes a line work in a comic: the character speaking, the relationship between speakers, the surrounding artwork, and the moment in the story. Comparing alternatives against the source helps editors see those trade-offs instead of accepting the first plausible rewrite.
           </p>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             It's also why the Judge is a scoring model reading against a
@@ -187,40 +162,13 @@ export default function HowItWorksPage() {
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             Before a rewrite ever reaches the Judge, it's also checked for a
             specific set of failure patterns an automated pass can catch
-            reliably: short lyric lines collapsing into one run-on prose
-            paragraph, or a rewrite so close to the anchor that it isn't
-            really a rewrite at all, just claiming credit for a stylistic
-            change that didn't happen. A rewrite that trips one of these
+            reliably: dialogue being flattened into an unnatural block of prose, or a rewrite so close to the source that it offers no meaningful improvement. A rewrite that trips one of these
             checks is sent back for a fresh attempt before it's ever put in
             front of the Judge, rather than being scored as-is.
           </p>
         </section>
 
-        {/* dark:border-white/[0.12] - this card's fixed dark background
-            (#181310) is the exact same hex as the page's own dark-mode
-            background, confirmed via computed styles - with no border it
-            was completely invisible as a card in dark mode specifically
-            (light mode's cream page background gives it real contrast
-            with no border needed). */}
-        <div className="mt-14 rounded-2xl bg-[#181310] p-8 dark:border dark:border-white/[0.12] sm:p-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">Music</p>
-          <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
-            Source lyrics in, verified output out.
-          </h2>
-          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
-            Six languages, either direction — English, Hindi, Japanese,
-            Korean, Spanish, and Urdu — each with its own language profile
-            so idiom and rhythm checks apply the rules that actually govern
-            that language, not one generic ruleset stretched across all six.
-            Results are cached by the content itself, so re-submitting the
-            same lyric doesn't re-run the pipeline from scratch.
-          </p>
-          <div className="mt-8">
-            <PipelineDiagramDark />
-          </div>
-        </div>
-
-        <div className="mt-8 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
+        <div className="mt-14 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
           <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">
             Webtoons &amp; comics
           </p>
@@ -236,8 +184,7 @@ export default function HowItWorksPage() {
             the scene — so a character's established voice carries into the
             per-bubble prompt for every one of their lines, not just the
             first. From there, every line runs through the same
-            Translator → Creative Adapter → Judge pipeline the music side
-            uses — not a separate, lesser engine.
+            structured review process — with a clear source reference and a reason for each creative change.
           </p>
           <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
             An optional redraw pass can erase the original lettering,

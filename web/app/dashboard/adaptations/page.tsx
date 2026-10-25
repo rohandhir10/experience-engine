@@ -24,8 +24,7 @@ export default function AdaptationsPage() {
               Adaptations
             </h1>
             <p className="mt-2 text-[13px] text-ink/62 dark:text-ink-dark/62">
-              Every song and comic chapter you've adapted, most recent
-              first — songs and webtoons together.
+              Your comic and webtoon adaptations, with the most recent chapter first.
             </p>
             <RecentAdaptations />
           </div>
