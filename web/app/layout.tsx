@@ -13,35 +13,13 @@ const DEFAULT_DESCRIPTION =
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: {
-    default: DEFAULT_TITLE,
-    template: `%s | ${SITE_NAME}`,
-  },
+  title: { default: DEFAULT_TITLE, template: `%s | ${SITE_NAME}` },
   description: DEFAULT_DESCRIPTION,
-  alternates: {
-    canonical: "/",
-  },
-  openGraph: {
-    type: "website",
-    siteName: SITE_NAME,
-    url: SITE_URL,
-    title: DEFAULT_TITLE,
-    description: DEFAULT_DESCRIPTION,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: DEFAULT_TITLE,
-    description: DEFAULT_DESCRIPTION,
-  },
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", siteName: SITE_NAME, url: SITE_URL, title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION },
+  twitter: { card: "summary_large_image", title: DEFAULT_TITLE, description: DEFAULT_DESCRIPTION },
 };
 
-// Site-wide structured data: two real, verifiable facts about the
-// organization/product, not a marketing claim dressed up as schema.
-// Deliberately no `aggregateRating` (no real reviews exist) and no
-// `offers` for a paid tier (billing isn't live yet, per /pricing) - only
-// the Free tier's real $0 price is honest to publish. See
-// docs/CAPABILITY_MATRIX.md for the "no fabricated capability, screenshot,
-// or data" rule this follows.
 const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -67,32 +45,17 @@ const softwareApplicationJsonLd = {
   },
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  // Set by middleware.ts on every request, alongside the matching
-  // Content-Security-Policy header - see that file's comment for the
-  // full reasoning (a hash-based CSP was tried first and confirmed
-  // broken by actually testing it, not assumed to work). Reading this
-  // via next/headers is what forces every page sharing this layout into
-  // dynamic rendering; that's accepted, not accidental.
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const nonce = (await headers()).get("x-nonce") ?? undefined;
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      </head>
       <body className="font-sans bg-paper text-ink dark:bg-paper-dark dark:text-ink-dark antialiased">
-        {/* Sets the `dark` class on <html> before hydration, avoiding a
-            flash of the wrong theme. suppressHydrationWarning above covers
-            the <html> element since this script mutates its class/style
-            attributes outside React's own render. A plain literal <script>
-            tag with an explicit nonce, not next/script - this has no `src`
-            and no loading-order need next/script's queueing strategies
-            exist to manage; Next.js applies the same nonce automatically to
-            its own internally-rendered scripts (the RSC data payloads),
-            this one just needs it set explicitly since it isn't one of
-            those. */}
         <script id="theme-init" nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={softwareApplicationJsonLd} />
