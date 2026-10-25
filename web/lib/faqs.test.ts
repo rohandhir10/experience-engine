@@ -2,16 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   FAQS,
   HOMEPAGE_FAQ_QUESTIONS,
+  MUSIC_FAQ_QUESTIONS,
   COMICS_FAQ_QUESTIONS,
   homepageFaqs,
+  musicFaqs,
   comicsFaqs,
   type Faq,
 } from "./faqs";
 
-// One shared block per active curated subset keeps homepage and comics FAQ
-// content tied to the canonical source, without retaining obsolete music UI.
+// One shared block per curated subset keeps the active homepage, legacy direct-URL
+// music route, and comics route tied to canonical FAQ content.
 const SUBSETS: { name: string; questions: string[]; fn: () => Faq[] }[] = [
   { name: "homepageFaqs", questions: HOMEPAGE_FAQ_QUESTIONS, fn: homepageFaqs },
+  { name: "musicFaqs", questions: MUSIC_FAQ_QUESTIONS, fn: musicFaqs },
   { name: "comicsFaqs", questions: COMICS_FAQ_QUESTIONS, fn: comicsFaqs },
 ];
 
@@ -44,7 +47,7 @@ describe.each(SUBSETS)("$name", ({ questions, fn }) => {
   });
 });
 
-describe("the curated subsets", () => {
+describe("the three curated subsets", () => {
   it("all share the anchor question every visitor asks first", () => {
     for (const { questions } of SUBSETS) {
       expect(questions).toContain("What does Castia do?");
@@ -52,7 +55,9 @@ describe("the curated subsets", () => {
   });
 
   it("are each genuinely different from one another, not the same four questions relabeled", () => {
-    const [home, comics] = SUBSETS.map((s) => s.questions.join("|"));
+    const [home, music, comics] = SUBSETS.map((s) => s.questions.join("|"));
+    expect(home).not.toBe(music);
     expect(home).not.toBe(comics);
+    expect(music).not.toBe(comics);
   });
 });
