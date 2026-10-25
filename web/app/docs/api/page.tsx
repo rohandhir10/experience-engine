@@ -82,7 +82,8 @@ export default function ApiDocsPage() {
             <Link href="/how-it-works" className="underline decoration-ink/20 underline-offset-4">
               how it works
             </Link>{" "}
-            for the mechanism. The endpoint is functional and gated by real per-key quotas, but there's no published SDK and requests are synchronous only (more on that below).          </p>
+            for the mechanism. The endpoint is functional and gated by real per-key quotas, but there's no published SDK and requests are synchronous only (more on that below).
+          </p>
         </div>
 
         <section className="mt-14">
