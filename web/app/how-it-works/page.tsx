@@ -3,7 +3,6 @@ import { Footer } from "@/components/Footer";
 import { JsonLd } from "@/components/JsonLd";
 import { BreadcrumbNav } from "@/components/BreadcrumbNav";
 import { SourceList } from "@/components/SourceList";
-import { PipelineDiagramDark } from "@/components/PipelineDiagramDark";
 import { ComicsPipelineDiagram } from "@/components/ComicsPipelineDiagram";
 import Link from "next/link";
 import { contentByPath } from "@/lib/content";
@@ -148,17 +147,7 @@ export default function HowItWorksPage() {
             Why five rewrites and a Judge, not one pass
           </h2>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
-            A standard neural machine translation system — the kind behind
-            Google Translate and DeepL — is architecturally built to decode
-            a single, most-probable target-language sentence and return it.
-            That's the right design for sentence-level accuracy, and it's
-            not the design comic dialogue needs: translation researcher Peter
-            Low's "Pentathlon Principle" names five demands a natural dialogue
-            translation has to balance at once — singability, sense,
-            naturalness, rhythm, and rhyme — and argues that optimizing for
-            literal accuracy alone actively produces worse dialogue
-            translations. A single-pass system has no mechanism for making
-            that tradeoff on purpose.
+            A fluent translation can still miss what makes a line work in a comic: the character speaking, the relationship between speakers, the surrounding artwork, and the moment in the story. Comparing alternatives against the source helps editors see those trade-offs instead of accepting the first plausible rewrite.
           </p>
           <p className="mt-3 max-w-prose text-[14px] leading-relaxed text-ink/72 dark:text-ink-dark/72">
             It's also why the Judge is a scoring model reading against a
@@ -180,31 +169,7 @@ export default function HowItWorksPage() {
           </p>
         </section>
 
-        {/* dark:border-white/[0.12] - this card's fixed dark background
-            (#181310) is the exact same hex as the page's own dark-mode
-            background, confirmed via computed styles - with no border it
-            was completely invisible as a card in dark mode specifically
-            (light mode's cream page background gives it real contrast
-            with no border needed). */}
-        <div className="mt-14 rounded-2xl bg-[#181310] p-8 dark:border dark:border-white/[0.12] sm:p-10">
-          <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">Music</p>
-          <h2 className="mt-3 max-w-lg font-serif text-[1.5rem] leading-[1.25] text-white sm:text-[1.7rem]">
-            Source dialogues in, verified output out.
-          </h2>
-          <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
-            Six languages, either direction — English, Hindi, Japanese,
-            Korean, Spanish, and Urdu — each with its own language profile
-            so idiom and rhythm checks apply the rules that actually govern
-            that language, not one generic ruleset stretched across all six.
-            Results are cached by the content itself, so re-submitting the
-            same dialogue doesn't re-run the pipeline from scratch.
-          </p>
-          <div className="mt-8">
-            <PipelineDiagramDark />
-          </div>
-        </div>
-
-        <div className="mt-8 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
+        <div className="mt-14 rounded-2xl bg-[#141a2b] p-8 sm:p-10">
           <p className="text-[12px] uppercase tracking-[0.15em] text-white/62">
             Webtoons &amp; comics
           </p>
@@ -220,8 +185,7 @@ export default function HowItWorksPage() {
             the scene — so a character's established voice carries into the
             per-bubble prompt for every one of their lines, not just the
             first. From there, every line runs through the same
-            Translator → Creative Adapter → Judge pipeline the music side
-            uses — not a separate, lesser engine.
+            structured review process — with a clear source reference and a reason for each creative change.
           </p>
           <p className="mt-3 max-w-xl text-[13px] leading-relaxed text-white/62">
             An optional redraw pass can erase the original lettering,
