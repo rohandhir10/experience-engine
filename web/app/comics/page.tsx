@@ -444,7 +444,7 @@ export default function ComicsPage() {
   }
 
   return (
-    <main className="castia-interior castia-workspace min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
+    <main className="castia-interior castia-workspace castia-comics-studio min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
       <div className="mx-auto max-w-6xl">
         <SiteHeader active="webtoons" />
 
