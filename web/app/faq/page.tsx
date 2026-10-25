@@ -18,10 +18,10 @@ export default function FaqPage() {
   const faqJsonLd = faqPageJsonLd(FAQS);
 
   return (
-    <main className="min-h-screen px-6 pb-28 pt-8 sm:px-10">
+    <main className="castia-interior min-h-screen px-5 pb-24 pt-6 sm:px-8 sm:pt-8">
       <JsonLd data={breadcrumb} />
       <JsonLd data={faqJsonLd} />
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-5xl">
         <SiteHeader />
 
         <div className="mt-10">
