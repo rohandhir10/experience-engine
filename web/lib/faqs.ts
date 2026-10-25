@@ -21,7 +21,7 @@ export const FAQS: Faq[] = [
     category: "Product",
     question: "What does Castia do?",
     answer:
-      "Castia rewrites song lyrics and comic/webtoon dialogue so they read the way someone who already understands the source would say it — not a literal, word-for-word translation. Every adapted line is shown next to its literal reading and a plain-language reason for the change.",
+      "CASTIA helps adapt comic and webtoon dialogue while preserving character voice, emotional intent, and scene context. Each adapted line is shown with a plain-language reason for the creative choice.",
   },
   {
     category: "Product",
@@ -37,9 +37,9 @@ export const FAQS: Faq[] = [
   },
   {
     category: "Product",
-    question: "Does this work for comics and webtoons too?",
+    question: "What does CASTIA do for comics and webtoons?",
     answer:
-      "Yes, currently in Beta. Upload comic panels, and Google Cloud Vision OCRs each speech bubble's text and position; the same Writers' Room pipeline adapts the dialogue. An optional redraw step can inpaint the original lettering out of a panel and typeset the adapted line back in. Beta means real remaining rough edges — sound-effect text over drawn artwork isn't redrawn (speech bubbles only), and OCR reading order is a plain top-to-bottom guess unless a dedicated text-detector service is configured — not a lack of save/collections/share-link, which now work the same way they do for music.",
+      "Yes. Upload comic or webtoon panels to detect speech-bubble text, review the extracted dialogue, adapt lines with character and scene context in mind, and optionally redraw panels with the adapted text typeset in. Current limitations include sound-effect text over artwork not being redrawn and OCR reading order being imperfect for some layouts.",
   },
   {
     category: "Pricing & access",
@@ -57,11 +57,11 @@ export const FAQS: Faq[] = [
     category: "Technical",
     question: "Is there an API?",
     answer:
-      "Yes, currently in Beta: POST /v1/adapt for lyrics and POST /v1/comics/adapt for comic panels, authenticated with an API key you generate from your dashboard settings, with a daily request limit per key.",
+      "Yes, currently in Beta: POST /v1/comics/adapt for comic panels, authenticated with an API key you generate from your dashboard settings, with a daily request limit per key.",
   },
   {
     category: "Technical",
-    question: "What happens to the lyrics or dialogue I submit?",
+    question: "What happens to the dialogue I submit?",
     answer:
       "Results are cached on the server, addressed by the content itself, so re-submitting the same text doesn't re-run the pipeline. If you're signed in and save a result, it's linked to your account so you can find it again; if you're not signed in, nothing is tied to an identity.",
   },
@@ -102,8 +102,8 @@ export function homepageFaqs(): Faq[] {
 export const MUSIC_FAQ_QUESTIONS = [
   "What does Castia do?",
   "How is this different from Google Translate or a single AI prompt?",
-  "Which languages are supported?",
   "Do I need an account?",
+  "How much does it cost?",
 ];
 
 export function musicFaqs(): Faq[] {
