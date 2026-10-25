@@ -115,7 +115,7 @@ export function musicFaqs(): Faq[] {
 // comics at all, and what does "Beta" really mean here).
 export const COMICS_FAQ_QUESTIONS = [
   "What does Castia do?",
-  "Does this work for comics and webtoons too?",
+  "What does CASTIA do for comics and webtoons?",
   "How is this different from Google Translate or a single AI prompt?",
   "Do I need an account?",
 ];
