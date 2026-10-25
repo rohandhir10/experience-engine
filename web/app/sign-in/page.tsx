@@ -192,7 +192,7 @@ export default async function SignInPage(
         )}
 
         <Link
-          href="/music#lyrics"
+          href="/comics"
           className="mt-6 text-[13px] text-ink/75 underline decoration-ink/15 underline-offset-4 transition hover:text-ink/78 dark:text-ink-dark/75 dark:decoration-ink-dark/15 dark:hover:text-ink-dark/78"
         >
           Just take me to CASTIA →
