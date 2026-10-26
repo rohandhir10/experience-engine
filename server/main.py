@@ -102,7 +102,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ValidationError
 
-from engine import comics_align, comics_ocr, comics_read, comics_vision, config
+from engine import comics_align, comics_local_ocr, comics_ocr, comics_read, comics_vision, config
 from engine import youtube_ingest
 from engine.chapter_dna import generate_chapter_dna
 from engine.comics_adapt import ChapterTimeoutError, adapt_chapter, character_bible_updates, merge_character_bible
@@ -723,24 +723,12 @@ def comics_ocr_endpoint(
     image: UploadFile = File(...),
     language: str | None = Form(None),
 ) -> dict:
-    """Extracts text regions from one uploaded comic panel image via
-    Google Cloud Vision (engine/comics_ocr.py) — see that module's
-    docstring for what this can and can't do (no stylized-lettering
-    guarantees; requires GOOGLE_CLOUD_VISION_CREDENTIALS_JSON, a
-    base64-encoded service-account key, to be set). Called from
-    web/app/comics's panel workspace to pre-fill a panel's "Extracted
-    text" field instead of a fully manual paste; the result is always a
-    draft the human reviews, never handed straight to the adaptation
-    engine.
+    """Extract comic-panel text with local Tesseract by default.
 
-    `language` is optional and used only as a hint — Cloud Vision
-    auto-detects script/language per block on its own, unlike the
-    Tesseract-based version this replaced.
-
-    Plain `def`, not `async def` — reads the upload via the underlying
-    SpooledTemporaryFile (`image.file.read()`) rather than UploadFile's
-    async `.read()`, so this runs in FastAPI's threadpool like every
-    other endpoint here instead of needing pytest-asyncio just to test.
+    This keeps routine OCR off the paid provider path. Local OCR is a
+    baseline and may miss stylized or vertical text, so the UI must keep
+    the returned regions reviewable. Paid OCR/vision fallback is disabled
+    unless CASTIA_OCR_CLOUD_FALLBACK=1 is explicitly set.
     """
     image_bytes = image.file.read()
     if len(image_bytes) > MAX_IMAGE_BYTES:
@@ -749,30 +737,41 @@ def comics_ocr_endpoint(
             detail=f"Image is larger than the {MAX_IMAGE_BYTES // (1024 * 1024)}MB limit.",
         )
 
-    # After the size check (a rejected upload never reaches Vision, so it
-    # shouldn't spend anyone's allowance) and before any billable call.
+    # Cached work is not available at this endpoint's boundary, so count
+    # the request before OCR, regardless of whether local or cloud is used.
     _check_panel_quota(_client_ip(http_request), "reading panels")
 
-    # Built once, up front, so real usage (its call_log) can be logged no
-    # matter which path below actually uses it - previously this cost was
-    # entirely invisible: comics_vision.read_panel built and discarded its
-    # own client internally, so nothing survived for the caller to
-    # inspect. None when reading is disabled (config.VISION_READING_ENABLED)
-    # or the client can't be built - both paths below already degrade to
-    # OCR-only on None/failure, same as before this change.
+    if os.environ.get("CASTIA_LOCAL_OCR", "1") == "1":
+        try:
+            result = comics_local_ocr.extract_text_regions(image_bytes, language=language)
+            logger.info(
+                "comics_ocr provider=tesseract-local image=%s regions=%d",
+                getattr(image, "filename", None), len(result.get("regions", [])),
+            )
+            return result
+        except comics_local_ocr.LocalOcrError as exc:
+            logger.warning("comics_ocr local OCR failed: %s", exc)
+            if os.environ.get("CASTIA_OCR_CLOUD_FALLBACK") != "1":
+                raise HTTPException(
+                    status_code=503,
+                    detail="Local OCR could not process this panel. Cloud OCR fallback is disabled.",
+                ) from exc
+
+    elif os.environ.get("CASTIA_OCR_CLOUD_FALLBACK") != "1":
+        raise HTTPException(
+            status_code=503,
+            detail="Local OCR is disabled and cloud OCR fallback is not enabled.",
+        )
+
+    # Explicitly opted-in paid fallback: preserve the existing provider,
+    # detector and vision-enrichment behavior rather than silently billing.
     vision_client = None
     if config.VISION_READING_ENABLED:
         try:
             vision_client = create_vision_client()
-        except Exception as exc:  # noqa: BLE001 - reading is opt-in enrichment, not the request
+        except Exception as exc:  # noqa: BLE001
             logger.warning("Vision reading unavailable, falling back to OCR only: %s", exc)
 
-    # Preferred path when a detector is configured: detect the boxes
-    # first, then read them twice concurrently (engine/comics_read.py).
-    # Keying both readers to the detector's node_ids makes the merge
-    # exact instead of a text-similarity guess. Returns {} if detection
-    # finds nothing or fails, which falls through to the single-step
-    # path below rather than failing the request.
     if config.TEXT_DETECTOR_URL:
         two_step = comics_read.read_panel_two_step(
             image_bytes,
@@ -783,44 +782,21 @@ def comics_ocr_endpoint(
         if two_step:
             _log_vision_reading_cost(vision_client, getattr(image, "filename", None), read_path="two_step")
             return two_step
-        # A configured detector that found nothing is otherwise silent -
-        # worth a log line, since it means this request fell all the way
-        # back to the naive single-step path below despite a detector
-        # being configured, which is easy to mistake for "no detector
-        # configured at all" from the outside.
         logger.info("comics_ocr read_path=two_step_fallback image=%s", getattr(image, "filename", None))
 
-    # Both reads are fired at once rather than one after the other. The
-    # vision model is not given Cloud Vision's boxes to correct, precisely
-    # so it doesn't have to wait for them - total latency is the slower of
-    # the two calls instead of their sum. The cost of not sharing a
-    # coordinate frame is paid afterwards, by matching the model's text
-    # back onto Vision's boxes (engine/comics_align.py).
-    #
-    # Disabled by default (config.VISION_READING_ENABLED); when off,
-    # read_panel returns [] without making a call and this is exactly the
-    # old OCR-only path.
     with ThreadPoolExecutor(max_workers=2) as pool:
-        ocr_future = pool.submit(
-            comics_ocr.extract_text_regions, image_bytes, language=language
-        )
+        ocr_future = pool.submit(comics_ocr.extract_text_regions, image_bytes, language=language)
         vision_future = pool.submit(
-            comics_vision.read_panel,
-            image_bytes,
-            image.content_type or "image/jpeg",
-            None,
-            vision_client,
+            comics_vision.read_panel, image_bytes, image.content_type or "image/jpeg", None, vision_client,
         )
         try:
             result = ocr_future.result()
         except OcrError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        # read_panel never raises - it degrades to [] - so a vision
-        # failure can only ever cost the enrichment, never the OCR result
-        # the user actually asked for.
         readings = vision_future.result()
 
     _log_vision_reading_cost(vision_client, getattr(image, "filename", None), read_path="single_step")
+    result["ocr_provider"] = "cloud-fallback"
     return _merge_vision_readings(result, readings)
 
 
